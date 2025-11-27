@@ -6,15 +6,77 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
+const FOCUS_AREAS = [
+  "Superconducting Qubits",
+  "Spin Qubits",
+  "Photonic Qubits",
+  "Ion Traps",
+  "Neutral Atoms",
+  "Quantum Algorithms",
+  "Quantum Software",
+  "Quantum Sensing",
+  "Quantum Networks",
+  "Microwave Engineering",
+  "Cryogenics",
+  "Fabrication / Nanotech",
+  "Theory / Simulation",
+  "Quantum Machine Learning",
+];
+
+const SKILLS = [
+  "Python",
+  "Qiskit / Cirq / PennyLane",
+  "Microwave Circuit Design",
+  "Cryostat Operation",
+  "E-beam Lithography",
+  "Cleanroom Processing",
+  "Quantum Control",
+  "Classical ML / DL",
+  "FPGA",
+  "SEM / TEM",
+];
+
 type ProfileForm = {
-  full_name: string;
-  role: string;
-  organisation: string;
+  // Section 1
+  first_name: string;
+  last_name: string;
+  bio_short: string;
+  profile_photo_url: string;
+
+  // Section 2
+  role_type: string;
+  affiliation: string;
   country: string;
-  bio: string;
-  website: string;
-  github: string;
+  city: string;
+
+  // Section 3 – multiselect
+  focusAreas: string[];
+  skills: string[];
+
+  // Section 4
+  education_level: string;
+  experience_summary: string;
+
+  // Section 5
+  orcid: string;
+  google_scholar: string;
   linkedin: string;
+  github: string;
+  personal_website: string;
+  lab_website: string;
+
+  // Section 6
+  institutional_email: string;
+
+  // Section 7 – organisation
+  org_name: string;
+  org_type: string;
+  org_business_model: string;
+  org_website: string;
+  org_country: string;
+  org_city: string;
+  org_description: string;
+  org_focus_areas: string;
 };
 
 export default function ProfilePage() {
@@ -22,27 +84,52 @@ export default function ProfilePage() {
   const router = useRouter();
 
   const [form, setForm] = useState<ProfileForm>({
-    full_name: "",
-    role: "",
-    organisation: "",
+    first_name: "",
+    last_name: "",
+    bio_short: "",
+    profile_photo_url: "",
+
+    role_type: "",
+    affiliation: "",
     country: "",
-    bio: "",
-    website: "",
-    github: "",
+    city: "",
+
+    focusAreas: [],
+    skills: [],
+
+    education_level: "",
+    experience_summary: "",
+
+    orcid: "",
+    google_scholar: "",
     linkedin: "",
+    github: "",
+    personal_website: "",
+    lab_website: "",
+
+    institutional_email: "",
+
+    org_name: "",
+    org_type: "",
+    org_business_model: "",
+    org_website: "",
+    org_country: "",
+    org_city: "",
+    org_description: "",
+    org_focus_areas: "",
   });
 
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<null | "loaded" | "error" | "saved">(null);
 
-  // Redirect if not logged in
+  // redirect if logged out
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth?redirect=/profile");
     }
   }, [loading, user, router]);
 
-  // Load or create profile
+  // load or create profile
   useEffect(() => {
     if (!user) return;
 
@@ -55,30 +142,53 @@ export default function ProfilePage() {
         .eq("id", user.id)
         .single();
 
-      if (error && error.code !== "PGRST116") {
+      // if not found, create default row
+      if (error && (error as any).code !== "PGRST116") {
         console.error("Error loading profile", error);
         setStatus("error");
         return;
       }
 
-      // If no row yet: create a default one
-      let profile = data as any;
+      let profile: any = data;
+
       if (!profile) {
-        const defaults: ProfileForm & { id: string } = {
+        const metadata = (user as any).user_metadata || {};
+        const fullName: string =
+          metadata.name || metadata.full_name || metadata.fullName || "";
+        const [firstName, ...rest] = fullName.split(" ");
+        const lastName = rest.join(" ");
+
+        const defaults = {
           id: user.id,
-          full_name:
-            (user as any).user_metadata?.name ||
-            (user as any).user_metadata?.full_name ||
-            "",
-          role: "",
-          organisation: "",
+          first_name: firstName || "",
+          last_name: lastName || "",
+          bio_short: "",
+          profile_photo_url: "",
+          role_type: "",
+          affiliation: "",
           country: "",
-          bio: "",
-          website: "",
-          github: (user as any).user_metadata?.user_name
-            ? `https://github.com/${(user as any).user_metadata.user_name}`
-            : "",
+          city: "",
+          focus_areas: "",
+          skills: "",
+          education_level: "",
+          experience_summary: "",
+          orcid: "",
+          google_scholar: "",
           linkedin: "",
+          github: metadata.user_name
+            ? `https://github.com/${metadata.user_name}`
+            : "",
+          personal_website: "",
+          lab_website: "",
+          institutional_email: user.email ?? "",
+          org_name: "",
+          org_type: "",
+          org_business_model: "",
+          org_website: "",
+          org_country: "",
+          org_city: "",
+          org_description: "",
+          org_focus_areas: "",
         };
 
         const { data: inserted, error: insertError } = await supabase
@@ -92,29 +202,72 @@ export default function ProfilePage() {
           setStatus("error");
           return;
         }
+
         profile = inserted;
       }
 
       setForm({
-        full_name: profile.full_name || "",
-        role: profile.role || "",
-        organisation: profile.organisation || "",
+        first_name: profile.first_name || "",
+        last_name: profile.last_name || "",
+        bio_short: profile.bio_short || "",
+        profile_photo_url: profile.profile_photo_url || "",
+        role_type: profile.role_type || "",
+        affiliation: profile.affiliation || "",
         country: profile.country || "",
-        bio: profile.bio || "",
-        website: profile.website || "",
-        github: profile.github || "",
+        city: profile.city || "",
+        focusAreas: (profile.focus_areas || "")
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0),
+        skills: (profile.skills || "")
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter((s: string) => s.length > 0),
+        education_level: profile.education_level || "",
+        experience_summary: profile.experience_summary || "",
+        orcid: profile.orcid || "",
+        google_scholar: profile.google_scholar || "",
         linkedin: profile.linkedin || "",
+        github: profile.github || "",
+        personal_website: profile.personal_website || "",
+        lab_website: profile.lab_website || "",
+        institutional_email: profile.institutional_email || user.email ?? "",
+        org_name: profile.org_name || "",
+        org_type: profile.org_type || "",
+        org_business_model: profile.org_business_model || "",
+        org_website: profile.org_website || "",
+        org_country: profile.org_country || "",
+        org_city: profile.org_city || "",
+        org_description: profile.org_description || "",
+        org_focus_areas: profile.org_focus_areas || "",
       });
+
       setStatus("loaded");
     };
 
     loadProfile();
   }, [user]);
 
-  const handleChange =
+  const handleFieldChange =
     (field: keyof ProfileForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
+    };
+
+  const toggleFromList =
+    (field: "focusAreas" | "skills", value: string) => () => {
+      setForm((prev) => {
+        const current = prev[field];
+        const exists = current.includes(value);
+        const next = exists
+          ? current.filter((v) => v !== value)
+          : [...current, value];
+        return { ...prev, [field]: next };
+      });
     };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -127,14 +280,34 @@ export default function ProfilePage() {
     const { error } = await supabase
       .from("profiles")
       .update({
-        full_name: form.full_name,
-        role: form.role,
-        organisation: form.organisation,
+        first_name: form.first_name,
+        last_name: form.last_name,
+        bio_short: form.bio_short,
+        profile_photo_url: form.profile_photo_url,
+        role_type: form.role_type,
+        affiliation: form.affiliation,
         country: form.country,
-        bio: form.bio,
-        website: form.website,
-        github: form.github,
+        city: form.city,
+        focus_areas: form.focusAreas.join(","),
+        skills: form.skills.join(","),
+        education_level: form.education_level,
+        experience_summary: form.experience_summary,
+        orcid: form.orcid,
+        google_scholar: form.google_scholar,
         linkedin: form.linkedin,
+        github: form.github,
+        personal_website: form.personal_website,
+        lab_website: form.lab_website,
+        institutional_email: form.institutional_email,
+        org_name: form.org_name,
+        org_type: form.org_type,
+        org_business_model: form.org_business_model,
+        org_website: form.org_website,
+        org_country: form.org_country,
+        org_city: form.org_city,
+        org_description: form.org_description,
+        org_focus_areas: form.org_focus_areas,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
 
@@ -157,96 +330,373 @@ export default function ProfilePage() {
         <section className="section">
           <div className="section-header">
             <div>
-              <div className="section-title">Your profile</div>
+              <div className="section-title">Your Quantum5ocial profile</div>
               <div className="section-sub">
-                This information helps labs, companies, and collaborators understand who
-                you are in the quantum ecosystem.
+                This profile is the basis for job matching, collaborations, and
+                future social features.
               </div>
             </div>
           </div>
 
           <div className="profile-card">
-            {(!status || status === "loaded" || status === "saved") && (
+            {!status && (
+              <div className="profile-loading">Loading your profile…</div>
+            )}
+
+            {status && status !== "error" && (
               <form onSubmit={handleSubmit} className="profile-form">
-                <div className="profile-grid">
-                  <div className="profile-field">
-                    <label>Full name</label>
-                    <input
-                      type="text"
-                      value={form.full_name}
-                      onChange={handleChange("full_name")}
-                      placeholder="Your name"
-                    />
+                {/* Section 1 — Basic Identity */}
+                <div className="profile-section">
+                  <h3>Basic identity</h3>
+                  <p className="profile-section-sub">
+                    How you’re shown across the platform.
+                  </p>
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>First name</label>
+                      <input
+                        type="text"
+                        value={form.first_name}
+                        onChange={handleFieldChange("first_name")}
+                      />
+                    </div>
+                    <div className="profile-field">
+                      <label>Last name</label>
+                      <input
+                        type="text"
+                        value={form.last_name}
+                        onChange={handleFieldChange("last_name")}
+                      />
+                    </div>
+                    <div className="profile-field profile-field-full">
+                      <label>Short bio (1–2 sentences)</label>
+                      <textarea
+                        rows={2}
+                        value={form.bio_short}
+                        onChange={handleFieldChange("bio_short")}
+                        placeholder="PhD student working on superconducting qubits at ETH Zürich."
+                      />
+                    </div>
                   </div>
+                </div>
 
-                  <div className="profile-field">
-                    <label>Role</label>
-                    <input
-                      type="text"
-                      value={form.role}
-                      onChange={handleChange("role")}
-                      placeholder="Student, Postdoc, Professor, Engineer, Founder…"
-                    />
+                {/* Section 2 — Professional Information */}
+                <div className="profile-section">
+                  <h3>Professional information</h3>
+                  <p className="profile-section-sub">
+                    Your current role and where you are based.
+                  </p>
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>What best describes you?</label>
+                      <select
+                        value={form.role_type}
+                        onChange={handleFieldChange("role_type")}
+                      >
+                        <option value="">Select one…</option>
+                        <option>Bachelor student</option>
+                        <option>Master student</option>
+                        <option>PhD student</option>
+                        <option>Postdoc</option>
+                        <option>Researcher / Scientist</option>
+                        <option>Professor / Group Leader</option>
+                        <option>Engineer / Technician</option>
+                        <option>Industry Professional</option>
+                        <option>CEO / Founder</option>
+                        <option>Product / Business role</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Affiliation / workplace</label>
+                      <input
+                        type="text"
+                        value={form.affiliation}
+                        onChange={handleFieldChange("affiliation")}
+                        placeholder="University / lab / company name"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Country</label>
+                      <input
+                        type="text"
+                        value={form.country}
+                        onChange={handleFieldChange("country")}
+                        placeholder="Switzerland"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>City</label>
+                      <input
+                        type="text"
+                        value={form.city}
+                        onChange={handleFieldChange("city")}
+                        placeholder="Basel"
+                      />
+                    </div>
                   </div>
+                </div>
+                                {/* Section 3 — Expertise mapping */}
+                <div className="profile-section">
+                  <h3>Expertise & focus areas</h3>
+                  <p className="profile-section-sub">
+                    Used later for matching jobs, collaborations and content.
+                  </p>
 
-                  <div className="profile-field">
-                    <label>Organisation / Lab / Company</label>
-                    <input
-                      type="text"
-                      value={form.organisation}
-                      onChange={handleChange("organisation")}
-                      placeholder="University / institute / startup"
-                    />
-                  </div>
-
-                  <div className="profile-field">
-                    <label>Country / City</label>
-                    <input
-                      type="text"
-                      value={form.country}
-                      onChange={handleChange("country")}
-                      placeholder="e.g. Switzerland, Zurich"
-                    />
+                  <div className="profile-field profile-field-full">
+                    <label>Research / work focus areas</label>
+                    <div className="chip-row">
+                      {FOCUS_AREAS.map((item) => {
+                        const active = form.focusAreas.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            className={`chip ${active ? "chip-active" : ""}`}
+                            onClick={toggleFromList("focusAreas", item)}
+                          >
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="profile-field profile-field-full">
-                    <label>Short bio</label>
-                    <textarea
-                      rows={4}
-                      value={form.bio}
-                      onChange={handleChange("bio")}
-                      placeholder="Briefly describe your focus in quantum (devices, theory, software, hardware, entrepreneurship…)."
-                    />
+                    <label>Skills</label>
+                    <div className="chip-row">
+                      {SKILLS.map((item) => {
+                        const active = form.skills.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            className={`chip ${active ? "chip-active" : ""}`}
+                            onClick={toggleFromList("skills", item)}
+                          >
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+                </div>
 
-                  <div className="profile-field">
-                    <label>Website</label>
-                    <input
-                      type="url"
-                      value={form.website}
-                      onChange={handleChange("website")}
-                      placeholder="https://…"
-                    />
+                {/* Section 4 — Academic / Work background */}
+                <div className="profile-section">
+                  <h3>Academic / work background</h3>
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>Highest education level</label>
+                      <select
+                        value={form.education_level}
+                        onChange={handleFieldChange("education_level")}
+                      >
+                        <option value="">Select…</option>
+                        <option>Bachelor</option>
+                        <option>Master</option>
+                        <option>PhD</option>
+                        <option>Postdoc</option>
+                        <option>Not applicable</option>
+                      </select>
+                    </div>
+
+                    <div className="profile-field profile-field-full">
+                      <label>Key experience (optional)</label>
+                      <textarea
+                        rows={2}
+                        value={form.experience_summary}
+                        onChange={handleFieldChange("experience_summary")}
+                        placeholder="2 years working with nanofabrication and cQED measurements."
+                      />
+                    </div>
                   </div>
+                </div>
 
-                  <div className="profile-field">
-                    <label>GitHub</label>
-                    <input
-                      type="url"
-                      value={form.github}
-                      onChange={handleChange("github")}
-                      placeholder="https://github.com/your-handle"
-                    />
+                {/* Section 5 — External links */}
+                <div className="profile-section">
+                  <h3>External links</h3>
+                  <p className="profile-section-sub">
+                    Optional, but useful for credibility and networking.
+                  </p>
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>ORCID</label>
+                      <input
+                        type="url"
+                        value={form.orcid}
+                        onChange={handleFieldChange("orcid")}
+                        placeholder="https://orcid.org/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Google Scholar</label>
+                      <input
+                        type="url"
+                        value={form.google_scholar}
+                        onChange={handleFieldChange("google_scholar")}
+                        placeholder="https://scholar.google.com/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>LinkedIn</label>
+                      <input
+                        type="url"
+                        value={form.linkedin}
+                        onChange={handleFieldChange("linkedin")}
+                        placeholder="https://www.linkedin.com/in/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>GitHub</label>
+                      <input
+                        type="url"
+                        value={form.github}
+                        onChange={handleFieldChange("github")}
+                        placeholder="https://github.com/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Personal website</label>
+                      <input
+                        type="url"
+                        value={form.personal_website}
+                        onChange={handleFieldChange("personal_website")}
+                        placeholder="https://…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Lab / organisation website</label>
+                      <input
+                        type="url"
+                        value={form.lab_website}
+                        onChange={handleFieldChange("lab_website")}
+                        placeholder="https://…"
+                      />
+                    </div>
                   </div>
+                </div>
 
-                  <div className="profile-field">
-                    <label>LinkedIn</label>
-                    <input
-                      type="url"
-                      value={form.linkedin}
-                      onChange={handleChange("linkedin")}
-                      placeholder="https://www.linkedin.com/in/…"
-                    />
+                {/* Section 6 — Verification */}
+                <div className="profile-section">
+                  <h3>Verification (optional)</h3>
+                  <p className="profile-section-sub">
+                    Institutional emails will later help us award verified “blue
+                    tick” status.
+                  </p>
+                  <div className="profile-grid">
+                    <div className="profile-field profile-field-full">
+                      <label>Institutional email</label>
+                      <input
+                        type="email"
+                        value={form.institutional_email}
+                        onChange={handleFieldChange("institutional_email")}
+                        placeholder="you@ethz.ch, you@ox.ac.uk, you@startup.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 7 — Organisation (optional) */}
+                <div className="profile-section">
+                  <h3>Organisation (optional)</h3>
+                  <p className="profile-section-sub">
+                    Fill this only if you want to create or represent an
+                    organisation (startup, company, lab, institute).
+                  </p>
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>Organisation name</label>
+                      <input
+                        type="text"
+                        value={form.org_name}
+                        onChange={handleFieldChange("org_name")}
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Type</label>
+                      <select
+                        value={form.org_type}
+                        onChange={handleFieldChange("org_type")}
+                      >
+                        <option value="">Select…</option>
+                        <option>Startup</option>
+                        <option>Company</option>
+                        <option>Lab</option>
+                        <option>Institute</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Business model</label>
+                      <select
+                        value={form.org_business_model}
+                        onChange={handleFieldChange("org_business_model")}
+                      >
+                        <option value="">Select…</option>
+                        <option>B2B</option>
+                        <option>B2C</option>
+                        <option>Academic</option>
+                        <option>Mixed</option>
+                      </select>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Website</label>
+                      <input
+                        type="url"
+                        value={form.org_website}
+                        onChange={handleFieldChange("org_website")}
+                        placeholder="https://…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Country</label>
+                      <input
+                        type="text"
+                        value={form.org_country}
+                        onChange={handleFieldChange("org_country")}
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>City</label>
+                      <input
+                        type="text"
+                        value={form.org_city}
+                        onChange={handleFieldChange("org_city")}
+                      />
+                    </div>
+
+                    <div className="profile-field profile-field-full">
+                      <label>Organisation description</label>
+                      <textarea
+                        rows={3}
+                        value={form.org_description}
+                        onChange={handleFieldChange("org_description")}
+                      />
+                    </div>
+
+                    <div className="profile-field profile-field-full">
+                      <label>Organisation focus areas (free text)</label>
+                      <textarea
+                        rows={2}
+                        value={form.org_focus_areas}
+                        onChange={handleFieldChange("org_focus_areas")}
+                        placeholder="Quantum control hardware, cryogenic electronics, fabrication services…"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -256,7 +706,9 @@ export default function ProfilePage() {
                   </button>
 
                   {status === "saved" && (
-                    <span className="profile-status success">Profile updated ✓</span>
+                    <span className="profile-status success">
+                      Profile updated ✓
+                    </span>
                   )}
                   {status === "error" && (
                     <span className="profile-status error">
@@ -267,8 +719,10 @@ export default function ProfilePage() {
               </form>
             )}
 
-            {status === null && (
-              <div className="profile-loading">Loading your profile…</div>
+            {status === "error" && (
+              <div className="profile-loading">
+                Something went wrong while loading your profile.
+              </div>
             )}
           </div>
         </section>
