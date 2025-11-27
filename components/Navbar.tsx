@@ -36,13 +36,13 @@ export default function Navbar() {
 
   return (
     <header className="nav">
-      <div className="brand">
-        <div className="logo-orbit" />
-        <div>
-          <div className="brand-text-main">Quantum5ocial</div>
-          <div className="brand-text-sub">Socializing the quantum world</div>
-        </div>
-      </div>
+      <Link href="/" className="brand brand-clickable">
+  <div className="logo-orbit" />
+  <div>
+    <div className="brand-text-main">Quantum5ocial</div>
+    <div className="brand-text-sub">Socializing the quantum world</div>
+  </div>
+</Link>
 
       <nav className="nav-links">
         <Link href="/jobs" className="nav-link">
