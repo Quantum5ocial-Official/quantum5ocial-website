@@ -7,7 +7,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    window.location.href = "/auth";
   };
 
   const displayName =
@@ -18,6 +18,7 @@ export default function Navbar() {
 
   return (
     <header className="nav">
+      {/* Brand */}
       <div className="brand">
         <div className="logo-orbit" />
         <div>
@@ -26,20 +27,26 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="nav-links">
+        {/* JOBS */}
         <Link href="/jobs" className="nav-link">
           Jobs
         </Link>
-        <Link href="/" className="nav-link">
+
+        {/* PRODUCTS — FIXED HERE */}
+        <Link href="/products" className="nav-link">
           Products
         </Link>
 
+        {/* AUTH BUTTONS */}
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
 
+        {/* LOGGED-IN LINKS */}
         {!loading && user && (
           <>
             <Link href="/dashboard" className="nav-link">
@@ -50,7 +57,11 @@ export default function Navbar() {
               {displayName}
             </Link>
 
-            <button onClick={handleLogout} className="nav-cta" style={{ cursor: "pointer" }}>
+            <button
+              onClick={handleLogout}
+              className="nav-cta"
+              style={{ cursor: "pointer" }}
+            >
               Logout
             </button>
           </>
