@@ -157,11 +157,12 @@ export default function ProfileEditPage() {
 
 if (error) {
   console.error("Error saving profile", error);
-  // Show the actual Supabase error message on screen
   setSaveMessage(`Error: ${error.message}`);
+  setSaving(false);
 } else {
+  // Optional: brief success message, then redirect
   setSaveMessage("Profile updated ✅");
-  // router.push("/profile");
+  router.push("/profile");
 }
 
     setSaving(false);
