@@ -19,6 +19,15 @@ type Profile = {
   focus_areas: string | null;
   skills: string | null;
   highest_education: string | null;
+  key_experience: string | null;
+  avatar_url: string | null;
+  orcid: string | null;
+  google_scholar: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  personal_website: string | null;
+  lab_website: string | null;
+  institutional_email: string | null;
 };
 
 export default function ProfileViewPage() {
@@ -89,6 +98,15 @@ export default function ProfileViewPage() {
       .map((t) => t.trim())
       .filter(Boolean) || [];
 
+  const links = [
+    { label: "ORCID", value: profile?.orcid },
+    { label: "Google Scholar", value: profile?.google_scholar },
+    { label: "LinkedIn", value: profile?.linkedin_url },
+    { label: "GitHub", value: profile?.github_url },
+    { label: "Personal website", value: profile?.personal_website },
+    { label: "Lab website", value: profile?.lab_website },
+  ].filter((x) => x.value);
+
   return (
     <>
       <div className="bg-layer" />
@@ -118,7 +136,15 @@ export default function ProfileViewPage() {
                 {/* Top identity */}
                 <div className="profile-header">
                   <div className="profile-avatar">
-                    <span>{initials || "Q5"}</span>
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={displayName}
+                        className="profile-avatar-img"
+                      />
+                    ) : (
+                      <span>{initials || "Q5"}</span>
+                    )}
                   </div>
                   <div className="profile-header-text">
                     <div className="profile-name">{displayName}</div>
@@ -138,12 +164,25 @@ export default function ProfileViewPage() {
                           .join(", ")}
                       </div>
                     )}
+
+                    {profile?.institutional_email && (
+                      <div className="profile-location">
+                        Verified email: {profile.institutional_email}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Bio */}
+                {/* Bio + key experience */}
                 {profile?.short_bio && (
                   <p className="profile-bio">{profile.short_bio}</p>
+                )}
+
+                {profile?.key_experience && (
+                  <p className="profile-bio">
+                    <strong>Experience: </strong>
+                    {profile.key_experience}
+                  </p>
                 )}
 
                 {/* Affiliation / education */}
@@ -197,6 +236,27 @@ export default function ProfileViewPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Links */}
+                {links.length > 0 && (
+                  <div style={{ marginTop: 14 }}>
+                    <div className="profile-tags-label">Links</div>
+                    <ul style={{ marginTop: 4, paddingLeft: 16, fontSize: 13 }}>
+                      {links.map((l) => (
+                        <li key={l.label}>
+                          <a
+                            href={l.value as string}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "#7dd3fc" }}
+                          >
+                            {l.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
