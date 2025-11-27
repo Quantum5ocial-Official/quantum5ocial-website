@@ -152,16 +152,17 @@ export default function ProfileEditPage() {
     };
 
     const { error } = await supabase
-      .from("profiles")
-      .upsert(payload, { onConflict: "id" });
+  .from("profiles")
+  .upsert(payload, { onConflict: "id" });
 
-    if (error) {
-      console.error("Error saving profile", error);
-      setSaveMessage("Could not save profile. Please try again.");
-    } else {
-      setSaveMessage("Profile updated ✅");
-      // router.push("/profile");
-    }
+if (error) {
+  console.error("Error saving profile", error);
+  // Show the actual Supabase error message on screen
+  setSaveMessage(`Error: ${error.message}`);
+} else {
+  setSaveMessage("Profile updated ✅");
+  // router.push("/profile");
+}
 
     setSaving(false);
   };
