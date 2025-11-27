@@ -212,11 +212,11 @@ export default function ProfileViewPage() {
                   )}
 
                   {profile?.key_experience && (
-                    <p className="profile-bio">
-                      <strong>Experience: </strong>
-                      {profile.key_experience}
-                    </p>
-                  )}
+  <div className="profile-summary-item">
+    <div className="profile-section-label">Experience</div>
+    <div className="profile-summary-text">{profile.key_experience}</div>
+  </div>
+)}
 
                   {/* Affiliation / education */}
                   <div className="profile-summary-columns">
