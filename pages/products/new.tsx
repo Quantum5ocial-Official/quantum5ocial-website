@@ -41,7 +41,7 @@ export default function NewProductPage() {
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [datasheetFile, setDatasheetFile] = useState<File | null>(null);
 
-  // If user somehow not logged in, rely on _app redirect, but as a safety:
+  // Safety: if not logged in, redirect to auth
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/products/new");
@@ -154,7 +154,9 @@ export default function NewProductPage() {
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
         const ext = file.name.split(".").pop() || "jpg";
-        const path = `${user.id}/${productId}/image-${i + 1}-${Date.now()}.${ext}`;
+        const path = `${user.id}/${productId}/image-${
+          i + 1
+        }-${Date.now()}.${ext}`;
         const url = await uploadFileAndGetUrl("product-images", path, file);
         imageUrls[i] = url;
       }
@@ -187,7 +189,6 @@ export default function NewProductPage() {
 
     if (updateError) {
       console.error("Error updating product with file URLs", updateError);
-      // but we still created the product, so we proceed
     }
 
     // 4) Redirect back to marketplace
@@ -206,7 +207,8 @@ export default function NewProductPage() {
               <div className="section-title">List your product</div>
               <div className="section-sub">
                 Create a product listing that will appear in the Quantum5ocial
-                marketplace.
+                marketplace. Clear information and good visuals help people
+                understand your offering quickly.
               </div>
             </div>
 
@@ -222,199 +224,273 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          <div className="products-create-card">
-            <h3 className="products-create-title">Product details</h3>
-            <p className="products-create-sub">
-              Add clear information so researchers and companies can quickly
-              understand what you offer.
-            </p>
+          <div className="products-create-layout">
+            <div className="products-create-main">
+              <div className="products-create-card">
+                <h3 className="products-create-title">Product details</h3>
 
-            <form onSubmit={handleSubmit} className="products-create-form">
-              <div className="products-grid">
-                <div className="products-field">
-                  <label>Product name *</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={handleFormChange("name")}
-                    required
-                  />
-                </div>
+                <form onSubmit={handleSubmit} className="products-create-form">
+                  {/* SECTION: Basic info */}
+                  <div className="products-section">
+                    <div className="products-section-header">
+                      <h4 className="products-section-title">Basics</h4>
+                      <p className="products-section-sub">
+                        The core information that appears on the product card.
+                      </p>
+                    </div>
 
-                <div className="products-field">
-                  <label>Company / organisation</label>
-                  <input
-                    type="text"
-                    value={form.company_name}
-                    onChange={handleFormChange("company_name")}
-                    placeholder="Startup, company, or lab name"
-                  />
-                </div>
+                    <div className="products-grid">
+                      <div className="products-field">
+                        <label>Product name *</label>
+                        <input
+                          type="text"
+                          value={form.name}
+                          onChange={handleFormChange("name")}
+                          required
+                        />
+                      </div>
 
-                <div className="products-field">
-                  <label>Category</label>
-                  <select
-                    value={form.category}
-                    onChange={handleFormChange("category")}
-                  >
-                    <option value="">Select…</option>
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                      <div className="products-field">
+                        <label>Company / organisation</label>
+                        <input
+                          type="text"
+                          value={form.company_name}
+                          onChange={handleFormChange("company_name")}
+                          placeholder="Startup, company, or lab name"
+                        />
+                      </div>
 
-                <div className="products-field">
-                  <label>Product URL</label>
-                  <input
-                    type="url"
-                    value={form.product_url}
-                    onChange={handleFormChange("product_url")}
-                    placeholder="https://…"
-                  />
-                </div>
+                      <div className="products-field">
+                        <label>Category</label>
+                        <select
+                          value={form.category}
+                          onChange={handleFormChange("category")}
+                        >
+                          <option value="">Select…</option>
+                          {CATEGORIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                <div className="products-field products-field-full">
-                  <label>Short description</label>
-                  <input
-                    type="text"
-                    value={form.short_description}
-                    onChange={handleFormChange("short_description")}
-                    placeholder="1–2 line summary of what this product does."
-                  />
-                </div>
+                      <div className="products-field">
+                        <label>Product URL</label>
+                        <input
+                          type="url"
+                          value={form.product_url}
+                          onChange={handleFormChange("product_url")}
+                          placeholder="https://…"
+                        />
+                      </div>
 
-                <div className="products-field products-field-full">
-                  <label>Specifications / technical details</label>
-                  <textarea
-                    rows={3}
-                    value={form.specifications}
-                    onChange={handleFormChange("specifications")}
-                    placeholder="Key specs, performance, compatibility, etc."
-                  />
-                </div>
-
-                <div className="products-field products-field-full">
-                  <label>Keywords (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={form.keywords}
-                    onChange={handleFormChange("keywords")}
-                    placeholder="cryostat, RF, control, amplifier"
-                  />
-                </div>
-
-                {/* Price */}
-                <div className="products-field">
-                  <label>Price</label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label style={{ fontSize: 13 }}>
-                      <input
-                        type="radio"
-                        name="price_type"
-                        value="fixed"
-                        checked={form.price_type === "fixed"}
-                        onChange={handleFormChange("price_type")}
-                        style={{ marginRight: 6 }}
-                      />
-                      Fixed price
-                    </label>
-                    <label style={{ fontSize: 13 }}>
-                      <input
-                        type="radio"
-                        name="price_type"
-                        value="contact"
-                        checked={form.price_type === "contact"}
-                        onChange={handleFormChange("price_type")}
-                        style={{ marginRight: 6 }}
-                      />
-                      Contact for price
-                    </label>
+                      <div className="products-field products-field-full">
+                        <label>Short description</label>
+                        <input
+                          type="text"
+                          value={form.short_description}
+                          onChange={handleFormChange("short_description")}
+                          placeholder="1–2 line summary of what this product does."
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="products-field">
-                  <label>Price details</label>
-                  <input
-                    type="text"
-                    value={form.price_value}
-                    onChange={handleFormChange("price_value")}
-                    placeholder="€3,000 per unit, $10k per system, etc."
-                    disabled={form.price_type !== "fixed"}
-                  />
-                </div>
+                  {/* SECTION: Technical details */}
+                  <div className="products-section">
+                    <div className="products-section-header">
+                      <h4 className="products-section-title">
+                        Technical details
+                      </h4>
+                      <p className="products-section-sub">
+                        Specifications and keywords used for discovery and
+                        matching.
+                      </p>
+                    </div>
 
-                {/* Stock */}
-                <div className="products-field">
-                  <label>In stock?</label>
-                  <select
-                    value={form.in_stock}
-                    onChange={handleFormChange("in_stock")}
-                  >
-                    <option value="yes">In stock</option>
-                    <option value="no">Out of stock</option>
-                  </select>
-                </div>
+                    <div className="products-grid">
+                      <div className="products-field products-field-full">
+                        <label>Specifications / technical details</label>
+                        <textarea
+                          rows={4}
+                          value={form.specifications}
+                          onChange={handleFormChange("specifications")}
+                          placeholder="Key specs, performance, interfaces, compatibility, etc."
+                        />
+                      </div>
 
-                <div className="products-field">
-                  <label>Stock quantity</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.stock_quantity}
-                    onChange={handleFormChange("stock_quantity")}
-                    placeholder="Optional"
-                    disabled={form.in_stock !== "yes"}
-                  />
-                </div>
+                      <div className="products-field products-field-full">
+                        <label>Keywords (comma-separated)</label>
+                        <input
+                          type="text"
+                          value={form.keywords}
+                          onChange={handleFormChange("keywords")}
+                          placeholder="cryostat, RF, control, amplifier"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Files */}
-                <div className="products-field products-field-full">
-                  <label>Product images (up to 3)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImagesChange}
-                  />
-                  {imageFiles.length > 0 && (
-                    <span style={{ fontSize: 12, color: "#9ca3af" }}>
-                      Selected: {imageFiles.map((f) => f.name).join(", ")}
-                    </span>
-                  )}
-                </div>
+                  {/* SECTION: Price & stock */}
+                  <div className="products-section">
+                    <div className="products-section-header">
+                      <h4 className="products-section-title">
+                        Price & stock
+                      </h4>
+                      <p className="products-section-sub">
+                        You can either show a fixed price or let users contact
+                        you for a quote.
+                      </p>
+                    </div>
 
-                <div className="products-field products-field-full">
-                  <label>Datasheet (PDF)</label>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handleDatasheetChange}
-                  />
-                  {datasheetFile && (
-                    <span style={{ fontSize: 12, color: "#9ca3af" }}>
-                      Selected: {datasheetFile.name}
-                    </span>
-                  )}
-                </div>
+                    <div className="products-grid">
+                      <div className="products-field">
+                        <label>Price</label>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                          }}
+                        >
+                          <label style={{ fontSize: 13 }}>
+                            <input
+                              type="radio"
+                              name="price_type"
+                              value="fixed"
+                              checked={form.price_type === "fixed"}
+                              onChange={handleFormChange("price_type")}
+                              style={{ marginRight: 6 }}
+                            />
+                            Fixed price
+                          </label>
+                          <label style={{ fontSize: 13 }}>
+                            <input
+                              type="radio"
+                              name="price_type"
+                              value="contact"
+                              checked={form.price_type === "contact"}
+                              onChange={handleFormChange("price_type")}
+                              style={{ marginRight: 6 }}
+                            />
+                            Contact for price
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="products-field">
+                        <label>Price details</label>
+                        <input
+                          type="text"
+                          value={form.price_value}
+                          onChange={handleFormChange("price_value")}
+                          placeholder="€3,000 per unit, $10k per system, etc."
+                          disabled={form.price_type !== "fixed"}
+                        />
+                      </div>
+
+                      <div className="products-field">
+                        <label>In stock?</label>
+                        <select
+                          value={form.in_stock}
+                          onChange={handleFormChange("in_stock")}
+                        >
+                          <option value="yes">In stock</option>
+                          <option value="no">Out of stock</option>
+                        </select>
+                      </div>
+
+                      <div className="products-field">
+                        <label>Stock quantity</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.stock_quantity}
+                          onChange={handleFormChange("stock_quantity")}
+                          placeholder="Optional"
+                          disabled={form.in_stock !== "yes"}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION: Media */}
+                  <div className="products-section">
+                    <div className="products-section-header">
+                      <h4 className="products-section-title">Media</h4>
+                      <p className="products-section-sub">
+                        Good images and a clear datasheet make your product
+                        easier to evaluate.
+                      </p>
+                    </div>
+
+                    <div className="products-grid">
+                      <div className="products-field products-field-full">
+                        <label>Product images (up to 3)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleImagesChange}
+                        />
+                        {imageFiles.length > 0 && (
+                          <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                            Selected: {imageFiles
+                              .map((f) => f.name)
+                              .join(", ")}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="products-field products-field-full">
+                        <label>Datasheet (PDF)</label>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={handleDatasheetChange}
+                        />
+                        {datasheetFile && (
+                          <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                            Selected: {datasheetFile.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="products-create-actions">
+                    <button
+                      type="submit"
+                      className="nav-cta"
+                      disabled={creating}
+                    >
+                      {creating ? "Publishing…" : "Publish product"}
+                    </button>
+
+                    {createError && (
+                      <span className="products-status error">
+                        {createError}
+                      </span>
+                    )}
+                  </div>
+                </form>
               </div>
+            </div>
 
-              <div className="products-create-actions">
-                <button
-                  type="submit"
-                  className="nav-cta"
-                  disabled={creating}
-                >
-                  {creating ? "Publishing…" : "Publish product"}
-                </button>
-
-                {createError && (
-                  <span className="products-status error">{createError}</span>
-                )}
+            {/* Right-hand tips panel */}
+            <aside className="products-create-aside">
+              <div className="products-tips-card">
+                <h4 className="products-tips-title">Tips for a strong listing</h4>
+                <ul className="products-tips-list">
+                  <li>Use a clear, specific product name.</li>
+                  <li>Mention key specs (frequency range, noise, temp, etc.).</li>
+                  <li>Add relevant keywords for better discovery.</li>
+                  <li>Upload at least one clean product image.</li>
+                  <li>Add a datasheet so people can evaluate quickly.</li>
+                </ul>
               </div>
-            </form>
+            </aside>
           </div>
         </section>
       </div>
