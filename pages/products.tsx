@@ -44,6 +44,9 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
+  const [priceFilter, setPriceFilter] = useState<string>("All"); // All | Fixed | Contact
+  const [stockFilter, setStockFilter] = useState<string>("All"); // All | In | Out
+
   // Fetch products
   useEffect(() => {
     const loadProducts = async () => {
@@ -68,26 +71,49 @@ export default function ProductsPage() {
   }, []);
 
   const filteredProducts = products.filter((p) => {
-    const matchesCategory =
-      categoryFilter === "All" ||
-      !categoryFilter ||
-      (p.category || "").toLowerCase() === categoryFilter.toLowerCase();
+  // Category
+  const matchesCategory =
+    categoryFilter === "All" ||
+    !categoryFilter ||
+    (p.category || "").toLowerCase() === categoryFilter.toLowerCase();
 
-    const text =
-      (p.name || "") +
-      " " +
-      (p.company_name || "") +
-      " " +
-      (p.short_description || "") +
-      " " +
-      (p.specifications || "") +
-      " " +
-      (p.keywords || "");
+  // Text search
+  const text =
+    (p.name || "") +
+    " " +
+    (p.company_name || "") +
+    " " +
+    (p.short_description || "") +
+    " " +
+    (p.specifications || "") +
+    " " +
+    (p.keywords || "");
 
-    const matchesSearch = text.toLowerCase().includes(search.toLowerCase());
+  const matchesSearch = text.toLowerCase().includes(search.toLowerCase());
 
-    return matchesCategory && matchesSearch;
-  });
+  // Price filter
+  const isFixed = p.price_type === "fixed" && !!p.price_value;
+  const isContact = p.price_type !== "fixed" || !p.price_value;
+
+  const matchesPrice =
+    priceFilter === "All" ||
+    (priceFilter === "Fixed" && isFixed) ||
+    (priceFilter === "Contact" && isContact);
+
+  // Stock filter
+  const isOut =
+    p.in_stock === false ||
+    (p.stock_quantity !== null && p.stock_quantity === 0);
+
+  const isIn = !isOut;
+
+  const matchesStock =
+    stockFilter === "All" ||
+    (stockFilter === "In" && isIn) ||
+    (stockFilter === "Out" && isOut);
+
+  return matchesCategory && matchesSearch && matchesPrice && matchesStock;
+});
 
   return (
     <>
@@ -114,27 +140,47 @@ export default function ProductsPage() {
 
           {/* Filters */}
           <div className="products-filters">
-            <input
-              type="text"
-              placeholder="Search by product, company, tags…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="products-search"
-            />
+  <input
+    type="text"
+    placeholder="Search by product, company, tags…"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    className="products-search"
+  />
 
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="products-select"
-            >
-              <option value="All">All categories</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+  <select
+    value={categoryFilter}
+    onChange={(e) => setCategoryFilter(e.target.value)}
+    className="products-select"
+  >
+    <option value="All">All categories</option>
+    {CATEGORIES.map((c) => (
+      <option key={c} value={c}>
+        {c}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={priceFilter}
+    onChange={(e) => setPriceFilter(e.target.value)}
+    className="products-select"
+  >
+    <option value="All">All prices</option>
+    <option value="Fixed">Fixed price</option>
+    <option value="Contact">Contact for price</option>
+  </select>
+
+  <select
+    value={stockFilter}
+    onChange={(e) => setStockFilter(e.target.value)}
+    className="products-select"
+  >
+    <option value="All">All stock</option>
+    <option value="In">In stock</option>
+    <option value="Out">Out of stock</option>
+  </select>
+</div>
 
           {/* Product cards */}
           <div className="products-list">
