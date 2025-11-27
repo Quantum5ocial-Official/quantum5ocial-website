@@ -1196,3 +1196,15 @@ footer a:hover {
   color: rgba(148, 163, 184, 0.85);
   margin-bottom: 4px;
 }
+.brand-clickable {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.brand-clickable:hover .brand-text-main {
+  color: #7dd3fc;
+  transition: 0.2s ease;
+}
