@@ -1188,3 +1188,11 @@ footer a:hover {
   height: 100%;
   object-fit: cover;
 }
+.profile-summary-label,
+.profile-tags-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.85);
+  margin-bottom: 4px;
+}
