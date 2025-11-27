@@ -1085,3 +1085,31 @@ footer a:hover {
 .nav-user-menu-logout {
   color: #fca5a5;
 }
+.profile-summary-columns {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 18px;
+}
+
+.profile-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-summary-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #a5b4fc;
+}
+
+.profile-summary-text {
+  font-size: 13px;
+  color: #e5e7eb;
+}
+
+.profile-summary-actions {
+  margin-top: 12px;
+}
