@@ -1119,3 +1119,15 @@ footer a:hover {
   border-radius: 999px;
   object-fit: cover;
 }
+.profile-avatar {
+  width: 112px;          /* fixed size */
+  height: 112px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 20%, #22c1c3 0, #0f172a 55%);
+  flex-shrink: 0;        /* don't stretch when flexed */
+}
