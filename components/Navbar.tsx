@@ -7,8 +7,14 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = "/"; // refresh UI
+    window.location.href = "/";
   };
+
+  const displayName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "Profile";
 
   return (
     <header className="nav">
@@ -21,8 +27,12 @@ export default function Navbar() {
       </div>
 
       <nav className="nav-links">
-        <Link href="/jobs" className="nav-link">Jobs</Link>
-        <Link href="/" className="nav-link">Products</Link>
+        <Link href="/jobs" className="nav-link">
+          Jobs
+        </Link>
+        <Link href="/" className="nav-link">
+          Products
+        </Link>
 
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
@@ -36,21 +46,11 @@ export default function Navbar() {
               Dashboard
             </Link>
 
-            <span 
-              style={{
-                color: "#22d3ee",
-                fontSize: 14,
-                marginRight: "12px",
-              }}
-            >
-              {user.email?.split("@")[0]}
-            </span>
+            <Link href="/profile" className="nav-username">
+              {displayName}
+            </Link>
 
-            <button
-              onClick={handleLogout}
-              className="nav-cta"
-              style={{ cursor: "pointer" }}
-            >
+            <button onClick={handleLogout} className="nav-cta" style={{ cursor: "pointer" }}>
               Logout
             </button>
           </>
