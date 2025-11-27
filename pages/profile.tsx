@@ -37,27 +37,22 @@ const SKILLS = [
 ];
 
 type ProfileForm = {
-  // Section 1
   first_name: string;
   last_name: string;
   bio_short: string;
   profile_photo_url: string;
 
-  // Section 2
   role_type: string;
   affiliation: string;
   country: string;
   city: string;
 
-  // Section 3 – multiselect
   focusAreas: string[];
   skills: string[];
 
-  // Section 4
   education_level: string;
   experience_summary: string;
 
-  // Section 5
   orcid: string;
   google_scholar: string;
   linkedin: string;
@@ -65,10 +60,8 @@ type ProfileForm = {
   personal_website: string;
   lab_website: string;
 
-  // Section 6
   institutional_email: string;
 
-  // Section 7 – organisation
   org_name: string;
   org_type: string;
   org_business_model: string;
@@ -88,27 +81,21 @@ export default function ProfilePage() {
     last_name: "",
     bio_short: "",
     profile_photo_url: "",
-
     role_type: "",
     affiliation: "",
     country: "",
     city: "",
-
     focusAreas: [],
     skills: [],
-
     education_level: "",
     experience_summary: "",
-
     orcid: "",
     google_scholar: "",
     linkedin: "",
     github: "",
     personal_website: "",
     lab_website: "",
-
     institutional_email: "",
-
     org_name: "",
     org_type: "",
     org_business_model: "",
@@ -119,22 +106,24 @@ export default function ProfilePage() {
     org_focus_areas: "",
   });
 
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<null | "loaded" | "error" | "saved">(null);
+  const [saveStatus, setSaveStatus] = useState<"" | "ok" | "error">("");
 
-  // redirect if logged out
+  // if not logged in -> send to auth
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth?redirect=/profile");
     }
   }, [loading, user, router]);
 
-  // load or create profile
+  // load (or create) profile once user is known
   useEffect(() => {
     if (!user) return;
 
     const loadProfile = async () => {
-      setStatus(null);
+      setLoadingProfile(true);
+      setSaveStatus("");
 
       const { data, error } = await supabase
         .from("profiles")
@@ -142,16 +131,10 @@ export default function ProfilePage() {
         .eq("id", user.id)
         .single();
 
-      // if not found, create default row
-      if (error && (error as any).code !== "PGRST116") {
-        console.error("Error loading profile", error);
-        setStatus("error");
-        return;
-      }
-
       let profile: any = data;
 
-      if (!profile) {
+      // if row not found, create default
+      if (error && (error as any).code === "PGRST116") {
         const metadata = (user as any).user_metadata || {};
         const fullName: string =
           metadata.name || metadata.full_name || metadata.fullName || "";
@@ -199,11 +182,15 @@ export default function ProfilePage() {
 
         if (insertError) {
           console.error("Error creating profile", insertError);
-          setStatus("error");
+          setLoadingProfile(false);
           return;
         }
 
         profile = inserted;
+      } else if (error) {
+        console.error("Error loading profile", error);
+        setLoadingProfile(false);
+        return;
       }
 
       setForm({
@@ -218,11 +205,11 @@ export default function ProfilePage() {
         focusAreas: (profile.focus_areas || "")
           .split(",")
           .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0),
+          .filter(Boolean),
         skills: (profile.skills || "")
           .split(",")
           .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0),
+          .filter(Boolean),
         education_level: profile.education_level || "",
         experience_summary: profile.experience_summary || "",
         orcid: profile.orcid || "",
@@ -231,7 +218,8 @@ export default function ProfilePage() {
         github: profile.github || "",
         personal_website: profile.personal_website || "",
         lab_website: profile.lab_website || "",
-        institutional_email: profile.institutional_email || user.email ?? "",
+        institutional_email:
+          profile.institutional_email || user.email || "",
         org_name: profile.org_name || "",
         org_type: profile.org_type || "",
         org_business_model: profile.org_business_model || "",
@@ -242,7 +230,7 @@ export default function ProfilePage() {
         org_focus_areas: profile.org_focus_areas || "",
       });
 
-      setStatus("loaded");
+      setLoadingProfile(false);
     };
 
     loadProfile();
@@ -275,7 +263,7 @@ export default function ProfilePage() {
     if (!user) return;
 
     setSaving(true);
-    setStatus(null);
+    setSaveStatus("");
 
     const { error } = await supabase
       .from("profiles")
@@ -315,9 +303,9 @@ export default function ProfilePage() {
 
     if (error) {
       console.error("Error saving profile", error);
-      setStatus("error");
+      setSaveStatus("error");
     } else {
-      setStatus("saved");
+      setSaveStatus("ok");
     }
   };
 
@@ -330,26 +318,26 @@ export default function ProfilePage() {
         <section className="section">
           <div className="section-header">
             <div>
-              <div className="section-title">Your Quantum5ocial profile</div>
+              <div className="section-title">Your profile</div>
               <div className="section-sub">
-                This profile is the basis for job matching, collaborations, and
-                future social features.
+                This information helps labs, companies, and collaborators
+                understand who you are in the quantum ecosystem.
               </div>
             </div>
           </div>
 
           <div className="profile-card">
-            {!status && (
+            {loadingProfile && (
               <div className="profile-loading">Loading your profile…</div>
             )}
 
-            {status && status !== "error" && (
+            {!loadingProfile && (
               <form onSubmit={handleSubmit} className="profile-form">
-                {/* Section 1 — Basic Identity */}
+                {/* SECTION 1 – BASIC IDENTITY */}
                 <div className="profile-section">
                   <h3>Basic identity</h3>
                   <p className="profile-section-sub">
-                    How you’re shown across the platform.
+                    How you appear across Quantum5ocial.
                   </p>
                   <div className="profile-grid">
                     <div className="profile-field">
@@ -380,7 +368,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Section 2 — Professional Information */}
+                {/* SECTION 2 – PROFESSIONAL INFORMATION */}
                 <div className="profile-section">
                   <h3>Professional information</h3>
                   <p className="profile-section-sub">
@@ -439,11 +427,12 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
-                                {/* Section 3 — Expertise mapping */}
+
+                {/* SECTION 3 – EXPERTISE */}
                 <div className="profile-section">
                   <h3>Expertise & focus areas</h3>
                   <p className="profile-section-sub">
-                    Used later for matching jobs, collaborations and content.
+                    Used later for job matching, collaborations and content.
                   </p>
 
                   <div className="profile-field profile-field-full">
@@ -485,7 +474,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Section 4 — Academic / Work background */}
+                {/* SECTION 4 – BACKGROUND */}
                 <div className="profile-section">
                   <h3>Academic / work background</h3>
                   <div className="profile-grid">
@@ -516,7 +505,7 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Section 5 — External links */}
+                {/* SECTION 5 – LINKS */}
                 <div className="profile-section">
                   <h3>External links</h3>
                   <p className="profile-section-sub">
@@ -585,12 +574,12 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Section 6 — Verification */}
+                {/* SECTION 6 – VERIFICATION */}
                 <div className="profile-section">
                   <h3>Verification (optional)</h3>
                   <p className="profile-section-sub">
-                    Institutional emails will later help us award verified “blue
-                    tick” status.
+                    Institutional emails will later help us award verified
+                    “blue tick” status.
                   </p>
                   <div className="profile-grid">
                     <div className="profile-field profile-field-full">
@@ -605,12 +594,12 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Section 7 — Organisation (optional) */}
+                {/* SECTION 7 – ORGANISATION */}
                 <div className="profile-section">
                   <h3>Organisation (optional)</h3>
                   <p className="profile-section-sub">
-                    Fill this only if you want to create or represent an
-                    organisation (startup, company, lab, institute).
+                    Fill this only if you want to represent an organisation
+                    (startup, company, lab, institute).
                   </p>
                   <div className="profile-grid">
                     <div className="profile-field">
@@ -705,24 +694,18 @@ export default function ProfilePage() {
                     {saving ? "Saving…" : "Save profile"}
                   </button>
 
-                  {status === "saved" && (
+                  {saveStatus === "ok" && (
                     <span className="profile-status success">
                       Profile updated ✓
                     </span>
                   )}
-                  {status === "error" && (
+                  {saveStatus === "error" && (
                     <span className="profile-status error">
                       Could not save profile. Please try again.
                     </span>
                   )}
                 </div>
               </form>
-            )}
-
-            {status === "error" && (
-              <div className="profile-loading">
-                Something went wrong while loading your profile.
-              </div>
             )}
           </div>
         </section>
