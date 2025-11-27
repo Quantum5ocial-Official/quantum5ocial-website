@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quantum5ocial – The Quantum Jobs & Products Hub</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content="Quantum5ocial is the jobs and products hub for the global quantum ecosystem – connecting students, researchers, and companies."
+  />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  >
+
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-soft: #030712;
+      --card-bg: #020617;
+      --border-subtle: #1f2933;
+      --accent: #22d3ee;
+      --accent-soft: rgba(34, 211, 238, 0.22);
+      --accent-2: #a855f7;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --danger: #fb7185;
+      --radius-lg: 18px;
+      --radius-xl: 24px;
+      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.9);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, #020617 0, #000 45%, #020617 100%);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Background quantum field */
+    .bg-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      background:
+        radial-gradient(circle at 10% 20%, rgba(34, 211, 238, 0.09) 0, transparent 50%),
+        radial-gradient(circle at 80% 10%, rgba(168, 85, 247, 0.08) 0, transparent 55%),
+        radial-gradient(circle at 0% 100%, rgba(56, 189, 248, 0.09) 0, transparent 55%);
+    }
+
+    .page {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 22px 18px 40px;
+    }
+
+    /* NAVBAR */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-orbit {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 30% 20%, #e0f2fe, #22d3ee 35%, #155e75 70%);
+      box-shadow:
+        0 0 20px rgba(34, 211, 238, 0.8),
+        0 0 40px rgba(15, 23, 42, 0.9);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .logo-orbit::before {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: inherit;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.7) inset;
+    }
+
+    .logo-orbit::after {
+      content: "";
+      position: absolute;
+      width: 150%;
+      height: 150%;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.8);
+      border-top-color: rgba(248, 250, 252, 0.5);
+      top: -25%;
+      left: -25%;
+      animation: spin-orbit 8s linear infinite;
+      opacity: 0.75;
+    }
+
+    @keyframes spin-orbit {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .brand-text-main {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      font-size: 1.05rem;
+    }
+
+    .brand-text-sub {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 0.87rem;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      position: relative;
+      padding-bottom: 3px;
+    }
+
+    .nav-link:hover {
+      color: var(--text-main);
+    }
+
+    .nav-link::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 1px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.18s ease;
+    }
+
+    .nav-link:hover::after {
+      width: 100%;
+    }
+
+    .nav-cta {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      font-size: 0.8rem;
+      color: var(--text-main);
+      text-decoration: none;
+      backdrop-filter: blur(10px);
+      background: rgba(15, 23, 42, 0.75);
+    }
+
+    .nav-cta:hover {
+      border-color: rgba(226, 232, 240, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    @media (max-width: 720px) {
+      .nav {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .nav-links {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
+    /* HERO */
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      gap: 28px;
+      align-items: center;
+      margin-bottom: 38px;
+    }
+
+    @media (max-width: 880px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .eyebrow {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .hero-title {
+      font-family: "Space Grotesk", system-ui, sans-serif;
+      font-size: clamp(2.0rem, 3.4vw, 2.7rem);
+      line-height: 1.1;
+      margin-bottom: 10px;
+    }
+
+    .hero-highlight {
+      background: linear-gradient(120deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .hero-sub {
+      font-size: 0.98rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+      max-width: 32rem;
+      margin-bottom: 18px;
+    }
+
+    .hero-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .tag-chip {
+      font-size: 0.75rem;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-note {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Hero tiles (Jobs & Products) */
+    .hero-tiles {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .hero-tiles {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .hero-tile {
+      position: relative;
+      border-radius: var(--radius-xl);
+      padding: 16px 16px 18px;
+      background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.16), transparent 60%),
+                  radial-gradient(circle at bottom right, rgba(168, 85, 247, 0.16), transparent 60%),
+                  rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(30, 64, 175, 0.7);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+      cursor: pointer;
+      transform: translateY(0px) translateZ(0);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .hero-tile::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(34, 211, 238, 0.18), transparent 55%),
+        radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.2), transparent 60%);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .hero-tile-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-tile:hover {
+      transform: translateY(-4px);
+      box-shadow:
+        0 22px 50px rgba(15, 23, 42, 1),
+        0 0 40px rgba(34, 211, 238, 0.45);
+      border-color: rgba(56, 189, 248, 0.9);
+    }
+
+    .tile-label {
+      font-size: 0.73rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .tile-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .tile-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .tile-icon-orbit {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      background: radial-gradient(circle at 30% 30%, rgba(34, 211, 238, 0.7), rgba(15, 23, 42, 0.95));
+      box-shadow:
+        0 0 16px rgba(34, 211, 238, 0.7),
+        0 0 28px rgba(15, 23, 42, 0.9);
+    }
+
+    .tile-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+
+    .tile-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .tile-pill {
+      font-size: 0.7rem;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: #e5e7eb;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .tile-cta {
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .tile-cta span {
+      font-size: 1rem;
+      transform: translateY(1px);
+    }
+
+    /* Sections */
+    .section {
+      margin-bottom: 34px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .section-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .section-link {
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    .section-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Cards row */
+    .card-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .card-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .card-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.96);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      padding: 11px 12px 12px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background:
+        radial-gradient(circle at top left, rgba(34,211,238,0.12), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(168,85,247,0.12), transparent 60%);
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .card-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow:
+        0 18px 44px rgba(15, 23, 42, 0.95),
+        0 0 24px rgba(15, 23, 42, 0.8);
+      border-color: rgba(55, 65, 81, 0.9);
+    }
+
+    .card-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .card-pill {
+      font-size: 0.68rem;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: var(--text-muted);
+    }
+
+    .card-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 4px;
+    }
+
+    .card-tag {
+      font-size: 0.67rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      color: #e5e7eb;
+    }
+
+    .card-footer-text {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    /* Gamification strip */
+    .gamify-strip {
+      border-radius: var(--radius-xl);
+      padding: 14px 15px 15px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 65%),
+                  radial-gradient(circle at bottom right, rgba(248, 113, 113, 0.22), transparent 70%),
+                  rgba(15, 23, 42, 0.96);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    @media (max-width: 800px) {
+      .gamify-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .gamify-title {
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .gamify-text {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .gamify-list {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      list-style: none;
+    }
+
+    .gamify-list li::before {
+      content: "⨳";
+      margin-right: 6px;
+      color: var(--accent);
+    }
+
+    .gamify-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 800px) {
+      .gamify-badges {
+        justify-content: flex-start;
+      }
+    }
+
+    .badge-pill {
+      font-size: 0.7rem;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: rgba(15, 23, 42, 0.9);
+      color: #e5e7eb;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(34, 211, 238, 0.8);
+    }
+
+    /* For whom section */
+    .who-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .who-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .who-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .who-card {
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(31, 41, 55, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+      padding: 11px 12px 12px;
+    }
+
+    .who-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .who-emoji {
+      font-size: 1.1rem;
+    }
+
+    .who-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .who-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid rgba(31, 41, 55, 0.9);
+      margin-top: 18px;
+      padding: 14px 4px 16px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-layer"></div>
+
+  <div class="page">
+    <!-- NAVBAR -->
+    <header class="nav">
+      <div class="brand">
+        <div class="logo-orbit"></div>
+        <div>
+          <div class="brand-text-main">Quantum5ocial</div>
+          <div class="brand-text-sub">Socializing the quantum world</div>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link" href="#jobs">Jobs</a>
+        <a class="nav-link" href="#products">Products</a>
+        <a class="nav-link" href="#about">About</a>
+        <a class="nav-cta" href="#login">Login / Sign up</a>
+      </nav>
+    </header>
+
+    <!-- HERO -->
+    <section class="hero" id="about">
+      <div>
+        <div class="eyebrow">Quantum ecosystem hub</div>
+        <h1 class="hero-title">
+          Discover <span class="hero-highlight">jobs & tools</span>
+          shaping the future of quantum technology.
+        </h1>
+        <p class="hero-sub">
+          Quantum5ocial connects students, researchers, and companies with curated
+          opportunities and products across the global quantum ecosystem.
+        </p>
+
+        <div class="hero-tags">
+          <span class="tag-chip">PhD, postdoc, and industry roles</span>
+          <span class="tag-chip">Startups, vendors, and labs</span>
+          <span class="tag-chip">Hardware · Software · Services</span>
+        </div>
+
+        <p class="hero-note">
+          Start with marketplace features now – and evolve into a full social platform as the community grows.
+        </p>
+      </div>
+
+      <aside>
+        <div class="hero-tiles">
+          <!-- Jobs tile -->
+          <a href="#jobs" class="hero-tile">
+            <div class="hero-tile-inner">
+              <div class="tile-label">Explore</div>
+              <div class="tile-title-row">
+                <div class="tile-title">Quantum Jobs Universe</div>
+                <div class="tile-icon-orbit">🧪</div>
+              </div>
+              <p class="tile-text">
+                Browse internships, MSc/PhD positions, postdocs, and industry roles from labs and companies worldwide.
+              </p>
+              <div class="tile-pill-row">
+                <span class="tile-pill">MSc / PhD</span>
+                <span class="tile-pill">Postdoc</span>
+                <span class="tile-pill">Industry</span>
+              </div>
+              <div class="tile-cta">
+                Browse jobs <span>›</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Products tile -->
+          <a href="#products" class="hero-tile">
+            <div class="hero-tile-inner">
+              <div class="tile-label">Discover</div>
+              <div class="tile-title-row">
+                <div class="tile-title">Quantum Products Lab</div>
+                <div class="tile-icon-orbit">🔧</div>
+              </div>
+              <p class="tile-text">
+                Discover quantum hardware, control electronics, software tools, and services from specialized vendors.
+              </p>
+              <div class="tile-pill-row">
+                <span class="tile-pill">Hardware</span>
+                <span class="tile-pill">Control &amp; readout</span>
+                <span class="tile-pill">Software &amp; services</span>
+              </div>
+              <div class="tile-cta">
+                Browse products <span>›</span>
+              </div>
+            </div>
+          </a>
+        </div>
+      </aside>
+    </section>
+
+    <!-- FEATURED JOBS -->
+    <section class="section" id="jobs">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Featured quantum roles</div>
+          <div class="section-sub">A preview of the opportunities the community will share.</div>
+        </div>
+        <a href="#jobs" class="section-link">View all jobs →</a>
+      </div>
+
+      <div class="card-row">
+        <div class="card">
+          <div class="card-inner">
+            <div class="card-top-row">
+              <div class="card-title">PhD in superconducting qubits</div>
+              <div class="card-pill">Academic</div>
+            </div>
+            <div class="card-meta">Quantum Lab · Zurich · On-site</div>
+            <div class="card-tags">
+              <span class="card-tag">Superconducting</span>
+              <span class="card-tag">cQED</span>
+              <span class="card-tag">Low temperature</span>
+            </div>
+            <div class="card-footer-text">Application deadline: TBA</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-inner">
+            <div class="card-top-row">
+              <div class="card-title">Quantum software engineer</div>
+              <div class="card-pill">Industry</div>
+            </div>
+            <div class="card-meta">Quantum Startup · Remote-friendly</div>
+            <div class="card-tags">
+              <span class="card-tag">Quantum SDK</span>
+              <span class="card-tag">Python</span>
+              <span class="card-tag">Algorithms</span>
+            </div>
+            <div class="card-footer-text">Hiring soon via Quantum5ocial.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-inner">
+            <div class="card-top-row">
+              <div class="card-title">Cryogenic RF engineer</div>
+              <div class="card-pill">Industry</div>
+            </div>
+            <div class="card-meta">Hardware Company · Hybrid</div>
+            <div class="card-tags">
+              <span class="card-tag">Cryo</span>
+              <span class="card-tag">RF</span>
+              <span class="card-tag">Control electronics</span>
+            </div>
+            <div class="card-footer-text">Join to see full job details soon.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURED PRODUCTS -->
+    <section class="section" id="products">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Highlighted quantum tools &amp; products</div>
+          <div class="section-sub">Vendors and startups showcasing their hero products.</div>
+        </div>
+        <a href="#products" class="section-link">Browse all products →</a>
+      </div>
+
+      <div class="card-row">
+        <div class="card">
+          <div class="card-inner">
+            <div class="card-top-row">
+              <div class="card-title">High-impedance resonator chip</div>
+              <div class="card-pill">Hardware</div>
+            </div>
+            <div class="card-meta">Vendor: Quantum Devices Inc.</div>
+            <div class="card-tags">
+              <span class="card-tag">Superconducting</span>
+              <span class="card-tag">cQED</span>
+              <span class="card-tag">Foundry-ready</span>
+            </div>
+            <div class="card-footer-text">Datasheet &amp; quotes coming to the platform.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-inner">
+            <div class="card-top-row">
+              <div class="card-title">Cryogenic control stack</div>
+              <div class="card-pill">Electronics</div>
+            </div>
+            <div class="card-meta">Vendor: Quantum Control Co.</div>
+            <div class="card-tags">
+              <span class="card-tag">DAC/ADC</span>
+              <span class="card-tag">Scalable</span>
+              <span class="card-tag">Integration</span>
+            </div>
+            <div class="card-footer-text">Discover compatible stacks for your platform.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-inner">
+            <div class="card-top-row">
+              <div class="card-title">Cloud simulation platform</div>
+              <div class="card-pill">Software</div>
+            </div>
+            <div class="card-meta">Vendor: Quantum Sim Labs</div>
+            <div class="card-tags">
+              <span class="card-tag">Simulation</span>
+              <span class="card-tag">API</span>
+              <span class="card-tag">Education</span>
+            </div>
+            <div class="card-footer-text">Linking users directly to quantum software providers.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- GAMIFICATION -->
+    <section class="section">
+      <div class="gamify-strip">
+        <div>
+          <div class="gamify-title">Earn Quantum Points (QP) &amp; unlock quantum-themed badges</div>
+          <p class="gamify-text">
+            Quantum5ocial stays professional but adds a light gamified layer – rewarding meaningful activity
+            like completing your profile, posting jobs/products, and exploring the ecosystem.
+          </p>
+          <ul class="gamify-list">
+            <li>Complete your profile → gain QP and visibility</li>
+            <li>Post roles or products → earn vendor &amp; mentor badges</li>
+            <li>Explore and engage → unlock levels like Superposition, Entangled, Resonant</li>
+          </ul>
+        </div>
+        <div class="gamify-badges">
+          <div class="badge-pill">
+            <span class="badge-dot"></span> Superposition · New member
+          </div>
+          <div class="badge-pill">
+            <span class="badge-dot"></span> Entangled · Connected with labs
+          </div>
+          <div class="badge-pill">
+            <span class="badge-dot"></span> Quantum Vendor · Active startup
+          </div>
+          <div class="badge-pill">
+            <span class="badge-dot"></span> Resonant · Highly active profile
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOR WHOM -->
+    <section class="section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Built for the entire quantum community</div>
+          <div class="section-sub">Different paths, one shared platform.</div>
+        </div>
+      </div>
+
+      <div class="who-grid">
+        <div class="who-card">
+          <div class="who-title-row">
+            <span class="who-emoji">👨‍🎓</span>
+            <span class="who-title">Students &amp; early-career</span>
+          </div>
+          <p class="who-text">
+            Explore internships, MSc/PhD projects, and your first postdoc or industry role.
+            Build your profile as you grow into the field.
+          </p>
+        </div>
+
+        <div class="who-card">
+          <div class="who-title-row">
+            <span class="who-emoji">🧑‍🔬</span>
+            <span class="who-title">Researchers &amp; labs</span>
+          </div>
+          <p class="who-text">
+            Showcase your group, attract collaborators, and make it easier to find the
+            right candidates for your quantum projects.
+          </p>
+        </div>
+
+        <div class="who-card">
+          <div class="who-title-row">
+            <span class="who-emoji">🏢</span>
+            <span class="who-title">Companies &amp; startups</span>
+          </div>
+          <p class="who-text">
+            Post jobs, list your hero products, and reach a focused audience that already
+            cares about quantum technologies.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOGIN ANCHOR (placeholder for now) -->
+    <section id="login" class="section">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Login &amp; sign up (coming soon)</div>
+          <div class="section-sub">
+            The MVP will introduce accounts for individuals, labs, and vendors – with dashboards to post and manage jobs &amp; products.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      Quantum5ocial © 2025 · Building the quantum ecosystem ·
+      <a href="mailto:info@thequantapp.net">Contact</a>
+    </footer>
+  </div>
+</body>
+</html>
