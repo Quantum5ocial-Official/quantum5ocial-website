@@ -749,3 +749,173 @@ footer a:hover {
   font-size: 14px;
   color: #9ca3af;
 }
+/* ====== Profile page layout ====== */
+
+.profile-card {
+  margin-top: 24px;
+  padding: 24px 28px;
+  border-radius: 18px;
+  background: rgba(5, 12, 32, 0.9);
+  border: 1px solid rgba(120, 175, 255, 0.18);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  max-width: 1040px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.profile-loading {
+  padding: 16px 4px;
+  font-size: 14px;
+  color: #cdd7ff;
+}
+
+/* ====== Form sections ====== */
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.profile-section {
+  border-radius: 14px;
+  padding: 18px 20px 20px;
+  background: linear-gradient(
+      135deg,
+      rgba(52, 84, 155, 0.15),
+      rgba(5, 12, 32, 0.2)
+    );
+  border: 1px solid rgba(120, 175, 255, 0.16);
+}
+
+.profile-section h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #e4ebff;
+}
+
+.profile-section-sub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #9aa5d8;
+}
+
+/* ====== Grid layout ====== */
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-field-full {
+  grid-column: 1 / -1;
+}
+
+.profile-field label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #8fa0dd;
+}
+
+.profile-field input,
+.profile-field textarea,
+.profile-field select {
+  border-radius: 10px;
+  border: 1px solid rgba(132, 170, 255, 0.35);
+  background: rgba(5, 10, 30, 0.85);
+  padding: 8px 10px;
+  font-size: 14px;
+  color: #e7ecff;
+  outline: none;
+  width: 100%;
+}
+
+.profile-field input::placeholder,
+.profile-field textarea::placeholder {
+  color: #5f6a9b;
+}
+
+.profile-field input:focus,
+.profile-field textarea:focus,
+.profile-field select:focus {
+  border-color: rgba(165, 206, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(120, 175, 255, 0.3);
+}
+
+.profile-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+/* ====== Chips (multi-select) ====== */
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border-radius: 999px;
+  border: 1px solid rgba(132, 170, 255, 0.4);
+  background: rgba(6, 14, 40, 0.9);
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #cdd7ff;
+  cursor: pointer;
+  transition: all 0.12s ease-out;
+}
+
+.chip:hover {
+  border-color: rgba(170, 210, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.chip-active {
+  background: radial-gradient(circle at top left, #5bd5ff, #3f6bff);
+  color: #050814;
+  border-color: rgba(210, 230, 255, 0.95);
+}
+
+/* ====== Actions / status ====== */
+
+.profile-actions {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-status {
+  font-size: 13px;
+}
+
+.profile-status.success {
+  color: #7fffb5;
+}
+
+.profile-status.error {
+  color: #ff8c9b;
+}
+
+/* ====== Responsive tweaks ====== */
+
+@media (max-width: 840px) {
+  .profile-card {
+    padding: 18px 16px;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
