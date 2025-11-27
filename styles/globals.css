@@ -1004,3 +1004,84 @@ footer a:hover {
     order: -1;
   }
 }
+/* === User dropdown in navbar === */
+
+.nav-user-wrapper {
+  position: relative;
+}
+
+.nav-user-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: rgba(15, 23, 42, 0.98);
+  color: #e5e7eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.nav-user-btn:hover {
+  border-color: #22d3ee;
+}
+
+.nav-username-text {
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-user-chevron {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.nav-user-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown panel */
+
+.nav-user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.99);
+  border: 1px solid rgba(55, 65, 81, 0.95);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.95);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+
+.nav-user-menu-item {
+  border: none;
+  background: transparent;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: #e5e7eb;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.nav-user-menu-item:hover {
+  background: rgba(31, 41, 55, 0.95);
+}
+
+.nav-user-menu-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: rgba(55, 65, 81, 0.9);
+}
+
+.nav-user-menu-logout {
+  color: #fca5a5;
+}
