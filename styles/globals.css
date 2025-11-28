@@ -1759,3 +1759,16 @@ footer a:hover {
   text-align: right;
   justify-content: flex-end;
 }
+.nav-dashboard-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end !important; 
+  text-align: right !important;
+}
+
+.nav-dashboard-menu .nav-dropdown-item {
+  width: 100%;
+  text-align: right;
+  justify-content: flex-end;
+  padding-right: 14px;
+}
