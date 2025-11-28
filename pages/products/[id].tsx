@@ -126,11 +126,13 @@ export default function ProductDetailPage() {
     );
   }
 
-  // 💰 Price: if a price_value exists, always show that. Otherwise "Contact for price".
-  const priceLabel =
-    product.price_value && product.price_value.trim() !== ""
-      ? product.price_value
-      : "Contact for price";
+    // 💰 Price: if price_type is 'fixed' and a value exists, show it. Otherwise "Contact for price".
+  const hasFixedPrice =
+    product.price_type === "fixed" && product.price_value !== null;
+
+  const priceLabel = hasFixedPrice
+    ? String(product.price_value) // handles both number and string
+    : "Contact for price";
 
   const stockLabel =
     product.in_stock === false
