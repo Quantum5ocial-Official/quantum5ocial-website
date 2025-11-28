@@ -1886,10 +1886,10 @@ footer a:hover {
   color: #7dd3fc;
   font-weight: 500;
 }
-.brand-logo-img {
-  width: 42px;
-  height: 42px;
+.brand-logo {
+  width: 48px;           /* adjust size here */
+  height: 48px;
   object-fit: contain;
-  display: block;
   margin-right: 12px;
+  filter: drop-shadow(0 0 6px rgba(0, 247, 255, 0.25));
 }
