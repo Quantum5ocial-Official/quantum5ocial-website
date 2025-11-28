@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
@@ -9,7 +10,6 @@ const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Job = {
   id: string;
-  owner_id: string | null;
   title: string | null;
   company_name: string | null;
   location: string | null;
@@ -19,42 +19,29 @@ type Job = {
   description: string | null;
   keywords: string | null;
   salary_display: string | null;
-  apply_url: string | null;
   created_at: string | null;
+  owner_id: string | null;
 };
 
-const EMPLOYMENT_TYPES = [
-  "Full-time",
-  "Part-time",
-  "Internship",
-  "PhD",
-  "Postdoc",
-  "Contract",
-  "Fellowship",
-  "Other",
-];
+const EMPLOYMENT_FILTERS = ["All", "Full-time", "Part-time", "Internship", "PhD", "Postdoc", "Contract", "Fellowship", "Other"];
+const REMOTE_FILTERS = ["All", "On-site", "Hybrid", "Remote"];
 
-const REMOTE_TYPES = ["On-site", "Hybrid", "Remote"];
-
-export default function JobsPage() {
+export default function JobsIndexPage() {
   const { user } = useSupabaseUser();
+  const router = useRouter();
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
-
-  // Filters
   const [search, setSearch] = useState("");
-  const [selectedEmployment, setSelectedEmployment] = useState<string | null>(
-    null
-  );
-  const [selectedRemoteType, setSelectedRemoteType] = useState<string | null>(
-    null
-  );
+  const [employmentFilter, setEmploymentFilter] = useState("All");
+  const [remoteFilter, setRemoteFilter] = useState("All");
 
-  // Load all jobs
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  // Load jobs
   useEffect(() => {
     const loadJobs = async () => {
       setLoading(true);
@@ -83,7 +70,7 @@ export default function JobsPage() {
   useEffect(() => {
     const loadSaved = async () => {
       if (!user) {
-        setSavedJobIds(new Set());
+        setSavedJobIds([]);
         return;
       }
 
@@ -97,86 +84,75 @@ export default function JobsPage() {
         return;
       }
 
-      const ids = new Set<string>();
-      (data || []).forEach((row: any) => {
-        if (row.job_id) ids.add(row.job_id);
-      });
-      setSavedJobIds(ids);
+      setSavedJobIds((data || []).map((row: any) => row.job_id as string));
     };
 
     loadSaved();
   }, [user]);
 
-  const toggleSaved = async (jobId: string, isCurrentlySaved: boolean) => {
+  const isSaved = (id: string) => savedJobIds.includes(id);
+
+  const handleToggleSave = async (jobId: string) => {
     if (!user) {
-      alert("Please log in to save jobs.");
+      router.push("/auth?redirect=/jobs");
       return;
     }
 
-    if (isCurrentlySaved) {
-      const { error } = await supabase
-        .from("saved_jobs")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("job_id", jobId);
+    setSavingId(jobId);
 
-      if (error) {
-        console.error("Error removing saved job", error);
-        return;
+    const alreadySaved = isSaved(jobId);
+
+    try {
+      if (alreadySaved) {
+        const { error } = await supabase
+          .from("saved_jobs")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("job_id", jobId);
+
+        if (error) {
+          console.error("Error unsaving job", error);
+        } else {
+          setSavedJobIds((prev) => prev.filter((id) => id !== jobId));
+        }
+      } else {
+        const { error } = await supabase.from("saved_jobs").insert({
+          user_id: user.id,
+          job_id: jobId,
+        });
+
+        if (error) {
+          console.error("Error saving job", error);
+        } else {
+          setSavedJobIds((prev) => [...prev, jobId]);
+        }
       }
-
-      setSavedJobIds((prev) => {
-        const next = new Set(prev);
-        next.delete(jobId);
-        return next;
-      });
-    } else {
-      const { error } = await supabase.from("saved_jobs").insert({
-        user_id: user.id,
-        job_id: jobId,
-      });
-
-      if (error) {
-        console.error("Error saving job", error);
-        return;
-      }
-
-      setSavedJobIds((prev) => {
-        const next = new Set(prev);
-        next.add(jobId);
-        return next;
-      });
+    } finally {
+      setSavingId(null);
     }
   };
 
-  // Apply filters
   const filteredJobs = useMemo(() => {
+    const q = search.toLowerCase().trim();
+
     return jobs.filter((job) => {
-      const text = (
-        `${job.title || ""} ${job.company_name || ""} ${
-          job.location || ""
-        } ${job.short_description || ""} ${job.keywords || ""}`
-      )
-        .toLowerCase()
-        .trim();
+      if (employmentFilter !== "All" && job.employment_type !== employmentFilter) {
+        return false;
+      }
+      if (remoteFilter !== "All" && job.remote_type !== remoteFilter) {
+        return false;
+      }
 
-      const matchesSearch = !search.trim()
-        ? true
-        : text.includes(search.toLowerCase().trim());
+      if (!q) return true;
 
-      const matchesEmployment = selectedEmployment
-        ? (job.employment_type || "").toLowerCase() ===
-          selectedEmployment.toLowerCase()
-        : true;
+      const haystack =
+        `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${
+          job.short_description || ""
+        } ${job.keywords || ""}`.toLowerCase();
 
-      const matchesRemote = selectedRemoteType
-        ? (job.remote_type || "").toLowerCase() ===
-          selectedRemoteType.toLowerCase()
-        : true;
-
-      return matchesSearch && matchesEmployment && matchesRemote;
+      return haystack.includes(q);
     });
-  }, [jobs, search, selectedEmployment, selectedRemoteType]);
+  }, [jobs, search, employmentFilter, remoteFilter]);
 
   return (
     <>
@@ -187,196 +163,160 @@ export default function JobsPage() {
         <section className="section">
           <div className="section-header" style={{ marginBottom: 18 }}>
             <div>
-              <div className="section-title">Quantum jobs marketplace</div>
+              <div className="section-title">Quantum Jobs Universe</div>
               <div className="section-sub">
-                Discover roles across labs, universities, and companies in the
-                quantum ecosystem.
+                Browse internships, MSc/PhD positions, postdocs, and industry roles across labs and companies.
               </div>
             </div>
 
-            {user && (
-              <Link href="/jobs/new" className="nav-ghost-btn">
-                Post a job
-              </Link>
-            )}
+            <button
+              type="button"
+              className="nav-ghost-btn"
+              onClick={() => router.push("/jobs/new")}
+            >
+              Post a job
+            </button>
           </div>
 
           <div className="products-layout">
-            {/* Left filter sidebar */}
+            {/* Filters on the left */}
             <aside className="products-filters">
               <div className="products-filters-section">
                 <div className="products-filters-title">Search</div>
                 <input
                   className="products-filters-search"
-                  type="text"
-                  placeholder="Search by title, company, keywords…"
+                  placeholder="Title, company, keywords…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
 
               <div className="products-filters-section">
-                <div className="products-filters-title">
-                  Employment type
-                </div>
-                <div className="products-filters-chips">
-                  {EMPLOYMENT_TYPES.map((type) => {
-                    const active =
-                      selectedEmployment?.toLowerCase() ===
-                      type.toLowerCase();
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        className={
-                          "products-filter-chip" + (active ? " active" : "")
-                        }
-                        onClick={() =>
-                          setSelectedEmployment((prev) =>
-                            prev?.toLowerCase() === type.toLowerCase()
-                              ? null
-                              : type
-                          )
-                        }
-                      >
-                        {type}
-                      </button>
-                    );
-                  })}
-                </div>
+                <div className="products-filters-title">Employment type</div>
+                <select
+                  className="products-filters-search"
+                  value={employmentFilter}
+                  onChange={(e) => setEmploymentFilter(e.target.value)}
+                >
+                  {EMPLOYMENT_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="products-filters-section">
                 <div className="products-filters-title">Work mode</div>
-                <div className="products-filters-chips">
-                  {REMOTE_TYPES.map((type) => {
-                    const active =
-                      selectedRemoteType?.toLowerCase() ===
-                      type.toLowerCase();
-                    return (
-                      <button
-                        key={type}
-                        type="button"
-                        className={
-                          "products-filter-chip" + (active ? " active" : "")
-                        }
-                        onClick={() =>
-                          setSelectedRemoteType((prev) =>
-                            prev?.toLowerCase() === type.toLowerCase()
-                              ? null
-                              : type
-                          )
-                        }
-                      >
-                        {type}
-                      </button>
-                    );
-                  })}
-                </div>
+                <select
+                  className="products-filters-search"
+                  value={remoteFilter}
+                  onChange={(e) => setRemoteFilter(e.target.value)}
+                >
+                  {REMOTE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                style={{ width: "100%", marginTop: 8 }}
+                onClick={() => {
+                  setSearch("");
+                  setEmploymentFilter("All");
+                  setRemoteFilter("All");
+                }}
+              >
+                Reset filters
+              </button>
             </aside>
 
-            {/* Right: jobs grid using the same card style as homepage */}
+            {/* Results */}
             <div className="products-results">
               <div className="products-results-header">
                 <div className="products-status">
                   {loading
                     ? "Loading jobs…"
-                    : `${filteredJobs.length} job${
-                        filteredJobs.length === 1 ? "" : "s"
-                      }`}
+                    : error
+                    ? error
+                    : `${filteredJobs.length} job${filteredJobs.length === 1 ? "" : "s"}`}
                 </div>
               </div>
 
-              {error && (
-                <div className="products-status error" style={{ marginTop: 8 }}>
-                  {error}
-                </div>
-              )}
-
               {!loading && !error && filteredJobs.length === 0 && (
-                <div className="products-empty" style={{ marginTop: 8 }}>
-                  No jobs match your filters yet.
-                </div>
+                <p className="products-empty">
+                  No roles match your filters yet. Try broadening your search.
+                </p>
               )}
 
-              {/* 3-column grid of cards, same layout as Featured roles */}
-              <div className="card-row">
-                {filteredJobs.map((job) => {
-                  const isSaved = savedJobIds.has(job.id);
-
-                  const allKeywords =
-                    job.keywords
-                      ?.split(",")
-                      .map((k) => k.trim())
-                      .filter(Boolean) || [];
-                  const topTags = allKeywords.slice(0, 3);
-
-                  const metaParts = [
-                    job.company_name || undefined,
-                    job.location || undefined,
-                    job.remote_type || undefined,
-                  ].filter(Boolean);
-
-                  const bottomLine =
-                    job.short_description ||
-                    job.salary_display ||
-                    "Hiring soon via Quantum5ocial.";
-
-                  return (
-                    <Link
-                      key={job.id}
-                      href={`/jobs/${job.id}`}
-                      className="card"
+              <div className="products-grid">
+                {filteredJobs.map((job) => (
+                  <div key={job.id} className="product-card">
+                    {/* heart button */}
+                    <button
+                      className="product-save-btn"
+                      type="button"
+                      disabled={savingId === job.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleToggleSave(job.id);
+                      }}
                     >
-                      <div className="card-inner">
-                        {/* Heart save button in top-right */}
-                        <button
-                          className="product-save-btn"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleSaved(job.id, isSaved);
-                          }}
-                          aria-label={
-                            isSaved ? "Unsave job" : "Save job to favourites"
-                          }
-                        >
-                          {isSaved ? "♥" : "♡"}
-                        </button>
+                      {isSaved(job.id) ? "❤" : "♡"}
+                    </button>
 
-                        <div className="card-top-row">
-                          <div className="card-title">
-                            {job.title || "Untitled role"}
-                          </div>
-                          {job.employment_type && (
-  <div className="job-pill-center">
-    <span className="card-pill">{job.employment_type}</span>
-  </div>
-)}
+                    {/* clickable content */}
+                    <Link href={`/jobs/${job.id}`} className="product-card-body">
+                      <div className="product-card-title">{job.title}</div>
+
+                      <div className="product-card-company">
+                        {[job.company_name, job.location, job.remote_type]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+
+                      {job.short_description && (
+                        <div className="products-card-description" style={{ marginTop: 6 }}>
+                          {job.short_description}
                         </div>
+                      )}
 
-                        {metaParts.length > 0 && (
-                          <div className="card-meta">
-                            {metaParts.join(" · ")}
-                          </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginTop: 8,
+                          fontSize: 11,
+                          color: "#9ca3af",
+                        }}
+                      >
+                        {job.employment_type && (
+                          <span
+                            style={{
+                              padding: "3px 9px",
+                              borderRadius: 999,
+                              border: "1px solid rgba(148,163,184,0.5)",
+                            }}
+                          >
+                            {job.employment_type}
+                          </span>
                         )}
 
-                        {topTags.length > 0 && (
-                          <div className="card-tags">
-                            {topTags.map((t) => (
-                              <span key={t} className="card-tag">
-                                {t}
-                              </span>
-                            ))}
-                          </div>
+                        {job.salary_display && (
+                          <span style={{ color: "#7dd3fc", fontWeight: 500 }}>
+                            {job.salary_display}
+                          </span>
                         )}
-
-                        <div className="card-footer-text">{bottomLine}</div>
                       </div>
                     </Link>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
