@@ -2043,3 +2043,11 @@ footer a:hover {
   margin-top: 3px;
   color: #7dd3fc80 !important;  /* softer version */
 }
+
+/* Make "QUANTUM ECOSYSTEM HUB" bigger + add top/bottom spacing */
+.eyebrow {
+  font-size: 0.95rem !important;     /* bigger text (was ~0.78rem) */
+  letter-spacing: 0.20em !important; /* slightly wider spacing */
+  margin-top: 32px !important;       /* space ABOVE */
+  margin-bottom: 24px !important;    /* space BELOW */
+}
