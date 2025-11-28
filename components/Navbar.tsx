@@ -1,11 +1,13 @@
-import { useState } from "react";
+// components/Navbar.tsx
 import Link from "next/link";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { supabase } from "../lib/supabaseClient";
+import { useEffect, useRef, useState } from "react";
 
 export default function Navbar() {
   const { user, loading } = useSupabaseUser();
   const [dashOpen, setDashOpen] = useState(false);
+  const dashRef = useRef<HTMLDivElement | null>(null);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -18,14 +20,29 @@ export default function Navbar() {
     (user as any)?.email?.split("@")[0] ||
     "Profile";
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        dashRef.current &&
+        !dashRef.current.contains(e.target as Node)
+      ) {
+        setDashOpen(false);
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
+
   return (
     <header className="nav">
-      {/* Brand – clickable to homepage */}
-      <Link href="/" className="brand brand-clickable">
-        <div className="logo-orbit" />
-        <div>
-          <div className="brand-text-main">Quantum5ocial</div>
-          <div className="brand-text-sub">Socializing the quantum world</div>
+      <Link href="/" className="brand-link">
+        <div className="brand">
+          <div className="logo-orbit" />
+          <div>
+            <div className="brand-text-main">Quantum5ocial</div>
+            <div className="brand-text-sub">SOCIALIZING THE QUANTUM WORLD</div>
+          </div>
         </div>
       </Link>
 
@@ -33,74 +50,60 @@ export default function Navbar() {
         <Link href="/jobs" className="nav-link">
           Jobs
         </Link>
-
         <Link href="/products" className="nav-link">
           Products
         </Link>
 
-        {/* If NOT logged in: simple auth button */}
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
 
-        {/* Logged-in navigation */}
         {!loading && user && (
           <>
             {/* Dashboard dropdown */}
-            <div
-              className="nav-dropdown"
-              onMouseEnter={() => setDashOpen(true)}
-              onMouseLeave={() => setDashOpen(false)}
-            >
+            <div className="nav-dashboard-wrapper" ref={dashRef}>
               <button
                 type="button"
-                className="nav-link nav-dropdown-trigger"
+                className="nav-link nav-link-button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setDashOpen((open) => !open);
+                }}
               >
-                Dashboard
-                <span style={{ marginLeft: 4, fontSize: 10 }}>▾</span>
+                Dashboard ▾
               </button>
 
               {dashOpen && (
-                <div className="nav-dropdown-menu">
-                  <Link href="/dashboard" className="nav-dropdown-item">
-                    Overview
+                <div className="nav-dashboard-menu">
+                  <Link href="/profile" className="nav-dropdown-item">
+                    My profile
                   </Link>
                   <Link
-                    href="/dashboard?view=jobs"
+                    href="/dashboard/saved-jobs"
                     className="nav-dropdown-item"
                   >
                     Saved jobs
                   </Link>
                   <Link
-                    href="/dashboard?view=products"
+                    href="/dashboard/saved-products"
                     className="nav-dropdown-item"
                   >
                     Saved products
                   </Link>
-                  <Link
-                    href="/profile"
-                    className="nav-dropdown-item"
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="nav-dropdown-item nav-dropdown-danger"
                   >
-                    My profile
-                  </Link>
+                    Logout
+                  </button>
                 </div>
               )}
             </div>
 
-            {/* Username + logout */}
-            <Link href="/profile" className="nav-username">
-              {displayName}
-            </Link>
-
-            <button
-              onClick={handleLogout}
-              className="nav-cta"
-              style={{ cursor: "pointer" }}
-            >
-              Logout
-            </button>
+            <span className="nav-username">{displayName}</span>
           </>
         )}
       </nav>
