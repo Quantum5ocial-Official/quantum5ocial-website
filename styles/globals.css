@@ -1241,3 +1241,26 @@ footer a:hover {
   margin-bottom: 4px;
   font-weight: 500;
 }
+/* Make brand clickable with no link styling */
+.brand-clickable {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none !important;
+}
+
+/* Remove underline, keep same color as before */
+.brand-clickable .brand-text-main {
+  color: #c7dfff; /* same soft glowing text as logo area */
+  text-decoration: none !important;
+}
+
+.brand-clickable .brand-text-main:hover {
+  color: #e4f1ff; /* slight hover glow */
+}
+
+/* Subtext stays subtle */
+.brand-clickable .brand-text-sub {
+  color: rgba(200, 220, 255, 0.55);
+  text-decoration: none !important;
+}
