@@ -254,9 +254,6 @@ body {
   color: #7dd3fc;
 }
 
-.nav-dropdown-danger {
-  color: #fecaca;
-}
 
 @media (max-width: 720px) {
   .nav {
