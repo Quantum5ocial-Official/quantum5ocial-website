@@ -17,16 +17,23 @@ export default function Navbar() {
 
   // Close dropdowns on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (dashboardRef.current && !dashboardRef.current.contains(e.target as Node)) {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dashboardRef.current &&
+        !dashboardRef.current.contains(e.target as Node)
+      ) {
         setIsDashboardOpen(false);
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setIsUserMenuOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleLogout = async () => {
@@ -42,7 +49,7 @@ export default function Navbar() {
 
   return (
     <header className="nav">
-      {/* Brand */}
+      {/* Brand – clickable to home */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
           <div className="logo-orbit" />
@@ -54,13 +61,19 @@ export default function Navbar() {
       </Link>
 
       <nav className="nav-links">
-        <Link href="/jobs" className="nav-link">Jobs</Link>
-        <Link href="/products" className="nav-link">Products</Link>
+        <Link href="/jobs" className="nav-link">
+          Jobs
+        </Link>
 
-        {/* Dashboard dropdown */}
+        <Link href="/products" className="nav-link">
+          Products
+        </Link>
+
+        {/* Dashboard dropdown (navigation only) */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
+              type="button"
               className="nav-link nav-link-button"
               onClick={() => setIsDashboardOpen((o) => !o)}
             >
@@ -69,11 +82,25 @@ export default function Navbar() {
 
             {isDashboardOpen && (
               <div className="nav-dashboard-menu">
-                <Link href="/dashboard" className="nav-dropdown-item">Overview</Link>
-                <Link href="/dashboard/saved-jobs" className="nav-dropdown-item">
+                <Link
+                  href="/dashboard"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
+                >
+                  Overview
+                </Link>
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
+                >
                   Saved jobs
                 </Link>
-                <Link href="/dashboard/saved-products" className="nav-dropdown-item">
+                <Link
+                  href="/dashboard/saved-products"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
+                >
                   Saved products
                 </Link>
               </div>
@@ -81,28 +108,29 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* If logged out → show login */}
+        {/* Logged-out: auth button */}
         {!loading && !user && (
-          <Link href="/auth" className="nav-cta">Login / Sign up</Link>
+          <Link href="/auth" className="nav-cta">
+            Login / Sign up
+          </Link>
         )}
 
-        {/* Username dropdown (Logout only) */}
+        {/* Username dropdown – Logout only, styled like Dashboard */}
         {!loading && user && (
-          <div className="nav-user-wrapper" ref={userMenuRef}>
+          <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
-              className="nav-user-btn"
+              type="button"
+              className="nav-link nav-link-button"
               onClick={() => setIsUserMenuOpen((o) => !o)}
             >
-              <span className="nav-username-text">{displayName}</span>
-              <span className={`nav-user-chevron ${isUserMenuOpen ? "open" : ""}`}>
-                ▾
-              </span>
+              {displayName} ▾
             </button>
 
             {isUserMenuOpen && (
-              <div className="nav-user-menu">
+              <div className="nav-dashboard-menu">
                 <button
-                  className="nav-user-menu-item nav-user-menu-logout"
+                  type="button"
+                  className="nav-dropdown-item nav-dropdown-danger"
                   onClick={handleLogout}
                 >
                   Logout
