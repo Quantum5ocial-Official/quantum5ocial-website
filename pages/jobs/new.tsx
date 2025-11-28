@@ -98,7 +98,11 @@ export default function NewJobPage() {
 
   const handleChange =
     (field: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
     };
 
@@ -141,7 +145,7 @@ export default function NewJobPage() {
 
         if (error) {
           console.error("Error updating job", error);
-          setSaveError("Could not update job. Please try again.");
+          setSaveError(error.message || "Could not update job. Please try again.");
         } else {
           router.push(`/jobs/${jobId}`);
         }
@@ -157,7 +161,7 @@ export default function NewJobPage() {
 
         if (error) {
           console.error("Error creating job", error);
-          setSaveError("Could not create job. Please try again.");
+          setSaveError(error.message || "Could not create job. Please try again.");
         } else {
           router.push(`/jobs/${(data as any).id}`);
         }
@@ -205,7 +209,10 @@ export default function NewJobPage() {
                 </h3>
 
                 {loadError && (
-                  <p className="products-status error" style={{ marginBottom: 10 }}>
+                  <p
+                    className="products-status error"
+                    style={{ marginBottom: 10 }}
+                  >
                     {loadError}
                   </p>
                 )}
@@ -296,12 +303,10 @@ export default function NewJobPage() {
                   {/* Full description */}
                   <div className="products-section">
                     <div className="products-section-header">
-                      <h4 className="products-section-title">
-                        Role details
-                      </h4>
+                      <h4 className="products-section-title">Role details</h4>
                       <p className="products-section-sub">
-                        A clear description helps people understand whether
-                        this role fits them.
+                        A clear description helps people understand whether this
+                        role fits them.
                       </p>
                     </div>
 
@@ -395,10 +400,14 @@ export default function NewJobPage() {
                 </h4>
                 <ul className="products-tips-list">
                   <li>Use a specific title (e.g. “Spin qubit postdoc”).</li>
-                  <li>Mention the main platform (superconducting, ion trap, …).</li>
+                  <li>
+                    Mention the main platform (superconducting, ion trap, …).
+                  </li>
                   <li>Include key requirements and location clearly.</li>
                   <li>Add salary range if possible.</li>
-                  <li>Link to a lab or company page for more context.</li>
+                  <li>
+                    Link to a lab or company page for more context.
+                  </li>
                 </ul>
               </div>
             </aside>
