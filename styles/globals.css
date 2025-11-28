@@ -1900,3 +1900,12 @@ footer a:hover {
   align-items: center;
   gap: 5px;
 }
+/* Remove all hover backgrounds in user dropdown */
+.nav-dropdown-item:hover {
+  background: transparent !important;
+}
+
+.nav-dropdown-danger:hover {
+  background: transparent !important;
+  color: #fecaca !important;  /* keep red text */
+}
