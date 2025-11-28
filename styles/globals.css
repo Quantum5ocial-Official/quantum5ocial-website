@@ -2078,3 +2078,10 @@ footer a:hover {
   display: block;
   flex-shrink: 0;
 }
+.hero-main-logo {
+  width: 380px;          /* adjust to taste */
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;    /* optional */
+}
