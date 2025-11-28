@@ -145,10 +145,35 @@ export default function AuthPage() {
             "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
         }}
       >
-        <h1 style={{ fontSize: 20, marginBottom: 4 }}>Quantum5ocial</h1>
-        <p style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
-          Sign in to join the quantum ecosystem. Choose social login or email.
-        </p>
+        {/* BRAND HEADER */}
+<div style={{ textAlign: "center", marginBottom: 22 }}>
+  <img
+    src="/brand-logo.svg"
+    alt="Quantum5ocial Logo"
+    style={{
+      width: 80,
+      height: 80,
+      margin: "0 auto 8px",
+    }}
+  />
+
+  <div
+    style={{
+      fontSize: 24,
+      fontWeight: 700,
+      background: "linear-gradient(90deg, #22d3ee, #a855f7)",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      marginBottom: 6,
+    }}
+  >
+    Quantum5ocial
+  </div>
+
+  <div style={{ fontSize: 13, color: "#9ca3af" }}>
+    Sign in to join the quantum ecosystem.
+  </div>
+</div>
 
         {/* Social login buttons */}
         <div
