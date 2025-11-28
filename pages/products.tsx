@@ -1,343 +1,231 @@
+// pages/products.tsx
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { supabase } from "../lib/supabaseClient";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
 type Product = {
   id: string;
-  created_at: string;
-  owner_id: string | null;
   name: string;
   company_name: string | null;
   short_description: string | null;
-  specifications: string | null;
-  keywords: string | null;
   category: string | null;
-  product_url: string | null;
-  datasheet_url: string | null;
+  price_type: "fixed" | "contact";
+  price_value: string | null;
   image1_url: string | null;
-  image2_url: string | null;
-  image3_url: string | null;
-  in_stock: boolean | null;
-  stock_quantity: number | null;
-  price_type: string | null;   // 'fixed' or 'contact'
-  price_value: string | null;  // text description when fixed
 };
-
-const CATEGORIES = [
-  "Cryogenics",
-  "Control Electronics",
-  "Readout / Amplifiers",
-  "Fabrication Services",
-  "Qubits / Devices",
-  "Software / Simulation",
-  "Consulting",
-  "Other",
-];
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("All");
-
-  const [priceFilter, setPriceFilter] = useState<string>("All"); // All | Fixed | Contact
-  const [stockFilter, setStockFilter] = useState<string>("All"); // All | In | Out
-
-  // Fetch products
   useEffect(() => {
-    const loadProducts = async () => {
-      setLoading(true);
-
+    const load = async () => {
       const { data, error } = await supabase
         .from("products")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error loading products", error);
-        setProducts([]);
-      } else {
+      if (!error && data) {
         setProducts(data as Product[]);
+      } else {
+        console.error("Error loading products", error);
       }
-
       setLoading(false);
     };
 
-    loadProducts();
+    load();
   }, []);
-
-  const filteredProducts = products.filter((p) => {
-  // Category
-  const matchesCategory =
-    categoryFilter === "All" ||
-    !categoryFilter ||
-    (p.category || "").toLowerCase() === categoryFilter.toLowerCase();
-
-  // Text search
-  const text =
-    (p.name || "") +
-    " " +
-    (p.company_name || "") +
-    " " +
-    (p.short_description || "") +
-    " " +
-    (p.specifications || "") +
-    " " +
-    (p.keywords || "");
-
-  const matchesSearch = text.toLowerCase().includes(search.toLowerCase());
-
-  // Price filter
-  const isFixed = p.price_type === "fixed" && !!p.price_value;
-  const isContact = p.price_type !== "fixed" || !p.price_value;
-
-  const matchesPrice =
-    priceFilter === "All" ||
-    (priceFilter === "Fixed" && isFixed) ||
-    (priceFilter === "Contact" && isContact);
-
-  // Stock filter
-  const isOut =
-    p.in_stock === false ||
-    (p.stock_quantity !== null && p.stock_quantity === 0);
-
-  const isIn = !isOut;
-
-  const matchesStock =
-    stockFilter === "All" ||
-    (stockFilter === "In" && isIn) ||
-    (stockFilter === "Out" && isOut);
-
-  return matchesCategory && matchesSearch && matchesPrice && matchesStock;
-});
 
   return (
     <>
       <div className="bg-layer" />
-      <div className="page">
-        <Navbar />
+      <Navbar />
 
+      <div className="page">
         <section className="section">
-          <div className="section-header" style={{ alignItems: "flex-start" }}>
+          <div className="section-header" style={{ marginBottom: 20 }}>
             <div>
-              <div className="section-title">Quantum product marketplace</div>
+              <div className="section-title">Products</div>
               <div className="section-sub">
-                Discover hardware, software, and services from quantum startups,
-                vendors, and labs.
+                Discover quantum hardware, software, tools, and components from
+                across the ecosystem.
               </div>
             </div>
 
-            <div>
-              <Link href="/products/new" className="nav-cta">
-                List your product
-              </Link>
-            </div>
+            <Link href="/products/new" className="nav-ghost-btn">
+              List your product →
+            </Link>
           </div>
 
-          {/* Filters */}
-          <div className="products-filters">
-  <input
-    type="text"
-    placeholder="Search by product, company, tags…"
-    value={search}
-    onChange={(e) => setSearch(e.target.value)}
-    className="products-search"
-  />
+          <div className="product-grid">
+            {loading ? (
+              <p className="profile-muted">Loading products…</p>
+            ) : products.length === 0 ? (
+              <p className="profile-muted">No products listed yet.</p>
+            ) : (
+              products.map((p) => {
+                const img =
+                  p.image1_url ?? "/placeholder-product.png"; // fallback
 
-  <select
-    value={categoryFilter}
-    onChange={(e) => setCategoryFilter(e.target.value)}
-    className="products-select"
-  >
-    <option value="All">All categories</option>
-    {CATEGORIES.map((c) => (
-      <option key={c} value={c}>
-        {c}
-      </option>
-    ))}
-  </select>
-
-  <select
-    value={priceFilter}
-    onChange={(e) => setPriceFilter(e.target.value)}
-    className="products-select"
-  >
-    <option value="All">All prices</option>
-    <option value="Fixed">Fixed price</option>
-    <option value="Contact">Contact for price</option>
-  </select>
-
-  <select
-    value={stockFilter}
-    onChange={(e) => setStockFilter(e.target.value)}
-    className="products-select"
-  >
-    <option value="All">All stock</option>
-    <option value="In">In stock</option>
-    <option value="Out">Out of stock</option>
-  </select>
-</div>
-
-          {/* Product cards */}
-          <div className="products-list">
-            {loading && (
-              <div className="products-loading">Loading products…</div>
-            )}
-
-            {!loading && filteredProducts.length === 0 && (
-              <div className="products-empty">
-                No products listed yet.  
-                Be the first vendor to{" "}
-                <Link href="/products/new" className="product-link">
-                  list a product
-                </Link>
-                .
-              </div>
-            )}
-
-            {!loading &&
-              filteredProducts.map((p) => {
-                const images = [p.image1_url, p.image2_url, p.image3_url].filter(
-                  Boolean
-                ) as string[];
                 const priceLabel =
-                  p.price_type === "fixed" && p.price_value
+                  p.price_type === "contact"
+                    ? "Contact for price"
+                    : p.price_value && p.price_value.trim() !== ""
                     ? p.price_value
-                    : "Contact for price";
-                const stockLabel =
-                  p.in_stock === false
-                    ? "Out of stock"
-                    : p.stock_quantity && p.stock_quantity > 0
-                    ? `In stock • ${p.stock_quantity} pcs`
-                    : "In stock";
+                    : "Price on request";
 
                 return (
-                  <article key={p.id} className="product-card">
-                    <div className="product-header">
-                      <h3 className="product-name">{p.name}</h3>
-                      {p.category && (
-                        <span className="product-category">{p.category}</span>
-                      )}
+                  <Link
+                    key={p.id}
+                    href={`/products/${p.id}`}
+                    className="product-card"
+                  >
+                    <div className="product-card-img-wrap">
+                      <img src={img} alt={p.name} />
                     </div>
 
-                    {p.company_name && (
-                      <div className="product-company">{p.company_name}</div>
-                    )}
+                    <div className="product-card-body">
+                      <div className="product-card-title">{p.name}</div>
 
-                    {images.length > 0 && (
-                      <div
-                        style={{
-                          marginTop: 6,
-                          marginBottom: 4,
-                          display: "flex",
-                          gap: 6,
-                          overflow: "hidden",
-                        }}
-                      >
-                        {images.map((url, idx) => (
-                          <img
-                            key={idx}
-                            src={url}
-                            alt={`${p.name} image ${idx + 1}`}
-                            style={{
-                              width: "32%",
-                              borderRadius: 8,
-                              objectFit: "cover",
-                              maxHeight: 120,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
+                      {p.company_name && (
+                        <div className="product-card-company">
+                          {p.company_name}
+                        </div>
+                      )}
 
-                    {p.short_description && (
-                      <p className="product-short">{p.short_description}</p>
-                    )}
+                      {p.short_description && (
+                        <div className="product-card-desc">
+                          {p.short_description}
+                        </div>
+                      )}
 
-                    {p.specifications && (
-                      <p
-                        style={{
-                          margin: "2px 0 4px",
-                          fontSize: 12,
-                          color: "#9ca3af",
-                        }}
-                      >
-                        {p.specifications}
-                      </p>
-                    )}
-
-                    {p.keywords && (
-                      <div className="product-tags">
-                        {p.keywords.split(",").map((tag) => (
-                          <span key={tag.trim()} className="product-tag-chip">
-                            {tag.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="product-footer">
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 2,
-                        }}
-                      >
-                        <span className="product-price-model">
+                      <div className="product-card-footer">
+                        <span className="product-card-price">
                           {priceLabel}
                         </span>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            color:
-                              p.in_stock === false ? "#f97373" : "#a3e635",
-                          }}
-                        >
-                          {stockLabel}
-                        </span>
-                      </div>
-
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                          alignItems: "flex-end",
-                        }}
-                      >
-                        {p.datasheet_url && (
-                          <a
-                            href={p.datasheet_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="product-link"
-                          >
-                            View datasheet
-                          </a>
-                        )}
-                        {p.product_url && (
-                          <a
-                            href={p.product_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="product-link"
-                          >
-                            View product
-                          </a>
+                        {p.category && (
+                          <span className="product-card-category">
+                            {p.category}
+                          </span>
                         )}
                       </div>
                     </div>
-                  </article>
+                  </Link>
                 );
-              })}
+              })
+            )}
           </div>
         </section>
       </div>
+
+      <style jsx>{`
+        .product-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 24px;
+          margin-top: 30px;
+        }
+
+        @media (max-width: 1100px) {
+          .product-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+        }
+
+        @media (max-width: 700px) {
+          .product-grid {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+          }
+        }
+
+        .product-card {
+          background: rgba(15, 23, 42, 0.95);
+          border-radius: 14px;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          text-decoration: none;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          transition: transform 0.18s ease, box-shadow 0.18s ease,
+            border-color 0.18s ease;
+        }
+
+        .product-card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(125, 211, 252, 0.6);
+          box-shadow: 0 18px 40px rgba(15, 23, 42, 0.85);
+        }
+
+        .product-card-img-wrap {
+          width: 100%;
+          height: 180px;
+          background: #020617;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+
+        .product-card-img-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .product-card-body {
+          padding: 12px 14px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .product-card-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: #e5e7eb;
+        }
+
+        .product-card-company {
+          font-size: 13px;
+          color: #a5b4fc;
+        }
+
+        .product-card-desc {
+          margin-top: 4px;
+          font-size: 13px;
+          color: #9ca3af;
+          line-height: 1.4;
+          max-height: 3.6em;
+          overflow: hidden;
+        }
+
+        .product-card-footer {
+          margin-top: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .product-card-price {
+          font-size: 14px;
+          color: #7dd3fc;
+          font-weight: 500;
+        }
+
+        .product-card-category {
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.4);
+          color: #cbd5f5;
+          background: rgba(15, 23, 42, 0.9);
+          white-space: nowrap;
+        }
+      `}</style>
     </>
   );
 }
