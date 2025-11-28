@@ -1887,9 +1887,9 @@ footer a:hover {
   font-weight: 500;
 }
 .brand-logo-img {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
   display: block;
-  margin-right: 10px;
+  margin-right: 12px;
 }
