@@ -3,24 +3,54 @@ import { supabase } from "./supabaseClient";
 
 export function useSupabaseUser() {
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // On mount, check existing session
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ?? null);
-      setLoading(false);
-    });
+  // Fetch profile from Supabase table
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle();
 
-    // Listen to login/logout events
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    setProfile(data || null);
+  };
+
+  useEffect(() => {
+    // 1. On mount → load session user
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      const currentUser = data.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        await fetchProfile(currentUser.id);
+      }
+
+      setLoading(false);
+    };
+
+    init();
+
+    // 2. Listen to login/logout events
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        } else {
+          setProfile(null);
+        }
+      }
+    );
 
     return () => {
       listener.subscription.unsubscribe();
     };
   }, []);
 
-  return { user, loading };
+  return { user, profile, loading };
 }
