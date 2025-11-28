@@ -180,9 +180,13 @@ export default function JobsIndexPage() {
               </div>
             </div>
 
-            <a href="/jobs/new" className="section-link">
-  Post a job →
-</a>
+            <button
+              className="nav-cta"
+              style={{ cursor: "pointer" }}
+              onClick={() => router.push("/jobs/new")}
+            >
+              Post a job
+            </button>
           </div>
 
           <div className="products-layout">
