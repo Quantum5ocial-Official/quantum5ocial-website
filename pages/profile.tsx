@@ -206,53 +206,49 @@ export default function ProfileViewPage() {
                     </div>
                   </div>
 
-                  {/* Bio + key experience */}
+                  {/* Short bio */}
                   {profile?.short_bio && (
                     <p className="profile-bio">{profile.short_bio}</p>
                   )}
 
+                  {/* Experience inline */}
                   {profile?.key_experience && (
-  <div className="profile-summary-item">
-    <div className="profile-section-label">Experience</div>
-    <div className="profile-summary-text">{profile.key_experience}</div>
-  </div>
-)}
+                    <p className="profile-bio">
+                      <span className="profile-section-label-inline">
+                        Experience:
+                      </span>{" "}
+                      {profile.key_experience}
+                    </p>
+                  )}
 
-                  {/* Affiliation / education */}
-                  <div className="profile-summary-columns">
-                    {profile?.affiliation && (
-                      <div className="profile-summary-item">
-                        <div className="profile-summary-label">Affiliation</div>
-                        <div className="profile-summary-text">
-                          {profile.affiliation}
+                  {/* Two-column balanced layout */}
+                  <div className="profile-two-columns">
+                    {/* LEFT COLUMN */}
+                    <div className="profile-col">
+                      {/* Affiliation */}
+                      {profile?.affiliation && (
+                        <div className="profile-summary-item">
+                          <div className="profile-section-label">
+                            Affiliation
+                          </div>
+                          <div className="profile-summary-text">
+                            {profile.affiliation}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {profile?.highest_education && (
-                      <div className="profile-summary-item">
-                        <div className="profile-summary-label">
-                          Highest education
-                        </div>
-                        <div className="profile-summary-text">
-                          {profile.highest_education}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Focus areas & skills */}
-                  {(focusTags.length > 0 || skillTags.length > 0) && (
-                    <div
-                      className="profile-tags-block"
-                      style={{ marginTop: 10 }}
-                    >
+                      {/* Focus areas */}
                       {focusTags.length > 0 && (
-                        <div>
-                          <div className="profile-tags-label">Focus areas</div>
+                        <div className="profile-summary-item">
+                          <div className="profile-section-label">
+                            Focus areas
+                          </div>
                           <div className="profile-tags">
                             {focusTags.map((tag) => (
-                              <span key={tag} className="profile-tag-chip">
+                              <span
+                                key={tag}
+                                className="profile-tag-chip"
+                              >
                                 {tag}
                               </span>
                             ))}
@@ -260,12 +256,61 @@ export default function ProfileViewPage() {
                         </div>
                       )}
 
+                      {/* Links (always bottom-left) */}
+                      {links.length > 0 && (
+                        <div
+                          className="profile-summary-item"
+                          style={{ marginTop: 18 }}
+                        >
+                          <div className="profile-section-label">Links</div>
+                          <ul
+                            style={{
+                              paddingLeft: 16,
+                              fontSize: 13,
+                              marginTop: 4,
+                            }}
+                          >
+                            {links.map((l) => (
+                              <li key={l.label}>
+                                <a
+                                  href={l.value as string}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: "#7dd3fc" }}
+                                >
+                                  {l.label}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* RIGHT COLUMN */}
+                    <div className="profile-col">
+                      {/* Highest education */}
+                      {profile?.highest_education && (
+                        <div className="profile-summary-item">
+                          <div className="profile-section-label">
+                            Highest education
+                          </div>
+                          <div className="profile-summary-text">
+                            {profile.highest_education}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Skills */}
                       {skillTags.length > 0 && (
-                        <div>
-                          <div className="profile-tags-label">Skills</div>
+                        <div className="profile-summary-item">
+                          <div className="profile-section-label">Skills</div>
                           <div className="profile-tags">
                             {skillTags.map((tag) => (
-                              <span key={tag} className="profile-tag-chip">
+                              <span
+                                key={tag}
+                                className="profile-tag-chip"
+                              >
                                 {tag}
                               </span>
                             ))}
@@ -273,34 +318,7 @@ export default function ProfileViewPage() {
                         </div>
                       )}
                     </div>
-                  )}
-
-                  {/* Links */}
-                  {links.length > 0 && (
-                    <div style={{ marginTop: 14 }}>
-                      <div className="profile-tags-label">Links</div>
-                      <ul
-                        style={{
-                          marginTop: 4,
-                          paddingLeft: 16,
-                          fontSize: 13,
-                        }}
-                      >
-                        {links.map((l) => (
-                          <li key={l.label}>
-                            <a
-                              href={l.value as string}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{ color: "#7dd3fc" }}
-                            >
-                              {l.label}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  </div>
                 </>
               )}
             </div>
