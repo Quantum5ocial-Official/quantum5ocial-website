@@ -350,10 +350,10 @@ export default function JobsPage() {
                             {job.title || "Untitled role"}
                           </div>
                           {job.employment_type && (
-                            <div className="card-pill">
-                              {job.employment_type}
-                            </div>
-                          )}
+  <span className="card-pill job-type-pill">
+    {job.employment_type}
+  </span>
+)}
                         </div>
 
                         {metaParts.length > 0 && (
