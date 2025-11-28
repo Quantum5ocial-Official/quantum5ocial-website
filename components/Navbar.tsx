@@ -56,7 +56,7 @@ export default function Navbar() {
           <img
             src="/Q5_black_bg2.png"
             alt="Quantum5ocial logo"
-            className="brand-logo-img"
+            className="brand-logo"
           />
           <div>
             <div className="brand-text-main">Quantum5ocial</div>
