@@ -1,10 +1,10 @@
 // pages/jobs/index.tsx
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import JobCard from "../../components/JobCard";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
@@ -23,7 +23,18 @@ type Job = {
   owner_id: string | null;
 };
 
-const EMPLOYMENT_FILTERS = ["All", "Full-time", "Part-time", "Internship", "PhD", "Postdoc", "Contract", "Fellowship", "Other"];
+const EMPLOYMENT_FILTERS = [
+  "All",
+  "Full-time",
+  "Part-time",
+  "Internship",
+  "PhD",
+  "Postdoc",
+  "Contract",
+  "Fellowship",
+  "Other",
+];
+
 const REMOTE_FILTERS = ["All", "On-site", "Hybrid", "Remote"];
 
 export default function JobsIndexPage() {
@@ -165,7 +176,8 @@ export default function JobsIndexPage() {
             <div>
               <div className="section-title">Quantum Jobs Universe</div>
               <div className="section-sub">
-                Browse internships, MSc/PhD positions, postdocs, and industry roles across labs and companies.
+                Browse internships, MSc/PhD positions, postdocs, and industry
+                roles across labs and companies.
               </div>
             </div>
 
@@ -243,7 +255,9 @@ export default function JobsIndexPage() {
                     ? "Loading jobs…"
                     : error
                     ? error
-                    : `${filteredJobs.length} job${filteredJobs.length === 1 ? "" : "s"}`}
+                    : `${filteredJobs.length} job${
+                        filteredJobs.length === 1 ? "" : "s"
+                      }`}
                 </div>
               </div>
 
@@ -253,69 +267,17 @@ export default function JobsIndexPage() {
                 </p>
               )}
 
-              <div className="products-grid">
+              <div className="jobs-grid">
                 {filteredJobs.map((job) => (
-                  <div key={job.id} className="product-card">
-                    {/* heart button */}
-                    <button
-                      className="product-save-btn"
-                      type="button"
-                      disabled={savingId === job.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        handleToggleSave(job.id);
-                      }}
-                    >
-                      {isSaved(job.id) ? "❤" : "♡"}
-                    </button>
-
-                    {/* clickable content */}
-                    <Link href={`/jobs/${job.id}`} className="product-card-body">
-                      <div className="product-card-title">{job.title}</div>
-
-                      <div className="product-card-company">
-                        {[job.company_name, job.location, job.remote_type]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-
-                      {job.short_description && (
-                        <div className="products-card-description" style={{ marginTop: 6 }}>
-                          {job.short_description}
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginTop: 8,
-                          fontSize: 11,
-                          color: "#9ca3af",
-                        }}
-                      >
-                        {job.employment_type && (
-                          <span
-                            style={{
-                              padding: "3px 9px",
-                              borderRadius: 999,
-                              border: "1px solid rgba(148,163,184,0.5)",
-                            }}
-                          >
-                            {job.employment_type}
-                          </span>
-                        )}
-
-                        {job.salary_display && (
-                          <span style={{ color: "#7dd3fc", fontWeight: 500 }}>
-                            {job.salary_display}
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  </div>
+                  <JobCard
+                    key={job.id}
+                    job={job}
+                    isSaved={isSaved(job.id)}
+                    onToggleSave={() => {
+                      if (savingId) return; // simple guard
+                      handleToggleSave(job.id);
+                    }}
+                  />
                 ))}
               </div>
             </div>
