@@ -30,6 +30,16 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [view, setView] = useState<"jobs" | "products">("jobs");
+    // sync "view" with ?view= query (jobs / products)
+  useEffect(() => {
+    if (!router.isReady) return;
+    const q = router.query.view;
+    if (q === "products") {
+      setView("products");
+    } else if (q === "jobs") {
+      setView("jobs");
+    }
+  }, [router.isReady, router.query.view]);
 
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([]);
