@@ -182,7 +182,7 @@ export default function ProductDetailPage() {
                     type="button"
                     className="nav-ghost-btn"
                     style={{ cursor: "pointer" }}
-                    onClick={() => router.push("/products/new")}
+                    onClick={() => router.push(`/products/new?id=${product.id}`)}
                   >
                     Edit product
                   </button>
