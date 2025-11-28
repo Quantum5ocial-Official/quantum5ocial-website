@@ -1793,3 +1793,96 @@ footer a:hover {
   top: 10px;
   right: 12px;
 }
+.job-card {
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,0.25);
+  background: rgba(15,23,42,0.85);
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* TOP ROW → Title + Badge + Heart */
+.job-card-top {
+  display: flex;
+  justify-content: center;        /* badge in middle */
+  position: relative;             /* for heart positioning */
+  margin-bottom: 4px;
+}
+
+/* Heart icon top-right */
+.job-save-btn {
+  position: absolute;
+  right: 0;
+  top: -2px;
+  font-size: 20px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+
+/* Heart style */
+.job-heart {
+  color: rgba(255,255,255,0.6);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.job-heart:hover {
+  transform: scale(1.12);
+  color: #ffffff;
+}
+.job-heart.saved {
+  color: #f87171 !important;   /* red heart when saved */
+}
+
+/* Job Title */
+.job-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e5e7eb;
+  text-decoration: none;
+  text-align: left;
+  width: 100%;
+}
+
+/* Employment badge (Full-time, etc.) */
+.job-badge {
+  position: absolute;
+  top: -4px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(56,189,248,0.12);
+  border: 1px solid rgba(56,189,248,0.6);
+  color: #a5f3fc;
+}
+
+/* Middle job info (company, location) */
+.job-card-meta {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* Keyword chips */
+.job-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(148,163,184,0.25);
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+/* Bottom row → Salary on right */
+.job-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+.job-salary {
+  font-size: 13px;
+  color: #7dd3fc;
+  font-weight: 500;
+}
