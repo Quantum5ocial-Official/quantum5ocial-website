@@ -139,17 +139,21 @@ body {
 }
 
 .brand-text-main {
-  font-size: 22px;
+  font-size: 22px;       /* bigger */
   font-weight: 600;
   line-height: 1.2;
+  color: inherit;        /* keep original color */
+  text-decoration: none; /* remove underline */
 }
 
 .brand-text-sub {
-  font-size: 12px;
+  font-size: 12px;       
   opacity: 0.7;
   letter-spacing: 1px;
   text-transform: uppercase;
   margin-top: 2px;
+  color: inherit;        /* keep original color */
+  text-decoration: none; /* remove underline */
 }
 
 .nav-links {
