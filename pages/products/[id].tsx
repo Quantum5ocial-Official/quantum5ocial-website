@@ -8,16 +8,14 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
-// NOTE: we allow both created_by and user_id so it works with either schema
 type Product = {
   id: string;
-  created_by?: string | null;
-  user_id?: string | null;
+  owner_id: string | null;
   company_name: string | null;
   product_name: string;
   description: string | null;
   specifications: string | null;
-  keywords: string[] | string | null;
+  keywords: string | string[] | null;
   price: number | null;
   contact_for_price: boolean;
   stock_quantity: number | null;
@@ -39,6 +37,7 @@ export default function ProductDetail() {
   // Load the product
   useEffect(() => {
     if (!id) return;
+
     const loadProduct = async () => {
       setLoading(true);
       setErrorMsg(null);
@@ -46,7 +45,7 @@ export default function ProductDetail() {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .eq("id", id)
+        .eq("id", id as string)
         .maybeSingle();
 
       if (error) {
@@ -63,10 +62,8 @@ export default function ProductDetail() {
     loadProduct();
   }, [id]);
 
-  // Figure out who owns the product (created_by OR user_id)
-  const ownerId =
-    (product?.created_by ?? product?.user_id) ?? null;
-
+  // Who owns this product?
+  const ownerId = product?.owner_id ?? null;
   const isOwner =
     !!user && !!ownerId && !userLoading && user.id === ownerId;
 
@@ -88,7 +85,7 @@ export default function ProductDetail() {
       .eq("id", product.id);
 
     if (error) {
-      console.error("Error deleting product:", error);
+      console.error("Error deleting product", error);
       setErrorMsg("Could not delete product. Please try again.");
       setDeleting(false);
       return;
@@ -284,9 +281,7 @@ export default function ProductDetail() {
             <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
               <div>Debug:</div>
               <div>current user id: {user?.id || "none"}</div>
-              <div>product.created_by: {product.created_by || "null"}</div>
-              <div>product.user_id: {product.user_id || "null"}</div>
-              <div>ownerId resolved: {ownerId || "null"}</div>
+              <div>product.owner_id: {product.owner_id || "null"}</div>
               <div>isOwner: {String(isOwner)}</div>
             </div>
           )}
