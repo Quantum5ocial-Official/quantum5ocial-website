@@ -2056,14 +2056,14 @@ footer a:hover {
 .nav-links .nav-link,
 .nav-links .nav-link-button,
 .nav-cta {
-  font-size: 1rem !important;         /* was ~0.87rem */
+  font-size: 1.25rem !important;         /* was ~0.87rem */
   padding-bottom: 4px !important;     /* slightly more breathing room */
 }
 
 /* Username dropdown button */
 .nav-username,
 .nav-links button.nav-link-button {
-  font-size: 1rem !important;
+  font-size: 1.25rem !important;
 }
 
 /* Increase spacing between navbar items */
