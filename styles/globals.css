@@ -139,18 +139,17 @@ body {
 }
 
 .brand-text-main {
-  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.03em;
-  font-size: 1.05rem;
-  color: #c7dfff;
+  line-height: 1.2;
 }
 
 .brand-text-sub {
-  font-size: 0.72rem;
+  font-size: 12px;
+  opacity: 0.7;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(200, 220, 255, 0.55);
+  margin-top: 2px;
 }
 
 .nav-links {
