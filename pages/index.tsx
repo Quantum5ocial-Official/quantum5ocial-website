@@ -1,9 +1,101 @@
+// pages/index.tsx
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { supabase } from "../lib/supabaseClient";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
+type Job = {
+  id: string;
+  title: string | null;
+  company_name: string | null;
+  location: string | null;
+  employment_type: string | null;
+  remote_type: string | null;
+  short_description: string | null;
+};
+
+type Product = {
+  id: string;
+  name: string;
+  company_name: string | null;
+  category: string | null;
+  short_description: string | null;
+  price_type: "fixed" | "contact" | null;
+  price_value: string | null;
+  in_stock: boolean | null;
+};
+
 export default function Home() {
+  const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    const loadJobs = async () => {
+      setLoadingJobs(true);
+      const { data, error } = await supabase
+        .from("jobs")
+        .select(
+          "id, title, company_name, location, employment_type, remote_type, short_description"
+        )
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (!error && data) {
+        setFeaturedJobs(data as Job[]);
+      } else {
+        setFeaturedJobs([]);
+      }
+      setLoadingJobs(false);
+    };
+
+    const loadProducts = async () => {
+      setLoadingProducts(true);
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, company_name, category, short_description, price_type, price_value, in_stock"
+        )
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (!error && data) {
+        setFeaturedProducts(data as Product[]);
+      } else {
+        setFeaturedProducts([]);
+      }
+      setLoadingProducts(false);
+    };
+
+    loadJobs();
+    loadProducts();
+  }, []);
+
+  const formatJobMeta = (job: Job) =>
+    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
+
+  const formatPrice = (p: Product) => {
+    if (p.price_type === "fixed" && p.price_value) return p.price_value;
+    if (p.price_type === "contact") return "Contact for price";
+    return "";
+  };
+
+  const formatProductMeta = (p: Product) =>
+    [p.company_name ? `Vendor: ${p.company_name}` : null].filter(Boolean).join(" · ");
+
+  const formatProductTags = (p: Product) => {
+    const tags: string[] = [];
+    if (p.category) tags.push(p.category);
+    const price = formatPrice(p);
+    if (price) tags.push(price);
+    if (p.in_stock === true) tags.push("In stock");
+    if (p.in_stock === false) tags.push("Out of stock");
+    return tags.slice(0, 3);
+  };
+
   return (
     <>
       <div className="bg-layer" />
@@ -92,7 +184,7 @@ export default function Home() {
             <div>
               <div className="section-title">Featured quantum roles</div>
               <div className="section-sub">
-                A preview of the opportunities the community will share.
+                The latest roles from the Quantum Jobs Universe.
               </div>
             </div>
             <a href="/jobs" className="section-link">
@@ -100,59 +192,41 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="card-row">
-            <div className="card">
-              <div className="card-inner">
-                <div className="card-top-row">
-                  <div className="card-title">PhD in superconducting qubits</div>
-                  <div className="card-pill">Academic</div>
-                </div>
-                <div className="card-meta">Quantum Lab · Zurich · On-site</div>
-                <div className="card-tags">
-                  <span className="card-tag">Superconducting</span>
-                  <span className="card-tag">cQED</span>
-                  <span className="card-tag">Low temperature</span>
-                </div>
-                <div className="card-footer-text">Application deadline: TBA</div>
-              </div>
+          {loadingJobs ? (
+            <div className="products-status">Loading jobs…</div>
+          ) : featuredJobs.length === 0 ? (
+            <div className="products-empty">No jobs posted yet.</div>
+          ) : (
+            <div className="card-row">
+              {featuredJobs.map((job) => (
+                <Link key={job.id} href={`/jobs/${job.id}`} className="card">
+                  <div className="card-inner">
+                    <div className="card-top-row">
+                      <div className="card-title">{job.title || "Untitled role"}</div>
+                      <div className="card-pill">
+                        {job.employment_type || "Job"}
+                      </div>
+                    </div>
+                    <div className="card-meta">
+                      {formatJobMeta(job) || "Quantum role"}
+                    </div>
+                    {job.short_description && (
+                      <div className="card-tags">
+                        <span className="card-tag">
+                          {job.short_description.length > 60
+                            ? job.short_description.slice(0, 57) + "..."
+                            : job.short_description}
+                        </span>
+                      </div>
+                    )}
+                    <div className="card-footer-text">
+                      Open to see full details on the jobs page.
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
-
-            <div className="card">
-              <div className="card-inner">
-                <div className="card-top-row">
-                  <div className="card-title">Quantum software engineer</div>
-                  <div className="card-pill">Industry</div>
-                </div>
-                <div className="card-meta">Quantum Startup · Remote-friendly</div>
-                <div className="card-tags">
-                  <span className="card-tag">Quantum SDK</span>
-                  <span className="card-tag">Python</span>
-                  <span className="card-tag">Algorithms</span>
-                </div>
-                <div className="card-footer-text">
-                  Hiring soon via Quantum5ocial.
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-inner">
-                <div className="card-top-row">
-                  <div className="card-title">Cryogenic RF engineer</div>
-                  <div className="card-pill">Industry</div>
-                </div>
-                <div className="card-meta">Hardware Company · Hybrid</div>
-                <div className="card-tags">
-                  <span className="card-tag">Cryo</span>
-                  <span className="card-tag">RF</span>
-                  <span className="card-tag">Control electronics</span>
-                </div>
-                <div className="card-footer-text">
-                  Join to see full job details soon.
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* FEATURED PRODUCTS */}
@@ -163,7 +237,7 @@ export default function Home() {
                 Highlighted quantum tools &amp; products
               </div>
               <div className="section-sub">
-                Vendors and startups showcasing their hero products.
+                The newest entries from the Quantum Products Lab.
               </div>
             </div>
             <a href="/products" className="section-link">
@@ -171,61 +245,39 @@ export default function Home() {
             </a>
           </div>
 
-          <div className="card-row">
-            <div className="card">
-              <div className="card-inner">
-                <div className="card-top-row">
-                  <div className="card-title">High-impedance resonator chip</div>
-                  <div className="card-pill">Hardware</div>
-                </div>
-                <div className="card-meta">Vendor: Quantum Devices Inc.</div>
-                <div className="card-tags">
-                  <span className="card-tag">Superconducting</span>
-                  <span className="card-tag">cQED</span>
-                  <span className="card-tag">Foundry-ready</span>
-                </div>
-                <div className="card-footer-text">
-                  Datasheet &amp; quotes coming to the platform.
-                </div>
-              </div>
+          {loadingProducts ? (
+            <div className="products-status">Loading products…</div>
+          ) : featuredProducts.length === 0 ? (
+            <div className="products-empty">No products listed yet.</div>
+          ) : (
+            <div className="card-row">
+              {featuredProducts.map((p) => (
+                <Link key={p.id} href={`/products/${p.id}`} className="card">
+                  <div className="card-inner">
+                    <div className="card-top-row">
+                      <div className="card-title">{p.name}</div>
+                      <div className="card-pill">{p.category || "Product"}</div>
+                    </div>
+                    <div className="card-meta">
+                      {formatProductMeta(p) || "Quantum product"}
+                    </div>
+                    {p.short_description && (
+                      <div className="card-tags">
+                        {formatProductTags(p).map((tag) => (
+                          <span key={tag} className="card-tag">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="card-footer-text">
+                      Click to see full details in the Quantum Products Lab.
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
-
-            <div className="card">
-              <div className="card-inner">
-                <div className="card-top-row">
-                  <div className="card-title">Cryogenic control stack</div>
-                  <div className="card-pill">Electronics</div>
-                </div>
-                <div className="card-meta">Vendor: Quantum Control Co.</div>
-                <div className="card-tags">
-                  <span className="card-tag">DAC/ADC</span>
-                  <span className="card-tag">Scalable</span>
-                  <span className="card-tag">Integration</span>
-                </div>
-                <div className="card-footer-text">
-                  Discover compatible stacks for your platform.
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <div className="card-inner">
-                <div className="card-top-row">
-                  <div className="card-title">Cloud simulation platform</div>
-                  <div className="card-pill">Software</div>
-                </div>
-                <div className="card-meta">Vendor: Quantum Sim Labs</div>
-                <div className="card-tags">
-                  <span className="card-tag">Simulation</span>
-                  <span className="card-tag">API</span>
-                  <span className="card-tag">Education</span>
-                </div>
-                <div className="card-footer-text">
-                  Linking users directly to quantum software providers.
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
         </section>
 
         {/* GAMIFICATION */}
