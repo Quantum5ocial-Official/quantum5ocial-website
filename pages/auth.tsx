@@ -146,34 +146,73 @@ export default function AuthPage() {
         }}
       >
         {/* BRAND HEADER */}
-<div style={{ textAlign: "center", marginBottom: 22 }}>
-  <img
-    src="/brand-logo.svg"
-    alt="Quantum5ocial Logo"
-    style={{
-      width: 80,
-      height: 80,
-      margin: "0 auto 8px",
-    }}
-  />
-
+<div style={{ textAlign: "center", marginBottom: 28 }}>
+  {/* Logo with glow */}
   <div
     style={{
-      fontSize: 24,
+      position: "relative",
+      width: 90,
+      height: 90,
+      margin: "0 auto 12px",
+    }}
+  >
+    <div
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        width: 120,
+        height: 120,
+        transform: "translate(-50%, -50%)",
+        borderRadius: "50%",
+        background:
+          "radial-gradient(circle, rgba(34,211,238,0.28), rgba(168,85,247,0.18), transparent 70%)",
+        filter: "blur(18px)",
+        animation: "pulseGlow 3s ease-in-out infinite",
+      }}
+    ></div>
+
+    <img
+      src="/brand-logo.svg"
+      alt="Quantum5ocial Logo"
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        zIndex: 2,
+      }}
+    />
+  </div>
+
+  {/* Brand name */}
+  <div
+    style={{
+      fontSize: 28,
       fontWeight: 700,
       background: "linear-gradient(90deg, #22d3ee, #a855f7)",
       WebkitBackgroundClip: "text",
       WebkitTextFillColor: "transparent",
       marginBottom: 6,
+      letterSpacing: "0.3px",
     }}
   >
     Quantum5ocial
   </div>
 
-  <div style={{ fontSize: 13, color: "#9ca3af" }}>
+  {/* Subtitle */}
+  <div style={{ fontSize: 14, color: "#9ca3af" }}>
     Sign in to join the quantum ecosystem.
   </div>
 </div>
+
+{/* Glow animation */}
+<style jsx>{`
+  @keyframes pulseGlow {
+    0% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  }
+`}</style>
 
         {/* Social login buttons */}
         <div
