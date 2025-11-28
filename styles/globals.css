@@ -2051,3 +2051,22 @@ footer a:hover {
   margin-top: 40px !important;       /* space ABOVE */
   margin-bottom: 24px !important;    /* space BELOW */
 }
+
+/* Make navbar links bigger + cleaner */
+.nav-links .nav-link,
+.nav-links .nav-link-button,
+.nav-cta {
+  font-size: 1rem !important;         /* was ~0.87rem */
+  padding-bottom: 4px !important;     /* slightly more breathing room */
+}
+
+/* Username dropdown button */
+.nav-username,
+.nav-links button.nav-link-button {
+  font-size: 1rem !important;
+}
+
+/* Increase spacing between navbar items */
+.nav-links {
+  gap: 24px !important;               /* was 18px */
+}
