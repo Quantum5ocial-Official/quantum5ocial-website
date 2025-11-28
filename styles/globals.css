@@ -1750,3 +1750,12 @@ footer a:hover {
     grid-template-columns: 1fr !important;
   }
 }
+/* Right-align text inside username dropdown */
+.nav-dashboard-menu.right-align {
+  text-align: right;
+}
+
+.nav-dashboard-menu.right-align .nav-dropdown-item {
+  text-align: right;
+  justify-content: flex-end;
+}
