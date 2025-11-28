@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export type Job = {
   id: string;
-  title: string;
+  title: string | null;
   company_name: string | null;
   location: string | null;
   employment_type: string | null;
@@ -26,6 +26,8 @@ const JobCard: React.FC<JobCardProps> = ({ job, isSaved, onToggleSave }) => {
       .map((k) => k.trim())
       .filter(Boolean) || [];
 
+  const title = job.title || "Untitled role";
+
   return (
     <div className="job-card">
       {/* Top row: badge centered + heart top-right */}
@@ -39,7 +41,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isSaved, onToggleSave }) => {
           className="job-save-btn"
           onClick={(e) => {
             e.preventDefault();
-            e.stopPropagation(); // so it doesn't trigger the link
+            e.stopPropagation();
             onToggleSave();
           }}
           aria-label={isSaved ? "Unsave job" : "Save job"}
@@ -52,7 +54,7 @@ const JobCard: React.FC<JobCardProps> = ({ job, isSaved, onToggleSave }) => {
 
       {/* Title links to job detail */}
       <Link href={`/jobs/${job.id}`} className="job-card-title">
-        {job.title}
+        {title}
       </Link>
 
       {/* Company / location / remote */}
@@ -71,7 +73,14 @@ const JobCard: React.FC<JobCardProps> = ({ job, isSaved, onToggleSave }) => {
 
       {/* Keywords */}
       {keywordTags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            marginTop: 6,
+          }}
+        >
           {keywordTags.slice(0, 4).map((tag) => (
             <span key={tag} className="job-chip">
               {tag}
