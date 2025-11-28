@@ -1207,3 +1207,37 @@ footer a:hover {
   margin-bottom: 4px;
   font-weight: 500;
 }
+.profile-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.profile-col {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* inline label for Experience */
+.profile-section-label-inline {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.85);
+  margin-right: 6px;
+  font-weight: 500;
+}
+
+/* shared label style */
+.profile-section-label,
+.profile-summary-label,
+.profile-tags-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.85);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
