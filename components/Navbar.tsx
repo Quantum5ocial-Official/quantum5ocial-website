@@ -52,7 +52,12 @@ export default function Navbar() {
       {/* Brand – clickable to home */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
-          <div className="logo-orbit" />
+          {/* Replace old circle with actual logo */}
+          <img
+            src="/Q5_black_bg2.png"
+            alt="Quantum5ocial logo"
+            className="brand-logo-img"
+          />
           <div>
             <div className="brand-text-main">Quantum5ocial</div>
             <div className="brand-text-sub">Socializing the quantum world</div>
@@ -127,16 +132,16 @@ export default function Navbar() {
             </button>
 
             {isUserMenuOpen && (
-  <div className="nav-dashboard-menu right-align">
-    <button
-      type="button"
-      className="nav-dropdown-item nav-dropdown-danger"
-      onClick={handleLogout}
-    >
-      Logout
-    </button>
-  </div>
-)}
+              <div className="nav-dashboard-menu right-align">
+                <button
+                  type="button"
+                  className="nav-dropdown-item nav-dropdown-danger"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         )}
       </nav>
