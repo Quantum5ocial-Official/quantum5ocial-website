@@ -258,11 +258,6 @@ body {
   color: #fecaca;
 }
 
-.nav-dropdown-danger:hover {
-  background: rgba(220, 38, 38, 0.12);
-  color: #fecaca;
-}
-
 @media (max-width: 720px) {
   .nav {
     flex-direction: column;
