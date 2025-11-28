@@ -1,3 +1,4 @@
+// lib/useSupabaseUser.ts
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 
@@ -6,41 +7,47 @@ export function useSupabaseUser() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch profile from Supabase table
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", userId)
-      .maybeSingle();
-
-    setProfile(data || null);
-  };
-
+  // Load auth session + profile
   useEffect(() => {
-    // 1. On mount → load session user
-    const init = async () => {
-      const { data } = await supabase.auth.getUser();
-      const currentUser = data.user ?? null;
-      setUser(currentUser);
+    async function loadSession() {
+      // 1. Get logged–in user
+      const { data: authData } = await supabase.auth.getUser();
+      const authUser = authData.user ?? null;
 
-      if (currentUser) {
-        await fetchProfile(currentUser.id);
+      setUser(authUser);
+
+      // 2. If user exists → load profile row from DB
+      if (authUser) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", authUser.id)
+          .single();
+
+        setProfile(profileData || null);
+      } else {
+        setProfile(null);
       }
 
       setLoading(false);
-    };
+    }
 
-    init();
+    loadSession();
 
-    // 2. Listen to login/logout events
+    // 3. Listen for login/logout events
     const { data: listener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
+        const authUser = session?.user ?? null;
+        setUser(authUser);
 
-        if (currentUser) {
-          await fetchProfile(currentUser.id);
+        if (authUser) {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", authUser.id)
+            .single();
+
+          setProfile(profileData || null);
         } else {
           setProfile(null);
         }
