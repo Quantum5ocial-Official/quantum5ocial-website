@@ -4,7 +4,8 @@ import { supabase } from "../lib/supabaseClient";
 
 export default function AuthPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "signup">("signup");
+  // 🔹 Default to LOGIN instead of signup
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -13,17 +14,16 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
 
   // After OAuth redirect → user lands back on /auth
-  // Check if user is already logged in; if yes, upsert profile and go to /dashboard
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (user) {
-        // upsert profile
         await supabase.from("profiles").upsert({
           id: user.id,
           full_name:
-            (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) ||
+            (user.user_metadata &&
+              (user.user_metadata.full_name || user.user_metadata.name)) ||
             user.email ||
             "",
         });
@@ -53,7 +53,6 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // Email/password sign up
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -76,7 +75,6 @@ export default function AuthPage() {
         setMessage("Sign up successful. You are now logged in.");
         router.push("/dashboard");
       } else {
-        // Email/password login
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -231,7 +229,7 @@ export default function AuthPage() {
           <div style={{ flex: 1, height: 1, background: "#1f2937" }} />
         </div>
 
-        {/* Toggle signup/login */}
+        {/* Toggle login / signup – login first now */}
         <div
           style={{
             display: "flex",
@@ -240,21 +238,6 @@ export default function AuthPage() {
             fontSize: 13,
           }}
         >
-          <button
-            type="button"
-            onClick={() => setMode("signup")}
-            style={{
-              flex: 1,
-              padding: "6px 0",
-              borderRadius: 999,
-              border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
-              background: mode === "signup" ? "#0f172a" : "transparent",
-              color: "#e5e7eb",
-              cursor: "pointer",
-            }}
-          >
-            Sign up
-          </button>
           <button
             type="button"
             onClick={() => setMode("login")}
@@ -269,6 +252,21 @@ export default function AuthPage() {
             }}
           >
             Log in
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("signup")}
+            style={{
+              flex: 1,
+              padding: "6px 0",
+              borderRadius: 999,
+              border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
+              background: mode === "signup" ? "#0f172a" : "transparent",
+              color: "#e5e7eb",
+              cursor: "pointer",
+            }}
+          >
+            Sign up
           </button>
         </div>
 
@@ -399,8 +397,8 @@ export default function AuthPage() {
             textAlign: "center",
           }}
         >
-          After login, you&apos;ll be redirected to your dashboard to choose how you want to
-          use Quantum5ocial.
+          After login, you&apos;ll be redirected to your dashboard to choose how you want
+          to use Quantum5ocial.
         </div>
       </div>
     </div>
