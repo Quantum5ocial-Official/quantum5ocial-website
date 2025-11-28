@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 export default function Navbar() {
-  const { user, loading } = useSupabaseUser();
+  const { user, profile, loading } = useSupabaseUser();
   const router = useRouter();
 
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
@@ -41,7 +41,9 @@ export default function Navbar() {
     router.push("/");
   };
 
+  // Prefer profile.full_name, then fall back to auth metadata/email
   const displayName =
+    (profile as any)?.full_name ||
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
     (user as any)?.email?.split("@")[0] ||
@@ -52,14 +54,19 @@ export default function Navbar() {
       {/* Brand – clickable to home */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
+          {/* Logo image */}
           <img
             src="/Q5_black_bg2.png"
             alt="Quantum5ocial logo"
-            className="brand-logo"
+            className="brand-logo-img"
           />
           <div>
-            <div className="brand-text-main">Quantum5ocial</div>
-            <div className="brand-text-sub">Socializing the quantum world</div>
+            <div className="brand-text-main brand-text-gradient">
+              Quantum5ocial
+            </div>
+            <div className="brand-text-sub">
+              Socializing the quantum world
+            </div>
           </div>
         </div>
       </Link>
@@ -119,7 +126,7 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Username dropdown – My profile + Logout */}
+        {/* Username dropdown – Profile + Logout */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
@@ -139,7 +146,6 @@ export default function Navbar() {
                 >
                   My profile
                 </Link>
-
                 <button
                   type="button"
                   className="nav-dropdown-item nav-dropdown-danger"
