@@ -11,20 +11,25 @@ const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 type Product = {
   id: string;
   owner_id: string | null;
+  name: string;
   company_name: string | null;
-  product_name: string;
-  description: string | null;
+  category: string | null;
+  short_description: string | null;
   specifications: string | null;
-  keywords: string | string[] | null;
-  price: number | null;
-  contact_for_price: boolean;
+  product_url: string | null;
+  keywords: string | null;
+  price_type: "fixed" | "contact";
+  price_value: string | null;
+  in_stock: boolean | null;
   stock_quantity: number | null;
+  image1_url: string | null;
+  image2_url: string | null;
+  image3_url: string | null;
   datasheet_url: string | null;
-  images: string[] | null;
   created_at: string;
 };
 
-export default function ProductDetail() {
+export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query;
 
@@ -34,11 +39,11 @@ export default function ProductDetail() {
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Load the product
+  // Load product
   useEffect(() => {
     if (!id) return;
 
-    const loadProduct = async () => {
+    const load = async () => {
       setLoading(true);
       setErrorMsg(null);
 
@@ -49,7 +54,7 @@ export default function ProductDetail() {
         .maybeSingle();
 
       if (error) {
-        console.error("Error loading product:", error);
+        console.error("Error loading product", error);
         setErrorMsg("Could not load product.");
         setProduct(null);
       } else {
@@ -59,17 +64,14 @@ export default function ProductDetail() {
       setLoading(false);
     };
 
-    loadProduct();
+    load();
   }, [id]);
 
-  // Who owns this product?
   const ownerId = product?.owner_id ?? null;
-  const isOwner =
-    !!user && !!ownerId && !userLoading && user.id === ownerId;
+  const isOwner = !!user && !!ownerId && !userLoading && user.id === ownerId;
 
   const handleDelete = async () => {
-    if (!product) return;
-    if (!isOwner) return;
+    if (!product || !isOwner) return;
 
     const confirmed = window.confirm(
       "Are you sure you want to delete this product? This cannot be undone."
@@ -124,35 +126,46 @@ export default function ProductDetail() {
     );
   }
 
-  const priceDisplay =
-    product.contact_for_price || product.price == null
+  const priceLabel =
+    product.price_type === "contact"
       ? "Contact for price"
-      : `${product.price.toLocaleString()} €`;
+      : product.price_value && product.price_value.trim() !== ""
+      ? product.price_value
+      : "Price on request";
 
-  // Normalise keywords: could be text[] or comma-separated string
-  const keywordList: string[] =
-    typeof product.keywords === "string"
-      ? product.keywords
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean)
-      : product.keywords || [];
+  const stockLabel =
+    product.in_stock === false
+      ? "Out of stock"
+      : product.stock_quantity != null
+      ? `In stock · ${product.stock_quantity} pcs`
+      : product.in_stock
+      ? "In stock"
+      : "Stock not specified";
 
-  const imageList = product.images || [];
+  const keywordList =
+    product.keywords
+      ?.split(",")
+      .map((k) => k.trim())
+      .filter(Boolean) ?? [];
+
+  const images = [product.image1_url, product.image2_url, product.image3_url].filter(
+    Boolean
+  ) as string[];
 
   return (
     <>
       <div className="bg-layer" />
+      <Navbar />
       <div className="page">
-        <Navbar />
-
         <section className="section">
           {/* Header with actions */}
           <div className="section-header" style={{ marginBottom: 20 }}>
             <div>
-              <div className="section-title">{product.product_name}</div>
+              <div className="section-title">{product.name}</div>
               <div className="section-sub">
-                Listed by {product.company_name || "Unknown vendor"}
+                {product.company_name
+                  ? `Listed by ${product.company_name}`
+                  : "Vendor not specified"}
               </div>
             </div>
 
@@ -183,13 +196,13 @@ export default function ProductDetail() {
           </div>
 
           <div className="product-detail-card">
-            {/* Top: images + main info */}
+            {/* Top layout: images + main info */}
             <div className="product-detail-top">
               <div className="product-detail-images">
-                {imageList.length > 0 ? (
-                  imageList.map((url) => (
+                {images.length > 0 ? (
+                  images.map((url) => (
                     <div key={url} className="product-detail-image-box">
-                      <img src={url} alt={product.product_name} />
+                      <img src={url} alt={product.name} />
                     </div>
                   ))
                 ) : (
@@ -200,31 +213,55 @@ export default function ProductDetail() {
               </div>
 
               <div className="product-detail-main">
-                <h1 className="product-detail-title">
-                  {product.product_name}
-                </h1>
+                <h1 className="product-detail-title">{product.name}</h1>
 
-                {product.company_name && (
-                  <div className="product-detail-company">
-                    {product.company_name}
+                {product.category && (
+                  <div className="product-detail-category">
+                    {product.category}
                   </div>
                 )}
 
-                <div className="product-detail-price">{priceDisplay}</div>
+                {product.short_description && (
+                  <p className="product-detail-short">
+                    {product.short_description}
+                  </p>
+                )}
 
-                <div className="product-detail-stock">
-                  {product.stock_quantity != null
-                    ? `In stock · ${product.stock_quantity} pcs`
-                    : "Stock not specified"}
+                <div className="product-detail-meta">
+                  <div>
+                    <div className="profile-summary-label">Price</div>
+                    <div className="profile-summary-text">{priceLabel}</div>
+                  </div>
+
+                  <div>
+                    <div className="profile-summary-label">Stock</div>
+                    <div className="profile-summary-text">{stockLabel}</div>
+                  </div>
                 </div>
 
+                {product.product_url && (
+                  <div style={{ marginTop: 14 }}>
+                    <a
+                      href={product.product_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "#7dd3fc", fontSize: 14 }}
+                    >
+                      Visit product page ↗
+                    </a>
+                  </div>
+                )}
+
                 {keywordList.length > 0 && (
-                  <div className="profile-tags" style={{ marginTop: 12 }}>
-                    {keywordList.map((k) => (
-                      <span key={k} className="profile-tag-chip">
-                        {k}
-                      </span>
-                    ))}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="profile-tags-label">Keywords</div>
+                    <div className="profile-tags">
+                      {keywordList.map((k) => (
+                        <span key={k} className="profile-tag-chip">
+                          {k}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -243,7 +280,7 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            {/* Description / specs */}
+            {/* Bottom: description & specs */}
             <div className="product-detail-body">
               {product.description && (
                 <div className="product-detail-section">
@@ -277,6 +314,7 @@ export default function ProductDetail() {
             )}
           </div>
 
+          {/* Debug info in dev */}
           {process.env.NODE_ENV === "development" && (
             <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
               <div>Debug:</div>
@@ -287,6 +325,112 @@ export default function ProductDetail() {
           )}
         </section>
       </div>
+
+      <style jsx>{`
+        .product-detail-card {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 24px 22px 28px;
+          border-radius: 18px;
+          background: radial-gradient(
+              circle at top left,
+              rgba(56, 189, 248, 0.06),
+              transparent 55%
+            ),
+            rgba(15, 23, 42, 0.95);
+          border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .product-detail-top {
+          display: grid;
+          grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr);
+          gap: 26px;
+        }
+
+        @media (max-width: 900px) {
+          .product-detail-top {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+
+        .product-detail-images {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .product-detail-image-box {
+          border-radius: 14px;
+          overflow: hidden;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          background: #020617;
+        }
+
+        .product-detail-image-box img {
+          width: 100%;
+          height: 220px;
+          object-fit: cover;
+        }
+
+        .product-detail-image-placeholder {
+          height: 220px;
+          border-radius: 14px;
+          border: 1px dashed rgba(148, 163, 184, 0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 13px;
+          color: rgba(148, 163, 184, 0.8);
+        }
+
+        .product-detail-main {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .product-detail-title {
+          font-size: 24px;
+          font-weight: 600;
+          margin: 0;
+          color: #e5e7eb;
+        }
+
+        .product-detail-category {
+          display: inline-block;
+          margin-top: 4px;
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.4);
+          color: #cbd5f5;
+          background: rgba(15, 23, 42, 0.9);
+        }
+
+        .product-detail-short {
+          margin-top: 6px;
+          font-size: 14px;
+          color: #9ca3af;
+        }
+
+        .product-detail-meta {
+          margin-top: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 18px;
+        }
+
+        .product-detail-body {
+          margin-top: 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .product-detail-section {
+          max-width: 800px;
+        }
+      `}</style>
     </>
   );
 }
