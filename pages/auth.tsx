@@ -173,7 +173,7 @@ export default function AuthPage() {
     ></div>
 
     <img
-  src="/Q5_black_bg2.png"
+  src="/Q5_white_bg.png"
   alt="Quantum5ocial Logo"
   style={{
     width: "100%",
