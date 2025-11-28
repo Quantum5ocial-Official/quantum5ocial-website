@@ -10,7 +10,6 @@ const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Job = {
   id: string;
-  owner_id: string | null;
   title: string | null;
   company_name: string | null;
   location: string | null;
@@ -21,24 +20,26 @@ type Job = {
   keywords: string | null;
   salary_display: string | null;
   apply_url: string | null;
-  created_at: string | null;
+  owner_id: string | null;
+  created_at?: string | null;
 };
 
 export default function JobDetailPage() {
-  const { user } = useSupabaseUser();
   const router = useRouter();
   const { id } = router.query;
+  const { user } = useSupabaseUser();
 
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Load job
   useEffect(() => {
-    const loadJob = async () => {
+    const fetchJob = async () => {
       if (!id) return;
       setLoading(true);
-      setError(null);
+      setLoadError(null);
 
       const { data, error } = await supabase
         .from("jobs")
@@ -48,10 +49,7 @@ export default function JobDetailPage() {
 
       if (error) {
         console.error("Error loading job", error);
-        setError("Could not load job.");
-        setJob(null);
-      } else if (!data) {
-        setError("Job not found.");
+        setLoadError("Could not load this job.");
         setJob(null);
       } else {
         setJob(data as Job);
@@ -60,37 +58,45 @@ export default function JobDetailPage() {
       setLoading(false);
     };
 
-    loadJob();
+    fetchJob();
   }, [id]);
 
-  const isOwner = user && job && job.owner_id === user.id;
+  const isOwner = !!user && job?.owner_id === user.id;
 
   const handleDelete = async () => {
     if (!job || !user) return;
-    if (!isOwner) return;
-
-    const ok = confirm(
-      "Are you sure you want to delete this job listing permanently?"
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this job? This cannot be undone."
     );
-    if (!ok) return;
+    if (!confirmed) return;
 
     setDeleting(true);
-
     const { error } = await supabase
       .from("jobs")
       .delete()
       .eq("id", job.id)
       .eq("owner_id", user.id);
 
+    setDeleting(false);
+
     if (error) {
       console.error("Error deleting job", error);
       alert("Could not delete job. Please try again.");
-      setDeleting(false);
       return;
     }
 
     router.push("/jobs");
   };
+
+  const formattedDate = job?.created_at
+    ? new Date(job.created_at).toLocaleDateString()
+    : null;
+
+  const keywordList =
+    job?.keywords
+      ?.split(",")
+      .map((k) => k.trim())
+      .filter(Boolean) || [];
 
   return (
     <>
@@ -99,85 +105,86 @@ export default function JobDetailPage() {
         <Navbar />
 
         <section className="section">
-          <button
-            type="button"
-            className="nav-ghost-btn"
-            onClick={() => router.push("/jobs")}
-            style={{ marginBottom: 14 }}
-          >
-            ← Back to jobs
-          </button>
+          <div className="section-header" style={{ marginBottom: 16 }}>
+            <div>
+              <div className="section-title">Job details</div>
+              <div className="section-sub">
+                A role inside the quantum ecosystem listed on Quantum5ocial.
+              </div>
+            </div>
 
-          {loading && (
-            <p className="products-status" style={{ marginTop: 10 }}>
-              Loading job…
+            <button
+              type="button"
+              className="nav-ghost-btn"
+              onClick={() => router.push("/jobs")}
+            >
+              ← Back to jobs
+            </button>
+          </div>
+
+          {loading && <p className="products-status">Loading job…</p>}
+          {loadError && (
+            <p className="products-status error" style={{ marginTop: 8 }}>
+              {loadError}
             </p>
           )}
 
-          {error && (
-            <p className="products-status error" style={{ marginTop: 10 }}>
-              {error}
-            </p>
-          )}
-
-          {job && (
+          {!loading && !loadError && job && (
             <div className="product-detail-card">
+              {/* Top area */}
               <div className="product-detail-top">
                 <div className="product-detail-main">
                   <h1 className="product-detail-title">
-                    {job.title || "Untitled role"}
+                    {job.title || "Untitled job"}
                   </h1>
+
                   {job.company_name && (
                     <div className="product-detail-company">
                       {job.company_name}
-                      {job.location ? ` · ${job.location}` : ""}
                     </div>
                   )}
 
-                  {(job.employment_type || job.remote_type) && (
-                    <div className="profile-summary-columns" style={{ marginTop: 10 }}>
-                      {job.employment_type && (
-                        <div className="profile-summary-item">
-                          <div className="profile-summary-label">
-                            Employment type
-                          </div>
-                          <div className="profile-summary-text">
-                            {job.employment_type}
-                          </div>
-                        </div>
-                      )}
+                  {(job.location || job.employment_type || job.remote_type) && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 13,
+                        color: "rgba(148,163,184,0.95)",
+                      }}
+                    >
+                      {[job.location, job.employment_type, job.remote_type]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                  )}
 
-                      {job.remote_type && (
-                        <div className="profile-summary-item">
-                          <div className="profile-summary-label">
-                            Work mode
-                          </div>
-                          <div className="profile-summary-text">
-                            {job.remote_type}
-                          </div>
-                        </div>
-                      )}
+                  {formattedDate && (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 12,
+                        color: "rgba(148,163,184,0.75)",
+                      }}
+                    >
+                      Posted on {formattedDate}
                     </div>
                   )}
 
                   {job.salary_display && (
-                    <div style={{ marginTop: 12 }}>
-                      <div className="profile-summary-label">Salary</div>
-                      <div className="product-detail-price">
-                        {job.salary_display}
-                      </div>
+                    <div className="product-detail-price">
+                      {job.salary_display}
                     </div>
                   )}
 
                   {job.apply_url && (
-                    <div style={{ marginTop: 18 }}>
+                    <div style={{ marginTop: 14 }}>
                       <a
                         href={job.apply_url}
                         target="_blank"
                         rel="noreferrer"
                         className="nav-cta"
                       >
-                        Apply / more info
+                        Apply / learn more
                       </a>
                     </div>
                   )}
@@ -187,23 +194,24 @@ export default function JobDetailPage() {
                       style={{
                         marginTop: 18,
                         display: "flex",
-                        gap: 8,
+                        gap: 10,
                         flexWrap: "wrap",
                       }}
                     >
                       <button
                         type="button"
                         className="nav-ghost-btn"
-                        onClick={() =>
-                          router.push(`/jobs/new?id=${encodeURIComponent(job.id)}`)
-                        }
+                        onClick={() => router.push(`/jobs/new?id=${job.id}`)}
                       >
                         Edit job
                       </button>
                       <button
                         type="button"
-                        className="nav-ghost-btn"
-                        style={{ borderColor: "#fca5a5", color: "#fecaca" }}
+                        className="nav-cta"
+                        style={{
+                          borderColor: "rgba(248,113,113,0.7)",
+                          color: "#fecaca",
+                        }}
                         onClick={handleDelete}
                         disabled={deleting}
                       >
@@ -212,44 +220,45 @@ export default function JobDetailPage() {
                     </div>
                   )}
                 </div>
-              </div>
 
-              <div className="product-detail-body">
-                {job.short_description && (
-                  <div className="product-detail-section">
-                    <div className="profile-section-label">Summary</div>
-                    <p className="profile-summary-text">
-                      {job.short_description}
-                    </p>
-                  </div>
-                )}
+                {/* Short description / summary box */}
+                <div className="product-detail-body">
+                  {job.short_description && (
+                    <div className="product-detail-section">
+                      <div className="profile-section-label">Summary</div>
+                      <div className="profile-summary-text">
+                        {job.short_description}
+                      </div>
+                    </div>
+                  )}
 
-                {job.description && (
-                  <div className="product-detail-section">
-                    <div className="profile-section-label">Description</div>
-                    <p className="profile-summary-text">
-                      {job.description}
-                    </p>
-                  </div>
-                )}
-
-                {job.keywords && (
-                  <div className="product-detail-section">
-                    <div className="profile-tags-label">Keywords</div>
-                    <div className="profile-tags">
-                      {job.keywords
-                        .split(",")
-                        .map((k) => k.trim())
-                        .filter(Boolean)
-                        .map((k) => (
+                  {keywordList.length > 0 && (
+                    <div className="product-detail-section">
+                      <div className="profile-section-label">Keywords</div>
+                      <div className="profile-tags">
+                        {keywordList.map((k) => (
                           <span key={k} className="profile-tag-chip">
                             {k}
                           </span>
                         ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+
+              {/* Full description below */}
+              {job.description && (
+                <div style={{ marginTop: 24 }}>
+                  <div className="profile-section-label">Full description</div>
+                  <p
+                    className="profile-summary-text"
+                    style={{ whiteSpace: "pre-wrap", fontSize: 13 }}
+                  >
+                    {job.description}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </section>
