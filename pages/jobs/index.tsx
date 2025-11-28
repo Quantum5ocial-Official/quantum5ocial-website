@@ -181,12 +181,12 @@ export default function JobsIndexPage() {
             </div>
 
             <button
-              type="button"
-              className="nav-ghost-btn"
-              onClick={() => router.push("/jobs/new")}
-            >
-              Post a job
-            </button>
+  type="button"
+  className="section-link"
+  onClick={() => router.push("/jobs/new")}
+>
+  Post a job →
+</button>
           </div>
 
           <div className="products-layout">
