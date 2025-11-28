@@ -350,9 +350,9 @@ export default function JobsPage() {
                             {job.title || "Untitled role"}
                           </div>
                           {job.employment_type && (
-  <span className="card-pill job-type-pill">
+  <div className="card-pill job-type-pill">
     {job.employment_type}
-  </span>
+  </div>
 )}
                         </div>
 
