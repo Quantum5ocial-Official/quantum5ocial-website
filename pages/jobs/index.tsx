@@ -183,6 +183,7 @@ export default function JobsIndexPage() {
             <button
   type="button"
   className="section-link"
+  style={{ background: "transparent" }}
   onClick={() => router.push("/jobs/new")}
 >
   Post a job →
