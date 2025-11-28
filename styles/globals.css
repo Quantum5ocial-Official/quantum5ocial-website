@@ -2070,3 +2070,11 @@ footer a:hover {
 .nav-links {
   gap: 24px !important;               /* was 18px */
 }
+.brand-logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  margin-right: 12px;
+  display: block;
+  flex-shrink: 0;
+}
