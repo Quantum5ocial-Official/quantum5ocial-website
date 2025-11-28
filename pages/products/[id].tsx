@@ -8,14 +8,16 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
+// NOTE: we allow both created_by and user_id so it works with either schema
 type Product = {
   id: string;
-  created_by: string;
+  created_by?: string | null;
+  user_id?: string | null;
   company_name: string | null;
   product_name: string;
   description: string | null;
   specifications: string | null;
-  keywords: string[] | null;
+  keywords: string[] | string | null;
   price: number | null;
   contact_for_price: boolean;
   stock_quantity: number | null;
@@ -28,184 +30,267 @@ export default function ProductDetail() {
   const router = useRouter();
   const { id } = router.query;
 
-  const { user } = useSupabaseUser();
+  const { user, loading: userLoading } = useSupabaseUser();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Load the product
   useEffect(() => {
     if (!id) return;
-    loadProduct(id);
+    const loadProduct = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error loading product:", error);
+        setErrorMsg("Could not load product.");
+        setProduct(null);
+      } else {
+        setProduct(data as Product);
+      }
+
+      setLoading(false);
+    };
+
+    loadProduct();
   }, [id]);
 
-  const loadProduct = async (productId: string | string[]) => {
-    setLoading(true);
+  // Figure out who owns the product (created_by OR user_id)
+  const ownerId =
+    (product?.created_by ?? product?.user_id) ?? null;
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("id", productId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error loading product:", error);
-    } else {
-      setProduct(data);
-    }
-
-    setLoading(false);
-  };
+  const isOwner =
+    !!user && !!ownerId && !userLoading && user.id === ownerId;
 
   const handleDelete = async () => {
     if (!product) return;
-    const confirmed = window.confirm("Are you sure you want to delete this product?");
+    if (!isOwner) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this product? This cannot be undone."
+    );
     if (!confirmed) return;
 
     setDeleting(true);
+    setErrorMsg(null);
 
-    const { error } = await supabase.from("products").delete().eq("id", product.id);
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("id", product.id);
 
     if (error) {
-      alert("Error deleting product. Try again.");
-      console.error(error);
+      console.error("Error deleting product:", error);
+      setErrorMsg("Could not delete product. Please try again.");
       setDeleting(false);
       return;
     }
 
-    alert("Product deleted.");
     router.push("/products");
   };
 
-  if (loading) return <p style={{ padding: 30 }}>Loading product…</p>;
-  if (!product) return <p style={{ padding: 30 }}>Product not found.</p>;
+  if (loading) {
+    return (
+      <>
+        <div className="bg-layer" />
+        <Navbar />
+        <div className="page" style={{ paddingTop: 40 }}>
+          <section className="section">
+            <p className="profile-muted">Loading product…</p>
+          </section>
+        </div>
+      </>
+    );
+  }
 
-  const isOwner = user?.id === product.created_by;
+  if (!product) {
+    return (
+      <>
+        <div className="bg-layer" />
+        <Navbar />
+        <div className="page" style={{ paddingTop: 40 }}>
+          <section className="section">
+            <p className="profile-muted">
+              Product not found or no longer available.
+            </p>
+          </section>
+        </div>
+      </>
+    );
+  }
+
+  const priceDisplay =
+    product.contact_for_price || product.price == null
+      ? "Contact for price"
+      : `${product.price.toLocaleString()} €`;
+
+  // Normalise keywords: could be text[] or comma-separated string
+  const keywordList: string[] =
+    typeof product.keywords === "string"
+      ? product.keywords
+          .split(",")
+          .map((k) => k.trim())
+          .filter(Boolean)
+      : product.keywords || [];
+
+  const imageList = product.images || [];
 
   return (
     <>
       <div className="bg-layer" />
-      <Navbar />
+      <div className="page">
+        <Navbar />
 
-      <div className="page" style={{ paddingTop: 40 }}>
-        <div className="section">
-          <div className="section-header">
+        <section className="section">
+          {/* Header with actions */}
+          <div className="section-header" style={{ marginBottom: 20 }}>
             <div>
               <div className="section-title">{product.product_name}</div>
-              <div className="section-sub">Listed by {product.company_name ?? "Unknown vendor"}</div>
+              <div className="section-sub">
+                Listed by {product.company_name || "Unknown vendor"}
+              </div>
             </div>
 
-            {isOwner && (
-              <div style={{ display: "flex", gap: 12 }}>
-                <Link href={`/products/${product.id}/edit`} className="nav-ghost-btn">
-                  Edit
-                </Link>
-                <button
-                  className="nav-cta"
-                  style={{ background: "#ff3b3b", border: "none" }}
-                  onClick={handleDelete}
-                  disabled={deleting}
-                >
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Link href="/products" className="nav-ghost-btn">
+                ← Back to products
+              </Link>
+
+              {isOwner && (
+                <>
+                  <Link
+                    href={`/products/${product.id}/edit`}
+                    className="nav-ghost-btn"
+                  >
+                    Edit product
+                  </Link>
+                  <button
+                    onClick={handleDelete}
+                    className="nav-cta"
+                    style={{ background: "#b91c1c", cursor: "pointer" }}
+                    disabled={deleting}
+                  >
+                    {deleting ? "Deleting…" : "Delete"}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="product-detail-card">
+            {/* Top: images + main info */}
+            <div className="product-detail-top">
+              <div className="product-detail-images">
+                {imageList.length > 0 ? (
+                  imageList.map((url) => (
+                    <div key={url} className="product-detail-image-box">
+                      <img src={url} alt={product.product_name} />
+                    </div>
+                  ))
+                ) : (
+                  <div className="product-detail-image-placeholder">
+                    No images provided
+                  </div>
+                )}
               </div>
+
+              <div className="product-detail-main">
+                <h1 className="product-detail-title">
+                  {product.product_name}
+                </h1>
+
+                {product.company_name && (
+                  <div className="product-detail-company">
+                    {product.company_name}
+                  </div>
+                )}
+
+                <div className="product-detail-price">{priceDisplay}</div>
+
+                <div className="product-detail-stock">
+                  {product.stock_quantity != null
+                    ? `In stock · ${product.stock_quantity} pcs`
+                    : "Stock not specified"}
+                </div>
+
+                {keywordList.length > 0 && (
+                  <div className="profile-tags" style={{ marginTop: 12 }}>
+                    {keywordList.map((k) => (
+                      <span key={k} className="profile-tag-chip">
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {product.datasheet_url && (
+                  <div style={{ marginTop: 16 }}>
+                    <a
+                      href={product.datasheet_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: "#7dd3fc", fontSize: 14 }}
+                    >
+                      View datasheet (PDF)
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Description / specs */}
+            <div className="product-detail-body">
+              {product.description && (
+                <div className="product-detail-section">
+                  <div className="profile-section-label">Description</div>
+                  <p className="profile-summary-text">
+                    {product.description}
+                  </p>
+                </div>
+              )}
+
+              {product.specifications && (
+                <div className="product-detail-section">
+                  <div className="profile-section-label">Specifications</div>
+                  <p className="profile-summary-text">
+                    {product.specifications}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {errorMsg && (
+              <p
+                style={{
+                  color: "#fecaca",
+                  marginTop: 16,
+                  fontSize: 13,
+                }}
+              >
+                {errorMsg}
+              </p>
             )}
           </div>
 
-          {/* --- IMAGES --- */}
-          {product.images && product.images.length > 0 && (
-            <div style={{ marginTop: 20, display: "flex", gap: 16, overflowX: "auto" }}>
-              {product.images.map((url) => (
-                <img
-                  key={url}
-                  src={url}
-                  style={{
-                    width: 240,
-                    height: 200,
-                    objectFit: "cover",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                />
-              ))}
+          {process.env.NODE_ENV === "development" && (
+            <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
+              <div>Debug:</div>
+              <div>current user id: {user?.id || "none"}</div>
+              <div>product.created_by: {product.created_by || "null"}</div>
+              <div>product.user_id: {product.user_id || "null"}</div>
+              <div>ownerId resolved: {ownerId || "null"}</div>
+              <div>isOwner: {String(isOwner)}</div>
             </div>
           )}
-
-          {/* --- DETAILS --- */}
-          <div style={{ marginTop: 32 }}>
-            {product.description && (
-              <p style={{ fontSize: 16, lineHeight: 1.6 }}>{product.description}</p>
-            )}
-
-            {product.specifications && (
-              <div style={{ marginTop: 20 }}>
-                <div className="profile-summary-label">Specifications</div>
-                <pre
-                  style={{
-                    whiteSpace: "pre-wrap",
-                    background: "rgba(255,255,255,0.05)",
-                    padding: 16,
-                    borderRadius: 8,
-                    marginTop: 6,
-                    fontSize: 14,
-                  }}
-                >
-                  {product.specifications}
-                </pre>
-              </div>
-            )}
-
-            {/* Price */}
-            <div style={{ marginTop: 20 }}>
-              <div className="profile-summary-label">Price</div>
-              <div className="profile-summary-text">
-                {product.contact_for_price
-                  ? "Contact vendor for pricing"
-                  : product.price
-                  ? `€ ${product.price.toLocaleString()}`
-                  : "Not specified"}
-              </div>
-            </div>
-
-            {/* Stock */}
-            <div style={{ marginTop: 20 }}>
-              <div className="profile-summary-label">Stock availability</div>
-              <div className="profile-summary-text">
-                {product.stock_quantity != null
-                  ? `${product.stock_quantity} units available`
-                  : "Stock not specified"}
-              </div>
-            </div>
-
-            {/* Keywords */}
-            {product.keywords && product.keywords.length > 0 && (
-              <div style={{ marginTop: 20 }}>
-                <div className="profile-summary-label">Keywords</div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                  {product.keywords.map((kw) => (
-                    <span key={kw} className="profile-tag-chip">
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Datasheet */}
-            {product.datasheet_url && (
-              <div style={{ marginTop: 30 }}>
-                <a
-                  href={product.datasheet_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="nav-ghost-btn"
-                >
-                  Download Datasheet
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
+        </section>
       </div>
     </>
   );
