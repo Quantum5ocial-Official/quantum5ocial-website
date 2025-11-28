@@ -1991,3 +1991,24 @@ footer a:hover {
   border-color: rgba(34, 211, 238, 0.5) !important;
   color: #7dd3fc !important;
 }
+/* 3-column grid for jobs (jobs page + saved jobs page) */
+.jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+/* Tablet */
+@media (max-width: 1000px) {
+  .jobs-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Mobile */
+@media (max-width: 650px) {
+  .jobs-grid {
+    grid-template-columns: 1fr;
+  }
+}
