@@ -1,3 +1,5 @@
+// pages/products/new.tsx
+import type React from "react";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
@@ -32,16 +34,16 @@ export default function NewProductPage() {
     specifications: "",
     product_url: "",
     keywords: "",
-    price_type: "contact", // 'fixed' | 'contact'
+    price_type: "contact" as "fixed" | "contact",
     price_value: "",
-    in_stock: "yes", // 'yes' | 'no'
+    in_stock: "yes" as "yes" | "no",
     stock_quantity: "",
   });
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [datasheetFile, setDatasheetFile] = useState<File | null>(null);
 
-  // Safety: if not logged in, redirect to auth
+  // If not logged in, redirect to auth
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/products/new");
@@ -110,7 +112,9 @@ export default function NewProductPage() {
         ? null
         : parseInt(form.stock_quantity, 10);
 
-    const priceType = form.price_type === "fixed" ? "fixed" : "contact";
+    const priceType: "fixed" | "contact" =
+      form.price_type === "fixed" ? "fixed" : "contact";
+
     const priceValue =
       priceType === "fixed" && form.price_value.trim() !== ""
         ? form.price_value.trim()
@@ -436,9 +440,8 @@ export default function NewProductPage() {
                         />
                         {imageFiles.length > 0 && (
                           <span style={{ fontSize: 12, color: "#9ca3af" }}>
-                            Selected: {imageFiles
-                              .map((f) => f.name)
-                              .join(", ")}
+                            Selected:{" "}
+                            {imageFiles.map((f) => f.name).join(", ")}
                           </span>
                         )}
                       </div>
@@ -481,7 +484,9 @@ export default function NewProductPage() {
             {/* Right-hand tips panel */}
             <aside className="products-create-aside">
               <div className="products-tips-card">
-                <h4 className="products-tips-title">Tips for a strong listing</h4>
+                <h4 className="products-tips-title">
+                  Tips for a strong listing
+                </h4>
                 <ul className="products-tips-list">
                   <li>Use a clear, specific product name.</li>
                   <li>Mention key specs (frequency range, noise, temp, etc.).</li>
