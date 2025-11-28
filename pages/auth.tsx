@@ -173,15 +173,16 @@ export default function AuthPage() {
     ></div>
 
     <img
-      src="/brand-logo.svg"
-      alt="Quantum5ocial Logo"
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "relative",
-        zIndex: 2,
-      }}
-    />
+  src="/Q5_black_bg2.png"
+  alt="Quantum5ocial Logo"
+  style={{
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+    position: "relative",
+    zIndex: 2,
+  }}
+/>
   </div>
 
   {/* Brand name */}
