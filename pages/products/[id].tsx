@@ -10,7 +10,7 @@ const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Product = {
   id: string;
-  user_id: string;
+  created_by: string;
   company_name: string | null;
   product_name: string;
   description: string | null;
