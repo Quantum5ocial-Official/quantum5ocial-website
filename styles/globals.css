@@ -2015,3 +2015,28 @@ footer a:hover {
     grid-template-columns: 1fr;
   }
 }
+/* --- BRAND LOGO FIX --- */
+.brand-clickable,
+.brand-clickable:visited,
+.brand-clickable:hover,
+.brand-clickable * {
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+/* Set the brand colors to match QUANTUM ECOSYSTEM HUB */
+.brand-text-main {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 26px;   /* bigger to match the new 100px logo */
+  line-height: 1.1;
+  color: #7dd3fc !important;   /* EXACT color match */
+}
+
+.brand-text-sub {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-top: 3px;
+  color: #7dd3fc80 !important;  /* softer version */
+}
