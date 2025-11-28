@@ -18,7 +18,7 @@ type Product = {
   specifications: string | null;
   product_url: string | null;
   keywords: string | null;
-  price_type: "fixed" | "contact";
+  price_type: string | null;      // 'fixed' | 'contact' | null
   price_value: string | null;
   in_stock: boolean | null;
   stock_quantity: number | null;
@@ -126,12 +126,11 @@ export default function ProductDetailPage() {
     );
   }
 
+  // 💰 Price: if a price_value exists, always show that. Otherwise "Contact for price".
   const priceLabel =
-    product.price_type === "contact"
-      ? "Contact for price"
-      : product.price_value && product.price_value.trim() !== ""
+    product.price_value && product.price_value.trim() !== ""
       ? product.price_value
-      : "Price on request";
+      : "Contact for price";
 
   const stockLabel =
     product.in_stock === false
@@ -165,7 +164,7 @@ export default function ProductDetailPage() {
               <div className="section-sub">
                 {product.company_name
                   ? `Listed by ${product.company_name}`
-                  : "Vendor not specified"}
+                  : "Listed by unknown vendor"}
               </div>
             </div>
 
@@ -176,12 +175,16 @@ export default function ProductDetailPage() {
 
               {isOwner && (
                 <>
-                  <Link
-                    href={`/products/${product.id}/edit`}
+                  {/* For now: use the same UI as "List your product" */}
+                  <button
+                    type="button"
                     className="nav-ghost-btn"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => router.push("/products/new")}
                   >
                     Edit product
-                  </Link>
+                  </button>
+
                   <button
                     onClick={handleDelete}
                     className="nav-cta"
@@ -213,8 +216,6 @@ export default function ProductDetailPage() {
               </div>
 
               <div className="product-detail-main">
-                <h1 className="product-detail-title">{product.name}</h1>
-
                 {product.category && (
                   <div className="product-detail-category">
                     {product.category}
@@ -280,17 +281,8 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Bottom: description & specs */}
+            {/* Bottom: technical text */}
             <div className="product-detail-body">
-              {product.description && (
-                <div className="product-detail-section">
-                  <div className="profile-section-label">Description</div>
-                  <p className="profile-summary-text">
-                    {product.description}
-                  </p>
-                </div>
-              )}
-
               {product.specifications && (
                 <div className="product-detail-section">
                   <div className="profile-section-label">Specifications</div>
@@ -314,7 +306,7 @@ export default function ProductDetailPage() {
             )}
           </div>
 
-          {/* Debug info in dev */}
+          {/* Optional small debug in dev */}
           {process.env.NODE_ENV === "development" && (
             <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
               <div>Debug:</div>
@@ -389,16 +381,9 @@ export default function ProductDetailPage() {
           gap: 8px;
         }
 
-        .product-detail-title {
-          font-size: 24px;
-          font-weight: 600;
-          margin: 0;
-          color: #e5e7eb;
-        }
-
         .product-detail-category {
           display: inline-block;
-          margin-top: 4px;
+          margin-bottom: 4px;
           font-size: 11px;
           padding: 2px 8px;
           border-radius: 999px;
@@ -408,7 +393,7 @@ export default function ProductDetailPage() {
         }
 
         .product-detail-short {
-          margin-top: 6px;
+          margin-top: 2px;
           font-size: 14px;
           color: #9ca3af;
         }
