@@ -52,7 +52,6 @@ export default function Navbar() {
       {/* Brand – clickable to home */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
-          {/* Replace old circle with actual logo */}
           <img
             src="/Q5_black_bg2.png"
             alt="Quantum5ocial logo"
@@ -120,7 +119,7 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Username dropdown – Logout only, styled like Dashboard */}
+        {/* Username dropdown – My profile + Logout */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
@@ -133,6 +132,14 @@ export default function Navbar() {
 
             {isUserMenuOpen && (
               <div className="nav-dashboard-menu right-align">
+                <Link
+                  href="/profile"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsUserMenuOpen(false)}
+                >
+                  My profile
+                </Link>
+
                 <button
                   type="button"
                   className="nav-dropdown-item nav-dropdown-danger"
