@@ -1887,10 +1887,10 @@ footer a:hover {
   font-weight: 500;
 }
 .brand-logo {
-  width: 44px;           /* adjust size here */
-  height: 44px;
+  width: 34px;           /* adjust size here */
+  height: 34px;
   object-fit: contain;
-  margin-right: 12px;
+  margin-right: 10px;
   filter: drop-shadow(0 0 6px rgba(0, 247, 255, 0.25));
 }
 .brand {
