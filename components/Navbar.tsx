@@ -127,16 +127,16 @@ export default function Navbar() {
             </button>
 
             {isUserMenuOpen && (
-              <div className="nav-dashboard-menu">
-                <button
-                  type="button"
-                  className="nav-dropdown-item nav-dropdown-danger"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            )}
+  <div className="nav-dashboard-menu right-align">
+    <button
+      type="button"
+      className="nav-dropdown-item nav-dropdown-danger"
+      onClick={handleLogout}
+    >
+      Logout
+    </button>
+  </div>
+)}
           </div>
         )}
       </nav>
