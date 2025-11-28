@@ -1,9 +1,11 @@
+import { useState } from "react";
 import Link from "next/link";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { supabase } from "../lib/supabaseClient";
 
 export default function Navbar() {
   const { user, loading } = useSupabaseUser();
+  const [dashOpen, setDashOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -18,12 +20,12 @@ export default function Navbar() {
 
   return (
     <header className="nav">
-      {/* Clickable brand */}
+      {/* Brand – clickable to homepage */}
       <Link href="/" className="brand brand-clickable">
         <div className="logo-orbit" />
         <div>
           <div className="brand-text-main">Quantum5ocial</div>
-          <div className="brand-text-sub">SOCIALIZING THE QUANTUM WORLD</div>
+          <div className="brand-text-sub">Socializing the quantum world</div>
         </div>
       </Link>
 
@@ -36,18 +38,58 @@ export default function Navbar() {
           Products
         </Link>
 
+        {/* If NOT logged in: simple auth button */}
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
 
+        {/* Logged-in navigation */}
         {!loading && user && (
           <>
-            <Link href="/dashboard" className="nav-link">
-              Dashboard
-            </Link>
+            {/* Dashboard dropdown */}
+            <div
+              className="nav-dropdown"
+              onMouseEnter={() => setDashOpen(true)}
+              onMouseLeave={() => setDashOpen(false)}
+            >
+              <button
+                type="button"
+                className="nav-link nav-dropdown-trigger"
+              >
+                Dashboard
+                <span style={{ marginLeft: 4, fontSize: 10 }}>▾</span>
+              </button>
 
+              {dashOpen && (
+                <div className="nav-dropdown-menu">
+                  <Link href="/dashboard" className="nav-dropdown-item">
+                    Overview
+                  </Link>
+                  <Link
+                    href="/dashboard?view=jobs"
+                    className="nav-dropdown-item"
+                  >
+                    Saved jobs
+                  </Link>
+                  <Link
+                    href="/dashboard?view=products"
+                    className="nav-dropdown-item"
+                  >
+                    Saved products
+                  </Link>
+                  <Link
+                    href="/profile"
+                    className="nav-dropdown-item"
+                  >
+                    My profile
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Username + logout */}
             <Link href="/profile" className="nav-username">
               {displayName}
             </Link>
