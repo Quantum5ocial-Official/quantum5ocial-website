@@ -1973,3 +1973,21 @@ footer a:hover {
   border-color: #22d3ee;
   box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.4);
 }
+/* Dark ghost button (used for Reset Filters, etc.) */
+.nav-ghost-btn {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(148, 163, 184, 0.4) !important;
+  color: #e5e7eb !important;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.nav-ghost-btn:hover {
+  background: rgba(34, 211, 238, 0.1) !important;
+  border-color: rgba(34, 211, 238, 0.5) !important;
+  color: #7dd3fc !important;
+}
