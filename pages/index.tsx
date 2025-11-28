@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import Link from "next/link";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
@@ -37,7 +38,7 @@ export default function Home() {
           <aside>
             <div className="hero-tiles">
               {/* Jobs tile */}
-              <a href="#jobs" className="hero-tile">
+              <Link href="/jobs" className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Explore</div>
                   <div className="tile-title-row">
@@ -57,10 +58,10 @@ export default function Home() {
                     Browse jobs <span>›</span>
                   </div>
                 </div>
-              </a>
+              </Link>
 
               {/* Products tile */}
-              <a href="#products" className="hero-tile">
+              <Link href="/products" className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Discover</div>
                   <div className="tile-title-row">
@@ -80,7 +81,7 @@ export default function Home() {
                     Browse products <span>›</span>
                   </div>
                 </div>
-              </a>
+              </Link>
             </div>
           </aside>
         </section>
@@ -165,7 +166,7 @@ export default function Home() {
                 Vendors and startups showcasing their hero products.
               </div>
             </div>
-            <a href="/" className="section-link">
+            <a href="/products" className="section-link">
               Browse all products →
             </a>
           </div>
@@ -316,7 +317,7 @@ export default function Home() {
         <section id="login" className="section">
           <div className="section-header">
             <div>
-              <div className="section-title">Login &amp; sign up (live)</div>
+              <div className="section-title">Login &amp; sign up </div>
               <div className="section-sub">
                 Use the Login / Sign up button in the top-right corner to access your
                 dashboard and start posting jobs and products.
