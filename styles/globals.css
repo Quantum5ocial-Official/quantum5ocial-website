@@ -1881,8 +1881,8 @@ footer a:hover {
   font-weight: 500;
 }
 .brand-logo {
-  width: 75px !important;
-  height: 75px !important;
+  width: 100px !important;
+  height: 100px !important;
   object-fit: contain;
   margin-right: 10px;
   display: block;
@@ -1956,4 +1956,20 @@ footer a:hover {
   .jobs-grid {
     grid-template-columns: 1fr;
   }
+}
+/* Make product search/filter inputs dark theme */
+.products-filters-search {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e5e7eb;
+  font-size: 14px;
+  width: 100%;
+}
+
+.products-filters-search:focus {
+  outline: none;
+  border-color: #22d3ee;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.4);
 }
