@@ -1,10 +1,10 @@
 // pages/dashboard/saved-jobs.tsx
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import JobCard from "../../components/JobCard";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
@@ -17,6 +17,7 @@ type Job = {
   remote_type: string | null;
   short_description: string | null;
   salary_display: string | null;
+  keywords: string | null;
 };
 
 export default function SavedJobsPage() {
@@ -26,6 +27,9 @@ export default function SavedJobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [status, setStatus] = useState<string>("Loading saved jobs…");
   const [error, setError] = useState<string | null>(null);
+
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   // redirect if not logged in
   useEffect(() => {
@@ -57,6 +61,7 @@ export default function SavedJobsPage() {
       const ids = (savedRows || []).map((r: any) => r.job_id as string);
       if (ids.length === 0) {
         setJobs([]);
+        setSavedJobIds([]);
         setStatus("You have not saved any jobs yet.");
         return;
       }
@@ -75,11 +80,54 @@ export default function SavedJobsPage() {
       }
 
       setJobs((jobsData || []) as Job[]);
+      setSavedJobIds(ids);
       setStatus("");
     };
 
     if (user) loadSavedJobs();
   }, [user]);
+
+  const isSaved = (id: string) => savedJobIds.includes(id);
+
+  const handleToggleSave = async (jobId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/dashboard/saved-jobs");
+      return;
+    }
+
+    const alreadySaved = isSaved(jobId);
+    setSavingId(jobId);
+
+    try {
+      if (alreadySaved) {
+        const { error } = await supabase
+          .from("saved_jobs")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("job_id", jobId);
+
+        if (error) {
+          console.error("Error unsaving job", error);
+        } else {
+          setSavedJobIds((prev) => prev.filter((id) => id !== jobId));
+          setJobs((prev) => prev.filter((job) => job.id !== jobId));
+        }
+      } else {
+        const { error } = await supabase.from("saved_jobs").insert({
+          user_id: user.id,
+          job_id: jobId,
+        });
+
+        if (error) {
+          console.error("Error saving job", error);
+        } else {
+          setSavedJobIds((prev) => [...prev, jobId]);
+        }
+      }
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   if (!user && !loading) return null;
 
@@ -112,44 +160,20 @@ export default function SavedJobsPage() {
             </p>
           )}
 
-          <div className="dashboard-list">
-            {jobs.map((job) => (
-              <Link
-                key={job.id}
-                href={`/jobs/${job.id}`}
-                className="dashboard-card"
-              >
-                <div className="dashboard-card-main">
-                  <div className="dashboard-card-title">{job.title}</div>
-                  <div className="dashboard-card-sub">
-                    {[job.company_name, job.location, job.remote_type]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </div>
-                  {job.short_description && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "#d1d5db",
-                        marginTop: 4,
-                      }}
-                    >
-                      {job.short_description}
-                    </div>
-                  )}
-                </div>
-
-                <div className="dashboard-card-meta">
-                  {job.employment_type && (
-                    <span className="dashboard-pill">{job.employment_type}</span>
-                  )}
-                  {job.salary_display && (
-                    <span className="dashboard-pill">{job.salary_display}</span>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
+          {jobs.length > 0 && (
+            <div className="jobs-grid">
+              {jobs.map((job) => (
+                <JobCard
+                  key={job.id}
+                  job={job as any}
+                  isSaved={isSaved(job.id)}
+                  onToggleSave={() => {
+                    if (!savingId) handleToggleSave(job.id);
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </>
