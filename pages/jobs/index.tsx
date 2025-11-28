@@ -110,7 +110,6 @@ export default function JobsIndexPage() {
     }
 
     setSavingId(jobId);
-
     const alreadySaved = isSaved(jobId);
 
     try {
@@ -274,8 +273,9 @@ export default function JobsIndexPage() {
                     job={job}
                     isSaved={isSaved(job.id)}
                     onToggleSave={() => {
-                      if (savingId) return; // simple guard
-                      handleToggleSave(job.id);
+                      if (!savingId) {
+                        handleToggleSave(job.id);
+                      }
                     }}
                   />
                 ))}
