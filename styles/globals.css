@@ -2048,6 +2048,6 @@ footer a:hover {
 .eyebrow {
   font-size: 0.95rem !important;     /* bigger text (was ~0.78rem) */
   letter-spacing: 0.20em !important; /* slightly wider spacing */
-  margin-top: 32px !important;       /* space ABOVE */
+  margin-top: 40px !important;       /* space ABOVE */
   margin-bottom: 24px !important;    /* space BELOW */
 }
