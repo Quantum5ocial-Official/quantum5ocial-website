@@ -13,6 +13,20 @@ export default function Home() {
         {/* HERO */}
         <section className="hero" id="about">
           <div>
+            {/* Main hero logo – size controlled here */}
+            <img
+              src="/Q5_black_bg2.png"
+              alt="Quantum5ocial logo"
+              className="hero-main-logo"
+              style={{
+                maxWidth: "320px",
+                width: "100%",
+                height: "auto",
+                marginBottom: "22px",
+                borderRadius: 8,
+              }}
+            />
+
             <div className="eyebrow">Quantum ecosystem hub</div>
             <h1 className="hero-title">
               Discover <span className="hero-highlight">jobs &amp; tools</span> shaping
