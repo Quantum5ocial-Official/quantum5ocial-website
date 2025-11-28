@@ -80,7 +80,7 @@ export default function ProductDetail() {
   if (loading) return <p style={{ padding: 30 }}>Loading product…</p>;
   if (!product) return <p style={{ padding: 30 }}>Product not found.</p>;
 
-  const isOwner = user?.id === product.user_id;
+  const isOwner = user?.id === product.created_by;
 
   return (
     <>
