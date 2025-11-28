@@ -195,7 +195,7 @@ export default function JobsIndexPage() {
               <div className="products-filters-section">
                 <div className="products-filters-title">Search</div>
                 <input
-                  className="products-filters-search"
+                  className="products-filters-input"
                   placeholder="Title, company, keywords…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -205,7 +205,7 @@ export default function JobsIndexPage() {
               <div className="products-filters-section">
                 <div className="products-filters-title">Employment type</div>
                 <select
-                  className="products-filters-search"
+                  className="products-filters-input"
                   value={employmentFilter}
                   onChange={(e) => setEmploymentFilter(e.target.value)}
                 >
@@ -220,7 +220,7 @@ export default function JobsIndexPage() {
               <div className="products-filters-section">
                 <div className="products-filters-title">Work mode</div>
                 <select
-                  className="products-filters-search"
+                  className="products-filters-input"
                   value={remoteFilter}
                   onChange={(e) => setRemoteFilter(e.target.value)}
                 >
