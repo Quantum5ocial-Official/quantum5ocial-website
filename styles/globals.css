@@ -54,9 +54,12 @@ body {
 }
 
 .page {
-  max-width: 1140px;
-  margin: 0 auto;
-  padding: 22px 18px 40px;
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;          /* 🔥 key line: fill screen height */
+  padding: 24px 32px 40px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* NAVBAR */
@@ -389,7 +392,9 @@ body {
 
 /* Generic sections */
 .section {
-  margin-bottom: 34px;
+  flex: 1 0 auto;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .section-header {
