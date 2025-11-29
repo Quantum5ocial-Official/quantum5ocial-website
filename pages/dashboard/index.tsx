@@ -226,75 +226,75 @@ export default function DashboardPage() {
             </div>
 
             {/* Centered profile summary card (larger) */}
-            <div
-              className="profile-summary-card"
-              style={{
-                marginTop: 24,
-                maxWidth: 1200, // a bit larger than before
-                marginLeft: "auto",
-                marginRight: "auto",
-              }}
-            >
-              {profileLoading ? (
-                <p className="profile-muted">Loading your profile…</p>
-              ) : (
-                <div className="profile-header">
-                  <div className="profile-avatar">
-                    {profile?.avatar_url ? (
-                      <img
-                        src={profile.avatar_url}
-                        alt={displayName}
-                        className="profile-avatar-img"
-                      />
-                    ) : (
-                      <span>{initials || "Q5"}</span>
-                    )}
-                  </div>
+<div
+  className="profile-summary-card"
+  style={{
+    marginTop: 24,
+    maxWidth: 1320,   // 🔥 NEW: wider profile card (1.5x)
+    marginLeft: "auto",
+    marginRight: "auto",
+  }}
+>
+  {profileLoading ? (
+    <p className="profile-muted">Loading your profile…</p>
+  ) : (
+    <div className="profile-header">
+      <div className="profile-avatar">
+        {profile?.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt={displayName}
+            className="profile-avatar-img"
+          />
+        ) : (
+          <span>{initials || "Q5"}</span>
+        )}
+      </div>
 
-                  <div className="profile-header-text">
-                    <div className="profile-name">{displayName}</div>
+      <div className="profile-header-text">
+        <div className="profile-name">{displayName}</div>
 
-                    {(profile?.role || profile?.affiliation) && (
-                      <div className="profile-role">
-                        {[profile?.role, profile?.affiliation]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-                    )}
+        {(profile?.role || profile?.affiliation) && (
+          <div className="profile-role">
+            {[profile?.role, profile?.affiliation]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+        )}
 
-                    {(profile?.city || profile?.country) && (
-                      <div className="profile-location">
-                        {[profile?.city, profile?.country]
-                          .filter(Boolean)
-                          .join(", ")}
-                      </div>
-                    )}
+        {(profile?.city || profile?.country) && (
+          <div className="profile-location">
+            {[profile?.city, profile?.country]
+              .filter(Boolean)
+              .join(", ")}
+          </div>
+        )}
 
-                    {profile?.institutional_email && (
-                      <div className="profile-location">
-                        Verified email: {profile.institutional_email}
-                      </div>
-                    )}
+        {profile?.institutional_email && (
+          <div className="profile-location">
+            Verified email: {profile.institutional_email}
+          </div>
+        )}
 
-                    {profile?.short_bio && (
-                      <p className="profile-bio" style={{ marginTop: 10 }}>
-                        {profile.short_bio}
-                      </p>
-                    )}
+        {profile?.short_bio && (
+          <p className="profile-bio" style={{ marginTop: 10 }}>
+            {profile.short_bio}
+          </p>
+        )}
 
-                    <div style={{ marginTop: 12 }}>
-                      <Link
-                        href="/profile/edit"
-                        className="nav-ghost-btn"
-                        style={{ textDecoration: "none" }}
-                      >
-                        Edit / complete profile
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+        <div style={{ marginTop: 12 }}>
+          <Link
+            href="/profile/edit"
+            className="nav-ghost-btn"
+            style={{ textDecoration: "none" }}
+          >
+            Edit / complete profile
+          </Link>
+        </div>
+      </div>
+    </div>
+  )}
+</div>
           </div>
         </section>
       </div>
