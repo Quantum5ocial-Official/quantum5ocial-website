@@ -11,54 +11,43 @@ export default function Footer() {
         gap: "12px",
       }}
     >
-      {/* Logo + Brand */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <img
-          src="/q5-logo.png"
-          alt="Quantum5ocial"
-          style={{ width: 32, height: 32 }}
-        />
+      {/* FOOTER BRAND SECTION */}
+<div
+  style={{
+    padding: "28px 0 12px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    opacity: 0.8,
+    marginTop: 40,
+  }}
+>
+  <img
+    src="/Q5_black_bg2.png"
+    alt="Quantum5ocial logo"
+    style={{ width: 28, height: 28, borderRadius: 6 }}
+  />
 
-        <span
-          style={{
-            fontSize: 20,
-            fontWeight: 600,
-            background: "linear-gradient(90deg,#22d3ee,#818cf8,#a855f7)",
-            WebkitBackgroundClip: "text",
-            color: "transparent",
-          }}
-        >
-          Quantum5ocial
-        </span>
-      </div>
+  <div
+    style={{
+      fontSize: 15,
+      fontWeight: 600,
+      background:
+        "linear-gradient(90deg, #22d3ee 0%, #818cfe 70%, #a855f7 100%)",
+      WebkitBackgroundClip: "text",
+      color: "transparent",
+    }}
+  >
+    Quantum5ocial
+  </div>
+</div>
 
-      {/* Tagline */}
-      <div
-        style={{
-          fontSize: 13,
-          color: "rgba(255,255,255,0.5)",
-          marginLeft: 42,
-        }}
-      >
-        Socializing the quantum world
-      </div>
-
-      {/* Copyright */}
-      <div
-        style={{
-          marginTop: 8,
-          fontSize: 13,
-          color: "rgba(255,255,255,0.35)",
-        }}
-      >
-        Quantum5ocial © 2025 · Building the quantum ecosystem ·{" "}
-        <a
-          href="mailto:info@quantum5ocial.com"
-          style={{ color: "#22d3ee" }}
-        >
-          Contact
-        </a>
-      </div>
-    </footer>
+{/* COPYRIGHT BELOW */}
+<footer style={{ paddingTop: 10, paddingBottom: 30, opacity: 0.7 }}>
+  Quantum5ocial © 2025 · Building the quantum ecosystem ·{" "}
+  <a href="mailto:info@quantum5ocial.com" style={{ color: "#22d3ee" }}>
+    Contact
+  </a>
+</footer>
   );
 }
