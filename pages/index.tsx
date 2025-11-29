@@ -3,34 +3,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
-import { useRouter } from "next/router";
-import { useEffect } from "react";
 
-export default function HomeRedirect() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Always send visitors on the root URL to the auth page
-    router.replace("/auth");
-  }, [router]);
-
-  // You can return a tiny placeholder if you like
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#020617",
-        color: "#e5e7eb",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 16,
-      }}
-    >
-      Redirecting to sign in…
-    </div>
-  );
-}
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
 type Job = {
