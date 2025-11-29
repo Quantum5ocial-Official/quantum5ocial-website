@@ -9,24 +9,20 @@ export default function Footer() {
         marginTop: "40px",
         padding: "24px 32px",
         borderTop: "1px solid rgba(255,255,255,0.08)",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        color: "#94a3b8",
-        fontSize: "14px",
       }}
     >
-      {/* LEFT SIDE — LOGO + BRAND NAME */}
+      {/* TOP: LOGO + BRAND (unchanged) */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           gap: "10px",
+          marginBottom: "28px", // space above centered copyright
         }}
       >
         <Image
           src="/Q5_black_bg2.png"
-          width={80}     // bigger logo
+          width={80}     // your original size
           height={80}
           alt="Quantum5ocial logo"
           style={{ borderRadius: "2px" }}
@@ -34,7 +30,7 @@ export default function Footer() {
 
         <div
           style={{
-            fontSize: "20px", // bigger brand text
+            fontSize: "20px", // your original size
             fontWeight: 600,
             background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
             WebkitBackgroundClip: "text",
@@ -45,8 +41,15 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* RIGHT SIDE — COPYRIGHT */}
-      <div style={{ textAlign: "right" }}>
+      {/* BOTTOM: CENTERED COPYRIGHT */}
+      <div
+        style={{
+          textAlign: "center",
+          color: "#94a3b8",
+          fontSize: "14px",
+          width: "100%",
+        }}
+      >
         Quantum5ocial © 2025 · Building the quantum ecosystem ·{" "}
         <Link href="mailto:info@quantum5ocial.com">
           <span style={{ color: "#3bc7f3" }}>Contact</span>
