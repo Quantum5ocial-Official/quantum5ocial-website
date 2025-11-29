@@ -25,6 +25,18 @@ type SavedProduct = {
   price_value: string | null;
 };
 
+type Profile = {
+  id: string;
+  full_name: string | null;
+  short_bio: string | null;
+  role: string | null;
+  affiliation: string | null;
+  city: string | null;
+  country: string | null;
+  avatar_url: string | null;
+  institutional_email: string | null;
+};
+
 export default function DashboardPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -50,6 +62,10 @@ export default function DashboardPage() {
 
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
+
+  // profile summary
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // redirect if not logged in
   useEffect(() => {
@@ -160,10 +176,49 @@ export default function DashboardPage() {
     loadProducts();
   }, [user]);
 
+  // load profile summary
+  useEffect(() => {
+    if (!user) return;
+
+    const loadProfile = async () => {
+      setProfileLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error loading profile", error);
+        setProfile(null);
+      } else {
+        setProfile(data as Profile);
+      }
+      setProfileLoading(false);
+    };
+
+    loadProfile();
+  }, [user]);
+
   const totalSaved = useMemo(
     () => savedJobs.length + savedProducts.length,
     [savedJobs.length, savedProducts.length]
   );
+
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
+
+  const displayName = profile?.full_name || fallbackName;
+
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((x) => x[0]?.toUpperCase())
+    .join("");
 
   if (!user && !loading) return null;
 
@@ -205,27 +260,85 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              <div className="dashboard-summary-card">
-                <div className="dashboard-summary-label">
-                  Total saved items
-                </div>
-                <div className="dashboard-summary-value">{totalSaved}</div>
-              </div>
+              {/* Go to homepage tile instead of "Total saved items" */}
+              <Link href="/" className="dashboard-summary-card">
+                <div className="dashboard-summary-label">Go to homepage</div>
+                <div className="dashboard-summary-value">↩</div>
+              </Link>
             </div>
 
-            {/* Top actions */}
+            {/* Compact profile summary, below tiles */}
+            <div
+              className="profile-summary-card"
+              style={{ marginTop: 24, maxWidth: 720 }}
+            >
+              {profileLoading ? (
+                <p className="profile-muted">Loading your profile…</p>
+              ) : (
+                <div className="profile-header">
+                  <div className="profile-avatar">
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt={displayName}
+                        className="profile-avatar-img"
+                      />
+                    ) : (
+                      <span>{initials || "Q5"}</span>
+                    )}
+                  </div>
+
+                  <div className="profile-header-text">
+                    <div className="profile-name">{displayName}</div>
+
+                    {(profile?.role || profile?.affiliation) && (
+                      <div className="profile-role">
+                        {[profile?.role, profile?.affiliation]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    )}
+
+                    {(profile?.city || profile?.country) && (
+                      <div className="profile-location">
+                        {[profile?.city, profile?.country]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </div>
+                    )}
+
+                    {profile?.institutional_email && (
+                      <div className="profile-location">
+                        Verified email: {profile.institutional_email}
+                      </div>
+                    )}
+
+                    {profile?.short_bio && (
+                      <p className="profile-bio" style={{ marginTop: 10 }}>
+                        {profile.short_bio}
+                      </p>
+                    )}
+
+                    <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                      <Link href="/profile" className="nav-ghost-btn">
+                        View full profile
+                      </Link>
+                      <Link href="/profile/edit" className="nav-ghost-btn">
+                        Edit profile
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Top actions – only profile actions now */}
             <div className="dashboard-actions">
               <Link href="/profile" className="nav-ghost-btn">
                 View profile
               </Link>
               <Link href="/profile/edit" className="nav-ghost-btn">
                 Complete profile
-              </Link>
-              <Link href="/products" className="nav-ghost-btn">
-                Browse products
-              </Link>
-              <Link href="/jobs" className="nav-ghost-btn">
-                Browse jobs
               </Link>
             </div>
 
