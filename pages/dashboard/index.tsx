@@ -159,8 +159,22 @@ export default function DashboardPage() {
 
           <div className="dashboard-layout">
             {/* Summary tiles */}
-            <div className="dashboard-summary-row">
-              <Link href="/dashboard/saved-jobs" className="dashboard-summary-card">
+            <div
+              className="dashboard-summary-row"
+              style={{
+                gap: 16,
+                justifyContent: "flex-start",
+              }}
+            >
+              <Link
+                href="/dashboard/saved-jobs"
+                className="dashboard-summary-card"
+                style={{
+                  textDecoration: "none",
+                  flex: "0 0 220px",
+                  maxWidth: "220px",
+                }}
+              >
                 <div className="dashboard-summary-label">Saved jobs</div>
                 <div className="dashboard-summary-value">
                   {savedJobs.length}
@@ -170,6 +184,11 @@ export default function DashboardPage() {
               <Link
                 href="/dashboard/saved-products"
                 className="dashboard-summary-card"
+                style={{
+                  textDecoration: "none",
+                  flex: "0 0 220px",
+                  maxWidth: "220px",
+                }}
               >
                 <div className="dashboard-summary-label">Saved products</div>
                 <div className="dashboard-summary-value">
@@ -177,7 +196,15 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              <Link href="/" className="dashboard-summary-card">
+              <Link
+                href="/"
+                className="dashboard-summary-card"
+                style={{
+                  textDecoration: "none",
+                  flex: "0 0 220px",
+                  maxWidth: "220px",
+                }}
+              >
                 <div className="dashboard-summary-label">Go to homepage</div>
                 <div
                   className="dashboard-summary-value"
@@ -198,12 +225,12 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {/* Centered profile summary card */}
+            {/* Centered profile summary card (larger) */}
             <div
               className="profile-summary-card"
               style={{
                 marginTop: 24,
-                maxWidth: 720,
+                maxWidth: 880, // a bit larger than before
                 marginLeft: "auto",
                 marginRight: "auto",
               }}
@@ -256,7 +283,11 @@ export default function DashboardPage() {
                     )}
 
                     <div style={{ marginTop: 12 }}>
-                      <Link href="/profile/edit" className="nav-ghost-btn">
+                      <Link
+                        href="/profile/edit"
+                        className="nav-ghost-btn"
+                        style={{ textDecoration: "none" }}
+                      >
                         Edit / complete profile
                       </Link>
                     </div>
