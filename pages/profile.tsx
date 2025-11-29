@@ -121,6 +121,21 @@ export default function ProfileViewPage() {
       profile.key_experience ||
       profile.institutional_email);
 
+  // Reusable inline style for the slim, no-underline edit button
+  const editLinkStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "6px 16px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.6)",
+    textDecoration: "none",
+    color: "#e5e7eb",
+    fontSize: 13,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+
   return (
     <>
       <div className="bg-layer" />
@@ -138,7 +153,11 @@ export default function ProfileViewPage() {
                 </div>
               </div>
 
-              <Link href="/profile/edit" className="nav-ghost-btn">
+              <Link
+                href="/profile/edit"
+                className="nav-ghost-btn"
+                style={editLinkStyle}
+              >
                 Edit / complete profile
               </Link>
             </div>
@@ -199,7 +218,11 @@ export default function ProfileViewPage() {
                       )}
 
                       <div style={{ marginTop: 12 }}>
-                        <Link href="/profile/edit" className="nav-ghost-btn">
+                        <Link
+                          href="/profile/edit"
+                          className="nav-ghost-btn"
+                          style={editLinkStyle}
+                        >
                           Edit / complete your profile
                         </Link>
                       </div>
