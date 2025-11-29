@@ -1,64 +1,55 @@
 // components/Footer.tsx
-
-import Image from "next/image";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
     <footer
       style={{
-        width: "100%",
-        paddingTop: 40,
-        paddingBottom: 30,
-        marginTop: 40,
-        borderTop: "1px solid rgba(255,255,255,0.05)",
+        marginTop: "40px",
+        padding: "24px 32px",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        color: "#94a3b8",
+        fontSize: "14px",
       }}
     >
-      {/* BRAND SECTION */}
+      {/* LEFT SIDE — LOGO + BRAND NAME */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          opacity: 0.9,
-          marginBottom: 25,
+          gap: "14px",
         }}
       >
         <Image
           src="/Q5_black_bg2.png"
+          width={42}     // bigger logo
+          height={42}
           alt="Quantum5ocial logo"
-          width={30}
-          height={30}
-          style={{ borderRadius: 6 }}
+          style={{ borderRadius: "8px" }}
         />
 
         <div
           style={{
-            fontSize: 17,
+            fontSize: "20px", // bigger brand text
             fontWeight: 600,
-            background:
-              "linear-gradient(90deg, #22d3ee 0%, #818cfe 60%, #a855f7 100%)",
+            background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
             WebkitBackgroundClip: "text",
-            color: "transparent",
+            WebkitTextFillColor: "transparent",
           }}
         >
           Quantum5ocial
         </div>
       </div>
 
-      {/* COPYRIGHT + CONTACT */}
-      <div
-        style={{
-          color: "rgba(255,255,255,0.5)",
-          fontSize: 14,
-        }}
-      >
+      {/* RIGHT SIDE — COPYRIGHT */}
+      <div style={{ textAlign: "right" }}>
         Quantum5ocial © 2025 · Building the quantum ecosystem ·{" "}
-        <Link
-          href="mailto:info@quantum5ocial.com"
-          style={{ color: "#22d3ee" }}
-        >
-          Contact
+        <Link href="mailto:info@quantum5ocial.com">
+          <span style={{ color: "#3bc7f3" }}>Contact</span>
         </Link>
       </div>
     </footer>
