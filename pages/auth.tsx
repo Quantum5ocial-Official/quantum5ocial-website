@@ -2,6 +2,42 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 
+type AnyUser = Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
+
+async function upsertProfileFromUser(user: AnyUser | null) {
+  if (!user) return;
+
+  const meta: any = user.user_metadata || {};
+  const appMeta: any = (user as any).app_metadata || {};
+
+  const provider: string =
+    appMeta.provider ||
+    (Array.isArray(appMeta.providers) ? appMeta.providers[0] : "email");
+
+  const fullName =
+    meta.full_name ||
+    meta.name ||
+    meta.user_name ||
+    meta.username ||
+    user.email ||
+    "";
+
+  const avatarUrl =
+    meta.avatar_url ||
+    meta.picture ||
+    meta.avatar ||
+    null;
+
+  await supabase.from("profiles").upsert({
+    id: user.id,
+    email: user.email,
+    full_name: fullName,
+    avatar_url: avatarUrl,
+    provider,
+    raw_metadata: meta,
+  });
+}
+
 export default function AuthPage() {
   const router = useRouter();
   // 🔹 Default to LOGIN instead of signup
