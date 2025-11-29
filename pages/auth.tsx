@@ -1,9 +1,15 @@
+// pages/auth.tsx
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 
 type AnyUser = Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
 
+/**
+ * Upsert a row in `profiles` for ANY kind of user:
+ *  - email/password
+ *  - Google / GitHub / LinkedIn OAuth
+ */
 async function upsertProfileFromUser(user: AnyUser | null) {
   if (!user) return;
 
@@ -23,12 +29,9 @@ async function upsertProfileFromUser(user: AnyUser | null) {
     "";
 
   const avatarUrl =
-    meta.avatar_url ||
-    meta.picture ||
-    meta.avatar ||
-    null;
+    meta.avatar_url || meta.picture || meta.avatar || null;
 
-  await supabase.from("profiles").upsert({
+  const { error } = await supabase.from("profiles").upsert({
     id: user.id,
     email: user.email,
     full_name: fullName,
@@ -36,6 +39,10 @@ async function upsertProfileFromUser(user: AnyUser | null) {
     provider,
     raw_metadata: meta,
   });
+
+  if (error) {
+    console.error("Profile upsert error:", error);
+  }
 }
 
 export default function AuthPage() {
@@ -82,14 +89,12 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // include full_name in metadata so we keep it for later
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: {
-              full_name: fullName,
-            },
+            // store full name into user_metadata so we also see it on OAuth-style helper
+            data: { full_name: fullName },
           },
         });
 
@@ -101,7 +106,7 @@ export default function AuthPage() {
 
         const user = data.user;
         if (user) {
-          // ensure full_name is present in metadata we store
+          // Make sure full_name ends up in profiles + raw_metadata
           await upsertProfileFromUser({
             ...user,
             user_metadata: {
@@ -140,7 +145,9 @@ export default function AuthPage() {
     }
   };
 
-  const handleOAuthLogin = async (provider: "github" | "google" | "linkedin") => {
+  const handleOAuthLogin = async (
+    provider: "github" | "google" | "linkedin"
+  ) => {
     setError(null);
     setMessage(null);
     try {
@@ -386,9 +393,7 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit}>
           {mode === "signup" && (
             <div style={{ marginBottom: 10 }}>
-              <label
-                style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-              >
+              <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
                 Full name
               </label>
               <input
@@ -409,9 +414,7 @@ export default function AuthPage() {
           )}
 
           <div style={{ marginBottom: 10 }}>
-            <label
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
+            <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
               Email
             </label>
             <input
@@ -431,9 +434,7 @@ export default function AuthPage() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
+            <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
               Password
             </label>
             <input
