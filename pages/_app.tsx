@@ -68,10 +68,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   }
 
   // Normal render if allowed or on /auth
-  return (
-    <>
-      <Component {...pageProps} />
-      <Footer />
-    </>
-  );
+return (
+  <div className="page">
+    <Component {...pageProps} />
+    <Footer />
+  </div>
+);
 }
