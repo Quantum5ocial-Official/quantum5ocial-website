@@ -1,8 +1,9 @@
 // pages/dashboard/index.tsx
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import Image from "next/image";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
@@ -10,10 +11,19 @@ const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type SavedJob = {
   id: string;
+  title: string | null;
+  company_name: string | null;
+  location: string | null;
+  employment_type: string | null;
 };
 
 type SavedProduct = {
   id: string;
+  name: string;
+  company_name: string | null;
+  category: string | null;
+  price_type: "fixed" | "contact" | null;
+  price_value: string | null;
 };
 
 type Profile = {
@@ -42,62 +52,127 @@ export default function DashboardPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  const [savedJobsCount, setSavedJobsCount] = useState(0);
-  const [savedProductsCount, setSavedProductsCount] = useState(0);
+  const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
+  const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([]);
 
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
+
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [productsError, setProductsError] = useState<string | null>(null);
+
+  // Profile state
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // redirect if not logged in
+  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/dashboard");
     }
   }, [loading, user, router]);
 
-  // load saved jobs count
+  // Load saved jobs (from saved_jobs)
   useEffect(() => {
     if (!user) return;
 
-    const loadSavedJobs = async () => {
-      const { data, error } = await supabase
+    const loadJobs = async () => {
+      setJobsLoading(true);
+      setJobsError(null);
+
+      // 1) get saved job ids
+      const { data: favRows, error: favError } = await supabase
         .from("saved_jobs")
         .select("job_id")
         .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Error loading saved_jobs", error);
-        setSavedJobsCount(0);
+      if (favError) {
+        console.error("Error loading saved_jobs", favError);
+        setJobsError("Could not load saved jobs.");
+        setJobsLoading(false);
         return;
       }
-      setSavedJobsCount((data || []).length);
+
+      const jobIds = Array.from(
+        new Set((favRows || []).map((r: any) => r.job_id))
+      );
+
+      if (jobIds.length === 0) {
+        setSavedJobs([]);
+        setJobsLoading(false);
+        return;
+      }
+
+      // 2) fetch jobs
+      const { data: jobs, error: jobsError } = await supabase
+        .from("jobs")
+        .select("id, title, company_name, location, employment_type")
+        .in("id", jobIds);
+
+      if (jobsError) {
+        console.error("Error loading jobs", jobsError);
+        setJobsError("Could not load saved jobs.");
+        setSavedJobs([]);
+      } else {
+        setSavedJobs((jobs || []) as SavedJob[]);
+      }
+
+      setJobsLoading(false);
     };
 
-    loadSavedJobs();
+    loadJobs();
   }, [user]);
 
-  // load saved products count
+  // Load saved products (from saved_products)
   useEffect(() => {
     if (!user) return;
 
-    const loadSavedProducts = async () => {
-      const { data, error } = await supabase
+    const loadProducts = async () => {
+      setProductsLoading(true);
+      setProductsError(null);
+
+      const { data: favRows, error: favError } = await supabase
         .from("saved_products")
         .select("product_id")
         .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Error loading saved_products", error);
-        setSavedProductsCount(0);
+      if (favError) {
+        console.error("Error loading saved_products", favError);
+        setProductsError("Could not load saved products.");
+        setProductsLoading(false);
         return;
       }
-      setSavedProductsCount((data || []).length);
+
+      const productIds = Array.from(
+        new Set((favRows || []).map((r: any) => r.product_id))
+      );
+
+      if (productIds.length === 0) {
+        setSavedProducts([]);
+        setProductsLoading(false);
+        return;
+      }
+
+      const { data: products, error: productsError } = await supabase
+        .from("products")
+        .select("id, name, company_name, category, price_type, price_value")
+        .in("id", productIds);
+
+      if (productsError) {
+        console.error("Error loading products", productsError);
+        setProductsError("Could not load saved products.");
+        setSavedProducts([]);
+      } else {
+        setSavedProducts((products || []) as SavedProduct[]);
+      }
+
+      setProductsLoading(false);
     };
 
-    loadSavedProducts();
+    loadProducts();
   }, [user]);
 
-  // load profile summary
+  // Load profile (same logic as profile page)
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
@@ -110,7 +185,7 @@ export default function DashboardPage() {
         .maybeSingle();
 
       if (error) {
-        console.error("Error loading profile in dashboard", error);
+        console.error("Error loading profile", error);
         setProfile(null);
       } else if (data) {
         setProfile(data as Profile);
@@ -124,13 +199,7 @@ export default function DashboardPage() {
     if (user) loadProfile();
   }, [user]);
 
-  if (!user && !loading) return null;
-
-  const totalSaved = useMemo(
-    () => savedJobsCount + savedProductsCount,
-    [savedJobsCount, savedProductsCount]
-  );
-
+  // Derived profile display fields (same as profile page)
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -181,6 +250,8 @@ export default function DashboardPage() {
       profile.key_experience ||
       profile.institutional_email);
 
+  if (!user && !loading) return null;
+
   return (
     <>
       <div className="bg-layer" />
@@ -194,247 +265,100 @@ export default function DashboardPage() {
               <div className="section-title">Dashboard</div>
               <div className="section-sub">
                 Your activity inside Quantum5ocial — saved jobs, products, and
-                profile overview.
+                your profile snapshot.
               </div>
             </div>
           </div>
 
           <div className="dashboard-layout">
-            {/* Summary tiles (smaller, not full-width) */}
-            <div
-              className="dashboard-summary-row"
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 16,
-                marginBottom: 32,
-              }}
-            >
+            {/* Summary tiles row (smaller, clickable, no underline) */}
+            <div className="dashboard-summary-row">
               {/* Saved jobs tile */}
-              <Link href="/dashboard/saved-jobs" style={{ textDecoration: "none" }}>
-                <div
-                  className="dashboard-summary-card"
-                  style={{
-                    width: 220,
-                    padding: 16,
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.5)",
-                    background: "rgba(15,23,42,0.9)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}
-                >
-                  <div
-                    className="dashboard-summary-label"
-                    style={{ fontSize: 12, color: "#9ca3af" }}
-                  >
-                    Saved jobs
-                  </div>
-                  <div
-                    className="dashboard-summary-value"
-                    style={{ fontSize: 26, fontWeight: 600 }}
-                  >
-                    {savedJobsCount}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    Tap to view your saved roles.
-                  </div>
+              <Link
+                href="/dashboard/saved-jobs"
+                className="dashboard-summary-card"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
+                <div className="dashboard-summary-label">
+                  Saved jobs
+                  {jobsLoading && " (loading…)"}
+                </div>
+                <div className="dashboard-summary-value">
+                  {jobsError ? "–" : savedJobs.length}
                 </div>
               </Link>
 
               {/* Saved products tile */}
               <Link
                 href="/dashboard/saved-products"
-                style={{ textDecoration: "none" }}
+                className="dashboard-summary-card"
+                style={{ textDecoration: "none", color: "inherit" }}
               >
-                <div
-                  className="dashboard-summary-card"
-                  style={{
-                    width: 220,
-                    padding: 16,
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.5)",
-                    background: "rgba(15,23,42,0.9)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                  }}
-                >
-                  <div
-                    className="dashboard-summary-label"
-                    style={{ fontSize: 12, color: "#9ca3af" }}
-                  >
-                    Saved products
-                  </div>
-                  <div
-                    className="dashboard-summary-value"
-                    style={{ fontSize: 26, fontWeight: 600 }}
-                  >
-                    {savedProductsCount}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    Tap to view your saved tools.
-                  </div>
+                <div className="dashboard-summary-label">
+                  Saved products
+                  {productsLoading && " (loading…)"}
+                </div>
+                <div className="dashboard-summary-value">
+                  {productsError ? "–" : savedProducts.length}
                 </div>
               </Link>
 
-              {/* Homepage tile with Q5 logo text */}
-              <Link href="/" style={{ textDecoration: "none" }}>
-                <div
-                  className="dashboard-summary-card"
-                  style={{
-                    width: 220,
-                    padding: 16,
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.5)",
-                    background: "rgba(15,23,42,0.9)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 4,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div
-                    className="dashboard-summary-label"
-                    style={{ fontSize: 12, color: "#9ca3af" }}
-                  >
-                    Go to homepage
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 26,
-                      fontWeight: 700,
-                      letterSpacing: 1,
-                      background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    Q5
-                  </div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    Back to Quantum5ocial landing page.
-                  </div>
+              {/* Go to homepage tile with LOGO */}
+              <Link
+                href="/"
+                className="dashboard-summary-card"
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
+                <div className="dashboard-summary-label">Go to homepage</div>
+                <div className="dashboard-summary-value">
+                  <Image
+                    src="/Q5_black_bg2.png"
+                    alt="Quantum5ocial logo"
+                    width={45}
+                    height={45}
+                    style={{ borderRadius: "4px" }}
+                  />
                 </div>
               </Link>
             </div>
 
-            {/* Profile card, wider and centered */}
-            <div
-              className="dashboard-profile-wrapper"
-              style={{
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                className="dashboard-profile-card"
-                style={{
-                  width: "100%",
-                  maxWidth: 1100, // 🔥 wider card (~1.5x)
-                  padding: 24,
-                  borderRadius: 16,
-                  background: "rgba(15,23,42,0.95)",
-                  border: "1px solid rgba(148,163,184,0.5)",
-                }}
-              >
+            {/* Profile card – same structure as profile page */}
+            <div className="profile-container" style={{ marginTop: 32 }}>
+              <div className="profile-summary-card">
                 {profileLoading ? (
-                  <p
-                    style={{
-                      fontSize: 13,
-                      color: "#9ca3af",
-                    }}
-                  >
-                    Loading your profile…
-                  </p>
+                  <p className="profile-muted">Loading your profile…</p>
                 ) : !hasAnyProfileInfo ? (
                   <div>
-                    <p
-                      style={{
-                        fontSize: 13,
-                        color: "#9ca3af",
-                        marginBottom: 12,
-                      }}
-                    >
-                      You haven&apos;t filled in your profile yet. A complete profile
-                      helps labs, companies, and collaborators know who you are
-                      in the quantum ecosystem.
+                    <p className="profile-muted" style={{ marginBottom: 12 }}>
+                      You haven&apos;t filled in your profile yet. A complete
+                      profile helps labs, companies, and collaborators know who
+                      you are in the quantum ecosystem.
                     </p>
-                    <Link
-                      href="/profile/edit"
-                      className="nav-ghost-btn"
-                      style={{ textDecoration: "none" }}
-                    >
-                      Edit / complete profile
+                    <Link href="/profile/edit" className="nav-cta">
+                      Complete your profile
                     </Link>
                   </div>
                 ) : (
                   <>
-                    {/* Top identity row */}
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 20,
-                        alignItems: "flex-start",
-                        marginBottom: 16,
-                      }}
-                    >
-                      {/* Avatar */}
-                      <div
-                        style={{
-                          width: 60,
-                          height: 60,
-                          borderRadius: "999px",
-                          background:
-                            "radial-gradient(circle at 30% 0, #38bdf8, #0f172a)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 600,
-                          fontSize: 22,
-                          color: "#e5e7eb",
-                          flexShrink: 0,
-                          overflow: "hidden",
-                        }}
-                      >
+                    {/* Top identity */}
+                    <div className="profile-header">
+                      <div className="profile-avatar">
                         {profile?.avatar_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={profile.avatar_url}
                             alt={displayName}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              borderRadius: "999px",
-                            }}
+                            className="profile-avatar-img"
                           />
                         ) : (
                           <span>{initials || "Q5"}</span>
                         )}
                       </div>
 
-                      {/* Text block */}
-                      <div style={{ flex: 1 }}>
-                        <div
-                          style={{
-                            fontSize: 20,
-                            fontWeight: 600,
-                            marginBottom: 4,
-                          }}
-                        >
-                          {displayName}
-                        </div>
+                      <div className="profile-header-text">
+                        <div className="profile-name">{displayName}</div>
 
                         {(profile?.role || profile?.affiliation) && (
-                          <div
-                            style={{
-                              fontSize: 13,
-                              color: "#9ca3af",
-                              marginBottom: 2,
-                            }}
-                          >
+                          <div className="profile-role">
                             {[profile?.role, profile?.affiliation]
                               .filter(Boolean)
                               .join(" · ")}
@@ -442,13 +366,7 @@ export default function DashboardPage() {
                         )}
 
                         {(profile?.city || profile?.country) && (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: "#6b7280",
-                              marginBottom: 2,
-                            }}
-                          >
+                          <div className="profile-location">
                             {[profile?.city, profile?.country]
                               .filter(Boolean)
                               .join(", ")}
@@ -456,23 +374,14 @@ export default function DashboardPage() {
                         )}
 
                         {profile?.institutional_email && (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: "#6b7280",
-                            }}
-                          >
+                          <div className="profile-location">
                             Verified email: {profile.institutional_email}
                           </div>
                         )}
 
-                        <div style={{ marginTop: 10 }}>
-                          <Link
-                            href="/profile/edit"
-                            className="nav-ghost-btn"
-                            style={{ textDecoration: "none" }}
-                          >
-                            Edit / complete profile
+                        <div style={{ marginTop: 12 }}>
+                          <Link href="/profile/edit" className="nav-ghost-btn">
+                            Edit / complete your profile
                           </Link>
                         </div>
                       </div>
@@ -480,102 +389,46 @@ export default function DashboardPage() {
 
                     {/* Short bio */}
                     {profile?.short_bio && (
-                      <p
-                        style={{
-                          fontSize: 13,
-                          color: "#e5e7eb",
-                          marginBottom: 10,
-                        }}
-                      >
-                        {profile.short_bio}
-                      </p>
+                      <p className="profile-bio">{profile.short_bio}</p>
                     )}
 
                     {/* Experience inline */}
                     {profile?.key_experience && (
-                      <p
-                        style={{
-                          fontSize: 13,
-                          color: "#e5e7eb",
-                          marginBottom: 12,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontWeight: 500,
-                            color: "#9ca3af",
-                            marginRight: 4,
-                          }}
-                        >
+                      <p className="profile-bio">
+                        <span className="profile-section-label-inline">
                           Experience:
-                        </span>
+                        </span>{" "}
                         {profile.key_experience}
                       </p>
                     )}
 
                     {/* Two-column layout */}
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0,1.2fr) minmax(0,1fr)",
-                        gap: 20,
-                        marginTop: 8,
-                      }}
-                    >
-                      {/* LEFT COLUMN */}
-                      <div>
+                    <div className="profile-two-columns">
+                      {/* LEFT */}
+                      <div className="profile-col">
+                        {/* Affiliation */}
                         {profile?.affiliation && (
-                          <div style={{ marginBottom: 10 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "#9ca3af",
-                                marginBottom: 2,
-                              }}
-                            >
+                          <div className="profile-summary-item">
+                            <div className="profile-section-label">
                               Affiliation
                             </div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                color: "#e5e7eb",
-                              }}
-                            >
+                            <div className="profile-summary-text">
                               {profile.affiliation}
                             </div>
                           </div>
                         )}
 
+                        {/* Focus areas */}
                         {focusTags.length > 0 && (
-                          <div style={{ marginBottom: 10 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "#9ca3af",
-                                marginBottom: 4,
-                              }}
-                            >
+                          <div className="profile-summary-item">
+                            <div className="profile-section-label">
                               Focus areas
                             </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 6,
-                              }}
-                            >
+                            <div className="profile-tags">
                               {focusTags.map((tag) => (
                                 <span
                                   key={tag}
                                   className="profile-tag-chip"
-                                  style={{
-                                    fontSize: 11,
-                                    padding: "3px 8px",
-                                    borderRadius: 999,
-                                    border:
-                                      "1px solid rgba(148,163,184,0.6)",
-                                    color: "#e5e7eb",
-                                  }}
                                 >
                                   {tag}
                                 </span>
@@ -584,17 +437,13 @@ export default function DashboardPage() {
                           </div>
                         )}
 
+                        {/* Links */}
                         {links.length > 0 && (
-                          <div style={{ marginTop: 12 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "#9ca3af",
-                                marginBottom: 4,
-                              }}
-                            >
-                              Links
-                            </div>
+                          <div
+                            className="profile-summary-item"
+                            style={{ marginTop: 18 }}
+                          >
+                            <div className="profile-section-label">Links</div>
                             <ul
                               style={{
                                 paddingLeft: 16,
@@ -608,10 +457,7 @@ export default function DashboardPage() {
                                     href={l.value as string}
                                     target="_blank"
                                     rel="noreferrer"
-                                    style={{
-                                      color: "#7dd3fc",
-                                      textDecoration: "none",
-                                    }}
+                                    style={{ color: "#7dd3fc" }}
                                   >
                                     {l.label}
                                   </a>
@@ -622,60 +468,29 @@ export default function DashboardPage() {
                         )}
                       </div>
 
-                      {/* RIGHT COLUMN */}
-                      <div>
+                      {/* RIGHT */}
+                      <div className="profile-col">
+                        {/* Highest education */}
                         {profile?.highest_education && (
-                          <div style={{ marginBottom: 10 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "#9ca3af",
-                                marginBottom: 2,
-                              }}
-                            >
+                          <div className="profile-summary-item">
+                            <div className="profile-section-label">
                               Highest education
                             </div>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                color: "#e5e7eb",
-                              }}
-                            >
+                            <div className="profile-summary-text">
                               {profile.highest_education}
                             </div>
                           </div>
                         )}
 
+                        {/* Skills */}
                         {skillTags.length > 0 && (
-                          <div style={{ marginBottom: 10 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "#9ca3af",
-                                marginBottom: 4,
-                              }}
-                            >
-                              Skills
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: 6,
-                              }}
-                            >
+                          <div className="profile-summary-item">
+                            <div className="profile-section-label">Skills</div>
+                            <div className="profile-tags">
                               {skillTags.map((tag) => (
                                 <span
                                   key={tag}
                                   className="profile-tag-chip"
-                                  style={{
-                                    fontSize: 11,
-                                    padding: "3px 8px",
-                                    borderRadius: 999,
-                                    border:
-                                      "1px solid rgba(148,163,184,0.6)",
-                                    color: "#e5e7eb",
-                                  }}
                                 >
                                   {tag}
                                 </span>
