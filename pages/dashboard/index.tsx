@@ -1,7 +1,8 @@
 // pages/dashboard/index.tsx
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
@@ -121,11 +122,6 @@ export default function DashboardPage() {
     loadProfile();
   }, [user]);
 
-  const totalSaved = useMemo(
-    () => savedJobs.length + savedProducts.length,
-    [savedJobs.length, savedProducts.length]
-  );
-
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -183,7 +179,22 @@ export default function DashboardPage() {
 
               <Link href="/" className="dashboard-summary-card">
                 <div className="dashboard-summary-label">Go to homepage</div>
-                <div className="dashboard-summary-value">{totalSaved}</div>
+                <div
+                  className="dashboard-summary-value"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Image
+                    src="/Q5_black_bg2.png"
+                    alt="Quantum5ocial logo"
+                    width={40}
+                    height={40}
+                    style={{ borderRadius: 6 }}
+                  />
+                </div>
               </Link>
             </div>
 
