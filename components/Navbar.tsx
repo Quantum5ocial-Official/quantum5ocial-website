@@ -1,163 +1,113 @@
 // components/Navbar.tsx
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 export default function Navbar() {
-  const { user, profile, loading } = useSupabaseUser();
+  const { user, loading } = useSupabaseUser();
   const router = useRouter();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  // Derive a nice display name from user metadata or email
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "Guest";
 
-  const dashboardRef = useRef<HTMLDivElement | null>(null);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
-
-  // Close dropdowns on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        dashboardRef.current &&
-        !dashboardRef.current.contains(e.target as Node)
-      ) {
-        setIsDashboardOpen(false);
-      }
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      ) {
-        setIsUserMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const isDashboard = router.pathname.startsWith("/dashboard");
+  const isJobs = router.pathname.startsWith("/jobs");
+  const isProducts = router.pathname.startsWith("/products");
+  const isProfile = router.pathname.startsWith("/profile");
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push("/");
+    router.replace("/auth");
   };
 
-  // Prefer profile.full_name, then fall back to auth metadata/email
-  const displayName =
-    (profile as any)?.full_name ||
-    (user as any)?.user_metadata?.name ||
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
-    "User";
-
   return (
-    <header className="nav">
-      {/* Brand – clickable to home */}
-      <Link href="/" className="brand-clickable">
-        <div className="brand">
-          {/* Logo image */}
-          <img
-            src="/Q5_black_bg2.png"
-            alt="Quantum5ocial logo"
-            className="brand-logo"
-          />
-          <div>
-            <div className="brand-text-main brand-text-gradient">
-              Quantum5ocial
-            </div>
-            <div className="brand-text-sub">
-              Socializing the quantum world
+    <header className="navbar">
+      <div className="navbar-inner">
+        {/* LEFT: brand */}
+        <Link href="/" className="navbar-brand">
+          <div className="navbar-logo-circle">
+            <span className="navbar-logo-text">Q5</span>
+          </div>
+          <div className="navbar-brand-text">
+            <div className="navbar-brand-main">Quantum5ocial</div>
+            <div className="navbar-brand-sub">
+              SOCIALIZING THE QUANTUM WORLD
             </div>
           </div>
-        </div>
-      </Link>
-
-      <nav className="nav-links">
-        <Link href="/jobs" className="nav-link">
-          Jobs
         </Link>
 
-        <Link href="/products" className="nav-link">
-          Products
-        </Link>
-
-        {/* Dashboard dropdown (navigation only) */}
-        {!loading && user && (
-          <div className="nav-dashboard-wrapper" ref={dashboardRef}>
-            <button
-              type="button"
-              className="nav-link nav-link-button"
-              onClick={() => setIsDashboardOpen((o) => !o)}
-            >
-              Dashboard ▾
-            </button>
-
-            {isDashboardOpen && (
-              <div className="nav-dashboard-menu">
-                <Link
-                  href="/dashboard"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsDashboardOpen(false)}
-                >
-                  Overview
-                </Link>
-                <Link
-                  href="/dashboard/saved-jobs"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsDashboardOpen(false)}
-                >
-                  Saved jobs
-                </Link>
-                <Link
-                  href="/dashboard/saved-products"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsDashboardOpen(false)}
-                >
-                  Saved products
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Logged-out: auth button */}
-        {!loading && !user && (
-          <Link href="/auth" className="nav-cta">
-            Login / Sign up
+        {/* CENTER / RIGHT NAV LINKS */}
+        <nav className="navbar-nav">
+          <Link
+            href="/jobs"
+            className={`navbar-link ${isJobs ? "active" : ""}`}
+          >
+            Jobs
           </Link>
-        )}
+          <Link
+            href="/products"
+            className={`navbar-link ${isProducts ? "active" : ""}`}
+          >
+            Products
+          </Link>
+          <Link
+            href="/dashboard"
+            className={`navbar-link ${isDashboard ? "active" : ""}`}
+          >
+            Dashboard
+          </Link>
+        </nav>
 
-        {/* Username dropdown – Profile + Logout */}
-        {!loading && user && (
-          <div className="nav-dashboard-wrapper" ref={userMenuRef}>
-            <button
-              type="button"
-              className="nav-link nav-link-button"
-              onClick={() => setIsUserMenuOpen((o) => !o)}
-            >
-              {displayName} ▾
-            </button>
+        {/* RIGHT: user menu / auth */}
+        <div className="navbar-user">
+          {loading ? (
+            <span className="navbar-user-name">Loading…</span>
+          ) : user ? (
+            <div className="navbar-user-wrapper">
+              <button
+                type="button"
+                className="navbar-user-button"
+                onClick={() => setIsMenuOpen((o) => !o)}
+              >
+                <span className="navbar-user-name">{fallbackName}</span>
+                <span className="navbar-user-chevron">▾</span>
+              </button>
 
-            {isUserMenuOpen && (
-              <div className="nav-dashboard-menu right-align">
-                <Link
-                  href="/profile"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsUserMenuOpen(false)}
-                >
-                  My profile
-                </Link>
-                <button
-                  type="button"
-                  className="nav-dropdown-item nav-dropdown-danger"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </nav>
+              {isMenuOpen && (
+                <div className="navbar-user-menu">
+                  <Link
+                    href="/profile"
+                    className={`navbar-user-menu-item ${
+                      isProfile ? "active" : ""
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    My profile
+                  </Link>
+                  <button
+                    type="button"
+                    className="navbar-user-menu-item"
+                    onClick={handleLogout}
+                  >
+                    Log out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link href="/auth" className="navbar-login-link">
+              Sign in
+            </Link>
+          )}
+        </div>
+      </div>
     </header>
   );
 }
