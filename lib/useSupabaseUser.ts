@@ -1,63 +1,55 @@
 // lib/useSupabaseUser.ts
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
+import type { User } from "@supabase/supabase-js";
 
-export function useSupabaseUser() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+type UseSupabaseUserResult = {
+  user: User | null;
+  loading: boolean;
+};
+
+export function useSupabaseUser(): UseSupabaseUserResult {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load auth session + profile
   useEffect(() => {
-    async function loadSession() {
-      // 1. Get logged–in user
-      const { data: authData } = await supabase.auth.getUser();
-      const authUser = authData.user ?? null;
+    let cancelled = false;
 
-      setUser(authUser);
-
-      // 2. If user exists → load profile row from DB
-      if (authUser) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", authUser.id)
-          .single();
-
-        setProfile(profileData || null);
-      } else {
-        setProfile(null);
-      }
-
-      setLoading(false);
-    }
-
-    loadSession();
-
-    // 3. Listen for login/logout events
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const authUser = session?.user ?? null;
-        setUser(authUser);
-
-        if (authUser) {
-          const { data: profileData } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", authUser.id)
-            .single();
-
-          setProfile(profileData || null);
-        } else {
-          setProfile(null);
+    const loadInitialUser = async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) {
+          console.warn("getUser error in useSupabaseUser:", error);
         }
+        if (!cancelled) {
+          setUser(data?.user ?? null);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("useSupabaseUser loadInitialUser crashed:", e);
+        if (!cancelled) {
+          setUser(null);
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitialUser();
+
+    // Subscribe to auth changes so Navbar etc stay up-to-date
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (cancelled) return;
+        setUser(session?.user ?? null);
+        setLoading(false);
       }
     );
 
     return () => {
-      listener.subscription.unsubscribe();
+      cancelled = true;
+      subscription?.subscription.unsubscribe();
     };
   }, []);
 
-  return { user, profile, loading };
+  return { user, loading };
 }
