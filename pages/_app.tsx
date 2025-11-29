@@ -1,13 +1,12 @@
-// pages/_app.tsx
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import Footer from "../components/Footer";
 
 // Routes that should be accessible without login.
-const PUBLIC_ROUTES = ["/", "/auth"];
+// You can add things like "/auth", "/api/..." if needed.
+const PUBLIC_ROUTES = ["/auth"];
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
@@ -15,61 +14,30 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-
     const checkAuth = async () => {
-      // Public pages: no auth check needed
+      // If this is a public route, allow straight away
       if (PUBLIC_ROUTES.includes(router.pathname)) {
-        if (!cancelled) {
-          setAllowed(true);
-          setCheckingAuth(false);
-        }
+        setAllowed(true);
+        setCheckingAuth(false);
         return;
       }
 
-      try {
-        const { data, error } = await supabase.auth.getUser();
+      // For all other routes, require Supabase user
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
 
-        if (error) {
-          console.error("supabase.auth.getUser error:", error);
-          if (!cancelled) {
-            setAllowed(false);
-            setCheckingAuth(false);
-          }
-          router.replace("/auth");
-          return;
-        }
-
-        const user = data.user;
-
-        if (!user) {
-          if (!cancelled) {
-            setAllowed(false);
-            setCheckingAuth(false);
-          }
-          router.replace("/auth");
-          return;
-        }
-
-        if (!cancelled) {
-          setAllowed(true);
-          setCheckingAuth(false);
-        }
-      } catch (err) {
-        console.error("Auth check failed:", err);
-        if (!cancelled) {
-          setAllowed(false);
-          setCheckingAuth(false);
-        }
+      if (!user) {
+        setAllowed(false);
+        setCheckingAuth(false);
         router.replace("/auth");
+        return;
       }
+
+      setAllowed(true);
+      setCheckingAuth(false);
     };
 
     checkAuth();
-
-    return () => {
-      cancelled = true;
-    };
   }, [router.pathname]);
 
   // While checking auth, show a simple loading state
@@ -93,16 +61,11 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     );
   }
 
-  // If route is protected and user not allowed, render nothing
-  if (!allowed && !PUBLIC_ROUTES.includes(router.pathname)) {
+  // If not allowed and redirect in progress, render nothing
+  if (!allowed && router.pathname !== "/auth") {
     return null;
   }
 
-  // Normal render (public routes or authenticated protected routes)
-  return (
-    <>
-      <Component {...pageProps} />
-      <Footer />
-    </>
-  );
+  // Normal render if allowed or on /auth
+  return <Component {...pageProps} />;
 }
