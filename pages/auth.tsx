@@ -1,49 +1,6 @@
-// pages/auth.tsx
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
-
-type AnyUser = Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"];
-
-/**
- * Upsert a row in `profiles` for ANY kind of user:
- *  - email/password
- *  - Google / GitHub / LinkedIn OAuth
- */
-async function upsertProfileFromUser(user: AnyUser | null) {
-  if (!user) return;
-
-  const meta: any = user.user_metadata || {};
-  const appMeta: any = (user as any).app_metadata || {};
-
-  const provider: string =
-    appMeta.provider ||
-    (Array.isArray(appMeta.providers) ? appMeta.providers[0] : "email");
-
-  const fullName =
-    meta.full_name ||
-    meta.name ||
-    meta.user_name ||
-    meta.username ||
-    user.email ||
-    "";
-
-  const avatarUrl =
-    meta.avatar_url || meta.picture || meta.avatar || null;
-
-  const { error } = await supabase.from("profiles").upsert({
-    id: user.id,
-    email: user.email,
-    full_name: fullName,
-    avatar_url: avatarUrl,
-    provider,
-    raw_metadata: meta,
-  });
-
-  if (error) {
-    console.error("Profile upsert error:", error);
-  }
-}
 
 export default function AuthPage() {
   const router = useRouter();
@@ -62,7 +19,15 @@ export default function AuthPage() {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (user) {
-        await upsertProfileFromUser(user);
+        // Simple profile upsert (old behavior)
+        await supabase.from("profiles").upsert({
+          id: user.id,
+          full_name:
+            (user.user_metadata &&
+              (user.user_metadata.full_name || user.user_metadata.name)) ||
+            user.email ||
+            "",
+        });
         router.replace("/dashboard");
       }
     };
@@ -92,10 +57,6 @@ export default function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            // store full name into user_metadata so we also see it on OAuth-style helper
-            data: { full_name: fullName },
-          },
         });
 
         if (error) {
@@ -106,14 +67,10 @@ export default function AuthPage() {
 
         const user = data.user;
         if (user) {
-          // Make sure full_name ends up in profiles + raw_metadata
-          await upsertProfileFromUser({
-            ...user,
-            user_metadata: {
-              ...(user.user_metadata || {}),
-              full_name: fullName || user.user_metadata?.full_name,
-            },
-          } as AnyUser);
+          await supabase.from("profiles").upsert({
+            id: user.id,
+            full_name: fullName || user.email || "",
+          });
         }
 
         setMessage("Sign up successful. You are now logged in.");
@@ -132,7 +89,10 @@ export default function AuthPage() {
 
         const user = data.user;
         if (user) {
-          await upsertProfileFromUser(user);
+          await supabase.from("profiles").upsert({
+            id: user.id,
+            full_name: fullName || user.email || "",
+          });
         }
 
         setMessage("Login successful.");
@@ -145,9 +105,7 @@ export default function AuthPage() {
     }
   };
 
-  const handleOAuthLogin = async (
-    provider: "github" | "google" | "linkedin"
-  ) => {
+  const handleOAuthLogin = async (provider: "github" | "google" | "linkedin") => {
     setError(null);
     setMessage(null);
     try {
@@ -363,7 +321,9 @@ export default function AuthPage() {
               padding: "6px 0",
               borderRadius: 999,
               border:
-                mode === "login" ? "1px solid #22d3ee" : "1px solid #374151",
+                mode === "login"
+                  ? "1px solid #22d3ee"
+                  : "1px solid #374151",
               background: mode === "login" ? "#0f172a" : "transparent",
               color: "#e5e7eb",
               cursor: "pointer",
@@ -379,7 +339,9 @@ export default function AuthPage() {
               padding: "6px 0",
               borderRadius: 999,
               border:
-                mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
+                mode === "signup"
+                  ? "1px solid #22d3ee"
+                  : "1px solid #374151",
               background: mode === "signup" ? "#0f172a" : "transparent",
               color: "#e5e7eb",
               cursor: "pointer",
@@ -393,7 +355,9 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit}>
           {mode === "signup" && (
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
+              <label
+                style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+              >
                 Full name
               </label>
               <input
@@ -414,7 +378,9 @@ export default function AuthPage() {
           )}
 
           <div style={{ marginBottom: 10 }}>
-            <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
+            <label
+              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+            >
               Email
             </label>
             <input
@@ -434,7 +400,9 @@ export default function AuthPage() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
+            <label
+              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
+            >
               Password
             </label>
             <input
@@ -451,7 +419,13 @@ export default function AuthPage() {
                 fontSize: 13,
               }}
             />
-            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+            <div
+              style={{
+                fontSize: 11,
+                color: "#6b7280",
+                marginTop: 4,
+              }}
+            >
               For MVP you can use a simple password; later we enforce stronger
               rules.
             </div>
@@ -517,8 +491,8 @@ export default function AuthPage() {
             textAlign: "center",
           }}
         >
-          After login, you&apos;ll be redirected to your dashboard to choose how
-          you want to use Quantum5ocial.
+          After login, you&apos;ll be redirected to your dashboard to choose
+          how you want to use Quantum5ocial.
         </div>
       </div>
     </div>
