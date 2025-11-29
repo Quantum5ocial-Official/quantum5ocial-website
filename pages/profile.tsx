@@ -153,13 +153,21 @@ export default function ProfileViewPage() {
                 </div>
               </div>
 
-              <Link
-                href="/profile/edit"
-                className="nav-ghost-btn"
-                style={editLinkStyle}
-              >
-                Edit / complete profile
-              </Link>
+              <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
+  <Link
+    href="/profile/edit"
+    className="nav-ghost-btn"
+    style={{
+      ...editLinkStyle,
+      maxWidth: "200px",       // smaller box
+      width: "auto",           // shrink to content
+      textAlign: "center",
+      padding: "8px 20px",
+    }}
+  >
+    Edit / complete profile
+  </Link>
+</div>
             </div>
 
             <div className="profile-summary-card">
