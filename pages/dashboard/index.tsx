@@ -230,7 +230,7 @@ export default function DashboardPage() {
               className="profile-summary-card"
               style={{
                 marginTop: 24,
-                maxWidth: 880, // a bit larger than before
+                maxWidth: 1200, // a bit larger than before
                 marginLeft: "auto",
                 marginRight: "auto",
               }}
