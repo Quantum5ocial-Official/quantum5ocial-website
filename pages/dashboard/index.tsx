@@ -43,27 +43,21 @@ export default function DashboardPage() {
 
   const [view, setView] = useState<"jobs" | "products">("jobs");
 
-  // sync "view" with ?view= query (jobs / products)
+  // sync view with ?view=
   useEffect(() => {
     if (!router.isReady) return;
     const q = router.query.view;
-    if (q === "products") {
-      setView("products");
-    } else if (q === "jobs") {
-      setView("jobs");
-    }
+    if (q === "products") setView("products");
+    else if (q === "jobs") setView("jobs");
   }, [router.isReady, router.query.view]);
 
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([]);
-
   const [jobsLoading, setJobsLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(false);
-
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
 
-  // profile summary
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -74,7 +68,7 @@ export default function DashboardPage() {
     }
   }, [loading, user, router]);
 
-  // load saved jobs (uses saved_jobs table)
+  // load saved jobs from saved_jobs
   useEffect(() => {
     if (!user) return;
 
@@ -82,7 +76,6 @@ export default function DashboardPage() {
       setJobsLoading(true);
       setJobsError(null);
 
-      // 1) get saved job IDs for this user
       const { data: savedRows, error: savedErr } = await supabase
         .from("saved_jobs")
         .select("job_id")
@@ -105,7 +98,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2) fetch job records
       const { data: jobs, error: jobsErr } = await supabase
         .from("jobs")
         .select("id, title, company_name, location, employment_type")
@@ -125,7 +117,7 @@ export default function DashboardPage() {
     loadJobs();
   }, [user]);
 
-  // load saved products (uses saved_products table)
+  // load saved products from saved_products
   useEffect(() => {
     if (!user) return;
 
@@ -133,7 +125,6 @@ export default function DashboardPage() {
       setProductsLoading(true);
       setProductsError(null);
 
-      // 1) get saved product IDs for this user
       const { data: savedRows, error: savedErr } = await supabase
         .from("saved_products")
         .select("product_id")
@@ -156,7 +147,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2) fetch product records
       const { data: products, error: productsErr } = await supabase
         .from("products")
         .select("id, name, company_name, category, price_type, price_value")
@@ -260,17 +250,16 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              {/* Go to homepage tile instead of "Total saved items" */}
               <Link href="/" className="dashboard-summary-card">
                 <div className="dashboard-summary-label">Go to homepage</div>
-                <div className="dashboard-summary-value">↩</div>
+                <div className="dashboard-summary-value">{totalSaved}</div>
               </Link>
             </div>
 
-            {/* Compact profile summary, below tiles */}
+            {/* Centered profile summary card */}
             <div
               className="profile-summary-card"
-              style={{ marginTop: 24, maxWidth: 720 }}
+              style={{ marginTop: 24, maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}
             >
               {profileLoading ? (
                 <p className="profile-muted">Loading your profile…</p>
@@ -319,27 +308,15 @@ export default function DashboardPage() {
                       </p>
                     )}
 
-                    <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                      <Link href="/profile" className="nav-ghost-btn">
-                        View full profile
-                      </Link>
+                    {/* Single button inside card */}
+                    <div style={{ marginTop: 12 }}>
                       <Link href="/profile/edit" className="nav-ghost-btn">
-                        Edit profile
+                        Edit / complete profile
                       </Link>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Top actions – only profile actions now */}
-            <div className="dashboard-actions">
-              <Link href="/profile" className="nav-ghost-btn">
-                View profile
-              </Link>
-              <Link href="/profile/edit" className="nav-ghost-btn">
-                Complete profile
-              </Link>
             </div>
 
             {/* View selector */}
