@@ -1472,28 +1472,44 @@ footer a:hover {
 }
 
 .dashboard-summary-card {
-  flex: 1 1 140px;
-  min-width: 140px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.12), transparent 60%),
-    rgba(15, 23, 42, 0.96);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.7);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 16px 20px;
+
+  display: flex;
+  flex-direction: column;
+
+  /* label stays left-aligned */
+  align-items: flex-start;
+
+  width: 280px; /* adjust width */
+  height: 120px; /* tile height */
+  position: relative;
 }
 
 .dashboard-summary-label {
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  opacity: 0.7;
   text-transform: uppercase;
-  color: #9ca3af;
+}
+
+.dashboard-summary-value-wrapper {
+  /* center number/logo vertically */
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dashboard-summary-value {
-  margin-top: 2px;
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 600;
-  color: #e5e7eb;
+  text-align: center;
 }
 
 .dashboard-actions {
