@@ -30,12 +30,9 @@ const JobCard: React.FC<JobCardProps> = ({ job, isSaved, onToggleSave }) => {
 
   return (
     <div className="job-card">
-      {/* Top row: badge centered + heart top-right */}
+      {/* Top row: just a spacer + heart on the right */}
       <div className="job-card-top">
-        {job.employment_type && (
-          <span className="job-badge">{job.employment_type}</span>
-        )}
-
+        <span />
         <button
           type="button"
           className="job-save-btn"
@@ -89,11 +86,26 @@ const JobCard: React.FC<JobCardProps> = ({ job, isSaved, onToggleSave }) => {
         </div>
       )}
 
-      {/* Bottom row with salary on the right */}
-      <div className="job-card-bottom">
-        <span />
-        {job.salary_display && (
+      {/* Bottom row: salary bottom-left, employment type bottom-right */}
+      <div
+        className="job-card-bottom"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginTop: 14,
+        }}
+      >
+        {/* Salary on the left */}
+        {job.salary_display ? (
           <span className="job-salary">{job.salary_display}</span>
+        ) : (
+          <span />
+        )}
+
+        {/* Employment type on the right */}
+        {job.employment_type && (
+          <span className="job-badge">{job.employment_type}</span>
         )}
       </div>
     </div>
