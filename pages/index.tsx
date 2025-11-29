@@ -25,6 +25,7 @@ type Product = {
   price_type: "fixed" | "contact" | null;
   price_value: string | null;
   in_stock: boolean | null;
+  image1_url: string | null;
 };
 
 export default function Home() {
@@ -57,7 +58,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, name, company_name, category, short_description, price_type, price_value, in_stock"
+          "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
         )
         .order("created_at", { ascending: false })
         .limit(3);
@@ -187,7 +188,19 @@ export default function Home() {
                 The latest roles from the Quantum Jobs Universe.
               </div>
             </div>
-            <a href="/jobs" className="section-link">
+            <a
+              href="/jobs"
+              className="section-link"
+              style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "transparent",
+                color: "#e5e7eb",
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
               View all jobs →
             </a>
           </div>
@@ -199,10 +212,20 @@ export default function Home() {
           ) : (
             <div className="card-row">
               {featuredJobs.map((job) => (
-                <Link key={job.id} href={`/jobs/${job.id}`} className="card">
+                <Link
+                  key={job.id}
+                  href={`/jobs/${job.id}`}
+                  className="card"
+                  style={{
+                    textDecoration: "none",
+                    color: "#e5e7eb",
+                  }}
+                >
                   <div className="card-inner">
                     <div className="card-top-row">
-                      <div className="card-title">{job.title || "Untitled role"}</div>
+                      <div className="card-title">
+                        {job.title || "Untitled role"}
+                      </div>
                       <div className="card-pill">
                         {job.employment_type || "Job"}
                       </div>
@@ -240,7 +263,19 @@ export default function Home() {
                 The newest entries from the Quantum Products Lab.
               </div>
             </div>
-            <a href="/products" className="section-link">
+            <a
+              href="/products"
+              className="section-link"
+              style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "transparent",
+                color: "#e5e7eb",
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
               Browse all products →
             </a>
           </div>
@@ -252,26 +287,84 @@ export default function Home() {
           ) : (
             <div className="card-row">
               {featuredProducts.map((p) => (
-                <Link key={p.id} href={`/products/${p.id}`} className="card">
-                  <div className="card-inner">
-                    <div className="card-top-row">
-                      <div className="card-title">{p.name}</div>
-                      <div className="card-pill">{p.category || "Product"}</div>
+                <Link
+                  key={p.id}
+                  href={`/products/${p.id}`}
+                  className="card"
+                  style={{
+                    textDecoration: "none",
+                    color: "#e5e7eb",
+                  }}
+                >
+                  <div
+                    className="card-inner"
+                    style={{
+                      display: "flex",
+                      gap: 16,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    {/* Thumbnail on the left */}
+                    <div
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        background: "rgba(15,23,42,0.9)",
+                        border: "1px solid rgba(15,23,42,0.9)",
+                      }}
+                    >
+                      {p.image1_url ? (
+                        <img
+                          src={p.image1_url}
+                          alt={p.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            color: "#6b7280",
+                          }}
+                        >
+                          No image
+                        </div>
+                      )}
                     </div>
-                    <div className="card-meta">
-                      {formatProductMeta(p) || "Quantum product"}
-                    </div>
-                    {p.short_description && (
-                      <div className="card-tags">
-                        {formatProductTags(p).map((tag) => (
-                          <span key={tag} className="card-tag">
-                            {tag}
-                          </span>
-                        ))}
+
+                    {/* Text content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="card-top-row">
+                        <div className="card-title">{p.name}</div>
+                        <div className="card-pill">{p.category || "Product"}</div>
                       </div>
-                    )}
-                    <div className="card-footer-text">
-                      Click to see full details in the Quantum Products Lab.
+                      <div className="card-meta">
+                        {formatProductMeta(p) || "Quantum product"}
+                      </div>
+                      {p.short_description && (
+                        <div className="card-tags">
+                          {formatProductTags(p).map((tag) => (
+                            <span key={tag} className="card-tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="card-footer-text">
+                        Click to see full details in the Quantum Products Lab.
+                      </div>
                     </div>
                   </div>
                 </Link>
