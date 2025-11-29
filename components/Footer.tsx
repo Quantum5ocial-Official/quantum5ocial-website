@@ -21,7 +21,7 @@ export default function Footer() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "14px",
+          gap: "10px",
         }}
       >
         <Image
