@@ -3,6 +3,7 @@ import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import Footer from "../components/Footer";
 
 // Routes that should be accessible without login.
 // You can add things like "/auth", "/api/..." if needed.
@@ -67,5 +68,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   }
 
   // Normal render if allowed or on /auth
-  return <Component {...pageProps} />;
+  return (
+    <>
+      <Component {...pageProps} />
+      <Footer />
+    </>
+  );
 }
