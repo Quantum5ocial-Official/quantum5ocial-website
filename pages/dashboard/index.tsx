@@ -328,16 +328,16 @@ export default function DashboardPage() {
                   maxWidth: 260,
                 }}
               >
-                <div className="dashboard-summary-label">Go to homepage</div>
-                <div className="dashboard-summary-value">
-                  <Image
-                    src="/Q5_black_bg2.png"
-                    alt="Quantum5ocial logo"
-                    width={45}
-                    height={45}
-                    style={{ borderRadius: 4 }}
-                  />
-                </div>
+                <div className="dashboard-summary-label">Take me home</div>
+<div className="dashboard-summary-value">
+  <Image
+    src="/Q5_black_bg2.png"
+    alt="Quantum5ocial logo"
+    width={60}   // larger logo
+    height={60}
+    style={{ borderRadius: 6 }}
+  />
+</div>
               </Link>
             </div>
 
@@ -409,9 +409,13 @@ export default function DashboardPage() {
                         )}
 
                         <div style={{ marginTop: 12 }}>
-                          <Link href="/profile/edit" className="nav-ghost-btn">
-                            Edit / complete your profile
-                          </Link>
+                          <Link
+  href="/profile/edit"
+  className="nav-ghost-btn"
+  style={{ textDecoration: "none" }}
+>
+  Edit / complete your profile
+</Link>
                         </div>
                       </div>
                     </div>
