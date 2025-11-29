@@ -26,10 +26,10 @@ export default function Footer() {
       >
         <Image
           src="/Q5_black_bg2.png"
-          width={60}     // bigger logo
-          height={60}
+          width={80}     // bigger logo
+          height={80}
           alt="Quantum5ocial logo"
-          style={{ borderRadius: "8px" }}
+          style={{ borderRadius: "2px" }}
         />
 
         <div
