@@ -267,7 +267,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="dashboard-layout">
-            {/* Summary tiles row: now compact, not full-width */}
+            {/* Summary tiles row: compact */}
             <div
               className="dashboard-summary-row"
               style={{
@@ -286,14 +286,17 @@ export default function DashboardPage() {
                   color: "inherit",
                   flex: "0 0 260px",
                   maxWidth: 260,
+                  position: "relative",
                 }}
               >
                 <div className="dashboard-summary-label">
                   Saved jobs
                   {jobsLoading && " (loading…)"}
                 </div>
-                <div className="dashboard-summary-value">
-                  {jobsError ? "–" : savedJobs.length}
+                <div className="dashboard-summary-value-wrapper">
+                  <div className="dashboard-summary-value">
+                    {jobsError ? "–" : savedJobs.length}
+                  </div>
                 </div>
               </Link>
 
@@ -306,18 +309,21 @@ export default function DashboardPage() {
                   color: "inherit",
                   flex: "0 0 260px",
                   maxWidth: 260,
+                  position: "relative",
                 }}
               >
                 <div className="dashboard-summary-label">
                   Saved products
                   {productsLoading && " (loading…)"}
                 </div>
-                <div className="dashboard-summary-value">
-                  {productsError ? "–" : savedProducts.length}
+                <div className="dashboard-summary-value-wrapper">
+                  <div className="dashboard-summary-value">
+                    {productsError ? "–" : savedProducts.length}
+                  </div>
                 </div>
               </Link>
 
-              {/* Go to homepage tile with logo */}
+              {/* Take me home tile with logo */}
               <Link
                 href="/"
                 className="dashboard-summary-card"
@@ -326,18 +332,19 @@ export default function DashboardPage() {
                   color: "inherit",
                   flex: "0 0 260px",
                   maxWidth: 260,
+                  position: "relative",
                 }}
               >
                 <div className="dashboard-summary-label">Take me home</div>
-<div className="dashboard-summary-value">
-  <Image
-    src="/Q5_black_bg2.png"
-    alt="Quantum5ocial logo"
-    width={60}   // larger logo
-    height={60}
-    style={{ borderRadius: 6 }}
-  />
-</div>
+                <div className="dashboard-summary-value-wrapper">
+                  <Image
+                    src="/Q5_black_bg2.png"
+                    alt="Quantum5ocial logo"
+                    width={60}
+                    height={60}
+                    style={{ borderRadius: 6 }}
+                  />
+                </div>
               </Link>
             </div>
 
@@ -352,7 +359,7 @@ export default function DashboardPage() {
             >
               <div
                 className="profile-summary-card"
-                style={{ width: "100%", maxWidth: 960 }} // wider than profile page
+                style={{ width: "100%", maxWidth: 960 }}
               >
                 {profileLoading ? (
                   <p className="profile-muted">Loading your profile…</p>
@@ -410,12 +417,12 @@ export default function DashboardPage() {
 
                         <div style={{ marginTop: 12 }}>
                           <Link
-  href="/profile/edit"
-  className="nav-ghost-btn"
-  style={{ textDecoration: "none" }}
->
-  Edit / complete your profile
-</Link>
+                            href="/profile/edit"
+                            className="nav-ghost-btn"
+                            style={{ textDecoration: "none" }}
+                          >
+                            Edit / complete your profile
+                          </Link>
                         </div>
                       </div>
                     </div>
