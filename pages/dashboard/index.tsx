@@ -61,7 +61,6 @@ export default function DashboardPage() {
   const [jobsError, setJobsError] = useState<string | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
 
-  // Profile state
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -80,7 +79,6 @@ export default function DashboardPage() {
       setJobsLoading(true);
       setJobsError(null);
 
-      // 1) get saved job ids
       const { data: favRows, error: favError } = await supabase
         .from("saved_jobs")
         .select("job_id")
@@ -103,7 +101,6 @@ export default function DashboardPage() {
         return;
       }
 
-      // 2) fetch jobs
       const { data: jobs, error: jobsError } = await supabase
         .from("jobs")
         .select("id, title, company_name, location, employment_type")
@@ -172,7 +169,7 @@ export default function DashboardPage() {
     loadProducts();
   }, [user]);
 
-  // Load profile (same logic as profile page)
+  // Load profile (same as profile page)
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
@@ -199,7 +196,6 @@ export default function DashboardPage() {
     if (user) loadProfile();
   }, [user]);
 
-  // Derived profile display fields (same as profile page)
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -271,13 +267,26 @@ export default function DashboardPage() {
           </div>
 
           <div className="dashboard-layout">
-            {/* Summary tiles row (smaller, clickable, no underline) */}
-            <div className="dashboard-summary-row">
+            {/* Summary tiles row: now compact, not full-width */}
+            <div
+              className="dashboard-summary-row"
+              style={{
+                justifyContent: "flex-start",
+                gap: 16,
+                maxWidth: 900,
+                marginBottom: 28,
+              }}
+            >
               {/* Saved jobs tile */}
               <Link
                 href="/dashboard/saved-jobs"
                 className="dashboard-summary-card"
-                style={{ textDecoration: "none", color: "inherit" }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: "0 0 260px",
+                  maxWidth: 260,
+                }}
               >
                 <div className="dashboard-summary-label">
                   Saved jobs
@@ -292,7 +301,12 @@ export default function DashboardPage() {
               <Link
                 href="/dashboard/saved-products"
                 className="dashboard-summary-card"
-                style={{ textDecoration: "none", color: "inherit" }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: "0 0 260px",
+                  maxWidth: 260,
+                }}
               >
                 <div className="dashboard-summary-label">
                   Saved products
@@ -303,11 +317,16 @@ export default function DashboardPage() {
                 </div>
               </Link>
 
-              {/* Go to homepage tile with LOGO */}
+              {/* Go to homepage tile with logo */}
               <Link
                 href="/"
                 className="dashboard-summary-card"
-                style={{ textDecoration: "none", color: "inherit" }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: "0 0 260px",
+                  maxWidth: 260,
+                }}
               >
                 <div className="dashboard-summary-label">Go to homepage</div>
                 <div className="dashboard-summary-value">
@@ -316,15 +335,25 @@ export default function DashboardPage() {
                     alt="Quantum5ocial logo"
                     width={45}
                     height={45}
-                    style={{ borderRadius: "4px" }}
+                    style={{ borderRadius: 4 }}
                   />
                 </div>
               </Link>
             </div>
 
-            {/* Profile card – same structure as profile page */}
-            <div className="profile-container" style={{ marginTop: 32 }}>
-              <div className="profile-summary-card">
+            {/* Profile card – same style, but wider on dashboard */}
+            <div
+              className="profile-container"
+              style={{
+                marginTop: 16,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                className="profile-summary-card"
+                style={{ width: "100%", maxWidth: 960 }} // wider than profile page
+              >
                 {profileLoading ? (
                   <p className="profile-muted">Loading your profile…</p>
                 ) : !hasAnyProfileInfo ? (
@@ -406,7 +435,6 @@ export default function DashboardPage() {
                     <div className="profile-two-columns">
                       {/* LEFT */}
                       <div className="profile-col">
-                        {/* Affiliation */}
                         {profile?.affiliation && (
                           <div className="profile-summary-item">
                             <div className="profile-section-label">
@@ -418,7 +446,6 @@ export default function DashboardPage() {
                           </div>
                         )}
 
-                        {/* Focus areas */}
                         {focusTags.length > 0 && (
                           <div className="profile-summary-item">
                             <div className="profile-section-label">
@@ -437,7 +464,6 @@ export default function DashboardPage() {
                           </div>
                         )}
 
-                        {/* Links */}
                         {links.length > 0 && (
                           <div
                             className="profile-summary-item"
@@ -470,7 +496,6 @@ export default function DashboardPage() {
 
                       {/* RIGHT */}
                       <div className="profile-col">
-                        {/* Highest education */}
                         {profile?.highest_education && (
                           <div className="profile-summary-item">
                             <div className="profile-section-label">
@@ -482,7 +507,6 @@ export default function DashboardPage() {
                           </div>
                         )}
 
-                        {/* Skills */}
                         {skillTags.length > 0 && (
                           <div className="profile-summary-item">
                             <div className="profile-section-label">Skills</div>
