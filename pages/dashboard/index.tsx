@@ -30,7 +30,8 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [view, setView] = useState<"jobs" | "products">("jobs");
-    // sync "view" with ?view= query (jobs / products)
+
+  // sync "view" with ?view= query (jobs / products)
   useEffect(() => {
     if (!router.isReady) return;
     const q = router.query.view;
@@ -57,7 +58,7 @@ export default function DashboardPage() {
     }
   }, [loading, user, router]);
 
-  // load saved jobs
+  // load saved jobs (uses saved_jobs table)
   useEffect(() => {
     if (!user) return;
 
@@ -65,24 +66,21 @@ export default function DashboardPage() {
       setJobsLoading(true);
       setJobsError(null);
 
-      const { data: favRows, error: favError } = await supabase
-        .from("job_favorites")
+      // 1) get saved job IDs for this user
+      const { data: savedRows, error: savedErr } = await supabase
+        .from("saved_jobs")
         .select("job_id")
         .eq("user_id", user.id);
 
-      if (favError) {
-        console.error("Error loading job_favorites", favError);
-        if ((favError as any).code === "42P01") {
-          setJobsError("Saved jobs are not configured yet.");
-        } else {
-          setJobsError("Could not load saved jobs.");
-        }
+      if (savedErr) {
+        console.error("Error loading saved_jobs", savedErr);
+        setJobsError("Could not load saved jobs.");
         setJobsLoading(false);
         return;
       }
 
       const jobIds = Array.from(
-        new Set((favRows || []).map((r: any) => r.job_id))
+        new Set((savedRows || []).map((r: any) => r.job_id))
       );
 
       if (jobIds.length === 0) {
@@ -91,13 +89,14 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data: jobs, error: jobsError } = await supabase
+      // 2) fetch job records
+      const { data: jobs, error: jobsErr } = await supabase
         .from("jobs")
         .select("id, title, company_name, location, employment_type")
         .in("id", jobIds);
 
-      if (jobsError) {
-        console.error("Error loading jobs", jobsError);
+      if (jobsErr) {
+        console.error("Error loading jobs", jobsErr);
         setJobsError("Could not load saved jobs.");
         setSavedJobs([]);
       } else {
@@ -110,7 +109,7 @@ export default function DashboardPage() {
     loadJobs();
   }, [user]);
 
-  // load saved products
+  // load saved products (uses saved_products table)
   useEffect(() => {
     if (!user) return;
 
@@ -118,24 +117,21 @@ export default function DashboardPage() {
       setProductsLoading(true);
       setProductsError(null);
 
-      const { data: favRows, error: favError } = await supabase
-        .from("product_favorites")
+      // 1) get saved product IDs for this user
+      const { data: savedRows, error: savedErr } = await supabase
+        .from("saved_products")
         .select("product_id")
         .eq("user_id", user.id);
 
-      if (favError) {
-        console.error("Error loading product_favorites", favError);
-        if ((favError as any).code === "42P01") {
-          setProductsError("Saved products are not configured yet.");
-        } else {
-          setProductsError("Could not load saved products.");
-        }
+      if (savedErr) {
+        console.error("Error loading saved_products", savedErr);
+        setProductsError("Could not load saved products.");
         setProductsLoading(false);
         return;
       }
 
       const productIds = Array.from(
-        new Set((favRows || []).map((r: any) => r.product_id))
+        new Set((savedRows || []).map((r: any) => r.product_id))
       );
 
       if (productIds.length === 0) {
@@ -144,13 +140,14 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data: products, error: productsError } = await supabase
+      // 2) fetch product records
+      const { data: products, error: productsErr } = await supabase
         .from("products")
         .select("id, name, company_name, category, price_type, price_value")
         .in("id", productIds);
 
-      if (productsError) {
-        console.error("Error loading products", productsError);
+      if (productsErr) {
+        console.error("Error loading products", productsErr);
         setProductsError("Could not load saved products.");
         setSavedProducts([]);
       } else {
@@ -167,6 +164,8 @@ export default function DashboardPage() {
     () => savedJobs.length + savedProducts.length,
     [savedJobs.length, savedProducts.length]
   );
+
+  if (!user && !loading) return null;
 
   return (
     <>
@@ -189,18 +188,23 @@ export default function DashboardPage() {
           <div className="dashboard-layout">
             {/* Summary tiles */}
             <div className="dashboard-summary-row">
-              <div className="dashboard-summary-card">
+              <Link href="/dashboard/saved-jobs" className="dashboard-summary-card">
                 <div className="dashboard-summary-label">Saved jobs</div>
                 <div className="dashboard-summary-value">
                   {savedJobs.length}
                 </div>
-              </div>
-              <div className="dashboard-summary-card">
+              </Link>
+
+              <Link
+                href="/dashboard/saved-products"
+                className="dashboard-summary-card"
+              >
                 <div className="dashboard-summary-label">Saved products</div>
                 <div className="dashboard-summary-value">
                   {savedProducts.length}
                 </div>
-              </div>
+              </Link>
+
               <div className="dashboard-summary-card">
                 <div className="dashboard-summary-label">
                   Total saved items
@@ -291,7 +295,9 @@ export default function DashboardPage() {
                       Loading saved products…
                     </p>
                   ) : productsError ? (
-                    <p className="dashboard-status error">{productsError}</p>
+                    <p className="dashboard-status error">
+                      {productsError}
+                    </p>
                   ) : savedProducts.length === 0 ? (
                     <p className="dashboard-status">
                       You haven&apos;t saved any products yet.
