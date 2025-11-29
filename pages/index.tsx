@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
-// pages/index.tsx
 import { useRouter } from "next/router";
 import { useEffect } from "react";
 
