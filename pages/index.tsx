@@ -471,6 +471,11 @@ export default function Home() {
           </div>
         </section>
 
+        {/* FOOTER */}
+        <footer>
+          Quantum5ocial © 2025 · Building the quantum ecosystem ·{" "}
+          <a href="mailto:info@quantum5ocial.com">Contact</a>
+        </footer>
       </div>
     </>
   );
