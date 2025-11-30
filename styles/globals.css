@@ -2089,13 +2089,20 @@ footer a:hover {
 .nav-links {
   gap: 24px !important;               /* was 18px */
 }
+
 .brand-logo {
-  width: 200px;
-  height: 200px;
+  width: 150px;
+  height: 150px;
   object-fit: contain;
-  margin-right: 6px;
+  margin-right: 0;   /* no extra margin */
   display: block;
   flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;          /* small clean gap */
 }
 .hero-main-logo {
   width: 300px;          /* adjust to taste */
