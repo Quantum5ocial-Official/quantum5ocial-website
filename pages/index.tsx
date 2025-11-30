@@ -175,7 +175,10 @@ export default function Home() {
 
   const formatMemberMeta = (m: CommunityProfile) => {
     const highestEdu =
-      (m as any).highest_education || (m as any).education_level || undefined;
+      (m as any).highest_education ||
+      (m as any).education_level ||
+      "" ||
+      undefined;
     const role = (m as any).role || (m as any).describes_you || undefined;
     const aff = (m as any).affiliation || (m as any).current_org || undefined;
 
@@ -197,7 +200,9 @@ export default function Home() {
     (profileSummary as any)?.highest_education ||
     "";
   const describesYou =
-    (profileSummary as any)?.describes_you || (profileSummary as any)?.role || "";
+    (profileSummary as any)?.describes_you ||
+    (profileSummary as any)?.role ||
+    "";
   const affiliation =
     (profileSummary as any)?.affiliation ||
     (profileSummary as any)?.current_org ||
@@ -212,9 +217,11 @@ export default function Home() {
         {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
           {/* LEFT SIDEBAR */}
-          <aside className="layout-left sticky-col">
-            {/* Profile card (no label, no button) */}
+          <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column" }}>
+            {/* Profile card */}
             <div className="sidebar-card profile-sidebar-card">
+              <div className="profile-sidebar-label">Your profile</div>
+
               <div className="profile-sidebar-header">
                 <div className="profile-sidebar-avatar-wrapper">
                   {avatarUrl ? (
@@ -232,6 +239,7 @@ export default function Home() {
                 <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
+              {/* Just stacked lines, no labels */}
               <div className="profile-sidebar-info-block">
                 <div className="profile-sidebar-info-value">
                   {educationLevel || "Add your education level in your profile."}
@@ -243,6 +251,10 @@ export default function Home() {
                   {affiliation || "Add your current lab / company / university."}
                 </div>
               </div>
+
+              <Link href="/profile" className="sidebar-btn">
+                View / edit profile
+              </Link>
             </div>
 
             {/* Quick dashboard card */}
@@ -267,45 +279,120 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Left column "footer": social icons + logo/name */}
-            <div className="sidebar-left-footer">
-              <div className="sidebar-social-row">
+            {/* Social icons + brand logo/name at bottom of left column */}
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 16,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              {/* Icons row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  fontSize: 18,
+                  alignItems: "center",
+                }}
+              >
+                {/* Email */}
                 <a
                   href="mailto:info@quantum5ocial.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="sidebar-social-icon"
                   aria-label="Email Quantum5ocial"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
                 >
-                  ✉️
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
+                    <polyline points="3 7 12 13 21 7" />
+                  </svg>
                 </a>
+
+                {/* X */}
                 <a
-                  href="https://x.com"
+                  href="#"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="sidebar-social-icon"
                   aria-label="Quantum5ocial on X"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
                 >
-                  𝕏
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4l8 9.5L20 4" />
+                    <path d="M4 20l6.5-7.5L20 20" />
+                  </svg>
                 </a>
+
+                {/* GitHub */}
                 <a
-                  href="https://github.com"
+                  href="#"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="sidebar-social-icon"
                   aria-label="Quantum5ocial on GitHub"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
                 >
-                  ⓖ
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
+                  </svg>
                 </a>
               </div>
 
-              <div className="sidebar-brand-footer">
+              {/* Brand row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
                 <img
                   src="/Q5_white_bg.png"
                   alt="Quantum5ocial logo"
-                  className="sidebar-brand-logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 4,
+                    objectFit: "contain",
+                  }}
                 />
-                <span className="sidebar-brand-text">Quantum5ocial</span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Quantum5ocial
+                </span>
               </div>
             </div>
           </aside>
@@ -637,7 +724,9 @@ export default function Home() {
                                 className="card-footer-text"
                                 style={{ marginTop: 6 }}
                               >
-                                {bio.length > 80 ? bio.slice(0, 77) + "…" : bio}
+                                {bio.length > 80
+                                  ? bio.slice(0, 77) + "..."
+                                  : bio}
                               </div>
                             )}
                             <button
@@ -646,7 +735,8 @@ export default function Home() {
                                 marginTop: 10,
                                 padding: "5px 10px",
                                 borderRadius: 999,
-                                border: "1px solid rgba(148,163,184,0.7)",
+                                border:
+                                  "1px solid rgba(148,163,184,0.7)",
                                 background: "transparent",
                                 color: "#7dd3fc",
                                 fontSize: 12,
@@ -753,7 +843,10 @@ export default function Home() {
           </section>
 
           {/* RIGHT SIDEBAR – STACKED HERO TILES + COPYRIGHT */}
-          <aside className="layout-right sticky-col">
+          <aside
+            className="layout-right sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             <div className="hero-tiles hero-tiles-vertical">
               {/* Jobs tile */}
               <Link href="/jobs" className="hero-tile">
@@ -825,8 +918,17 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Right column footer: copyright */}
-            <div className="right-sidebar-footer">
+            {/* Copyright pinned at bottom of right column */}
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 12,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                fontSize: 12,
+                color: "rgba(148,163,184,0.9)",
+                textAlign: "right",
+              }}
+            >
               © 2025 Quantum5ocial · All rights reserved
             </div>
           </aside>
