@@ -233,38 +233,30 @@ export default function Home() {
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
-                      alt={sidebarFirstName}
+                      alt={sidebarFullName}
                       className="profile-sidebar-avatar"
                     />
                   ) : (
                     <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarFirstName.charAt(0).toUpperCase()}
+                      {sidebarFullName.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="profile-sidebar-name">{sidebarFirstName}</div>
+                <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
-              <div className="profile-sidebar-info-block">
-                <div className="profile-sidebar-info-label">Education</div>
-                <div className="profile-sidebar-info-value">
-                  {educationLevel || "Add your education level in your profile."}
-                </div>
-              </div>
-
-              <div className="profile-sidebar-info-block">
-                <div className="profile-sidebar-info-label">What describes you</div>
-                <div className="profile-sidebar-info-value">
-                  {describesYou || "Tell the community how you describe yourself."}
-                </div>
-              </div>
-
-              <div className="profile-sidebar-info-block">
-                <div className="profile-sidebar-info-label">Affiliation</div>
-                <div className="profile-sidebar-info-value">
-                  {affiliation || "Add your current lab / company / university."}
-                </div>
-              </div>
+              {/* Just stacked lines, no labels */}
+<div className="profile-sidebar-info-block">
+  <div className="profile-sidebar-info-value">
+    {educationLevel || "Add your education level in your profile."}
+  </div>
+  <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+    {describesYou || "Tell the community how you describe yourself."}
+  </div>
+  <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+    {affiliation || "Add your current lab / company / university."}
+  </div>
+</div>
 
               <Link href="/profile" className="sidebar-btn">
                 View / edit profile
