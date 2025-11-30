@@ -105,13 +105,21 @@ body {
 
 /* styles/globals.css or wherever .nav lives */
 .nav {
-  position: sticky;   /* or fixed if you prefer */
+  position: fixed;      /* keeps the header on top while scrolling */
   top: 0;
-  z-index: 100;
-  width: 100%;
-  /* keep your existing padding / layout */
-  backdrop-filter: blur(18px);
-  background: radial-gradient(circle at top left, rgba(15,23,42,0.85), rgba(15,23,42,0.96));
+  left: 0;
+  right: 0;
+  z-index: 50;
+
+  display: flex;        /* important: brand + links in one row */
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 16px 32px;
+
+  /* keep your existing background here if you had one before */
+  background: radial-gradient(circle at top left, #020617 0, #020617 45%, #020617 100%);
+  backdrop-filter: blur(20px);
 }
 
 .brand {
@@ -142,8 +150,7 @@ body {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 18px;
-  font-size: 0.87rem;
+  gap: 24px;        /* adjust spacing if you like */
 }
 
 .nav-link {
