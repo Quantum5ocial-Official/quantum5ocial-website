@@ -165,55 +165,78 @@ export default function Home() {
             </p>
           </div>
 
-          <aside>
-            <div className="hero-tiles">
-              {/* Jobs tile */}
-              <Link href="/jobs" className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Explore</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Quantum Jobs Universe</div>
-                    <div className="tile-icon-orbit">🧪</div>
-                  </div>
-                  <p className="tile-text">
-                    Browse internships, MSc/PhD positions, postdocs, and industry roles
-                    from labs and companies worldwide.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">MSc / PhD</span>
-                    <span className="tile-pill">Postdoc</span>
-                    <span className="tile-pill">Industry</span>
-                  </div>
-                  <div className="tile-cta">
-                    Browse jobs <span>›</span>
-                  </div>
-                </div>
-              </Link>
-
-              {/* Products tile */}
-              <Link href="/products" className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Discover</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Quantum Products Lab</div>
-                    <div className="tile-icon-orbit">🔧</div>
-                  </div>
-                  <p className="tile-text">
-                    Discover quantum hardware, control electronics, software tools, and
-                    services from specialized vendors.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Hardware</span>
-                    <span className="tile-pill">Control &amp; readout</span>
-                    <span className="tile-pill">Software &amp; services</span>
-                  </div>
-                  <div className="tile-cta">
-                    Browse products <span>›</span>
-                  </div>
-                </div>
-              </Link>
+                <aside>
+        <div className="hero-tiles">
+          {/* Jobs tile */}
+          <Link href="/jobs" className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Explore</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Quantum Jobs Universe</div>
+                <div className="tile-icon-orbit">🧪</div>
+              </div>
+              <p className="tile-text">
+                Browse internships, MSc/PhD positions, postdocs, and industry roles
+                from labs and companies worldwide.
+              </p>
+              <div className="tile-pill-row">
+                <span className="tile-pill">MSc / PhD</span>
+                <span className="tile-pill">Postdoc</span>
+                <span className="tile-pill">Industry</span>
+              </div>
+              <div className="tile-cta">
+                Browse jobs <span>›</span>
+              </div>
             </div>
-          </aside>
+          </Link>
+
+          {/* Products tile */}
+          <Link href="/products" className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Discover</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Quantum Products Lab</div>
+                <div className="tile-icon-orbit">🔧</div>
+              </div>
+              <p className="tile-text">
+                Discover quantum hardware, control electronics, software tools, and
+                services from specialized vendors.
+              </p>
+              <div className="tile-pill-row">
+                <span className="tile-pill">Hardware</span>
+                <span className="tile-pill">Control &amp; readout</span>
+                <span className="tile-pill">Software &amp; services</span>
+              </div>
+              <div className="tile-cta">
+                Browse products <span>›</span>
+              </div>
+            </div>
+          </Link>
+
+          {/* 🔹 NEW: Community tile */}
+          <Link href="/community" className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Connect</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Quantum Community</div>
+                <div className="tile-icon-orbit">🤝</div>
+              </div>
+              <p className="tile-text">
+                Meet students, researchers, and companies. Explore profiles, discover
+                collaborators, and grow your quantum network.
+              </p>
+              <div className="tile-pill-row">
+                <span className="tile-pill">Profiles</span>
+                <span className="tile-pill">Collaboration</span>
+                <span className="tile-pill">Mentoring</span>
+              </div>
+              <div className="tile-cta">
+                Meet the community <span>›</span>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </aside>
         </section>
 
         {/* FEATURED JOBS */}
@@ -280,7 +303,7 @@ export default function Home() {
                       </div>
                     )}
                     <div className="card-footer-text">
-                      Open to see full details on the jobs page.
+                      Open to see full details on the  page.
                     </div>
                   </div>
                 </Link>
