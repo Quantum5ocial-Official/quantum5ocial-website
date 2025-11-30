@@ -64,7 +64,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // Redirect if not logged in
+  // Redirect if not logged in (extra safety; _app also handles)
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/dashboard");
@@ -286,17 +286,14 @@ export default function DashboardPage() {
                   color: "inherit",
                   flex: "0 0 260px",
                   maxWidth: 260,
-                  position: "relative",
                 }}
               >
                 <div className="dashboard-summary-label">
                   Saved jobs
                   {jobsLoading && " (loading…)"}
                 </div>
-                <div className="dashboard-summary-value-wrapper">
-                  <div className="dashboard-summary-value">
-                    {jobsError ? "–" : savedJobs.length}
-                  </div>
+                <div className="dashboard-summary-value">
+                  {jobsError ? "–" : savedJobs.length}
                 </div>
               </Link>
 
@@ -309,17 +306,14 @@ export default function DashboardPage() {
                   color: "inherit",
                   flex: "0 0 260px",
                   maxWidth: 260,
-                  position: "relative",
                 }}
               >
                 <div className="dashboard-summary-label">
                   Saved products
                   {productsLoading && " (loading…)"}
                 </div>
-                <div className="dashboard-summary-value-wrapper">
-                  <div className="dashboard-summary-value">
-                    {productsError ? "–" : savedProducts.length}
-                  </div>
+                <div className="dashboard-summary-value">
+                  {productsError ? "–" : savedProducts.length}
                 </div>
               </Link>
 
@@ -332,11 +326,10 @@ export default function DashboardPage() {
                   color: "inherit",
                   flex: "0 0 260px",
                   maxWidth: 260,
-                  position: "relative",
                 }}
               >
                 <div className="dashboard-summary-label">Take me home</div>
-                <div className="dashboard-summary-value-wrapper">
+                <div className="dashboard-summary-value">
                   <Image
                     src="/Q5_black_bg2.png"
                     alt="Quantum5ocial logo"
@@ -348,7 +341,7 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            {/* Profile card – same style, but wider on dashboard */}
+            {/* Profile card */}
             <div
               className="profile-container"
               style={{
