@@ -19,7 +19,6 @@ export default function AuthPage() {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (user) {
-        // Simple profile upsert (old behavior)
         await supabase.from("profiles").upsert({
           id: user.id,
           full_name:
@@ -147,83 +146,73 @@ export default function AuthPage() {
         }}
       >
         {/* BRAND HEADER */}
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          {/* Logo with glow */}
-          <div
-            style={{
-              position: "relative",
-              width: 90,
-              height: 90,
-              margin: "0 auto 12px",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: "50%",
-                left: "50%",
-                width: 120,
-                height: 120,
-                transform: "translate(-50%, -50%)",
-                borderRadius: "50%",
-                background:
-                  "radial-gradient(circle, rgba(34,211,238,0.28), rgba(168,85,247,0.18), transparent 70%)",
-                filter: "blur(18px)",
-                animation: "pulseGlow 3s ease-in-out infinite",
-              }}
-            ></div>
+<div style={{ textAlign: "center", marginBottom: 28 }}>
+  {/* Logo with glow */}
+  <div
+    style={{
+      position: "relative",
+      width: 90,
+      height: 90,
+      margin: "0 auto 12px",
+    }}
+  >
+    <div
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        width: 120,
+        height: 120,
+        transform: "translate(-50%, -50%)",
+        borderRadius: "50%",
+        background:
+          "radial-gradient(circle, rgba(34,211,238,0.28), rgba(168,85,247,0.18), transparent 70%)",
+        filter: "blur(18px)",
+        animation: "pulseGlow 3s ease-in-out infinite",
+      }}
+    ></div>
 
-            <img
-              src="/Q5_white_bg.png"
-              alt="Quantum5ocial Logo"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                position: "relative",
-                zIndex: 2,
-              }}
-            />
-          </div>
+    <img
+      src="/brand-logo.svg"
+      alt="Quantum5ocial Logo"
+      style={{
+        width: "100%",
+        height: "100%",
+        position: "relative",
+        zIndex: 2,
+      }}
+    />
+  </div>
 
-          {/* Brand name */}
-          <div
-            style={{
-              fontSize: 28,
-              fontWeight: 700,
-              background: "linear-gradient(90deg, #22d3ee, #a855f7)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              marginBottom: 6,
-              letterSpacing: "0.3px",
-            }}
-          >
-            Quantum5ocial
-          </div>
+  {/* Brand name */}
+  <div
+    style={{
+      fontSize: 28,
+      fontWeight: 700,
+      background: "linear-gradient(90deg, #22d3ee, #a855f7)",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      marginBottom: 6,
+      letterSpacing: "0.3px",
+    }}
+  >
+    Quantum5ocial
+  </div>
 
-          {/* Subtitle */}
-          <div style={{ fontSize: 14, color: "#9ca3af" }}>
-            Sign in to join the quantum ecosystem.
-          </div>
-        </div>
+  {/* Subtitle */}
+  <div style={{ fontSize: 14, color: "#9ca3af" }}>
+    Sign in to join the quantum ecosystem.
+  </div>
+</div>
 
-        {/* Glow animation */}
-        <style jsx>{`
-          @keyframes pulseGlow {
-            0% {
-              opacity: 0.6;
-              transform: translate(-50%, -50%) scale(1);
-            }
-            50% {
-              opacity: 1;
-              transform: translate(-50%, -50%) scale(1.08);
-            }
-            100% {
-              opacity: 0.6;
-              transform: translate(-50%, -50%) scale(1);
-            }
-          }
-        `}</style>
+{/* Glow animation */}
+<style jsx>{`
+  @keyframes pulseGlow {
+    0% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+    100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  }
+`}</style>
 
         {/* Social login buttons */}
         <div
@@ -320,10 +309,7 @@ export default function AuthPage() {
               flex: 1,
               padding: "6px 0",
               borderRadius: 999,
-              border:
-                mode === "login"
-                  ? "1px solid #22d3ee"
-                  : "1px solid #374151",
+              border: mode === "login" ? "1px solid #22d3ee" : "1px solid #374151",
               background: mode === "login" ? "#0f172a" : "transparent",
               color: "#e5e7eb",
               cursor: "pointer",
@@ -338,10 +324,7 @@ export default function AuthPage() {
               flex: 1,
               padding: "6px 0",
               borderRadius: 999,
-              border:
-                mode === "signup"
-                  ? "1px solid #22d3ee"
-                  : "1px solid #374151",
+              border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
               background: mode === "signup" ? "#0f172a" : "transparent",
               color: "#e5e7eb",
               cursor: "pointer",
@@ -355,9 +338,7 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit}>
           {mode === "signup" && (
             <div style={{ marginBottom: 10 }}>
-              <label
-                style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-              >
+              <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
                 Full name
               </label>
               <input
@@ -378,9 +359,7 @@ export default function AuthPage() {
           )}
 
           <div style={{ marginBottom: 10 }}>
-            <label
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
+            <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
               Email
             </label>
             <input
@@ -400,9 +379,7 @@ export default function AuthPage() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <label
-              style={{ fontSize: 12, display: "block", marginBottom: 4 }}
-            >
+            <label style={{ fontSize: 12, display: "block", marginBottom: 4 }}>
               Password
             </label>
             <input
@@ -419,15 +396,8 @@ export default function AuthPage() {
                 fontSize: 13,
               }}
             />
-            <div
-              style={{
-                fontSize: 11,
-                color: "#6b7280",
-                marginTop: 4,
-              }}
-            >
-              For MVP you can use a simple password; later we enforce stronger
-              rules.
+            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+              For MVP you can use a simple password; later we enforce stronger rules.
             </div>
           </div>
 
@@ -491,8 +461,8 @@ export default function AuthPage() {
             textAlign: "center",
           }}
         >
-          After login, you&apos;ll be redirected to your dashboard to choose
-          how you want to use Quantum5ocial.
+          After login, you&apos;ll be redirected to your dashboard to choose how you want
+          to use Quantum5ocial.
         </div>
       </div>
     </div>
