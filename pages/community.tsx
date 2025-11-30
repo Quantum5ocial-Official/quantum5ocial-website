@@ -18,7 +18,7 @@ export default function CommunityPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (authLoading) return; // wait until we know auth state
+    if (authLoading) return; // wait for auth hook
 
     const loadProfiles = async () => {
       setLoading(true);
@@ -30,7 +30,7 @@ export default function CommunityPage() {
           .select("id, full_name, avatar_url")
           .order("full_name", { ascending: true });
 
-        // Don't show the current user in the list
+        // 🔹 Hide the *current* user, show everyone else
         if (user?.id) {
           query = query.neq("id", user.id);
         }
@@ -95,8 +95,7 @@ export default function CommunityPage() {
 
           {!loading && !error && profiles.length === 0 && (
             <div className="products-empty">
-              No other members visible yet. As more users complete their profiles,
-              they will appear here.
+              No members visible yet. As more users join Quantum5ocial, they will appear here.
             </div>
           )}
 
@@ -181,7 +180,7 @@ export default function CommunityPage() {
                             cursor: "pointer",
                           }}
                           onClick={() => {
-                            // TODO: entangle logic later
+                            // TODO: real entangle/follow logic later
                             console.log("Entangle with", p.id);
                           }}
                         >
