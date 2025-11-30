@@ -87,12 +87,15 @@ body {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+
+  /* add this line ↓ */
+  padding-top: 88px;
+
+  /* keep your original padding for left/right/bottom */
   padding: 24px 32px 40px;
+
   display: flex;
   flex-direction: column;
-}
-.page {
-  padding-top: 88px;  /* tweak to match your navbar height */
 }
 /* Generic sections - full-width content area */
 .section {
