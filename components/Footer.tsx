@@ -50,7 +50,7 @@ export default function Footer() {
           width: "100%",
         }}
       >
-        Quantum5ocial © 2025 · Building the quantum ecosystem ·{" "}
+        © 2025 Quantum5ocial· All rights reserved·{" "}
         <Link href="mailto:info@quantum5ocial.com">
           <span style={{ color: "#3bc7f3" }}>Contact</span>
         </Link>
