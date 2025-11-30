@@ -1910,14 +1910,6 @@ footer a:hover {
   color: #7dd3fc;
   font-weight: 500;
 }
-.brand-logo {
-  width: 120px !important;
-  height: 120px !important;
-  object-fit: contain;
-  margin-right: 10px;
-  display: block;
-  flex-shrink: 0;
-}
 
 .brand {
   display: flex;
