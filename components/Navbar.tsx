@@ -6,14 +6,47 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 export default function Navbar() {
-  const { user, profile, loading } = useSupabaseUser();
+  const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
+  const [profileName, setProfileName] = useState<string | null>(null);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Load full_name from profiles so we show the edited profile name
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfileName = async () => {
+      if (!user) {
+        setProfileName(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (!error && data && data.full_name) {
+        setProfileName(data.full_name as string);
+      } else {
+        setProfileName(null);
+      }
+    };
+
+    loadProfileName();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -41,22 +74,21 @@ export default function Navbar() {
     router.push("/");
   };
 
-  // ✅ Prefer profile.full_name, then fall back to metadata/email
-  const displayName =
-    profile?.full_name ||
+  const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
-    user?.email?.split("@")[0] ||
+    (user as any)?.email?.split("@")[0] ||
     "User";
+
+  const displayName = profileName || fallbackName;
 
   return (
     <header className="nav">
       {/* Brand – clickable to home */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
-          {/* Logo image */}
           <img
-            src="/Q5_no_bg.png"
+            src="/Q5_black_bg2.png"
             alt="Quantum5ocial logo"
             className="brand-logo"
           />
@@ -80,7 +112,7 @@ export default function Navbar() {
           Products
         </Link>
 
-        {/* Dashboard dropdown (navigation only) */}
+        {/* Dashboard dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
@@ -119,14 +151,14 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* Logged-out: auth button */}
+        {/* Logged-out CTA */}
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
 
-        {/* Username dropdown – Profile + Logout */}
+        {/* Username dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
