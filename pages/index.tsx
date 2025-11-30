@@ -458,18 +458,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* LOGIN PLACEHOLDER */}
-        <section id="login" className="section">
-          <div className="section-header">
-            <div>
-              <div className="section-title">Login &amp; sign up </div>
-              <div className="section-sub">
-                Use the Login / Sign up button in the top-right corner to access your
-                dashboard and start posting jobs and products.
-              </div>
-            </div>
-          </div>
-        </section>
 
       </div>
     </>
