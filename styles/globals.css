@@ -91,7 +91,9 @@ body {
   display: flex;
   flex-direction: column;
 }
-
+.page {
+  padding-top: 88px;  /* tweak to match your navbar height */
+}
 /* Generic sections - full-width content area */
 .section {
   flex: 1;
