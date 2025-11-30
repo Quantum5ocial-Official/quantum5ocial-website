@@ -2101,7 +2101,7 @@ footer a:hover {
   width: 120px;
   height: 120px;
   object-fit: contain;
-  margin-right: 12px;
+  margin-right: 6px;
   display: block;
   flex-shrink: 0;
 }
