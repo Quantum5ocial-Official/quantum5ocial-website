@@ -31,9 +31,23 @@ type Product = {
 
 type ProfileSummary = {
   full_name: string | null;
-  current_role: string | null;
-  current_org: string | null;
-  location: string | null;
+  avatar_url: string | null;
+  // the rest are optional – we’ll read whatever exists on your table
+  education_level?: string | null;
+  describes_you?: string | null;
+  affiliation?: string | null;
+  highest_education?: string | null;
+  current_org?: string | null;
+};
+
+type CommunityProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  highest_education?: string | null;
+  role?: string | null;
+  affiliation?: string | null;
+  short_bio?: string | null;
 };
 
 export default function Home() {
@@ -41,12 +55,13 @@ export default function Home() {
 
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>([]);
+
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingMembers, setLoadingMembers] = useState(true);
 
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
 
   // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
@@ -90,7 +105,28 @@ export default function Home() {
     loadProducts();
   }, []);
 
-  // === LOAD PROFILE SUMMARY FOR LEFT SIDEBAR ===
+  // === LOAD FEATURED COMMUNITY MEMBERS (latest 3 profiles) ===
+  useEffect(() => {
+    const loadMembers = async () => {
+      setLoadingMembers(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (!error && data) {
+        setFeaturedMembers(data as CommunityProfile[]);
+      } else {
+        setFeaturedMembers([]);
+      }
+      setLoadingMembers(false);
+    };
+
+    loadMembers();
+  }, []);
+
+  // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) {
@@ -100,7 +136,7 @@ export default function Home() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name, current_role, current_org, location")
+        .select("*")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -114,13 +150,7 @@ export default function Home() {
     loadProfile();
   }, [user]);
 
-  const fallbackName =
-    (user as any)?.user_metadata?.name ||
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
-    "";
-
-  const sidebarName = profileSummary?.full_name || fallbackName || "Your profile";
+  // === HELPERS ===
 
   const formatJobMeta = (job: Job) =>
     [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
@@ -132,9 +162,7 @@ export default function Home() {
   };
 
   const formatProductMeta = (p: Product) =>
-    [p.company_name ? `Vendor: ${p.company_name}` : null]
-      .filter(Boolean)
-      .join(" · ");
+    [p.company_name ? `Vendor: ${p.company_name}` : null].filter(Boolean).join(" · ");
 
   const formatProductTags = (p: Product) => {
     const tags: string[] = [];
@@ -146,40 +174,97 @@ export default function Home() {
     return tags.slice(0, 3);
   };
 
+  const formatMemberMeta = (m: CommunityProfile) => {
+    const highestEdu =
+      (m as any).highest_education ||
+      (m as any).education_level ||
+      "" ||
+      undefined;
+    const role = (m as any).role || (m as any).describes_you || undefined;
+    const aff = (m as any).affiliation || (m as any).current_org || undefined;
+
+    return [highestEdu, role, aff].filter(Boolean).join(" · ");
+  };
+
+  // Fallback / sidebar name
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
+
+  const sidebarFullName = profileSummary?.full_name || fallbackName || "Your profile";
+
+  const sidebarFirstName =
+    typeof sidebarFullName === "string"
+      ? sidebarFullName.split(" ")[0] || sidebarFullName
+      : "User";
+
+  const avatarUrl = profileSummary?.avatar_url || null;
+  const educationLevel =
+    (profileSummary as any)?.education_level ||
+    (profileSummary as any)?.highest_education ||
+    "";
+  const describesYou =
+    (profileSummary as any)?.describes_you ||
+    (profileSummary as any)?.role ||
+    "";
+  const affiliation =
+    (profileSummary as any)?.affiliation ||
+    (profileSummary as any)?.current_org ||
+    "";
+
   return (
     <>
       <div className="bg-layer" />
       <div className="page">
         <Navbar />
 
-        {/* === 3-COLUMN LAYOUT === */}
-        <div className="layout-3col">
+        {/* 3-COLUMN LAYOUT */}
+        <main className="layout-3col">
           {/* LEFT SIDEBAR */}
-          <aside className="layout-left">
+          <aside className="layout-left sticky-col">
             {/* Profile card */}
             <div className="sidebar-card profile-sidebar-card">
               <div className="profile-sidebar-label">Your profile</div>
-              <div className="profile-sidebar-name">{sidebarName}</div>
 
-              {profileSummary && (
-                <div className="profile-sidebar-meta">
-                  {profileSummary.current_role && (
-                    <div className="profile-sidebar-line">
-                      {profileSummary.current_role}
-                    </div>
-                  )}
-                  {profileSummary.current_org && (
-                    <div className="profile-sidebar-line profile-sidebar-org">
-                      {profileSummary.current_org}
-                    </div>
-                  )}
-                  {profileSummary.location && (
-                    <div className="profile-sidebar-line profile-sidebar-location">
-                      {profileSummary.location}
+              <div className="profile-sidebar-header">
+                <div className="profile-sidebar-avatar-wrapper">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={sidebarFirstName}
+                      className="profile-sidebar-avatar"
+                    />
+                  ) : (
+                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                      {sidebarFirstName.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-              )}
+                <div className="profile-sidebar-name">{sidebarFirstName}</div>
+              </div>
+
+              <div className="profile-sidebar-info-block">
+                <div className="profile-sidebar-info-label">Education</div>
+                <div className="profile-sidebar-info-value">
+                  {educationLevel || "Add your education level in your profile."}
+                </div>
+              </div>
+
+              <div className="profile-sidebar-info-block">
+                <div className="profile-sidebar-info-label">What describes you</div>
+                <div className="profile-sidebar-info-value">
+                  {describesYou || "Tell the community how you describe yourself."}
+                </div>
+              </div>
+
+              <div className="profile-sidebar-info-block">
+                <div className="profile-sidebar-info-label">Affiliation</div>
+                <div className="profile-sidebar-info-value">
+                  {affiliation || "Add your current lab / company / university."}
+                </div>
+              </div>
 
               <Link href="/profile" className="sidebar-btn">
                 View / edit profile
@@ -209,9 +294,9 @@ export default function Home() {
             </div>
           </aside>
 
-          {/* MIDDLE MAIN CONTENT */}
-          <main className="layout-main">
-            {/* HERO (text only now) */}
+          {/* MIDDLE MAIN COLUMN */}
+          <section className="layout-main">
+            {/* HERO (unchanged content, just now inside middle column) */}
             <section className="hero" id="about">
               <div>
                 <div className="eyebrow">Quantum ecosystem hub</div>
@@ -221,16 +306,13 @@ export default function Home() {
                 </h1>
                 <p className="hero-sub">
                   Quantum5ocial connects students, researchers, and companies with
-                  curated opportunities and products across the global quantum
-                  ecosystem.
+                  curated opportunities and products across the global quantum ecosystem.
                 </p>
 
                 <div className="hero-tags">
                   <span className="tag-chip">PhD, postdoc, and industry roles</span>
                   <span className="tag-chip">Startups, vendors, and labs</span>
-                  <span className="tag-chip">
-                    Hardware · Software · Services
-                  </span>
+                  <span className="tag-chip">Hardware · Software · Services</span>
                 </div>
 
                 <p className="hero-note">
@@ -436,6 +518,139 @@ export default function Home() {
               )}
             </section>
 
+            {/* FEATURED COMMUNITY MEMBERS */}
+            <section className="section" id="community">
+              <div className="section-header">
+                <div>
+                  <div className="section-title">Featured community members</div>
+                  <div className="section-sub">
+                    Recently joined profiles from the Quantum Community.
+                  </div>
+                </div>
+                <a
+                  href="/community"
+                  className="section-link"
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    background: "transparent",
+                    color: "#e5e7eb",
+                    fontSize: 13,
+                    textDecoration: "none",
+                  }}
+                >
+                  Explore community →
+                </a>
+              </div>
+
+              {loadingMembers ? (
+                <div className="products-status">Loading community…</div>
+              ) : featuredMembers.length === 0 ? (
+                <div className="products-empty">
+                  No community members visible yet.
+                </div>
+              ) : (
+                <div className="card-row">
+                  {featuredMembers.map((m) => {
+                    const name = m.full_name || "Quantum member";
+                    const firstName =
+                      typeof name === "string"
+                        ? name.split(" ")[0] || name
+                        : "Member";
+                    const meta = formatMemberMeta(m);
+                    const bio =
+                      (m as any).short_bio ||
+                      (m as any).short_description ||
+                      "";
+
+                    return (
+                      <div key={m.id} className="card">
+                        <div
+                          className="card-inner"
+                          style={{
+                            display: "flex",
+                            gap: 14,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          {/* avatar */}
+                          <div
+                            style={{
+                              width: 52,
+                              height: 52,
+                              borderRadius: "999px",
+                              overflow: "hidden",
+                              border: "1px solid rgba(148,163,184,0.5)",
+                              flexShrink: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background:
+                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                              color: "#fff",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {m.avatar_url ? (
+                              <img
+                                src={m.avatar_url}
+                                alt={firstName}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                            ) : (
+                              firstName.charAt(0).toUpperCase()
+                            )}
+                          </div>
+
+                          {/* text */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div className="card-title">{name}</div>
+                            {meta && (
+                              <div className="card-meta" style={{ marginTop: 2 }}>
+                                {meta}
+                              </div>
+                            )}
+                            {bio && (
+                              <div
+                                className="card-footer-text"
+                                style={{ marginTop: 6 }}
+                              >
+                                {bio.length > 80
+                                  ? bio.slice(0, 77) + "..."
+                                  : bio}
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              style={{
+                                marginTop: 10,
+                                padding: "5px 10px",
+                                borderRadius: 999,
+                                border:
+                                  "1px solid rgba(148,163,184,0.7)",
+                                background: "transparent",
+                                color: "#7dd3fc",
+                                fontSize: 12,
+                                cursor: "pointer",
+                              }}
+                            >
+                              + Entangle
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
             {/* GAMIFICATION */}
             <section className="section">
               <div className="gamify-strip">
@@ -445,15 +660,15 @@ export default function Home() {
                   </div>
                   <p className="gamify-text">
                     Quantum5ocial stays professional but adds a light gamified layer –
-                    rewarding meaningful activity like completing your profile,
-                    posting jobs/products, and exploring the ecosystem.
+                    rewarding meaningful activity like completing your profile, posting
+                    jobs/products, and exploring the ecosystem.
                   </p>
                   <ul className="gamify-list">
                     <li>Complete your profile → gain QP and visibility</li>
                     <li>Post roles or products → earn vendor &amp; mentor badges</li>
                     <li>
-                      Explore and engage → unlock levels like Superposition,
-                      Entangled, Resonant
+                      Explore and engage → unlock levels like Superposition, Entangled,
+                      Resonant
                     </li>
                   </ul>
                 </div>
@@ -516,16 +731,16 @@ export default function Home() {
                     <span className="who-title">Companies &amp; startups</span>
                   </div>
                   <p className="who-text">
-                    Post jobs, list your hero products, and reach a focused audience
-                    that already cares about quantum technologies.
+                    Post jobs, list your hero products, and reach a focused audience that
+                    already cares about quantum technologies.
                   </p>
                 </div>
               </div>
             </section>
-          </main>
+          </section>
 
-          {/* RIGHT SIDEBAR – HERO TILES STACKED */}
-          <aside className="layout-right">
+          {/* RIGHT SIDEBAR – STACKED HERO TILES */}
+          <aside className="layout-right sticky-col">
             <div className="hero-tiles hero-tiles-vertical">
               {/* Jobs tile */}
               <Link href="/jobs" className="hero-tile">
@@ -582,22 +797,22 @@ export default function Home() {
                     <div className="tile-icon-orbit">🤝</div>
                   </div>
                   <p className="tile-text">
-                    Meet students, researchers, and companies. Explore profiles,
-                    discover collaborators, and grow your quantum network.
+                    Discover people working in quantum technology – students, researchers,
+                    and industry professionals across the world.
                   </p>
                   <div className="tile-pill-row">
                     <span className="tile-pill">Profiles</span>
-                    <span className="tile-pill">Collaboration</span>
-                    <span className="tile-pill">Mentoring</span>
+                    <span className="tile-pill">Labs &amp; companies</span>
+                    <span className="tile-pill">Entangle connections</span>
                   </div>
                   <div className="tile-cta">
-                    Meet the community <span>›</span>
+                    Browse community <span>›</span>
                   </div>
                 </div>
               </Link>
             </div>
           </aside>
-        </div>
+        </main>
       </div>
     </>
   );
