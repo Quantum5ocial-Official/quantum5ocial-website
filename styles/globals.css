@@ -321,10 +321,18 @@ body {
 /* Hero tiles (Jobs & Products) */
 .hero-tiles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));  /* was 2 */
   gap: 16px;
 }
 
+/* On tablets/laptops, show 2 per row */
+@media (max-width: 900px) {
+  .hero-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* On mobile, stack them */
 @media (max-width: 640px) {
   .hero-tiles {
     grid-template-columns: 1fr;
