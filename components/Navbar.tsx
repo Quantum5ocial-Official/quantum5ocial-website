@@ -5,8 +5,6 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
-type Theme = "dark" | "light";
-
 export default function Navbar() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -17,34 +15,10 @@ export default function Navbar() {
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  const [theme, setTheme] = useState<Theme>("dark");
-
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // ----- THEME HANDLING -----
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const stored = window.localStorage.getItem("q5_theme");
-    const initial: Theme = stored === "light" ? "light" : "dark";
-
-    setTheme(initial);
-    document.documentElement.classList.toggle("theme-light", initial === "light");
-  }, []);
-
-  const toggleTheme = () => {
-    setTheme((prev) => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
-      if (typeof window !== "undefined") {
-        document.documentElement.classList.toggle("theme-light", next === "light");
-        window.localStorage.setItem("q5_theme", next);
-      }
-      return next;
-    });
-  };
-
-  // ----- PROFILE LOADING -----
+  // Load full_name + avatar from profiles so we show the edited profile data
   useEffect(() => {
     let cancelled = false;
 
@@ -148,6 +122,11 @@ export default function Navbar() {
           Products
         </Link>
 
+        {/* NEW: Community */}
+        <Link href="/community" className="nav-link">
+          Community
+        </Link>
+
         {/* Dashboard dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
@@ -186,16 +165,6 @@ export default function Navbar() {
             )}
           </div>
         )}
-
-        {/* Theme toggle */}
-        <button
-          type="button"
-          className="nav-link nav-link-button theme-toggle"
-          onClick={toggleTheme}
-          aria-label="Toggle theme"
-        >
-          {theme === "dark" ? "☀️" : "🌙"}
-        </button>
 
         {/* Logged-out CTA */}
         {!loading && !user && (
