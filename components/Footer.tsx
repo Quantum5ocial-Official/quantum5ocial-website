@@ -1,7 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { FiMail } from "react-icons/fi";
-import { FaLinkedin, FaTwitter } from "react-icons/fa";
 
 export default function Footer() {
   return (
@@ -52,7 +50,7 @@ export default function Footer() {
         © 2025 Quantum5ocial · All rights reserved
       </div>
 
-      {/* RIGHT: SOCIAL ICONS */}
+      {/* RIGHT: SOCIAL ICONS (SVG only) */}
       <div
         style={{
           display: "flex",
@@ -60,30 +58,45 @@ export default function Footer() {
           gap: "18px",
         }}
       >
-        {/* EMAIL */}
+        {/* EMAIL ICON */}
         <Link href="mailto:info@quantum5ocial.com">
-          <FiMail size={22} style={{ color: "#94a3b8", cursor: "pointer" }} />
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#94a3b8"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ cursor: "pointer" }}
+          >
+            <path d="M4 4h16v16H4z" />
+            <path d="M22 6l-10 7L2 6" />
+          </svg>
         </Link>
 
-        {/* LINKEDIN (placeholder for now) */}
-        <div
-          style={{
-            cursor: "pointer",
-            color: "#94a3b8",
-          }}
+        {/* LINKEDIN ICON */}
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="#94a3b8"
+          style={{ cursor: "pointer" }}
         >
-          <FaLinkedin size={20} />
-        </div>
+          <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5C1.11 6 0 4.881 0 3.5S1.11 1 2.5 1s2.48 1.119 2.48 2.5zM.5 8h4v12h-4V8zm7 0h3.8v1.7h.05c.53-.96 1.82-2 3.75-2 4 0 4.75 2.63 4.75 6v6.3h-4v-5.6c0-1.33-.03-3.05-1.86-3.05-1.86 0-2.14 1.45-2.14 2.95V20h-4V8z" />
+        </svg>
 
-        {/* TWITTER (placeholder) */}
-        <div
-          style={{
-            cursor: "pointer",
-            color: "#94a3b8",
-          }}
+        {/* TWITTER ICON */}
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="#94a3b8"
+          style={{ cursor: "pointer" }}
         >
-          <FaTwitter size={20} />
-        </div>
+          <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53A4.48 4.48 0 0 0 22.43.36a9.09 9.09 0 0 1-2.88 1.1A4.52 4.52 0 0 0 16 0c-2.53 0-4.5 2.2-4.5 4.9 0 .38.04.75.13 1.1C7.69 5.83 4.07 3.88 1.64.9A5.15 5.15 0 0 0 1 3.4c0 1.7.82 3.21 2.06 4.1A4.37 4.37 0 0 1 .96 7v.06c0 2.37 1.57 4.34 3.66 4.79a4.52 4.52 0 0 1-2.03.08c.57 1.9 2.26 3.3 4.24 3.34A9.06 9.06 0 0 1 0 19.54 12.76 12.76 0 0 0 6.92 22c8.3 0 12.9-7.4 12.9-13.8 0-.21 0-.42-.01-.63A9.88 9.88 0 0 0 23 3z" />
+        </svg>
       </div>
     </footer>
   );
