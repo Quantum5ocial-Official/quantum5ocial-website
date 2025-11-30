@@ -21,7 +21,7 @@ export default function Footer() {
         }}
       >
         <Image
-          src="/Q5_black_bg2.png"
+          src="/Q5_white_bg.png"
           width={80}     // your original size
           height={80}
           alt="Quantum5ocial logo"
