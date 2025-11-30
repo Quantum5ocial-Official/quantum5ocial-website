@@ -2295,3 +2295,24 @@ html.theme-light body {
 html.theme-light .bg-layer {
   display: none !important; /* remove the dark-glow background */
 }
+html.theme-light .card-title,
+html.theme-light .tile-title,
+html.theme-light .job-card-title,
+html.theme-light .products-card-name,
+html.theme-light .product-card-title {
+  color: #1f2937 !important; /* dark slate */
+}
+
+html.theme-light .card-meta,
+html.theme-light .job-card-meta,
+html.theme-light .product-card-desc {
+  color: #475569 !important; /* slate grey */
+}
+
+html.theme-light .tag-chip,
+html.theme-light .tile-pill,
+html.theme-light .job-chip,
+html.theme-light .product-card-tag {
+  background: rgba(255, 255, 255, 0.6) !important;
+  color: #1e293b !important;
+}
