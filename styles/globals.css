@@ -103,12 +103,15 @@ body {
 
 /* ========== NAVBAR ========== */
 
+/* styles/globals.css or wherever .nav lives */
 .nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
+  position: sticky;   /* or fixed if you prefer */
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  /* keep your existing padding / layout */
+  backdrop-filter: blur(18px);
+  background: radial-gradient(circle at top left, rgba(15,23,42,0.85), rgba(15,23,42,0.96));
 }
 
 .brand {
