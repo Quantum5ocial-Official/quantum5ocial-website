@@ -2119,3 +2119,10 @@ footer a:hover {
   align-items: center;
   gap: 6px;
 }
+a,
+a:visited,
+a:hover,
+a:active,
+a:focus {
+  text-decoration: none !important;
+}
