@@ -173,7 +173,7 @@ export default function Navbar() {
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
               type="button"
-              className="nav-user-button nav-link-button"
+              className="nav-link nav-link-button nav-user-button"
               onClick={() => setIsUserMenuOpen((o) => !o)}
             >
               <div className="nav-user-avatar">
