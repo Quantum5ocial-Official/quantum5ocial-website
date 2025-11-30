@@ -6,7 +6,8 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 export default function Navbar() {
-  const { user, profile, loading } = useSupabaseUser();
+  // ✅ only user + loading, no profile
+  const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
@@ -41,12 +42,11 @@ export default function Navbar() {
     router.push("/");
   };
 
-  // Prefer profile.full_name, then fall back to auth metadata/email
+  // ✅ derive name purely from auth user
   const displayName =
-    (profile as any)?.full_name ||
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
+    user?.email?.split("@")[0] ||
     "User";
 
   return (
