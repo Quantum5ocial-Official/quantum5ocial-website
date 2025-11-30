@@ -10,38 +10,43 @@ export default function Navbar() {
   const router = useRouter();
 
   const [profileName, setProfileName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Load full_name from profiles so we show the edited profile name
+  // Load full_name + avatar from profiles so we show the edited profile data
   useEffect(() => {
     let cancelled = false;
 
-    const loadProfileName = async () => {
+    const loadProfile = async () => {
       if (!user) {
         setProfileName(null);
+        setAvatarUrl(null);
         return;
       }
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("full_name, avatar_url")
         .eq("id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
-      if (!error && data && data.full_name) {
-        setProfileName(data.full_name as string);
+      if (!error && data) {
+        setProfileName((data.full_name as string) || null);
+        setAvatarUrl((data.avatar_url as string) || null);
       } else {
         setProfileName(null);
+        setAvatarUrl(null);
       }
     };
 
-    loadProfileName();
+    loadProfile();
 
     return () => {
       cancelled = true;
@@ -74,13 +79,18 @@ export default function Navbar() {
     router.push("/");
   };
 
+  // Fallback name from auth if profile.full_name is missing
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
     (user as any)?.email?.split("@")[0] ||
     "User";
 
-  const displayName = profileName || fallbackName;
+  const fullName = profileName || fallbackName;
+  const firstName =
+    fullName && typeof fullName === "string"
+      ? fullName.split(" ")[0] || fullName
+      : "User";
 
   return (
     <header className="nav">
@@ -158,15 +168,24 @@ export default function Navbar() {
           </Link>
         )}
 
-        {/* Username dropdown */}
+        {/* Avatar + first name dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
               type="button"
-              className="nav-link nav-link-button"
+              className="nav-user-button nav-link-button"
               onClick={() => setIsUserMenuOpen((o) => !o)}
             >
-              {displayName}
+              <div className="nav-user-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={firstName} />
+                ) : (
+                  <span className="nav-user-initial">
+                    {firstName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <span className="nav-user-name">{firstName}</span>
             </button>
 
             {isUserMenuOpen && (
