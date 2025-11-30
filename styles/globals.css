@@ -2281,3 +2281,17 @@ html.theme-light footer {
   border-top-color: rgba(209, 213, 219, 0.9);
   color: #6b7280;
 }
+html.theme-light body {
+  background: radial-gradient(
+      circle at top left,
+      rgba(186, 212, 255, 0.6),
+      rgba(244, 245, 255, 0.9) 40%,
+      rgba(255, 255, 255, 1) 80%
+    ),
+    #f5f8ff !important;
+  color: #0f172a !important; /* dark text */
+}
+
+html.theme-light .bg-layer {
+  display: none !important; /* remove the dark-glow background */
+}
