@@ -89,7 +89,7 @@ body {
   min-height: 100vh;
 
   /* add this line ↓ */
-  padding-top: 120px;
+  padding-top: 200px;
 
   /* keep your original padding for left/right/bottom */
   padding: 24px 32px 40px;
