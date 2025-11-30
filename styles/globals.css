@@ -251,22 +251,20 @@ body {
   }
 }
 
-/* ========== HERO & HOMEPAGE CARDS ========== */
+/* ==========  & HOMEPAGE CARDS ========== */
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  gap: 28px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-bottom: 38px;
 }
 
 @media (max-width: 880px) {
   .hero {
-    grid-template-columns: 1fr;
+    align-items: flex-start;
   }
 }
-
 .eyebrow {
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -1730,6 +1728,130 @@ footer a:hover {
   position: relative;
   display: flex;
   flex-direction: column;
+}
+/* === 3-COLUMN HOMEPAGE LAYOUT === */
+
+.layout-3col {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.layout-left,
+.layout-main,
+.layout-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Sidebar cards reuse theme variables so they look good in dark/light */
+.sidebar-card {
+  border-radius: var(--radius-xl);
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+/* Profile sidebar specific */
+.profile-sidebar-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.profile-sidebar-name {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.profile-sidebar-meta {
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+
+.profile-sidebar-line {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Button in sidebar */
+.sidebar-btn {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  font-size: 0.8rem;
+  color: var(--text-main);
+  text-decoration: none;
+  background: transparent;
+}
+
+.sidebar-btn:hover {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+/* Dashboard sidebar */
+.dashboard-sidebar-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.dashboard-sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-sidebar-link {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.dashboard-sidebar-link:hover {
+  border-color: rgba(148, 163, 184, 0.6);
+  color: var(--text-main);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+/* Right column hero tiles stacked vertically */
+.hero-tiles-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Responsive: collapse sidebars on smaller screens */
+@media (max-width: 1200px) {
+  .layout-3col {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .layout-3col {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-left,
+  .layout-main,
+  .layout-right {
+    width: 100%;
+  }
 }
 /* === FIXED 4-COLUMN PRODUCT GRID === */
 
