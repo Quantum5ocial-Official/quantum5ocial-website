@@ -1,44 +1,60 @@
 // pages/community.tsx
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import Navbar from "../components/Navbar";
 import { supabase } from "../lib/supabaseClient";
+import { useSupabaseUser } from "../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-
-type CommunityProfile = {
+type Profile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
 };
 
 export default function CommunityPage() {
-  const [profiles, setProfiles] = useState<CommunityProfile[]>([]);
+  const { user, loading: authLoading } = useSupabaseUser();
+
+  const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading) return; // wait until we know auth state
+
     const loadProfiles = async () => {
       setLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .order("full_name", { ascending: true });
+      try {
+        let query = supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .order("full_name", { ascending: true });
 
-      if (error) {
-        console.error("Error loading community profiles:", error);
-        setError("Could not load community members right now.");
+        // Don't show the current user in the list
+        if (user?.id) {
+          query = query.neq("id", user.id);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("Error loading profiles:", error);
+          setError("Could not load community members.");
+          setProfiles([]);
+        } else {
+          setProfiles((data || []) as Profile[]);
+        }
+      } catch (e: any) {
+        console.error("Community load crashed:", e);
+        setError("Something went wrong while loading the community.");
         setProfiles([]);
-      } else {
-        setProfiles((data || []) as CommunityProfile[]);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     loadProfiles();
-  }, []);
+  }, [authLoading, user?.id]);
 
   return (
     <>
@@ -49,11 +65,22 @@ export default function CommunityPage() {
         <section className="section">
           <div className="section-header">
             <div>
-              <div className="section-title">Community</div>
+              <div className="section-title">Quantum5ocial community</div>
               <div className="section-sub">
-                Meet other members of the Quantum5ocial ecosystem.
+                Discover other members of the quantum ecosystem and start to{" "}
+                <span style={{ color: "#7dd3fc" }}>entangle</span> with them.
               </div>
             </div>
+            {!loading && !error && (
+              <div
+                style={{
+                  fontSize: "0.8rem",
+                  color: "var(--text-muted)",
+                }}
+              >
+                {profiles.length} member{profiles.length === 1 ? "" : "s"} listed
+              </div>
+            )}
           </div>
 
           {loading && (
@@ -61,12 +88,15 @@ export default function CommunityPage() {
           )}
 
           {error && !loading && (
-            <div className="products-status error">{error}</div>
+            <div className="products-status" style={{ color: "#f87171" }}>
+              {error}
+            </div>
           )}
 
           {!loading && !error && profiles.length === 0 && (
             <div className="products-empty">
-              No profiles visible yet. Be the first to complete your profile!
+              No other members visible yet. As more users complete their profiles,
+              they will appear here.
             </div>
           )}
 
@@ -77,13 +107,20 @@ export default function CommunityPage() {
                 const initial = name.charAt(0).toUpperCase();
 
                 return (
-                  <div key={p.id} className="card" style={{ textDecoration: "none" }}>
-                    <div className="card-inner" style={{ display: "flex", gap: 12 }}>
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{ textDecoration: "none", paddingBottom: "14px" }}
+                  >
+                    <div
+                      className="card-inner"
+                      style={{ display: "flex", gap: 12 }}
+                    >
                       {/* Avatar */}
                       <div
                         style={{
-                          width: 44,
-                          height: 44,
+                          width: 48,
+                          height: 48,
                           borderRadius: "999px",
                           overflow: "hidden",
                           flexShrink: 0,
@@ -113,12 +150,12 @@ export default function CommunityPage() {
                         )}
                       </div>
 
-                      {/* Text */}
-                      <div style={{ minWidth: 0 }}>
+                      {/* Text + Entangle */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           className="card-title"
                           style={{
-                            marginBottom: 2,
+                            marginBottom: 4,
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -126,15 +163,30 @@ export default function CommunityPage() {
                         >
                           {name}
                         </div>
+
                         <div className="card-meta">
                           Quantum5ocial community member
                         </div>
-                        <div
-                          className="card-footer-text"
-                          style={{ marginTop: 6, fontSize: "0.7rem" }}
+
+                        <button
+                          type="button"
+                          style={{
+                            marginTop: 10,
+                            padding: "6px 12px",
+                            borderRadius: 8,
+                            background: "rgba(59,130,246,0.15)",
+                            border: "1px solid rgba(59,130,246,0.4)",
+                            color: "#bfdbfe",
+                            fontSize: "12px",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            // TODO: entangle logic later
+                            console.log("Entangle with", p.id);
+                          }}
                         >
-                          In future, this tile can link to a public profile page.
-                        </div>
+                          Entangle
+                        </button>
                       </div>
                     </div>
                   </div>
