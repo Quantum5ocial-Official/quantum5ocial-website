@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
+import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
@@ -28,27 +29,26 @@ type Product = {
   image1_url: string | null;
 };
 
-/** 🔹 NEW: type for featured community members */
-type CommunityProfile = {
-  id: string;
+type ProfileSummary = {
   full_name: string | null;
-  avatar_url: string | null;
-  role: string | null;              // adjust if your column is named differently
-  affiliation: string | null;
-  highest_education: string | null;
-  short_bio: string | null;         // adjust if your column is named differently
+  current_role: string | null;
+  current_org: string | null;
+  location: string | null;
 };
 
 export default function Home() {
+  const { user } = useSupabaseUser();
+
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  /** 🔹 NEW: state for community members */
-  const [featuredProfiles, setFeaturedProfiles] = useState<CommunityProfile[]>([]);
-  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
 
+  // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
     const loadJobs = async () => {
       setLoadingJobs(true);
@@ -86,29 +86,41 @@ export default function Home() {
       setLoadingProducts(false);
     };
 
-    /** 🔹 NEW: load latest 3 community profiles */
-    const loadProfiles = async () => {
-      setLoadingProfiles(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, avatar_url, role, affiliation, highest_education, short_bio"
-        )
-        .order("created_at", { ascending: false })
-        .limit(3);
-
-      if (!error && data) {
-        setFeaturedProfiles(data as CommunityProfile[]);
-      } else {
-        setFeaturedProfiles([]);
-      }
-      setLoadingProfiles(false);
-    };
-
     loadJobs();
     loadProducts();
-    loadProfiles();
   }, []);
+
+  // === LOAD PROFILE SUMMARY FOR LEFT SIDEBAR ===
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, current_role, current_org, location")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "";
+
+  const sidebarName = profileSummary?.full_name || fallbackName || "Your profile";
 
   const formatJobMeta = (job: Job) =>
     [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
@@ -120,17 +132,17 @@ export default function Home() {
   };
 
   const formatProductMeta = (p: Product) =>
-    [p.company_name ? `Vendor: ${p.company_name}` : null].filter(Boolean).join(" · ");
+    [p.company_name ? `Vendor: ${p.company_name}` : null]
+      .filter(Boolean)
+      .join(" · ");
 
   const formatProductTags = (p: Product) => {
     const tags: string[] = [];
-    const price = formatPrice(p);
-
     if (p.category) tags.push(p.category);
+    const price = formatPrice(p);
     if (price) tags.push(price);
     if (p.in_stock === true) tags.push("In stock");
     if (p.in_stock === false) tags.push("Out of stock");
-
     return tags.slice(0, 3);
   };
 
@@ -140,387 +152,235 @@ export default function Home() {
       <div className="page">
         <Navbar />
 
-        {/* HERO */}
-        <section className="hero" id="about">
-          <div>
-            <div className="eyebrow">Quantum ecosystem hub</div>
-            <h1 className="hero-title">
-              Discover <span className="hero-highlight">jobs &amp; tools</span> shaping
-              the future of quantum technology.
-            </h1>
-            <p className="hero-sub">
-              Quantum5ocial connects students, researchers, and companies with curated
-              opportunities and products across the global quantum ecosystem.
-            </p>
+        {/* === 3-COLUMN LAYOUT === */}
+        <div className="layout-3col">
+          {/* LEFT SIDEBAR */}
+          <aside className="layout-left">
+            {/* Profile card */}
+            <div className="sidebar-card profile-sidebar-card">
+              <div className="profile-sidebar-label">Your profile</div>
+              <div className="profile-sidebar-name">{sidebarName}</div>
 
-            <div className="hero-tags">
-              <span className="tag-chip">PhD, postdoc, and industry roles</span>
-              <span className="tag-chip">Startups, vendors, and labs</span>
-              <span className="tag-chip">Hardware · Software · Services</span>
-            </div>
-
-            <p className="hero-note">
-              Start with marketplace features now – and evolve into a full social
-              platform as the community grows.
-            </p>
-          </div>
-
-                <aside>
-        <div className="hero-tiles">
-          {/* Jobs tile */}
-          <Link href="/jobs" className="hero-tile">
-            <div className="hero-tile-inner">
-              <div className="tile-label">Explore</div>
-              <div className="tile-title-row">
-                <div className="tile-title">Quantum Jobs Universe</div>
-                <div className="tile-icon-orbit">🧪</div>
-              </div>
-              <p className="tile-text">
-                Browse internships, MSc/PhD positions, postdocs, and industry roles
-                from labs and companies worldwide.
-              </p>
-              <div className="tile-pill-row">
-                <span className="tile-pill">MSc / PhD</span>
-                <span className="tile-pill">Postdoc</span>
-                <span className="tile-pill">Industry</span>
-              </div>
-              <div className="tile-cta">
-                Browse jobs <span>›</span>
-              </div>
-            </div>
-          </Link>
-
-          {/* Products tile */}
-          <Link href="/products" className="hero-tile">
-            <div className="hero-tile-inner">
-              <div className="tile-label">Discover</div>
-              <div className="tile-title-row">
-                <div className="tile-title">Quantum Products Lab</div>
-                <div className="tile-icon-orbit">🔧</div>
-              </div>
-              <p className="tile-text">
-                Discover quantum hardware, control electronics, software tools, and
-                services from specialized vendors.
-              </p>
-              <div className="tile-pill-row">
-                <span className="tile-pill">Hardware</span>
-                <span className="tile-pill">Control &amp; readout</span>
-                <span className="tile-pill">Software &amp; services</span>
-              </div>
-              <div className="tile-cta">
-                Browse products <span>›</span>
-              </div>
-            </div>
-          </Link>
-
-          {/* 🔹 NEW: Community tile */}
-          <Link href="/community" className="hero-tile">
-            <div className="hero-tile-inner">
-              <div className="tile-label">Connect</div>
-              <div className="tile-title-row">
-                <div className="tile-title">Quantum Community</div>
-                <div className="tile-icon-orbit">🤝</div>
-              </div>
-              <p className="tile-text">
-                Meet students, researchers, and companies. Explore profiles, discover
-                collaborators, and grow your quantum network.
-              </p>
-              <div className="tile-pill-row">
-                <span className="tile-pill">Profiles</span>
-                <span className="tile-pill">Collaboration</span>
-                <span className="tile-pill">Mentoring</span>
-              </div>
-              <div className="tile-cta">
-                Meet the community <span>›</span>
-              </div>
-            </div>
-          </Link>
-        </div>
-      </aside>
-        </section>
-
-        {/* FEATURED JOBS */}
-        <section className="section" id="jobs">
-          <div className="section-header">
-            <div>
-              <div className="section-title">Featured quantum roles</div>
-              <div className="section-sub">
-                The latest roles from the Quantum Jobs Universe.
-              </div>
-            </div>
-            <a
-              href="/jobs"
-              className="section-link"
-              style={{
-                padding: "6px 14px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.6)",
-                background: "transparent",
-                color: "#e5e7eb",
-                fontSize: 13,
-                textDecoration: "none",
-              }}
-            >
-              View all jobs →
-            </a>
-          </div>
-
-          {loadingJobs ? (
-            <div className="products-status">Loading jobs…</div>
-          ) : featuredJobs.length === 0 ? (
-            <div className="products-empty">No jobs posted yet.</div>
-          ) : (
-            <div className="card-row">
-              {featuredJobs.map((job) => (
-                <Link
-                  key={job.id}
-                  href={`/jobs/${job.id}`}
-                  className="card"
-                  style={{
-                    textDecoration: "none",
-                    color: "#e5e7eb",
-                  }}
-                >
-                  <div className="card-inner">
-                    <div className="card-top-row">
-                      <div className="card-title">
-                        {job.title || "Untitled role"}
-                      </div>
-                      <div className="card-pill">
-                        {job.employment_type || "Job"}
-                      </div>
+              {profileSummary && (
+                <div className="profile-sidebar-meta">
+                  {profileSummary.current_role && (
+                    <div className="profile-sidebar-line">
+                      {profileSummary.current_role}
                     </div>
-                    <div className="card-meta">
-                      {formatJobMeta(job) || "Quantum role"}
+                  )}
+                  {profileSummary.current_org && (
+                    <div className="profile-sidebar-line profile-sidebar-org">
+                      {profileSummary.current_org}
                     </div>
-                    {job.short_description && (
-                      <div className="card-tags">
-                        <span className="card-tag">
-                          {job.short_description.length > 60
-                            ? job.short_description.slice(0, 57) + "..."
-                            : job.short_description}
-                        </span>
-                      </div>
-                    )}
-                    <div className="card-footer-text">
-                      Open to see full details on the  page.
+                  )}
+                  {profileSummary.location && (
+                    <div className="profile-sidebar-line profile-sidebar-location">
+                      {profileSummary.location}
                     </div>
-                  </div>
+                  )}
+                </div>
+              )}
+
+              <Link href="/profile" className="sidebar-btn">
+                View / edit profile
+              </Link>
+            </div>
+
+            {/* Quick dashboard card */}
+            <div className="sidebar-card dashboard-sidebar-card">
+              <div className="dashboard-sidebar-title">Quick dashboard</div>
+              <div className="dashboard-sidebar-links">
+                <Link href="/dashboard" className="dashboard-sidebar-link">
+                  Overview
                 </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* FEATURED PRODUCTS */}
-        <section className="section" id="products">
-          <div className="section-header">
-            <div>
-              <div className="section-title">
-                Highlighted quantum tools &amp; products
-              </div>
-              <div className="section-sub">
-                The newest entries from the Quantum Products Lab.
-              </div>
-            </div>
-            <a
-              href="/products"
-              className="section-link"
-              style={{
-                padding: "6px 14px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.6)",
-                background: "transparent",
-                color: "#e5e7eb",
-                fontSize: 13,
-                textDecoration: "none",
-              }}
-            >
-              Browse all products →
-            </a>
-          </div>
-
-          {loadingProducts ? (
-            <div className="products-status">Loading products…</div>
-          ) : featuredProducts.length === 0 ? (
-            <div className="products-empty">No products listed yet.</div>
-          ) : (
-            <div className="card-row">
-              {featuredProducts.map((p) => (
                 <Link
-                  key={p.id}
-                  href={`/products/${p.id}`}
-                  className="card"
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-sidebar-link"
+                >
+                  Saved jobs
+                </Link>
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-sidebar-link"
+                >
+                  Saved products
+                </Link>
+              </div>
+            </div>
+          </aside>
+
+          {/* MIDDLE MAIN CONTENT */}
+          <main className="layout-main">
+            {/* HERO (text only now) */}
+            <section className="hero" id="about">
+              <div>
+                <div className="eyebrow">Quantum ecosystem hub</div>
+                <h1 className="hero-title">
+                  Discover <span className="hero-highlight">jobs &amp; tools</span>{" "}
+                  shaping the future of quantum technology.
+                </h1>
+                <p className="hero-sub">
+                  Quantum5ocial connects students, researchers, and companies with
+                  curated opportunities and products across the global quantum
+                  ecosystem.
+                </p>
+
+                <div className="hero-tags">
+                  <span className="tag-chip">PhD, postdoc, and industry roles</span>
+                  <span className="tag-chip">Startups, vendors, and labs</span>
+                  <span className="tag-chip">
+                    Hardware · Software · Services
+                  </span>
+                </div>
+
+                <p className="hero-note">
+                  Start with marketplace features now – and evolve into a full social
+                  platform as the community grows.
+                </p>
+              </div>
+            </section>
+
+            {/* FEATURED JOBS */}
+            <section className="section" id="jobs">
+              <div className="section-header">
+                <div>
+                  <div className="section-title">Featured quantum roles</div>
+                  <div className="section-sub">
+                    The latest roles from the Quantum Jobs Universe.
+                  </div>
+                </div>
+                <a
+                  href="/jobs"
+                  className="section-link"
                   style={{
-                    textDecoration: "none",
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    background: "transparent",
                     color: "#e5e7eb",
+                    fontSize: 13,
+                    textDecoration: "none",
                   }}
                 >
-                  <div
-                    className="card-inner"
-                    style={{
-                      display: "flex",
-                      gap: 16,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    {/* Thumbnail on the left */}
-                    <div
+                  View all jobs →
+                </a>
+              </div>
+
+              {loadingJobs ? (
+                <div className="products-status">Loading jobs…</div>
+              ) : featuredJobs.length === 0 ? (
+                <div className="products-empty">No jobs posted yet.</div>
+              ) : (
+                <div className="card-row">
+                  {featuredJobs.map((job) => (
+                    <Link
+                      key={job.id}
+                      href={`/jobs/${job.id}`}
+                      className="card"
                       style={{
-                        width: 72,
-                        height: 72,
-                        borderRadius: 14,
-                        overflow: "hidden",
-                        flexShrink: 0,
-                        background: "rgba(15,23,42,0.9)",
-                        border: "1px solid rgba(15,23,42,0.9)",
+                        textDecoration: "none",
+                        color: "#e5e7eb",
                       }}
                     >
-                      {p.image1_url ? (
-                        <img
-                          src={p.image1_url}
-                          alt={p.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 11,
-                            color: "#6b7280",
-                          }}
-                        >
-                          No image
+                      <div className="card-inner">
+                        <div className="card-top-row">
+                          <div className="card-title">
+                            {job.title || "Untitled role"}
+                          </div>
+                          <div className="card-pill">
+                            {job.employment_type || "Job"}
+                          </div>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Text content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="card-top-row">
-                        <div className="card-title">{p.name}</div>
-                        <div className="card-pill">{p.category || "Product"}</div>
-                      </div>
-                      <div className="card-meta">
-                        {formatProductMeta(p) || "Quantum product"}
-                      </div>
-                      {p.short_description && (
-                        <div className="card-tags">
-                          {formatProductTags(p).map((tag) => (
-                            <span key={tag} className="card-tag">
-                              {tag}
+                        <div className="card-meta">
+                          {formatJobMeta(job) || "Quantum role"}
+                        </div>
+                        {job.short_description && (
+                          <div className="card-tags">
+                            <span className="card-tag">
+                              {job.short_description.length > 60
+                                ? job.short_description.slice(0, 57) + "..."
+                                : job.short_description}
                             </span>
-                          ))}
+                          </div>
+                        )}
+                        <div className="card-footer-text">
+                          Open to see full details on the jobs page.
                         </div>
-                      )}
-                      <div className="card-footer-text">
-                        Click to see full details in the Quantum Products Lab.
                       </div>
-                    </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* FEATURED PRODUCTS */}
+            <section className="section" id="products">
+              <div className="section-header">
+                <div>
+                  <div className="section-title">
+                    Highlighted quantum tools &amp; products
                   </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* 🔹 NEW: FEATURED COMMUNITY MEMBERS */}
-        <section className="section" id="community">
-          <div className="section-header">
-            <div>
-              <div className="section-title">Featured community members</div>
-              <div className="section-sub">
-                A snapshot of the latest people joining the quantum ecosystem on
-                Quantum5ocial.
+                  <div className="section-sub">
+                    The newest entries from the Quantum Products Lab.
+                  </div>
+                </div>
+                <a
+                  href="/products"
+                  className="section-link"
+                  style={{
+                    padding: "6px 14px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    background: "transparent",
+                    color: "#e5e7eb",
+                    fontSize: 13,
+                    textDecoration: "none",
+                  }}
+                >
+                  Browse all products →
+                </a>
               </div>
-            </div>
-            <a
-              href="/community"
-              className="section-link"
-              style={{
-                padding: "6px 14px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.6)",
-                background: "transparent",
-                color: "#e5e7eb",
-                fontSize: 13,
-                textDecoration: "none",
-              }}
-            >
-              View all members →
-            </a>
-          </div>
 
-          {loadingProfiles ? (
-            <div className="products-status">Loading community members…</div>
-          ) : featuredProfiles.length === 0 ? (
-            <div className="products-empty">
-              No community members to show yet. As users join, they will appear here.
-            </div>
-          ) : (
-            <div className="card-row">
-              {featuredProfiles.map((p) => {
-                const name = p.full_name || "Quantum5ocial member";
-                const initial = name.charAt(0).toUpperCase();
-                const role = p.role || "Quantum5ocial member";
-                const affiliation = p.affiliation || "—";
-                const highestEducation = p.highest_education || "—";
-                const shortBio =
-                  p.short_bio ||
-                  "Quantum5ocial community member exploring the quantum ecosystem.";
-
-                return (
-                  <div
-                    key={p.id}
-                    className="card"
-                    style={{
-                      textDecoration: "none",
-                      padding: 14,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      minHeight: 220,
-                    }}
-                  >
-                    <div className="card-inner">
+              {loadingProducts ? (
+                <div className="products-status">Loading products…</div>
+              ) : featuredProducts.length === 0 ? (
+                <div className="products-empty">No products listed yet.</div>
+              ) : (
+                <div className="card-row">
+                  {featuredProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/products/${p.id}`}
+                      className="card"
+                      style={{
+                        textDecoration: "none",
+                        color: "#e5e7eb",
+                      }}
+                    >
                       <div
+                        className="card-inner"
                         style={{
                           display: "flex",
-                          gap: 12,
-                          alignItems: "center",
-                          marginBottom: 8,
+                          gap: 16,
+                          alignItems: "flex-start",
                         }}
                       >
+                        {/* Thumbnail */}
                         <div
                           style={{
-                            width: 52,
-                            height: 52,
-                            borderRadius: "999px",
+                            width: 72,
+                            height: 72,
+                            borderRadius: 14,
                             overflow: "hidden",
                             flexShrink: 0,
-                            border: "1px solid rgba(148,163,184,0.4)",
                             background: "rgba(15,23,42,0.9)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 18,
-                            fontWeight: 600,
-                            color: "#e5e7eb",
+                            border: "1px solid rgba(15,23,42,0.9)",
                           }}
                         >
-                          {p.avatar_url ? (
+                          {p.image1_url ? (
                             <img
-                              src={p.avatar_url}
-                              alt={name}
+                              src={p.image1_url}
+                              alt={p.name}
                               style={{
                                 width: "100%",
                                 height: "100%",
@@ -529,177 +389,215 @@ export default function Home() {
                               }}
                             />
                           ) : (
-                            <span>{initial}</span>
+                            <div
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 11,
+                                color: "#6b7280",
+                              }}
+                            >
+                              No image
+                            </div>
                           )}
                         </div>
 
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            className="card-title"
-                            style={{
-                              marginBottom: 2,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {name}
+                        {/* Text */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="card-top-row">
+                            <div className="card-title">{p.name}</div>
+                            <div className="card-pill">
+                              {p.category || "Product"}
+                            </div>
                           </div>
-                          <div
-                            className="card-meta"
-                            style={{ fontSize: 12, lineHeight: 1.4 }}
-                          >
-                            {role}
+                          <div className="card-meta">
+                            {formatProductMeta(p) || "Quantum product"}
+                          </div>
+                          {p.short_description && (
+                            <div className="card-tags">
+                              {formatProductTags(p).map((tag) => (
+                                <span key={tag} className="card-tag">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <div className="card-footer-text">
+                            Click to see full details in the Quantum Products Lab.
                           </div>
                         </div>
                       </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
 
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--text-muted)",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                          marginTop: 6,
-                        }}
-                      >
-                        <div>
-                          <span style={{ opacity: 0.7 }}>Education: </span>
-                          <span>{highestEducation}</span>
-                        </div>
-                        <div>
-                          <span style={{ opacity: 0.7 }}>Affiliation: </span>
-                          <span>{affiliation}</span>
-                        </div>
-                        <div
-                          style={{
-                            marginTop: 6,
-                            fontSize: 12,
-                            lineHeight: 1.4,
-                            maxHeight: 60,
-                            overflow: "hidden",
-                          }}
-                        >
-                          {shortBio}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div style={{ marginTop: 12 }}>
-                      <Link
-                        href="/community"
-                        style={{
-                          width: "100%",
-                          padding: "7px 0",
-                          borderRadius: 10,
-                          border: "1px solid rgba(59,130,246,0.6)",
-                          background: "rgba(59,130,246,0.16)",
-                          color: "#bfdbfe",
-                          fontSize: 12,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: 6,
-                          textDecoration: "none",
-                        }}
-                      >
-                        <span>Entangle</span>
-                        <span style={{ fontSize: 14 }}>+</span>
-                      </Link>
-                    </div>
+            {/* GAMIFICATION */}
+            <section className="section">
+              <div className="gamify-strip">
+                <div>
+                  <div className="gamify-title">
+                    Earn Quantum Points (QP) &amp; unlock quantum-themed badges
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                  <p className="gamify-text">
+                    Quantum5ocial stays professional but adds a light gamified layer –
+                    rewarding meaningful activity like completing your profile,
+                    posting jobs/products, and exploring the ecosystem.
+                  </p>
+                  <ul className="gamify-list">
+                    <li>Complete your profile → gain QP and visibility</li>
+                    <li>Post roles or products → earn vendor &amp; mentor badges</li>
+                    <li>
+                      Explore and engage → unlock levels like Superposition,
+                      Entangled, Resonant
+                    </li>
+                  </ul>
+                </div>
+                <div className="gamify-badges">
+                  <div className="badge-pill">
+                    <span className="badge-dot" /> Superposition · New member
+                  </div>
+                  <div className="badge-pill">
+                    <span className="badge-dot" /> Entangled · Connected with labs
+                  </div>
+                  <div className="badge-pill">
+                    <span className="badge-dot" /> Quantum Vendor · Active startup
+                  </div>
+                  <div className="badge-pill">
+                    <span className="badge-dot" /> Resonant · Highly active profile
+                  </div>
+                </div>
+              </div>
+            </section>
 
-        {/* GAMIFICATION */}
-        <section className="section">
-          <div className="gamify-strip">
-            <div>
-              <div className="gamify-title">
-                Earn Quantum Points (QP) &amp; unlock quantum-themed badges
+            {/* FOR WHOM */}
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <div className="section-title">
+                    Built for the entire quantum community
+                  </div>
+                  <div className="section-sub">
+                    Different paths, one shared platform.
+                  </div>
+                </div>
               </div>
-              <p className="gamify-text">
-                Quantum5ocial stays professional but adds a light gamified layer –
-                rewarding meaningful activity like completing your profile, posting
-                jobs/products, and exploring the ecosystem.
-              </p>
-              <ul className="gamify-list">
-                <li>Complete your profile → gain QP and visibility</li>
-                <li>Post roles or products → earn vendor &amp; mentor badges</li>
-                <li>
-                  Explore and engage → unlock levels like Superposition, Entangled,
-                  Resonant
-                </li>
-              </ul>
-            </div>
-            <div className="gamify-badges">
-              <div className="badge-pill">
-                <span className="badge-dot" /> Superposition · New member
-              </div>
-              <div className="badge-pill">
-                <span className="badge-dot" /> Entangled · Connected with labs
-              </div>
-              <div className="badge-pill">
-                <span className="badge-dot" /> Quantum Vendor · Active startup
-              </div>
-              <div className="badge-pill">
-                <span className="badge-dot" /> Resonant · Highly active profile
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* FOR WHOM */}
-        <section className="section">
-          <div className="section-header">
-            <div>
-              <div className="section-title">
-                Built for the entire quantum community
-              </div>
-              <div className="section-sub">Different paths, one shared platform.</div>
-            </div>
-          </div>
+              <div className="who-grid">
+                <div className="who-card">
+                  <div className="who-title-row">
+                    <span className="who-emoji">👨‍🎓</span>
+                    <span className="who-title">Students &amp; early-career</span>
+                  </div>
+                  <p className="who-text">
+                    Explore internships, MSc/PhD projects, and your first postdoc or
+                    industry role. Build your profile as you grow into the field.
+                  </p>
+                </div>
 
-          <div className="who-grid">
-            <div className="who-card">
-              <div className="who-title-row">
-                <span className="who-emoji">👨‍🎓</span>
-                <span className="who-title">Students &amp; early-career</span>
-              </div>
-              <p className="who-text">
-                Explore internships, MSc/PhD projects, and your first postdoc or industry
-                role. Build your profile as you grow into the field.
-              </p>
-            </div>
+                <div className="who-card">
+                  <div className="who-title-row">
+                    <span className="who-emoji">🧑‍🔬</span>
+                    <span className="who-title">Researchers &amp; labs</span>
+                  </div>
+                  <p className="who-text">
+                    Showcase your group, attract collaborators, and make it easier to
+                    find the right candidates for your quantum projects.
+                  </p>
+                </div>
 
-            <div className="who-card">
-              <div className="who-title-row">
-                <span className="who-emoji">🧑‍🔬</span>
-                <span className="who-title">Researchers &amp; labs</span>
+                <div className="who-card">
+                  <div className="who-title-row">
+                    <span className="who-emoji">🏢</span>
+                    <span className="who-title">Companies &amp; startups</span>
+                  </div>
+                  <p className="who-text">
+                    Post jobs, list your hero products, and reach a focused audience
+                    that already cares about quantum technologies.
+                  </p>
+                </div>
               </div>
-              <p className="who-text">
-                Showcase your group, attract collaborators, and make it easier to find the
-                right candidates for your quantum projects.
-              </p>
-            </div>
+            </section>
+          </main>
 
-            <div className="who-card">
-              <div className="who-title-row">
-                <span className="who-emoji">🏢</span>
-                <span className="who-title">Companies &amp; startups</span>
-              </div>
-              <p className="who-text">
-                Post jobs, list your hero products, and reach a focused audience that
-                already cares about quantum technologies.
-              </p>
+          {/* RIGHT SIDEBAR – HERO TILES STACKED */}
+          <aside className="layout-right">
+            <div className="hero-tiles hero-tiles-vertical">
+              {/* Jobs tile */}
+              <Link href="/jobs" className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Explore</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum Jobs Universe</div>
+                    <div className="tile-icon-orbit">🧪</div>
+                  </div>
+                  <p className="tile-text">
+                    Browse internships, MSc/PhD positions, postdocs, and industry roles
+                    from labs and companies worldwide.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">MSc / PhD</span>
+                    <span className="tile-pill">Postdoc</span>
+                    <span className="tile-pill">Industry</span>
+                  </div>
+                  <div className="tile-cta">
+                    Browse jobs <span>›</span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Products tile */}
+              <Link href="/products" className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Discover</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum Products Lab</div>
+                    <div className="tile-icon-orbit">🔧</div>
+                  </div>
+                  <p className="tile-text">
+                    Discover quantum hardware, control electronics, software tools, and
+                    services from specialized vendors.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Hardware</span>
+                    <span className="tile-pill">Control &amp; readout</span>
+                    <span className="tile-pill">Software &amp; services</span>
+                  </div>
+                  <div className="tile-cta">
+                    Browse products <span>›</span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Community tile */}
+              <Link href="/community" className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Connect</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum Community</div>
+                    <div className="tile-icon-orbit">🤝</div>
+                  </div>
+                  <p className="tile-text">
+                    Meet students, researchers, and companies. Explore profiles,
+                    discover collaborators, and grow your quantum network.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Profiles</span>
+                    <span className="tile-pill">Collaboration</span>
+                    <span className="tile-pill">Mentoring</span>
+                  </div>
+                  <div className="tile-cta">
+                    Meet the community <span>›</span>
+                  </div>
+                </div>
+              </Link>
             </div>
-          </div>
-        </section>
+          </aside>
+        </div>
       </div>
     </>
   );
