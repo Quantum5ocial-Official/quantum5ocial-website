@@ -28,23 +28,25 @@ type Product = {
   image1_url: string | null;
 };
 
+/** 🔹 NEW: type for featured community members */
 type CommunityProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  role: string | null;              // adjust to your column name if needed
+  role: string | null;              // adjust if your column is named differently
   affiliation: string | null;
   highest_education: string | null;
-  short_bio: string | null;         // adjust to your column name if needed
+  short_bio: string | null;         // adjust if your column is named differently
 };
 
 export default function Home() {
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [featuredProfiles, setFeaturedProfiles] = useState<CommunityProfile[]>([]);
-
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+
+  /** 🔹 NEW: state for community members */
+  const [featuredProfiles, setFeaturedProfiles] = useState<CommunityProfile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
 
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function Home() {
       setLoadingProducts(false);
     };
 
+    /** 🔹 NEW: load latest 3 community profiles */
     const loadProfiles = async () => {
       setLoadingProfiles(true);
       const { data, error } = await supabase
@@ -121,11 +124,13 @@ export default function Home() {
 
   const formatProductTags = (p: Product) => {
     const tags: string[] = [];
-    if (p.category) tags.push(p.category);
     const price = formatPrice(p);
+
+    if (p.category) tags.push(p.category);
     if (price) tags.push(price);
     if (p.in_stock === true) tags.push("In stock");
     if (p.in_stock === false) tags.push("Out of stock");
+
     return tags.slice(0, 3);
   };
 
@@ -405,7 +410,7 @@ export default function Home() {
           )}
         </section>
 
-        {/* FEATURED COMMUNITY MEMBERS */}
+        {/* 🔹 NEW: FEATURED COMMUNITY MEMBERS */}
         <section className="section" id="community">
           <div className="section-header">
             <div>
@@ -672,8 +677,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        {/* FOOTER is rendered in _app.tsx */}
       </div>
     </>
   );
