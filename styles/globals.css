@@ -88,12 +88,12 @@ body {
   z-index: 1;
   min-height: 100vh;
 
-  /* add this line ↓ */
-  padding-top: 200px;
-
   /* keep your original padding for left/right/bottom */
   padding: 24px 32px 40px;
-
+ 
+  /* add this line ↓ */
+  padding-top: 200px;
+  
   display: flex;
   flex-direction: column;
 }
