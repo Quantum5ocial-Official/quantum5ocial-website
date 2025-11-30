@@ -88,6 +88,7 @@ body {
   z-index: 1;
   min-height: 100vh;
   padding: 24px 32px 40px;
+  padding-top: 72px;  /* adjust to your navbar height */
   display: flex;
   flex-direction: column;
 }
