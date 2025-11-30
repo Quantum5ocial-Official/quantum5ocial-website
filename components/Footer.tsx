@@ -16,7 +16,7 @@ export default function Footer() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: "2px",
           marginBottom: "28px", // space above centered copyright
         }}
       >
