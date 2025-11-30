@@ -1853,6 +1853,83 @@ footer a:hover {
     width: 100%;
   }
 }
+
+/* sticky side columns – keep left & right visible while scrolling */
+.sticky-col {
+  position: sticky;
+  top: 96px; /* adjust if your header is taller/shorter */
+  align-self: flex-start;
+}
+
+/* profile card layout */
+
+.profile-sidebar-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-sidebar-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.profile-sidebar-avatar-wrapper {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-sidebar-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-sidebar-avatar-placeholder {
+  background: linear-gradient(135deg, #3bc7f3, #8468ff);
+  color: white;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.profile-sidebar-name {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.profile-sidebar-info-block {
+  margin-top: 4px;
+}
+
+.profile-sidebar-info-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.profile-sidebar-info-value {
+  font-size: 0.8rem;
+  color: var(--text-main);
+}
+
+/* on small screens (single-column), turn off sticky so it scrolls naturally */
+@media (max-width: 900px) {
+  .sticky-col {
+    position: static;
+  }
+}
+
 /* === FIXED 4-COLUMN PRODUCT GRID === */
 
 .products-grid {
