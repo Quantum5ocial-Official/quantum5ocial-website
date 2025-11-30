@@ -120,7 +120,7 @@ export default function Navbar() {
               className="nav-link nav-link-button"
               onClick={() => setIsDashboardOpen((o) => !o)}
             >
-              Dashboard ▾
+              Dashboard
             </button>
 
             {isDashboardOpen && (
@@ -166,7 +166,7 @@ export default function Navbar() {
               className="nav-link nav-link-button"
               onClick={() => setIsUserMenuOpen((o) => !o)}
             >
-              {displayName} ▾
+              {displayName}
             </button>
 
             {isUserMenuOpen && (
