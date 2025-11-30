@@ -1922,7 +1922,7 @@ footer a:hover {
 .brand {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 1px;
 }
 /* Remove all hover backgrounds in user dropdown */
 .nav-dropdown-item:hover {
