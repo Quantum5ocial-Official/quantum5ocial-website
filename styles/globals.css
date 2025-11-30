@@ -2523,3 +2523,80 @@ html.theme-light .product-card-tag {
   background: rgba(255, 255, 255, 0.6) !important;
   color: #1e293b !important;
 }
+/* 3-column layout */
+.home-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1.6fr) minmax(0, 320px);
+  gap: 24px;
+}
+
+/* sticky side columns */
+.home-left,
+.home-right {
+  position: sticky;
+  top: 110px; /* below navbar */
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* top part of sidebars */
+.home-left-top,
+.home-right-top {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* LEFT sidebar footer (icons + logo) */
+.home-left-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-social-row {
+  display: flex;
+  gap: 12px;
+  font-size: 18px;
+}
+
+.footer-social-row a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.footer-social-row a:hover {
+  color: var(--accent);
+}
+
+.footer-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.footer-brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.footer-brand-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+/* RIGHT sidebar footer (copyright) */
+.home-right-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
