@@ -2103,11 +2103,19 @@ footer a:hover {
 .nav-user-name {
   font-size: 0.95rem;
 }
-/* Make ALL navbar text exactly the same size */
+
+/* Make EVERYTHING in the navbar use the same base font size */
 .nav-link,
 .nav-link-button,
-.nav-username {
-  font-size: 16px;        /* ← change this number to whatever size you want */
-  font-weight: 400;
+.nav-user-button,
+.nav-user-name {
+  font-size: 16px;   /* or whatever the other items are using */
   line-height: 1;
+}
+
+/* Ensure the avatar + text don't shrink */
+.nav-user-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
