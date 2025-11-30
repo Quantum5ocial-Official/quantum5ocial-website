@@ -88,7 +88,7 @@ export default function Navbar() {
       <Link href="/" className="brand-clickable">
         <div className="brand">
           <img
-            src="/Q5_black_bg2.png"
+            src="/Q5_no_bg.png"
             alt="Quantum5ocial logo"
             className="brand-logo"
           />
