@@ -4,10 +4,9 @@ import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-
 import Footer from "../components/Footer";
 
-// Routes allowed without login
+// Routes that should be accessible without login.
 const PUBLIC_ROUTES = ["/auth"];
 
 export default function MyApp({ Component, pageProps }: AppProps) {
@@ -17,14 +16,14 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // PUBLIC ROUTES — always allowed
+      // If this is a public route, allow immediately
       if (PUBLIC_ROUTES.includes(router.pathname)) {
         setAllowed(true);
         setCheckingAuth(false);
         return;
       }
 
-      // Require logged in user for all other routes
+      // For all other routes, require Supabase user
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
 
@@ -42,7 +41,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     checkAuth();
   }, [router.pathname]);
 
-  // While checking auth
+  // While checking auth, show a simple loading state
   if (checkingAuth) {
     return (
       <div className="page">
@@ -63,20 +62,16 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     );
   }
 
-  // Not allowed (being redirected)
+  // If not allowed and redirect in progress, render nothing
   if (!allowed && router.pathname !== "/auth") {
     return null;
   }
 
-  // Normal render
+  // Normal render if allowed or on /auth
   return (
     <>
-      <div className="page">
-        <Component {...pageProps} />
-
-        {/* FOOTER ALWAYS AT BOTTOM */}
-        <Footer />
-      </div>
+      <Component {...pageProps} />
+      <Footer />
     </>
   );
 }
