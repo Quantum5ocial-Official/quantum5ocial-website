@@ -28,11 +28,24 @@ type Product = {
   image1_url: string | null;
 };
 
+type CommunityProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;              // adjust to your column name if needed
+  affiliation: string | null;
+  highest_education: string | null;
+  short_bio: string | null;         // adjust to your column name if needed
+};
+
 export default function Home() {
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [featuredProfiles, setFeaturedProfiles] = useState<CommunityProfile[]>([]);
+
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -71,8 +84,27 @@ export default function Home() {
       setLoadingProducts(false);
     };
 
+    const loadProfiles = async () => {
+      setLoadingProfiles(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, avatar_url, role, affiliation, highest_education, short_bio"
+        )
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (!error && data) {
+        setFeaturedProfiles(data as CommunityProfile[]);
+      } else {
+        setFeaturedProfiles([]);
+      }
+      setLoadingProfiles(false);
+    };
+
     loadJobs();
     loadProducts();
+    loadProfiles();
   }, []);
 
   const formatJobMeta = (job: Job) =>
@@ -373,6 +405,189 @@ export default function Home() {
           )}
         </section>
 
+        {/* FEATURED COMMUNITY MEMBERS */}
+        <section className="section" id="community">
+          <div className="section-header">
+            <div>
+              <div className="section-title">Featured community members</div>
+              <div className="section-sub">
+                A snapshot of the latest people joining the quantum ecosystem on
+                Quantum5ocial.
+              </div>
+            </div>
+            <a
+              href="/community"
+              className="section-link"
+              style={{
+                padding: "6px 14px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "transparent",
+                color: "#e5e7eb",
+                fontSize: 13,
+                textDecoration: "none",
+              }}
+            >
+              View all members →
+            </a>
+          </div>
+
+          {loadingProfiles ? (
+            <div className="products-status">Loading community members…</div>
+          ) : featuredProfiles.length === 0 ? (
+            <div className="products-empty">
+              No community members to show yet. As users join, they will appear here.
+            </div>
+          ) : (
+            <div className="card-row">
+              {featuredProfiles.map((p) => {
+                const name = p.full_name || "Quantum5ocial member";
+                const initial = name.charAt(0).toUpperCase();
+                const role = p.role || "Quantum5ocial member";
+                const affiliation = p.affiliation || "—";
+                const highestEducation = p.highest_education || "—";
+                const shortBio =
+                  p.short_bio ||
+                  "Quantum5ocial community member exploring the quantum ecosystem.";
+
+                return (
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{
+                      textDecoration: "none",
+                      padding: 14,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      minHeight: 220,
+                    }}
+                  >
+                    <div className="card-inner">
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 12,
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: "999px",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            border: "1px solid rgba(148,163,184,0.4)",
+                            background: "rgba(15,23,42,0.9)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 18,
+                            fontWeight: 600,
+                            color: "#e5e7eb",
+                          }}
+                        >
+                          {p.avatar_url ? (
+                            <img
+                              src={p.avatar_url}
+                              alt={name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            <span>{initial}</span>
+                          )}
+                        </div>
+
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            className="card-title"
+                            style={{
+                              marginBottom: 2,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {name}
+                          </div>
+                          <div
+                            className="card-meta"
+                            style={{ fontSize: 12, lineHeight: 1.4 }}
+                          >
+                            {role}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--text-muted)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          marginTop: 6,
+                        }}
+                      >
+                        <div>
+                          <span style={{ opacity: 0.7 }}>Education: </span>
+                          <span>{highestEducation}</span>
+                        </div>
+                        <div>
+                          <span style={{ opacity: 0.7 }}>Affiliation: </span>
+                          <span>{affiliation}</span>
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 12,
+                            lineHeight: 1.4,
+                            maxHeight: 60,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {shortBio}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <Link
+                        href="/community"
+                        style={{
+                          width: "100%",
+                          padding: "7px 0",
+                          borderRadius: 10,
+                          border: "1px solid rgba(59,130,246,0.6)",
+                          background: "rgba(59,130,246,0.16)",
+                          color: "#bfdbfe",
+                          fontSize: 12,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          textDecoration: "none",
+                        }}
+                      >
+                        <span>Entangle</span>
+                        <span style={{ fontSize: 14 }}>+</span>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         {/* GAMIFICATION */}
         <section className="section">
           <div className="gamify-strip">
@@ -458,7 +673,7 @@ export default function Home() {
           </div>
         </section>
 
-
+        {/* FOOTER is rendered in _app.tsx */}
       </div>
     </>
   );
