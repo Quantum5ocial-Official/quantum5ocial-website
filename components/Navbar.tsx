@@ -1,129 +1,163 @@
 // components/Navbar.tsx
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 export default function Navbar() {
-  const { user, loading } = useSupabaseUser();
+  const { user, profile, loading } = useSupabaseUser();
   const router = useRouter();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const displayName =
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.user_metadata?.name ||
-    user?.email?.split("@")[0] ||
-    "User";
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("");
+  const dashboardRef = useRef<HTMLDivElement | null>(null);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dashboardRef.current &&
+        !dashboardRef.current.contains(e.target as Node)
+      ) {
+        setIsDashboardOpen(false);
+      }
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      setUserMenuOpen(false);
-      router.replace("/auth");
-    }
+    await supabase.auth.signOut();
+    router.push("/");
   };
 
-  const linkClass = (path: string) =>
-    router.pathname.startsWith(path)
-      ? "nav-link nav-link-active"
-      : "nav-link";
+  // Prefer profile.full_name, then fall back to auth metadata/email
+  const displayName =
+    (profile as any)?.full_name ||
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
 
   return (
-    <header className="navbar">
-      {/* LEFT: logo + brand */}
-      <div className="nav-left">
-        <Link href="/" className="nav-brand">
-          <div className="nav-logo">
-            <img
-              src="/Q5_black_bg2.png"
-              alt="Quantum5ocial logo"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 8,
-                objectFit: "cover",
-              }}
-            />
-          </div>
-          <div className="nav-brand-text">
-            <div className="nav-brand-name">Quantum5ocial</div>
-            <div className="nav-brand-tagline">
-              SOCIALIZING THE QUANTUM WORLD
+    <header className="nav">
+      {/* Brand – clickable to home */}
+      <Link href="/" className="brand-clickable">
+        <div className="brand">
+          {/* Logo image */}
+          <img
+            src="/Q5_black_bg2.png"
+            alt="Quantum5ocial logo"
+            className="brand-logo-img"
+          />
+          <div>
+            <div className="brand-text-main brand-text-gradient">
+              Quantum5ocial
+            </div>
+            <div className="brand-text-sub">
+              Socializing the quantum world
             </div>
           </div>
-        </Link>
-      </div>
+        </div>
+      </Link>
 
-      {/* CENTER: main links */}
-      <nav className="nav-center">
-        <Link href="/jobs" className={linkClass("/jobs")}>
+      <nav className="nav-links">
+        <Link href="/jobs" className="nav-link">
           Jobs
         </Link>
-        <Link href="/products" className={linkClass("/products")}>
+
+        <Link href="/products" className="nav-link">
           Products
         </Link>
-        <Link href="/dashboard" className={linkClass("/dashboard")}>
-          Dashboard
-        </Link>
-      </nav>
 
-      {/* RIGHT: auth / user menu */}
-      <div className="nav-right">
-        {loading ? null : user ? (
-          <div className="nav-user-wrapper">
+        {/* Dashboard dropdown (navigation only) */}
+        {!loading && user && (
+          <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
               type="button"
-              className="nav-user-button"
-              onClick={() => setUserMenuOpen((o) => !o)}
+              className="nav-link nav-link-button"
+              onClick={() => setIsDashboardOpen((o) => !o)}
             >
-              <div className="nav-user-avatar">
-                <span>{initials || "Q5"}</span>
-              </div>
-              <span className="nav-user-name">{displayName}</span>
-              <span className="nav-user-caret">▾</span>
+              Dashboard ▾
             </button>
 
-            {userMenuOpen && (
-              <div className="nav-user-menu">
+            {isDashboardOpen && (
+              <div className="nav-dashboard-menu">
                 <Link
                   href="/dashboard"
-                  className="nav-user-menu-item"
-                  onClick={() => setUserMenuOpen(false)}
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
                 >
-                  Dashboard
+                  Overview
                 </Link>
                 <Link
-                  href="/profile"
-                  className="nav-user-menu-item"
-                  onClick={() => setUserMenuOpen(false)}
+                  href="/dashboard/saved-jobs"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
                 >
-                  Profile
+                  Saved jobs
                 </Link>
-                <button
-                  type="button"
-                  className="nav-user-menu-item nav-user-logout"
-                  onClick={handleLogout}
+                <Link
+                  href="/dashboard/saved-products"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
                 >
-                  Log out
-                </button>
+                  Saved products
+                </Link>
               </div>
             )}
           </div>
-        ) : (
+        )}
+
+        {/* Logged-out: auth button */}
+        {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
-      </div>
+
+        {/* Username dropdown – Profile + Logout */}
+        {!loading && user && (
+          <div className="nav-dashboard-wrapper" ref={userMenuRef}>
+            <button
+              type="button"
+              className="nav-link nav-link-button"
+              onClick={() => setIsUserMenuOpen((o) => !o)}
+            >
+              {displayName} ▾
+            </button>
+
+            {isUserMenuOpen && (
+              <div className="nav-dashboard-menu right-align">
+                <Link
+                  href="/profile"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsUserMenuOpen(false)}
+                >
+                  My profile
+                </Link>
+                <button
+                  type="button"
+                  className="nav-dropdown-item nav-dropdown-danger"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
     </header>
   );
 }
