@@ -208,6 +208,9 @@ export default function Home() {
     (profileSummary as any)?.current_org ||
     "";
 
+  const hasProfileExtraInfo =
+    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
+
   return (
     <>
       <div className="bg-layer" />
@@ -217,11 +220,12 @@ export default function Home() {
         {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
           {/* LEFT SIDEBAR */}
-          <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column" }}>
+          <aside
+            className="layout-left sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             {/* Profile card */}
             <div className="sidebar-card profile-sidebar-card">
-              <div className="profile-sidebar-label">Your profile</div>
-
               <div className="profile-sidebar-header">
                 <div className="profile-sidebar-avatar-wrapper">
                   {avatarUrl ? (
@@ -239,22 +243,26 @@ export default function Home() {
                 <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
-              {/* Just stacked lines, no labels */}
-              <div className="profile-sidebar-info-block">
-                <div className="profile-sidebar-info-value">
-                  {educationLevel || "Add your education level in your profile."}
+              {/* Only show extra info if it exists – no placeholders */}
+              {hasProfileExtraInfo && (
+                <div className="profile-sidebar-info-block">
+                  {educationLevel && (
+                    <div className="profile-sidebar-info-value">
+                      {educationLevel}
+                    </div>
+                  )}
+                  {describesYou && (
+                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                      {describesYou}
+                    </div>
+                  )}
+                  {affiliation && (
+                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                      {affiliation}
+                    </div>
+                  )}
                 </div>
-                <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-                  {describesYou || "Tell the community how you describe yourself."}
-                </div>
-                <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-                  {affiliation || "Add your current lab / company / university."}
-                </div>
-              </div>
-
-              <Link href="/profile" className="sidebar-btn">
-                View / edit profile
-              </Link>
+              )}
             </div>
 
             {/* Quick dashboard card */}
