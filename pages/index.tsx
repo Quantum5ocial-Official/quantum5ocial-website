@@ -412,7 +412,7 @@ export default function Home() {
               <div>
                 <div className="eyebrow">Quantum ecosystem hub</div>
                 <h1 className="hero-title">
-                  Discover <span className="hero-highlight">jobs &amp; tools</span>{" "}
+                  Discover <span className="hero-highlight">jobs, products &amp; services</span>{" "}
                   shaping the future of quantum technology.
                 </h1>
                 <p className="hero-sub">
