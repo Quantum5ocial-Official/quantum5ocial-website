@@ -125,8 +125,8 @@ a:focus {
   align-items: center;
   justify-content: space-between;
 
-  padding: 10px 24px; /* compact header height */
-
+  padding: 0 32px;         /* remove tall padding */
+  height: 120px;            /* match logo height */
   background: radial-gradient(circle at top left, #020617 0, #020617 45%, #020617 100%);
   backdrop-filter: blur(20px);
 }
