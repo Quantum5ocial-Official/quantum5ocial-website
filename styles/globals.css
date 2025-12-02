@@ -2027,3 +2027,23 @@ html.theme-light footer {
   border-top-color: rgba(209, 213, 219, 0.9);
   color: #6b7280;
 }
+/* Reset the dashboard trigger button so it looks like a normal nav link */
+.dashboard-trigger {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;              /* use same font as links */
+  color: inherit;             /* take color from .nav-link / .nav-link-active */
+}
+
+/* Optional: keep only subtle focus style */
+.dashboard-trigger:focus {
+  outline: none;
+}
+
+.dashboard-trigger:focus-visible {
+  outline: 2px solid rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
+}
