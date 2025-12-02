@@ -26,14 +26,12 @@ export default function Navbar() {
   // Active route helper
   // ------------------------------
   const isActive = (path: string) => {
-    if (path === "/dashboard") {
-      return router.pathname.startsWith("/dashboard");
-    }
-    if (path === "/profile") {
-      return router.pathname === "/profile";
-    }
-    return router.pathname === path || router.pathname.startsWith(path + "/");
-  };
+  if (path === "/dashboard") {
+    // Active ONLY if the current page is actually inside /dashboard
+    return router.pathname.startsWith("/dashboard");
+  }
+  return router.pathname === path || router.pathname.startsWith(path + "/");
+};
 
   // ------------------------------
   // THEME LOADING
