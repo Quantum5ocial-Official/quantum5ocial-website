@@ -251,18 +251,15 @@ a:focus {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  font: inherit;
+  color: inherit;
 }
 
-/* Focus styles for accessibility (subtle) */
-.dashboard-trigger:focus {
+/* Remove the white focus box */
+.dashboard-trigger:focus,
+.dashboard-trigger:focus-visible {
   outline: none;
 }
-
-.dashboard-trigger:focus-visible {
-  outline: 2px solid rgba(148, 163, 184, 0.6);
-  border-radius: 999px;
-}
-
 /* CTA */
 
 .nav-cta {
