@@ -224,46 +224,47 @@ export default function Home() {
             className="layout-left sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
           >
-            {/* Profile card */}
-            <div className="sidebar-card profile-sidebar-card">
-              <div className="profile-sidebar-header">
-                <div className="profile-sidebar-avatar-wrapper">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={sidebarFullName}
-                      className="profile-sidebar-avatar"
-                    />
-                  ) : (
-                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarFullName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="profile-sidebar-name">{sidebarFullName}</div>
-              </div>
+            {/* Profile card – clickable, goes to My profile */}
+<Link
+  href="/profile"          // <-- change this path if your My Profile page is different
+  className="sidebar-card profile-sidebar-card"
+  style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+>
+  <div className="profile-sidebar-header">
+    <div className="profile-sidebar-avatar-wrapper">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={sidebarFullName}
+          className="profile-sidebar-avatar"
+        />
+      ) : (
+        <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+          {sidebarFullName.charAt(0).toUpperCase()}
+        </div>
+      )}
+    </div>
+    <div className="profile-sidebar-name">{sidebarFullName}</div>
+  </div>
 
-              {/* Only show extra info if it exists – no placeholders */}
-              {hasProfileExtraInfo && (
-                <div className="profile-sidebar-info-block">
-                  {educationLevel && (
-                    <div className="profile-sidebar-info-value">
-                      {educationLevel}
-                    </div>
-                  )}
-                  {describesYou && (
-                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-                      {describesYou}
-                    </div>
-                  )}
-                  {affiliation && (
-                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-                      {affiliation}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+  {hasProfileExtraInfo && (
+    <div className="profile-sidebar-info-block">
+      {educationLevel && (
+        <div className="profile-sidebar-info-value">{educationLevel}</div>
+      )}
+      {describesYou && (
+        <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+          {describesYou}
+        </div>
+      )}
+      {affiliation && (
+        <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+          {affiliation}
+        </div>
+      )}
+    </div>
+  )}
+</Link>
 
             {/* Quick dashboard card */}
             <div className="sidebar-card dashboard-sidebar-card">
