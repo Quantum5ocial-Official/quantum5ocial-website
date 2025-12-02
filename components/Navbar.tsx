@@ -22,20 +22,7 @@ export default function Navbar() {
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // ------------------------------
-  // Active route helper
-  // ------------------------------
-  const isActive = (path: string) => {
-  if (path === "/dashboard") {
-    // Active ONLY if the current page is actually inside /dashboard
-    return router.pathname.startsWith("/dashboard");
-  }
-  return router.pathname === path || router.pathname.startsWith(path + "/");
-};
-
-  // ------------------------------
-  // THEME LOADING
-  // ------------------------------
+  // ----- THEME HANDLING -----
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -43,23 +30,27 @@ export default function Navbar() {
     const initial: Theme = stored === "light" ? "light" : "dark";
 
     setTheme(initial);
-    document.documentElement.classList.toggle("theme-light", initial === "light");
+    document.documentElement.classList.toggle(
+      "theme-light",
+      initial === "light"
+    );
   }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
       if (typeof window !== "undefined") {
-        document.documentElement.classList.toggle("theme-light", next === "light");
+        document.documentElement.classList.toggle(
+          "theme-light",
+          next === "light"
+        );
         window.localStorage.setItem("q5_theme", next);
       }
       return next;
     });
   };
 
-  // ------------------------------
-  // PROFILE FETCH
-  // ------------------------------
+  // ----- PROFILE LOADING -----
   useEffect(() => {
     let cancelled = false;
 
@@ -79,8 +70,8 @@ export default function Navbar() {
       if (cancelled) return;
 
       if (!error && data) {
-        setProfileName(data.full_name || null);
-        setAvatarUrl(data.avatar_url || null);
+        setProfileName((data.full_name as string) || null);
+        setAvatarUrl((data.avatar_url as string) || null);
       } else {
         setProfileName(null);
         setAvatarUrl(null);
@@ -88,20 +79,25 @@ export default function Navbar() {
     };
 
     loadProfile();
+
     return () => {
       cancelled = true;
     };
   }, [user]);
 
-  // ------------------------------
   // Close dropdowns on outside click
-  // ------------------------------
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dashboardRef.current && !dashboardRef.current.contains(e.target as Node)) {
+      if (
+        dashboardRef.current &&
+        !dashboardRef.current.contains(e.target as Node)
+      ) {
         setIsDashboardOpen(false);
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setIsUserMenuOpen(false);
       }
     }
@@ -110,17 +106,23 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ------------------------------
-  // Logout
-  // ------------------------------
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/");
   };
 
-  // ------------------------------
-  // Names
-  // ------------------------------
+  // ----- ACTIVE LINK HELPER -----
+  const isActive = (path: string) => {
+    if (path === "/dashboard") {
+      // Dashboard is active ONLY when actually on a /dashboard route
+      return router.pathname.startsWith("/dashboard");
+    }
+    return (
+      router.pathname === path || router.pathname.startsWith(path + "/")
+    );
+  };
+
+  // Fallback name from auth if profile.full_name is missing
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -133,12 +135,9 @@ export default function Navbar() {
       ? fullName.split(" ")[0] || fullName
       : "User";
 
-  // ------------------------------
-  // RENDER
-  // ------------------------------
   return (
     <header className="nav">
-      {/* LEFT BRAND */}
+      {/* Brand – clickable to home */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
           <img
@@ -147,37 +146,46 @@ export default function Navbar() {
             className="brand-logo"
           />
           <div>
-            <div className="brand-text-main brand-text-gradient">Quantum5ocial</div>
-            <div className="brand-text-sub">Connecting the quantum world</div>
+            <div className="brand-text-main brand-text-gradient">
+              Quantum5ocial
+            </div>
+            <div className="brand-text-sub">
+              Connecting the quantum world
+            </div>
           </div>
         </div>
       </Link>
 
-      {/* NAV LINKS */}
       <nav className="nav-links">
-
+        {/* Jobs */}
         <Link
           href="/jobs"
           className={`nav-link ${isActive("/jobs") ? "nav-link-active" : ""}`}
         >
-          Jobs
+          <span className="nav-link-label">Jobs</span>
         </Link>
 
+        {/* Products */}
         <Link
           href="/products"
-          className={`nav-link ${isActive("/products") ? "nav-link-active" : ""}`}
+          className={`nav-link ${
+            isActive("/products") ? "nav-link-active" : ""
+          }`}
         >
-          Products
+          <span className="nav-link-label">Products</span>
         </Link>
 
+        {/* Community */}
         <Link
           href="/community"
-          className={`nav-link ${isActive("/community") ? "nav-link-active" : ""}`}
+          className={`nav-link ${
+            isActive("/community") ? "nav-link-active" : ""
+          }`}
         >
-          Community
+          <span className="nav-link-label">Community</span>
         </Link>
 
-        {/* DASHBOARD DROPDOWN */}
+        {/* Dashboard dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
@@ -187,18 +195,30 @@ export default function Navbar() {
               }`}
               onClick={() => setIsDashboardOpen((o) => !o)}
             >
-              Dashboard
+              <span className="nav-link-label">Dashboard</span>
             </button>
 
             {isDashboardOpen && (
-              <div className="nav-dashboard-menu">
-                <Link href="/dashboard/entangled-states" className="nav-dropdown-item">
+              <div className="nav-dashboard-menu right-align">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
+                >
                   Entangled states
                 </Link>
-                <Link href="/dashboard/saved-jobs" className="nav-dropdown-item">
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
+                >
                   Saved jobs
                 </Link>
-                <Link href="/dashboard/saved-products" className="nav-dropdown-item">
+                <Link
+                  href="/dashboard/saved-products"
+                  className="nav-dropdown-item"
+                  onClick={() => setIsDashboardOpen(false)}
+                >
                   Saved products
                 </Link>
               </div>
@@ -206,7 +226,7 @@ export default function Navbar() {
           </div>
         )}
 
-        {/* THEME TOGGLE */}
+        {/* Theme toggle */}
         <button
           type="button"
           className="nav-link nav-link-button theme-toggle"
@@ -216,14 +236,14 @@ export default function Navbar() {
           {theme === "dark" ? "☀️" : "🌙"}
         </button>
 
-        {/* LOGIN */}
+        {/* Logged-out CTA */}
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
 
-        {/* USER MENU */}
+        {/* Avatar + first name dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
