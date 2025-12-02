@@ -243,4 +243,264 @@ export default function CommunityPage() {
               </div>
             </div>
           </aside>
-          
+                    {/* ===========================
+              MIDDLE COLUMN (COMMUNITY LIST)
+              =========================== */}
+          <section className="layout-main">
+            <div className="section-header" style={{ marginBottom: 20 }}>
+              <div>
+                <div className="section-title">Quantum5ocial community</div>
+                <div className="section-sub">
+                  Discover members of the quantum ecosystem and{" "}
+                  <span style={{ color: "#7dd3fc" }}>entangle</span> with them.
+                </div>
+              </div>
+
+              {!loading && !error && (
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {profiles.length} member{profiles.length === 1 ? "" : "s"}
+                </div>
+              )}
+            </div>
+
+            {/* LOADING */}
+            {loading && (
+              <div className="products-status">Loading community members…</div>
+            )}
+
+            {/* ERROR */}
+            {error && !loading && (
+              <div className="products-status" style={{ color: "#f87171" }}>
+                {error}
+              </div>
+            )}
+
+            {/* EMPTY */}
+            {!loading && !error && profiles.length === 0 && (
+              <div className="products-empty">
+                No members visible yet. As more users join Quantum5ocial, they will
+                appear here.
+              </div>
+            )}
+
+            {/* ===== Community Profiles in 2 Columns ===== */}
+            {!loading && !error && profiles.length > 0 && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                  gap: "18px",
+                }}
+              >
+                {profiles.map((p) => {
+                  const name = p.full_name || "Quantum5ocial member";
+                  const initial = name.charAt(0).toUpperCase();
+
+                  const education = p.highest_education || null;
+                  const affiliation = p.affiliation || null;
+                  const role = p.role || null;
+                  const shortBio =
+                    p.short_bio ||
+                    "Quantum5ocial community member exploring the quantum ecosystem.";
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="card"
+                      style={{
+                        padding: 16,
+                        minHeight: 240,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div className="card-inner">
+                        {/* --- Top row --- */}
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 12,
+                            alignItems: "center",
+                            marginBottom: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 56,
+                              height: 56,
+                              borderRadius: "999px",
+                              overflow: "hidden",
+                              border: "1px solid rgba(148,163,184,0.4)",
+                              background: "rgba(15,23,42,0.9)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              flexShrink: 0,
+                              fontSize: 18,
+                              fontWeight: 600,
+                            }}
+                          >
+                            {p.avatar_url ? (
+                              <img
+                                src={p.avatar_url}
+                                alt={name}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                            ) : (
+                              <span>{initial}</span>
+                            )}
+                          </div>
+
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              className="card-title"
+                              style={{
+                                marginBottom: 2,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {name}
+                            </div>
+                            {role && (
+                              <div
+                                className="card-meta"
+                                style={{ fontSize: 12, lineHeight: 1.4 }}
+                              >
+                                {role}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* --- Middle block --- */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                            fontSize: 12,
+                            marginTop: 6,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          {education && <div>{education}</div>}
+                          {affiliation && <div>{affiliation}</div>}
+                          {role && <div>{role}</div>}
+
+                          <div
+                            style={{
+                              marginTop: 6,
+                              lineHeight: 1.4,
+                              maxHeight: 58,
+                              overflow: "hidden",
+                            }}
+                          >
+                            {shortBio}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* --- Entangle button --- */}
+                      <div style={{ marginTop: 12 }}>
+                        <button
+                          type="button"
+                          style={{
+                            width: "100%",
+                            padding: "7px 0",
+                            borderRadius: 10,
+                            border: "1px solid rgba(59,130,246,0.6)",
+                            background: "rgba(59,130,246,0.16)",
+                            color: "#c7e4ff",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span>Entangle</span>
+                          <span style={{ fontSize: 14 }}>+</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* ===========================
+              RIGHT SIDEBAR (STATIC TILES)
+              =========================== */}
+          <aside
+            className="layout-right sticky-col"
+            style={{ display: "flex", flexDirection: "column", gap: 18 }}
+          >
+            <div className="hero-tiles-vertical">
+
+              {/* ---- TILE 1: Highlighted Jobs ---- */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Featured</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Highlighted quantum jobs</div>
+                    <div className="tile-icon-orbit">💼</div>
+                  </div>
+                  <div className="tile-text">
+                    The most competitive & exciting roles curated globally.
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- TILE 2: Highlighted Products ---- */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Featured</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Highlighted quantum products</div>
+                    <div className="tile-icon-orbit">🔧</div>
+                  </div>
+                  <div className="tile-text">
+                    State-of-the-art hardware powering quantum research.
+                  </div>
+                </div>
+              </div>
+
+              {/* ---- TILE 3: Highlighted Quantum Talent ---- */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Talent</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Highlighted quantum talent</div>
+                    <div className="tile-icon-orbit">⭐</div>
+                  </div>
+                  <div className="tile-text">
+                    Brilliant researchers & engineers worth discovering.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ---- FOOTER RIGHT ---- */}
+            <div className="home-right-footer">
+              © 2025 Quantum5ocial · All rights reserved
+            </div>
+          </aside>
+        </main>
+      </div>
+    </>
+  );
+}
