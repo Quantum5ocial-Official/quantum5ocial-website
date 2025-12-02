@@ -2047,3 +2047,28 @@ html.theme-light footer {
   outline: 2px solid rgba(148, 163, 184, 0.6);
   border-radius: 999px;
 }
+/* Default faded dashboard text (same as other nav links) */
+.nav-dashboard-button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(226, 232, 240, 0.7);   /* faded */
+  cursor: pointer;
+}
+
+/* Bright only when dropdown is open */
+.nav-dashboard-button.active {
+  color: rgba(255, 255, 255, 0.95);  /* bright */
+}
+
+/* Hover only affects the text */
+.nav-dashboard-button:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.nav-dashboard-button:focus {
+  outline: none;
+}
