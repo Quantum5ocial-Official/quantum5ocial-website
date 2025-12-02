@@ -192,31 +192,27 @@ export default function CommunityPage() {
             </div>
 
             {/* --- Social icons + Brand footer --- */}
-            <div
-              style={{
-                marginTop: "auto",
-                paddingTop: 16,
-                borderTop: "1px solid rgba(148,163,184,0.18)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              {/* Icons */}
-              <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-                <a
-                  href="mailto:info@quantum5ocial.com"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  ✉️
-                </a>
-                <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
-                  ✖️
-                </a>
-                <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
-                  🐱
-                </a>
-              </div>
+            <div style={{ display: "flex", gap: 12, fontSize: 18, alignItems: "center" }}>
+  
+  {/* Email */}
+  <a href="mailto:info@quantum5ocial.com" target="_blank" rel="noopener noreferrer"
+     style={{ color: "rgba(148,163,184,0.9)" }}>
+    <svg ... SAME EMAIL SVG ...></svg>
+  </a>
+
+  {/* X / Twitter */}
+  <a href="https://x.com/" target="_blank" rel="noopener noreferrer"
+     style={{ color: "rgba(148,163,184,0.9)" }}>
+    <svg ... SAME X ICON SVG ...></svg>
+  </a>
+
+  {/* GitHub */}
+  <a href="https://github.com/" target="_blank" rel="noopener noreferrer"
+     style={{ color: "rgba(148,163,184,0.9)" }}>
+    <svg ... SAME GITHUB SVG ...></svg>
+  </a>
+
+</div>
 
               {/* Brand row */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
