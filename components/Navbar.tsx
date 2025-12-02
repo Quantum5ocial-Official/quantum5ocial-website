@@ -172,28 +172,19 @@ export default function Navbar() {
 
             {isDashboardOpen && (
               <div className="nav-dashboard-menu">
-                <Link
-                  href="/dashboard"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsDashboardOpen(false)}
-                >
-                  Overview
-                </Link>
-                <Link
-                  href="/dashboard/saved-jobs"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsDashboardOpen(false)}
-                >
-                  Saved jobs
-                </Link>
-                <Link
-                  href="/dashboard/saved-products"
-                  className="nav-dropdown-item"
-                  onClick={() => setIsDashboardOpen(false)}
-                >
-                  Saved products
-                </Link>
-              </div>
+  <Link
+    href="/dashboard/entangled-states"
+    className="nav-dropdown-item"
+  >
+    Entangled states
+  </Link>
+  <Link href="/dashboard/saved-jobs" className="nav-dropdown-item">
+    Saved jobs
+  </Link>
+  <Link href="/dashboard/saved-products" className="nav-dropdown-item">
+    Saved products
+  </Link>
+</div>
             )}
           </div>
         )}
