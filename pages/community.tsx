@@ -192,26 +192,74 @@ export default function CommunityPage() {
             </div>
 
             {/* --- Social icons + Brand footer --- */}
-            <div style={{ display: "flex", gap: 12, fontSize: 18, alignItems: "center" }}>
-  
+            <div
+  style={{
+    display: "flex",
+    gap: 12,
+    fontSize: 18,
+    alignItems: "center",
+  }}
+>
   {/* Email */}
-  <a href="mailto:info@quantum5ocial.com" target="_blank" rel="noopener noreferrer"
-     style={{ color: "rgba(148,163,184,0.9)" }}>
-    <svg ... SAME EMAIL SVG ...></svg>
+  <a
+    href="mailto:info@quantum5ocial.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Email Quantum5ocial"
+    style={{ color: "rgba(148,163,184,0.9)" }}
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
+      <polyline points="3 7 12 13 21 7" />
+    </svg>
   </a>
 
-  {/* X / Twitter */}
-  <a href="https://x.com/" target="_blank" rel="noopener noreferrer"
-     style={{ color: "rgba(148,163,184,0.9)" }}>
-    <svg ... SAME X ICON SVG ...></svg>
+  {/* X (Twitter) */}
+  <a
+    href="https://x.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Quantum5ocial on X"
+    style={{ color: "rgba(148,163,184,0.9)" }}
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M18.36 2H21l-6.64 7.59L22 22h-6.7l-5.2-6.82L4.9 22H2l7.15-8.18L2 2h6.73l4.86 6.29L18.36 2zM16.7 20.3h1.86L7.38 3.59H5.42l11.28 16.71z" />
+    </svg>
   </a>
 
   {/* GitHub */}
-  <a href="https://github.com/" target="_blank" rel="noopener noreferrer"
-     style={{ color: "rgba(148,163,184,0.9)" }}>
-    <svg ... SAME GITHUB SVG ...></svg>
+  <a
+    href="https://github.com"
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label="Quantum5ocial on GitHub"
+    style={{ color: "rgba(148,163,184,0.9)" }}
+  >
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
+    </svg>
   </a>
-
 </div>
 
               {/* Brand row */}
