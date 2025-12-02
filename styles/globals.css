@@ -1640,6 +1640,26 @@ a:focus {
   color: #e5e7eb;
   font-size: 11px;
 }
+/* Header row inside product card: name + vendor + heart */
+.products-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Heart styling */
+.products-card-fav {
+  font-size: 18px;
+  line-height: 1;
+  margin-left: 8px;
+}
+
+/* If the old heart was coming from ::after, kill it */
+.products-card::after {
+  content: none !important;
+}
 
 /* Detail page (/products/[id]) */
 
