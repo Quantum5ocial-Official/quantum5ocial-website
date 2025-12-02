@@ -2052,3 +2052,13 @@ html.theme-light footer {
   border-top-color: rgba(209, 213, 219, 0.9);
   color: #6b7280;
 }
+/* --- Force Dashboard to match other nav links --- */
+.nav-links .dashboard-trigger {
+  color: var(--text-muted) !important;      /* default = faded */
+  font-weight: 400 !important;
+}
+
+/* Only brighten when it's actually the active page */
+.nav-links .dashboard-trigger.nav-link-active {
+  color: var(--text-main) !important;       /* bright when on /dashboard */
+}
