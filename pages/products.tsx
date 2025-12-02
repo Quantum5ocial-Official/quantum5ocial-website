@@ -258,6 +258,7 @@ export default function ProductsPage() {
   </div>
 
   <div className="products-card-body">
+    {/* HEADER: name + vendor + heart on the right */}
     <div className="products-card-header">
       <div>
         <div className="products-card-name">{p.name}</div>
