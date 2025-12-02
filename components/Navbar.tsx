@@ -139,7 +139,7 @@ export default function Navbar() {
               Quantum5ocial
             </div>
             <div className="brand-text-sub">
-              Socializing the quantum world
+              Connecting the quantum world
             </div>
           </div>
         </div>
