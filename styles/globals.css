@@ -181,15 +181,16 @@ a:focus {
   display: flex;
   align-items: center;
   gap: 24px;
-  font-size: 1rem;
+  font-size: 1.1rem;            /* 🔥 bigger base font for all nav items */
 }
 
-.nav-link {
-  color: var(--text-muted);
-  text-decoration: none;
-  position: relative;
-  padding-bottom: 3px;
+/* All nav text uses the same base size & muted color by default */
+.nav-link,
+.nav-link-button,
+.nav-user-name,
+.nav-cta {
   font-size: inherit !important;
+  color: var(--text-muted);
 }
 
 .nav-link:hover {
@@ -290,10 +291,18 @@ a:focus {
 }
 
 .nav-user-name {
-  font-size: inherit;
   font-weight: 400;
+  color: var(--text-muted);
+}
+/* Active nav item (current page) */
+.nav-link-active {
+  color: var(--text-main) !important;
 }
 
+/* If the active element is the user button, also brighten the text */
+.nav-link-active .nav-user-name {
+  color: var(--text-main) !important;
+}
 /* Dropdown menu */
 
 .nav-dashboard-menu {
