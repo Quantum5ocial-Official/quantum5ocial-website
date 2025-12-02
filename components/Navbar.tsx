@@ -114,7 +114,7 @@ export default function Navbar() {
   // ----- ACTIVE LINK HELPER -----
   const isActive = (path: string) => {
     if (path === "/dashboard") {
-      // Dashboard active only on /dashboard routes
+      // Dashboard is active ONLY on /dashboard routes
       return router.pathname.startsWith("/dashboard");
     }
     return (
@@ -134,6 +134,14 @@ export default function Navbar() {
     fullName && typeof fullName === "string"
       ? fullName.split(" ")[0] || fullName
       : "User";
+
+  // Keyboard handler for the Dashboard "button"
+  const toggleDashboardFromKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setIsDashboardOpen((o) => !o);
+    }
+  };
 
   return (
     <header className="nav">
@@ -188,17 +196,17 @@ export default function Navbar() {
         {/* Dashboard dropdown */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
-            <button
-              type="button"
-              className={`nav-dashboard-button ${
-                isDashboardOpen || isActive("/dashboard")
-                  ? "nav-link-active"
-                  : ""
+            <div
+              className={`nav-link dashboard-trigger ${
+                isActive("/dashboard") ? "nav-link-active" : ""
               }`}
+              role="button"
+              tabIndex={0}
               onClick={() => setIsDashboardOpen((o) => !o)}
+              onKeyDown={toggleDashboardFromKey}
             >
               <span className="nav-link-label">Dashboard</span>
-            </button>
+            </div>
 
             {isDashboardOpen && (
               <div className="nav-dashboard-menu right-align">
