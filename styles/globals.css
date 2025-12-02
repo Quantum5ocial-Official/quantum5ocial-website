@@ -1649,15 +1649,19 @@ a:focus {
   margin-bottom: 4px;
 }
 
-/* Heart styling */
+/* Heart next to product name */
 .products-card-fav {
   font-size: 18px;
   line-height: 1;
   margin-left: 8px;
 }
 
-/* If the old heart was coming from ::after, kill it */
-.products-card::after {
+/* Kill any legacy heart drawn via pseudo-elements */
+.products-card::after,
+.products-card::before,
+.products-card-image::after,
+.products-card-image::before {
+  /* keep gradients if you use them, but make sure NO heart is set via `content` */
   content: none !important;
 }
 
