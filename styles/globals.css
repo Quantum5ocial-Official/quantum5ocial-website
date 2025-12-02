@@ -125,8 +125,8 @@ a:focus {
   align-items: center;
   justify-content: space-between;
 
-  padding: 0 32px;         /* remove tall padding */
-  height: 80px;            /* match logo height */
+  padding: 0 32px;
+  height: 80px;
   background: radial-gradient(circle at top left, #020617 0, #020617 45%, #020617 100%);
   backdrop-filter: blur(20px);
 }
@@ -181,21 +181,34 @@ a:focus {
   display: flex;
   align-items: center;
   gap: 24px;
-  font-size: 1.1rem;            /* 🔥 bigger base font for all nav items */
+  font-size: 1.1rem; /* base size for all nav items */
 }
 
-/* All nav text uses the same base size & muted color by default */
+/* 🔹 Make ALL nav items share the same font + size + base color */
 .nav-link,
 .nav-link-button,
+.dashboard-trigger,
+.nav-user-button,
 .nav-user-name,
 .nav-cta {
+  font-family: inherit;
   font-size: inherit !important;
+  font-weight: 400;
   color: var(--text-muted);
 }
 
+/* Basic link behavior */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Hover: brighten, but only for the hovered item */
 .nav-link:hover {
   color: var(--text-main);
 }
+
+/* Label + underline */
 
 .nav-link-label {
   position: relative;
@@ -213,13 +226,41 @@ a:focus {
   transition: width 0.18s ease;
 }
 
+/* Underline only the hovered / active item text */
 .nav-link:hover .nav-link-label::after,
 .nav-link-active .nav-link-label::after {
   width: 100%;
 }
 
-.nav-link:hover::after {
-  width: 100%;
+/* ACTIVE state (current page) */
+.nav-link-active {
+  color: var(--text-main) !important;
+}
+
+/* If the active element is the user button, also brighten the name */
+.nav-link-active .nav-user-name {
+  color: var(--text-main) !important;
+}
+
+/* Dashboard trigger behaves like a normal nav link */
+.dashboard-trigger {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Focus styles for accessibility (subtle) */
+.dashboard-trigger:focus {
+  outline: none;
+}
+
+.dashboard-trigger:focus-visible {
+  outline: 2px solid rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
 }
 
 /* CTA */
@@ -228,7 +269,6 @@ a:focus {
   padding: 7px 14px;
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.6);
-  font-size: inherit !important;
   color: var(--text-main);
   text-decoration: none;
   backdrop-filter: blur(10px);
@@ -253,7 +293,6 @@ a:focus {
   font: inherit;
   color: inherit;
   cursor: pointer;
-  font-size: inherit !important;
 }
 
 /* User avatar + name */
@@ -266,7 +305,6 @@ a:focus {
   background: transparent;
   cursor: pointer;
   padding: 0;
-  font-size: inherit;
 }
 
 .nav-user-avatar {
@@ -302,17 +340,8 @@ a:focus {
 
 .nav-user-name {
   font-weight: 400;
-  color: var(--text-muted);
-}
-/* Active nav item (current page) */
-.nav-link-active {
-  color: var(--text-main) !important;
 }
 
-/* If the active element is the user button, also brighten the text */
-.nav-link-active .nav-user-name {
-  color: var(--text-main) !important;
-}
 /* Dropdown menu */
 
 .nav-dashboard-menu {
@@ -347,7 +376,7 @@ a:focus {
 }
 
 .nav-dropdown-item:hover {
-  background: transparent !important; /* no grey hover */
+  background: transparent !important;
   color: #7dd3fc;
 }
 
@@ -362,7 +391,6 @@ a:focus {
   padding: 0 4px;
   font-size: inherit !important;
 }
-
 /* Small screens */
 
 @media (max-width: 720px) {
@@ -2046,29 +2074,4 @@ html.theme-light footer {
 .dashboard-trigger:focus-visible {
   outline: 2px solid rgba(148, 163, 184, 0.6);
   border-radius: 999px;
-}
-/* Default faded dashboard text (same as other nav links) */
-.nav-dashboard-button {
-  background: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  font-size: 16px;
-  font-weight: 400;
-  color: rgba(226, 232, 240, 0.7);   /* faded */
-  cursor: pointer;
-}
-
-/* Bright only when dropdown is open */
-.nav-dashboard-button.active {
-  color: rgba(255, 255, 255, 0.95);  /* bright */
-}
-
-/* Hover only affects the text */
-.nav-dashboard-button:hover {
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.nav-dashboard-button:focus {
-  outline: none;
 }
