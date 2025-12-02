@@ -114,7 +114,7 @@ export default function Navbar() {
   // ----- ACTIVE LINK HELPER -----
   const isActive = (path: string) => {
     if (path === "/dashboard") {
-      // Dashboard is active ONLY when actually on a /dashboard route
+      // Dashboard active only on /dashboard routes
       return router.pathname.startsWith("/dashboard");
     }
     return (
@@ -190,8 +190,10 @@ export default function Navbar() {
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
               type="button"
-              className={`nav-link dashboard-trigger ${
-                isActive("/dashboard") ? "nav-link-active" : ""
+              className={`nav-dashboard-button ${
+                isDashboardOpen || isActive("/dashboard")
+                  ? "nav-link-active"
+                  : ""
               }`}
               onClick={() => setIsDashboardOpen((o) => !o)}
             >
