@@ -197,7 +197,12 @@ a:focus {
   color: var(--text-main);
 }
 
-.nav-link::after {
+.nav-link-label {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-link-label::after {
   content: "";
   position: absolute;
   left: 0;
@@ -206,6 +211,11 @@ a:focus {
   height: 1px;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 0.18s ease;
+}
+
+.nav-link:hover .nav-link-label::after,
+.nav-link-active .nav-link-label::after {
+  width: 100%;
 }
 
 .nav-link:hover::after {
