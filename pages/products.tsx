@@ -243,42 +243,47 @@ export default function ProductsPage() {
 
                     return (
                       <Link
-                        href={`/products/${p.id}`}
-                        key={p.id}
-                        className="products-card"
-                      >
-                        <div className="products-card-image">
-                          {hasImage ? (
-                            <img src={p.image1_url!} alt={p.name} />
-                          ) : (
-                            <div className="products-card-image-placeholder">
-                              No image
-                            </div>
-                          )}
-                        </div>
+  href={`/products/${p.id}`}
+  key={p.id}
+  className="products-card"
+>
+  <div className="products-card-image">
+    {hasImage ? (
+      <img src={p.image1_url!} alt={p.name} />
+    ) : (
+      <div className="products-card-image-placeholder">
+        No image
+      </div>
+    )}
+  </div>
 
-                        <div className="products-card-body">
-                          <div className="products-card-name">{p.name}</div>
-                          <div className="products-card-vendor">{company}</div>
+  <div className="products-card-body">
+    <div className="products-card-header">
+      <div>
+        <div className="products-card-name">{p.name}</div>
+        <div className="products-card-vendor">{company}</div>
+      </div>
+      <div className="products-card-fav">❤️</div>
+    </div>
 
-                          {p.short_description && (
-                            <div className="products-card-description">
-                              {p.short_description}
-                            </div>
-                          )}
+    {p.short_description && (
+      <div className="products-card-description">
+        {p.short_description}
+      </div>
+    )}
 
-                          <div className="products-card-footer">
-                            <div className="products-card-price">
-                              {showFixedPrice ? p.price_value : "Contact for price"}
-                            </div>
-                            {p.category && (
-                              <div className="products-card-category">
-                                {p.category}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Link>
+    <div className="products-card-footer">
+      <div className="products-card-price">
+        {showFixedPrice ? p.price_value : "Contact for price"}
+      </div>
+      {p.category && (
+        <div className="products-card-category">
+          {p.category}
+        </div>
+      )}
+    </div>
+  </div>
+</Link>
                     );
                   })}
 
