@@ -22,7 +22,22 @@ export default function Navbar() {
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // ----- THEME HANDLING -----
+  // ------------------------------
+  // Active route helper
+  // ------------------------------
+  const isActive = (path: string) => {
+    if (path === "/dashboard") {
+      return router.pathname.startsWith("/dashboard");
+    }
+    if (path === "/profile") {
+      return router.pathname === "/profile";
+    }
+    return router.pathname === path || router.pathname.startsWith(path + "/");
+  };
+
+  // ------------------------------
+  // THEME LOADING
+  // ------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -30,27 +45,23 @@ export default function Navbar() {
     const initial: Theme = stored === "light" ? "light" : "dark";
 
     setTheme(initial);
-    document.documentElement.classList.toggle(
-      "theme-light",
-      initial === "light"
-    );
+    document.documentElement.classList.toggle("theme-light", initial === "light");
   }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
       if (typeof window !== "undefined") {
-        document.documentElement.classList.toggle(
-          "theme-light",
-          next === "light"
-        );
+        document.documentElement.classList.toggle("theme-light", next === "light");
         window.localStorage.setItem("q5_theme", next);
       }
       return next;
     });
   };
 
-  // ----- PROFILE LOADING -----
+  // ------------------------------
+  // PROFILE FETCH
+  // ------------------------------
   useEffect(() => {
     let cancelled = false;
 
@@ -70,8 +81,8 @@ export default function Navbar() {
       if (cancelled) return;
 
       if (!error && data) {
-        setProfileName((data.full_name as string) || null);
-        setAvatarUrl((data.avatar_url as string) || null);
+        setProfileName(data.full_name || null);
+        setAvatarUrl(data.avatar_url || null);
       } else {
         setProfileName(null);
         setAvatarUrl(null);
@@ -79,25 +90,20 @@ export default function Navbar() {
     };
 
     loadProfile();
-
     return () => {
       cancelled = true;
     };
   }, [user]);
 
+  // ------------------------------
   // Close dropdowns on outside click
+  // ------------------------------
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        dashboardRef.current &&
-        !dashboardRef.current.contains(e.target as Node)
-      ) {
+      if (dashboardRef.current && !dashboardRef.current.contains(e.target as Node)) {
         setIsDashboardOpen(false);
       }
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      ) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setIsUserMenuOpen(false);
       }
     }
@@ -106,12 +112,17 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ------------------------------
+  // Logout
+  // ------------------------------
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/");
   };
 
-  // Fallback name from auth if profile.full_name is missing
+  // ------------------------------
+  // Names
+  // ------------------------------
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -124,9 +135,12 @@ export default function Navbar() {
       ? fullName.split(" ")[0] || fullName
       : "User";
 
+  // ------------------------------
+  // RENDER
+  // ------------------------------
   return (
     <header className="nav">
-      {/* Brand – clickable to home */}
+      {/* LEFT BRAND */}
       <Link href="/" className="brand-clickable">
         <div className="brand">
           <img
@@ -135,36 +149,44 @@ export default function Navbar() {
             className="brand-logo"
           />
           <div>
-            <div className="brand-text-main brand-text-gradient">
-              Quantum5ocial
-            </div>
-            <div className="brand-text-sub">
-              Connecting the quantum world
-            </div>
+            <div className="brand-text-main brand-text-gradient">Quantum5ocial</div>
+            <div className="brand-text-sub">Connecting the quantum world</div>
           </div>
         </div>
       </Link>
 
+      {/* NAV LINKS */}
       <nav className="nav-links">
-        <Link href="/jobs" className="nav-link">
+
+        <Link
+          href="/jobs"
+          className={`nav-link ${isActive("/jobs") ? "nav-link-active" : ""}`}
+        >
           Jobs
         </Link>
 
-        <Link href="/products" className="nav-link">
+        <Link
+          href="/products"
+          className={`nav-link ${isActive("/products") ? "nav-link-active" : ""}`}
+        >
           Products
         </Link>
 
-        {/* NEW: Community */}
-        <Link href="/community" className="nav-link">
+        <Link
+          href="/community"
+          className={`nav-link ${isActive("/community") ? "nav-link-active" : ""}`}
+        >
           Community
         </Link>
 
-        {/* Dashboard dropdown */}
+        {/* DASHBOARD DROPDOWN */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
               type="button"
-              className="nav-link nav-link-button"
+              className={`nav-link nav-link-button ${
+                isActive("/dashboard") ? "nav-link-active" : ""
+              }`}
               onClick={() => setIsDashboardOpen((o) => !o)}
             >
               Dashboard
@@ -172,24 +194,21 @@ export default function Navbar() {
 
             {isDashboardOpen && (
               <div className="nav-dashboard-menu">
-  <Link
-    href="/dashboard/entangled-states"
-    className="nav-dropdown-item"
-  >
-    Entangled states
-  </Link>
-  <Link href="/dashboard/saved-jobs" className="nav-dropdown-item">
-    Saved jobs
-  </Link>
-  <Link href="/dashboard/saved-products" className="nav-dropdown-item">
-    Saved products
-  </Link>
-</div>
+                <Link href="/dashboard/entangled-states" className="nav-dropdown-item">
+                  Entangled states
+                </Link>
+                <Link href="/dashboard/saved-jobs" className="nav-dropdown-item">
+                  Saved jobs
+                </Link>
+                <Link href="/dashboard/saved-products" className="nav-dropdown-item">
+                  Saved products
+                </Link>
+              </div>
             )}
           </div>
         )}
 
-        {/* Theme toggle */}
+        {/* THEME TOGGLE */}
         <button
           type="button"
           className="nav-link nav-link-button theme-toggle"
@@ -199,19 +218,21 @@ export default function Navbar() {
           {theme === "dark" ? "☀️" : "🌙"}
         </button>
 
-        {/* Logged-out CTA */}
+        {/* LOGIN */}
         {!loading && !user && (
           <Link href="/auth" className="nav-cta">
             Login / Sign up
           </Link>
         )}
 
-        {/* Avatar + first name dropdown */}
+        {/* USER MENU */}
         {!loading && user && (
           <div className="nav-dashboard-wrapper" ref={userMenuRef}>
             <button
               type="button"
-              className="nav-user-button nav-link-button"
+              className={`nav-user-button nav-link-button ${
+                isActive("/profile") ? "nav-link-active" : ""
+              }`}
               onClick={() => setIsUserMenuOpen((o) => !o)}
             >
               <div className="nav-user-avatar">
