@@ -267,25 +267,28 @@ export default function Home() {
 
             {/* Quick dashboard card */}
             <div className="sidebar-card dashboard-sidebar-card">
-              <div className="dashboard-sidebar-title">Quick dashboard</div>
-              <div className="dashboard-sidebar-links">
-                <Link href="/dashboard" className="dashboard-sidebar-link">
-                  Overview
-                </Link>
-                <Link
-                  href="/dashboard/saved-jobs"
-                  className="dashboard-sidebar-link"
-                >
-                  Saved jobs
-                </Link>
-                <Link
-                  href="/dashboard/saved-products"
-                  className="dashboard-sidebar-link"
-                >
-                  Saved products
-                </Link>
-              </div>
-            </div>
+  <div className="dashboard-sidebar-title">Quick dashboard</div>
+  <div className="dashboard-sidebar-links">
+    <Link
+      href="/dashboard/entangled-states"
+      className="dashboard-sidebar-link"
+    >
+      Entangled states
+    </Link>
+    <Link
+      href="/dashboard/saved-jobs"
+      className="dashboard-sidebar-link"
+    >
+      Saved jobs
+    </Link>
+    <Link
+      href="/dashboard/saved-products"
+      className="dashboard-sidebar-link"
+    >
+      Saved products
+    </Link>
+  </div>
+</div>
 
             {/* Social icons + brand logo/name at bottom of left column */}
             <div
