@@ -23,6 +23,7 @@ type ProfileSummary = {
   affiliation?: string | null;
   highest_education?: string | null;
   current_org?: string | null;
+  role?: string | null;          // 
 };
 
 export default function CommunityPage() {
