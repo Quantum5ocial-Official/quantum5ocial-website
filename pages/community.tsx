@@ -7,7 +7,7 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
-type ProfileSummary = {
+type SidebarProfile = {
   full_name: string | null;
   avatar_url: string | null;
   education_level?: string | null;
@@ -17,33 +17,34 @@ type ProfileSummary = {
   current_org?: string | null;
 };
 
-type CommunityProfile = {
+type Profile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  highest_education?: string | null;
-  role?: string | null;
-  affiliation?: string | null;
-  short_bio?: string | null;
-  describes_you?: string | null;
-  current_org?: string | null;
-  education_level?: string | null;
+  highest_education: string | null;
+  affiliation: string | null;
+  role: string | null;
+  short_bio: string | null;
 };
 
 export default function CommunityPage() {
-  const { user } = useSupabaseUser();
+  const { user, loading: authLoading } = useSupabaseUser();
 
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+  // LEFT SIDEBAR PROFILE
+  const [sidebarProfile, setSidebarProfile] = useState<SidebarProfile | null>(
     null
   );
-  const [members, setMembers] = useState<CommunityProfile[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(true);
 
-  // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
+  // COMMUNITY MEMBERS (MIDDLE COLUMN)
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // === LOAD SIDEBAR PROFILE ===
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) {
-        setProfileSummary(null);
+        setSidebarProfile(null);
         return;
       }
 
@@ -54,49 +55,57 @@ export default function CommunityPage() {
         .maybeSingle();
 
       if (!error && data) {
-        setProfileSummary(data as ProfileSummary);
+        setSidebarProfile(data as SidebarProfile);
       } else {
-        setProfileSummary(null);
+        setSidebarProfile(null);
       }
     };
 
     loadProfile();
   }, [user]);
 
-  // === LOAD COMMUNITY MEMBERS ===
+  // === LOAD COMMUNITY MEMBERS (OLD LOGIC) ===
   useEffect(() => {
-    const loadMembers = async () => {
-      setLoadingMembers(true);
+    if (authLoading) return;
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, avatar_url, highest_education, role, affiliation, short_bio, describes_you, current_org, education_level"
-        )
-        .order("created_at", { ascending: false })
-        .limit(60); // adjust if you want more
+    const loadProfiles = async () => {
+      setLoading(true);
+      setError(null);
 
-      if (!error && data) {
-        setMembers(data as CommunityProfile[]);
-      } else {
-        setMembers([]);
+      try {
+        let query = supabase
+          .from("profiles")
+          .select(
+            "id, full_name, avatar_url, highest_education, affiliation, role, short_bio"
+          )
+          .order("full_name", { ascending: true });
+
+        if (user?.id) {
+          query = query.neq("id", user.id); // hide current user
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error("Error loading profiles:", error);
+          setError("Could not load community members.");
+          setProfiles([]);
+        } else {
+          setProfiles((data || []) as Profile[]);
+        }
+      } catch (e: any) {
+        console.error("Community load crashed:", e);
+        setError("Something went wrong while loading the community.");
+        setProfiles([]);
+      } finally {
+        setLoading(false);
       }
-      setLoadingMembers(false);
     };
 
-    loadMembers();
-  }, []);
+    loadProfiles();
+  }, [authLoading, user?.id]);
 
-  // === HELPERS ===
-  const formatMemberMeta = (m: CommunityProfile) => {
-    const highestEdu =
-      m.highest_education || m.education_level || undefined;
-    const role = m.role || m.describes_you || undefined;
-    const aff = m.affiliation || m.current_org || undefined;
-    return [highestEdu, role, aff].filter(Boolean).join(" · ");
-  };
-
-  // Fallback / sidebar name
+  // === SIDEBAR HELPERS ===
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -104,20 +113,20 @@ export default function CommunityPage() {
     "User";
 
   const sidebarFullName =
-    profileSummary?.full_name || fallbackName || "Your profile";
+    sidebarProfile?.full_name || fallbackName || "Your profile";
 
-  const avatarUrl = profileSummary?.avatar_url || null;
+  const avatarUrl = sidebarProfile?.avatar_url || null;
   const educationLevel =
-    (profileSummary as any)?.education_level ||
-    (profileSummary as any)?.highest_education ||
+    (sidebarProfile as any)?.education_level ||
+    (sidebarProfile as any)?.highest_education ||
     "";
   const describesYou =
-    (profileSummary as any)?.describes_you ||
-    (profileSummary as any)?.role ||
+    (sidebarProfile as any)?.describes_you ||
+    (sidebarProfile as any)?.role ||
     "";
   const affiliation =
-    (profileSummary as any)?.affiliation ||
-    (profileSummary as any)?.current_org ||
+    (sidebarProfile as any)?.affiliation ||
+    (sidebarProfile as any)?.current_org ||
     "";
 
   const hasSidebarInfo =
@@ -132,14 +141,14 @@ export default function CommunityPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – same pattern as homepage */}
+          {/* ========== LEFT COLUMN (same as before, no placeholders) ========== */}
           <aside
             className="layout-left sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
           >
             {/* Profile card */}
             <div className="sidebar-card profile-sidebar-card">
-              {/* (no "Your profile" label to keep it clean) */}
+              {/* no "Your profile" label */}
               <div className="profile-sidebar-header">
                 <div className="profile-sidebar-avatar-wrapper">
                   {avatarUrl ? (
@@ -157,7 +166,7 @@ export default function CommunityPage() {
                 <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
-              {/* Only show lines if user actually filled them */}
+              {/* only show if user has actually filled something */}
               {hasSidebarInfo && (
                 <div className="profile-sidebar-info-block">
                   {educationLevel && (
@@ -189,7 +198,7 @@ export default function CommunityPage() {
               </Link>
             </div>
 
-            {/* Quick dashboard links */}
+            {/* Quick dashboard */}
             <div className="sidebar-card dashboard-sidebar-card">
               <div className="dashboard-sidebar-title">Quick dashboard</div>
               <div className="dashboard-sidebar-links">
@@ -214,7 +223,7 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            {/* Left footer with socials + brand, same vibe as home */}
+            {/* Footer: icons + brand */}
             <div className="home-left-footer">
               <div className="footer-social-row">
                 <a
@@ -241,139 +250,217 @@ export default function CommunityPage() {
             </div>
           </aside>
 
-          {/* MIDDLE COLUMN – community profiles */}
+          {/* ========== MIDDLE COLUMN (OLD COMMUNITY CARDS, 2-COL GRID) ========== */}
           <section className="layout-main">
-            <section className="hero" id="community-hero">
-              <div>
-                <div className="eyebrow">Quantum community</div>
-                <h1 className="hero-title">
-                  Discover{" "}
-                  <span className="hero-highlight">people in quantum</span>{" "}
-                  across labs, startups, and industry.
-                </h1>
-                <p className="hero-sub">
-                  Browse profiles of students, researchers, and professionals,
-                  and grow your network of entangled states.
-                </p>
-              </div>
-            </section>
-
             <section className="section">
               <div className="section-header">
                 <div>
-                  <div className="section-title">Community directory</div>
+                  <div className="section-title">Quantum5ocial community</div>
                   <div className="section-sub">
-                    Recently active and newly joined members.
+                    Discover members of the quantum ecosystem and{" "}
+                    <span style={{ color: "#7dd3fc" }}>entangle</span> with
+                    them.
                   </div>
                 </div>
+                {!loading && !error && (
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {profiles.length} member
+                    {profiles.length === 1 ? "" : "s"} listed
+                  </div>
+                )}
               </div>
 
-              {loadingMembers ? (
-                <div className="products-status">Loading community…</div>
-              ) : members.length === 0 ? (
-                <div className="products-empty">
-                  No community members visible yet.
+              {loading && (
+                <div className="products-status">
+                  Loading community members…
                 </div>
-              ) : (
+              )}
+
+              {error && !loading && (
+                <div className="products-status" style={{ color: "#f87171" }}>
+                  {error}
+                </div>
+              )}
+
+              {!loading && !error && profiles.length === 0 && (
+                <div className="products-empty">
+                  No members visible yet. As more users join Quantum5ocial, they
+                  will appear here.
+                </div>
+              )}
+
+              {!loading && !error && profiles.length > 0 && (
                 <div
                   className="card-row"
+                  // force 2 columns instead of the default 3
                   style={{
-                    gridTemplateColumns:
-                      "repeat(auto-fill, minmax(260px, 1fr))", // usually 2 columns on desktop
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                   }}
                 >
-                  {members.map((m) => {
-                    const name = m.full_name || "Quantum member";
-                    const firstName =
-                      typeof name === "string"
-                        ? name.split(" ")[0] || name
-                        : "Member";
-                    const meta = formatMemberMeta(m);
-                    const bio =
-                      m.short_bio || (m as any).short_description || "";
+                  {profiles.map((p) => {
+                    const name = p.full_name || "Quantum5ocial member";
+                    const initial = name.charAt(0).toUpperCase();
+
+                    const highestEducation = p.highest_education || "—";
+                    const affiliation = p.affiliation || "—";
+                    const role = p.role || "—";
+                    const shortBio =
+                      p.short_bio ||
+                      "Quantum5ocial community member exploring the quantum ecosystem.";
 
                     return (
-                      <div key={m.id} className="card">
-                        <div
-                          className="card-inner"
-                          style={{
-                            display: "flex",
-                            gap: 14,
-                            alignItems: "flex-start",
-                          }}
-                        >
-                          {/* avatar */}
+                      <div
+                        key={p.id}
+                        className="card"
+                        style={{
+                          textDecoration: "none",
+                          padding: 14,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          minHeight: 230,
+                        }}
+                      >
+                        <div className="card-inner">
+                          {/* Top row: avatar + name */}
                           <div
                             style={{
-                              width: 52,
-                              height: 52,
-                              borderRadius: "999px",
-                              overflow: "hidden",
-                              border: "1px solid rgba(148,163,184,0.5)",
-                              flexShrink: 0,
                               display: "flex",
+                              gap: 12,
                               alignItems: "center",
-                              justifyContent: "center",
-                              background:
-                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                              color: "#fff",
-                              fontWeight: 600,
+                              marginBottom: 8,
                             }}
                           >
-                            {m.avatar_url ? (
-                              <img
-                                src={m.avatar_url}
-                                alt={firstName}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              firstName.charAt(0).toUpperCase()
-                            )}
-                          </div>
-
-                          {/* text */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div className="card-title">{name}</div>
-                            {meta && (
-                              <div
-                                className="card-meta"
-                                style={{ marginTop: 2 }}
-                              >
-                                {meta}
-                              </div>
-                            )}
-                            {bio && (
-                              <div
-                                className="card-footer-text"
-                                style={{ marginTop: 6 }}
-                              >
-                                {bio.length > 90
-                                  ? bio.slice(0, 87) + "..."
-                                  : bio}
-                              </div>
-                            )}
-                            <button
-                              type="button"
+                            <div
                               style={{
-                                marginTop: 10,
-                                padding: "5px 10px",
-                                borderRadius: 999,
+                                width: 52,
+                                height: 52,
+                                borderRadius: "999px",
+                                overflow: "hidden",
+                                flexShrink: 0,
                                 border:
-                                  "1px solid rgba(148,163,184,0.7)",
-                                background: "transparent",
-                                color: "#7dd3fc",
-                                fontSize: 12,
-                                cursor: "pointer",
+                                  "1px solid rgba(148,163,184,0.4)",
+                                background: "rgba(15,23,42,0.9)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: 18,
+                                fontWeight: 600,
+                                color: "#e5e7eb",
                               }}
                             >
-                              + Entangle
-                            </button>
+                              {p.avatar_url ? (
+                                <img
+                                  src={p.avatar_url}
+                                  alt={name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                />
+                              ) : (
+                                <span>{initial}</span>
+                              )}
+                            </div>
+
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                className="card-title"
+                                style={{
+                                  marginBottom: 2,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {name}
+                              </div>
+                              <div
+                                className="card-meta"
+                                style={{ fontSize: 12, lineHeight: 1.4 }}
+                              >
+                                {role !== "—"
+                                  ? role
+                                  : "Quantum5ocial member"}
+                              </div>
+                            </div>
                           </div>
+
+                          {/* Middle info block */}
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "var(--text-muted)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 4,
+                              marginTop: 6,
+                            }}
+                          >
+                            <div>
+                              <span style={{ opacity: 0.7 }}>
+                                Education:{" "}
+                              </span>
+                              <span>{highestEducation}</span>
+                            </div>
+                            <div>
+                              <span style={{ opacity: 0.7 }}>
+                                Affiliation:{" "}
+                              </span>
+                              <span>{affiliation}</span>
+                            </div>
+                            <div>
+                              <span style={{ opacity: 0.7 }}>Role: </span>
+                              <span>{role}</span>
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 6,
+                                fontSize: 12,
+                                lineHeight: 1.4,
+                                maxHeight: 60,
+                                overflow: "hidden",
+                              }}
+                            >
+                              {shortBio}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bottom: Entangle button */}
+                        <div style={{ marginTop: 12 }}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "100%",
+                              padding: "7px 0",
+                              borderRadius: 10,
+                              border:
+                                "1px solid rgba(59,130,246,0.6)",
+                              background: "rgba(59,130,246,0.16)",
+                              color: "#bfdbfe",
+                              fontSize: 12,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 6,
+                            }}
+                            onClick={() => {
+                              // placeholder – real entangle logic later
+                              console.log("Entangle with", p.id);
+                            }}
+                          >
+                            <span>Entangle</span>
+                            <span style={{ fontSize: 14 }}>+</span>
+                          </button>
                         </div>
                       </div>
                     );
@@ -383,13 +470,13 @@ export default function CommunityPage() {
             </section>
           </section>
 
-          {/* RIGHT SIDEBAR – featured tiles / ads */}
+          {/* ========== RIGHT COLUMN (tiles + footer, same style as before) ========== */}
           <aside
             className="layout-right sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
           >
             <div className="hero-tiles hero-tiles-vertical">
-              {/* Tile 1: Featured labs */}
+              {/* featured labs */}
               <Link href="/products" className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Featured</div>
@@ -412,7 +499,7 @@ export default function CommunityPage() {
                 </div>
               </Link>
 
-              {/* Tile 2: Hire talent */}
+              {/* hire talent */}
               <Link href="/jobs" className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">For hiring PIs & teams</div>
@@ -435,7 +522,7 @@ export default function CommunityPage() {
                 </div>
               </Link>
 
-              {/* Tile 3: Products / ads */}
+              {/* products / ads */}
               <Link href="/products" className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Vendors & tools</div>
@@ -459,10 +546,8 @@ export default function CommunityPage() {
               </Link>
             </div>
 
-            {/* Right footer */}
             <div className="home-right-footer">
-              © {new Date().getFullYear()} Quantum5ocial · All rights
-              reserved
+              © {new Date().getFullYear()} Quantum5ocial · All rights reserved
             </div>
           </aside>
         </main>
