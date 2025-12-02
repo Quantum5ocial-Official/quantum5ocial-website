@@ -190,7 +190,7 @@ export default function Navbar() {
           <div className="nav-dashboard-wrapper" ref={dashboardRef}>
             <button
               type="button"
-              className={`nav-link nav-link-button ${
+              className={`nav-link dashboard-trigger ${
                 isActive("/dashboard") ? "nav-link-active" : ""
               }`}
               onClick={() => setIsDashboardOpen((o) => !o)}
