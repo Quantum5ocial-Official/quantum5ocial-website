@@ -2103,3 +2103,59 @@ html.theme-light footer {
 .nav-links .dashboard-trigger.nav-link-active {
   color: var(--text-main) !important;       /* bright when on /dashboard */
 }
+.job-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.9);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.7);
+  padding: 12px 14px 14px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out,
+    border-color 0.12s ease-out;
+}
+
+.job-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.9);
+}
+
+.job-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.job-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.job-card-meta {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.job-card-description {
+  font-size: 13px;
+  color: #e5e7eb;
+  margin-bottom: 6px;
+}
+
+.job-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #e5e7eb;
+}
+
+.job-salary {
+  font-weight: 600;
+}
