@@ -2,9 +2,9 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import JobCard from "../../components/JobCard";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
@@ -257,6 +257,7 @@ export default function JobsIndexPage() {
                     : `${filteredJobs.length} job${
                         filteredJobs.length === 1 ? "" : "s"
                       }`}
+                  {savingId && " · updating saved…"}
                 </div>
               </div>
 
@@ -267,18 +268,64 @@ export default function JobsIndexPage() {
               )}
 
               <div className="jobs-grid">
-                {filteredJobs.map((job) => (
-                  <JobCard
-                    key={job.id}
-                    job={job}
-                    isSaved={isSaved(job.id)}
-                    onToggleSave={() => {
-                      if (!savingId) {
-                        handleToggleSave(job.id);
-                      }
-                    }}
-                  />
-                ))}
+                {filteredJobs.map((job) => {
+                  const saved = isSaved(job.id);
+
+                  return (
+                    <Link
+                      key={job.id}
+                      href={`/jobs/${job.id}`}
+                      className="job-card"
+                    >
+                      <div className="job-card-header">
+                        <div>
+                          <div className="job-card-title">
+                            {job.title || "Untitled role"}
+                          </div>
+                          <div className="job-card-meta">
+                            {job.company_name && `${job.company_name} · `}
+                            {job.location}
+                            {job.remote_type ? ` · ${job.remote_type}` : ""}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="product-save-btn"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!savingId) {
+                              handleToggleSave(job.id);
+                            }
+                          }}
+                          aria-label={
+                            saved ? "Remove from saved jobs" : "Save job"
+                          }
+                        >
+                          {saved ? "❤️" : "🤍"}
+                        </button>
+                      </div>
+
+                      {job.short_description && (
+                        <div className="job-card-description">
+                          {job.short_description}
+                        </div>
+                      )}
+
+                      <div className="job-card-footer">
+                        <span className="job-salary">
+                          {job.salary_display || ""}
+                        </span>
+                        {job.employment_type && (
+                          <span className="job-type">
+                            {job.employment_type}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           </div>
