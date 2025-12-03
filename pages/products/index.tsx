@@ -363,77 +363,82 @@ export default function ProductsPage() {
               ) : (
                 <div className="products-grid">
                   {filteredProducts.map((p) => {
-                    const isSaved = savedIds.has(p.id);
+  const isSaved = savedIds.has(p.id);
 
-                    return (
-                      <div key={p.id} className="products-card">
-                        {/* Heart / save button */}
-                        <button
-                          type="button"
-                          className="product-save-btn"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleSaved(p.id);
-                          }}
-                          aria-label={
-                            isSaved ? "Remove from saved products" : "Save product"
-                          }
-                        >
-                          {isSaved ? "❤️" : "🤍"}
-                        </button>
+  return (
+    <Link
+      key={p.id}
+      href={`/products/${p.id}`}
+      className="products-card"
+    >
+      <div className="products-card-image">
+        {p.image1_url ? (
+          <img src={p.image1_url} alt={p.name} />
+        ) : (
+          <div className="products-card-image-placeholder">
+            No image
+          </div>
+        )}
+      </div>
 
-                        <Link href={`/products/${p.id}`}>
-                          <div className="products-card-image">
-                            {p.image1_url ? (
-                              <img src={p.image1_url} alt={p.name} />
-                            ) : (
-                              <div className="products-card-image-placeholder">
-                                No image
-                              </div>
-                            )}
-                          </div>
+      <div className="products-card-body">
+        {/* HEADER: name + vendor + heart on the right */}
+        <div className="products-card-header">
+          <div>
+            <div className="products-card-name">{p.name}</div>
+            {p.company_name && (
+              <div className="products-card-vendor">
+                {p.company_name}
+              </div>
+            )}
+          </div>
 
-                          <div className="products-card-body">
-                            <div className="products-card-name">{p.name}</div>
+          <button
+            type="button"
+            className="product-save-btn"
+            onClick={(e) => {
+              e.preventDefault();   // don't navigate
+              e.stopPropagation();  // don't bubble to Link
+              toggleSaved(p.id);
+            }}
+            aria-label={
+              isSaved ? "Remove from saved products" : "Save product"
+            }
+          >
+            {isSaved ? "❤️" : "🤍"}
+          </button>
+        </div>
 
-                            {p.company_name && (
-                              <div className="products-card-vendor">
-                                {p.company_name}
-                              </div>
-                            )}
+        {p.short_description && (
+          <div className="products-card-description">
+            {p.short_description}
+          </div>
+        )}
 
-                            {p.short_description && (
-                              <div className="products-card-description">
-                                {p.short_description}
-                              </div>
-                            )}
+        <div className="products-card-footer">
+          <span className="products-card-price">
+            {formatPrice(p)}
+          </span>
+          {p.category && (
+            <span className="products-card-category">
+              {p.category}
+            </span>
+          )}
+        </div>
 
-                            <div className="products-card-footer">
-                              <span className="products-card-price">
-                                {formatPrice(p)}
-                              </span>
-                              {p.category && (
-                                <span className="products-card-category">
-                                  {p.category}
-                                </span>
-                              )}
-                            </div>
-
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color: "#9ca3af",
-                              }}
-                            >
-                              {formatStock(p)}
-                            </div>
-                          </div>
-                        </Link>
-                      </div>
-                    );
-                  })}
+        <div
+          style={{
+            marginTop: 2,
+            fontSize: 11,
+            color: "#9ca3af",
+          }}
+        >
+          {formatStock(p)}
+        </div>
+      </div>
+    </Link>
+  );
+})}
                 </div>
               )}
             </main>
