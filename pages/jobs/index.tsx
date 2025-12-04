@@ -236,10 +236,13 @@ export default function JobsIndexPage() {
               <div className="section-header">
                 <div>
                   <div className="section-title">Quantum Jobs Universe</div>
-                  <div className="section-sub">
-                    Browse internships, MSc/PhD positions, postdocs, and industry
-                    roles across labs and companies.
-                  </div>
+                  <div
+  className="section-sub"
+  style={{ maxWidth: "480px", lineHeight: "1.45" }}
+>
+  Browse internships, MSc/PhD positions, postdocs, and industry
+  roles across labs and companies.
+</div>
                 </div>
 
                 <button
