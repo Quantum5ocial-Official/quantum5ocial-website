@@ -326,10 +326,13 @@ export default function ProductsPage() {
               <div className="section-header">
                 <div>
                   <div className="section-title">Quantum Marketplace</div>
-                  <div className="section-sub">
-                    Browse quantum products from startups, labs, and companies
-                    worldwide.
-                  </div>
+                  <div
+  className="section-sub"
+  style={{ maxWidth: "480px", lineHeight: "1.45" }}
+>
+  Browse quantum products from startups, labs, and companies
+  worldwide.
+</div>
                 </div>
 
                 <button
