@@ -28,6 +28,12 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
   institutional_email: string | null;
+
+  // extra columns in table (not edited here, but good to type)
+  institutional_email_verified?: boolean | null;
+  email?: string | null;
+  provider?: string | null;
+  raw_metadata?: any;
 };
 
 export default function ProfileEditPage() {
@@ -75,7 +81,29 @@ export default function ProfileEditPage() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(
+          `
+            id,
+            full_name,
+            short_bio,
+            role,
+            affiliation,
+            country,
+            city,
+            focus_areas,
+            skills,
+            highest_education,
+            key_experience,
+            avatar_url,
+            orcid,
+            google_scholar,
+            linkedin_url,
+            github_url,
+            personal_website,
+            lab_website,
+            institutional_email
+          `
+        )
         .eq("id", user.id)
         .maybeSingle();
 
@@ -152,18 +180,17 @@ export default function ProfileEditPage() {
     };
 
     const { error } = await supabase
-  .from("profiles")
-  .upsert(payload, { onConflict: "id" });
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" });
 
-if (error) {
-  console.error("Error saving profile", error);
-  setSaveMessage(`Error: ${error.message}`);
-  setSaving(false);
-} else {
-  // Optional: brief success message, then redirect
-  setSaveMessage("Profile updated ✅");
-  router.push("/profile");
-}
+    if (error) {
+      console.error("Error saving profile", error);
+      setSaveMessage(`Error: ${error.message}`);
+      setSaving(false);
+    } else {
+      setSaveMessage("Profile updated ✅");
+      router.push("/profile");
+    }
 
     setSaving(false);
   };
@@ -197,13 +224,10 @@ if (error) {
 
       setForm((prev) => ({ ...prev, avatar_url: publicUrl }));
 
-      // Save avatar_url to profile immediately
       await supabase
         .from("profiles")
-        .upsert(
-          { id: user.id, avatar_url: publicUrl },
-          { onConflict: "id" }
-        );
+        .upsert({ id: user.id, avatar_url: publicUrl }, { onConflict: "id" });
+
       setSaveMessage("Profile picture updated ✅");
     } finally {
       setUploadingAvatar(false);
@@ -265,8 +289,17 @@ if (error) {
                       {/* Avatar */}
                       <div className="profile-field profile-field-full">
                         <label>Profile photo (optional)</label>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <div className="profile-avatar" style={{ flexShrink: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                          }}
+                        >
+                          <div
+                            className="profile-avatar"
+                            style={{ flexShrink: 0 }}
+                          >
                             {form.avatar_url ? (
                               <img
                                 src={form.avatar_url}
