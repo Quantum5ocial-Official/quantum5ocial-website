@@ -1907,8 +1907,15 @@ a:focus {
   border-radius: 12px;
   border: 1px dashed rgba(148, 163, 184, 0.4);
 }
+/* Header row with status + button */
+.products-results-header--with-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 
-/* Heart button next to product name – keep emoji only, no white bg */
+/* Heart button: emoji only, no white bg */
 .product-save-btn {
   border: none;
   background: transparent;
@@ -1920,6 +1927,32 @@ a:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Right column – featured jobs */
+.jobs-featured {
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jobs-featured-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.jobs-featured-item {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
 }
 /* ========== JOBS GRID & CARDS (/jobs, saved jobs) ========== */
 
