@@ -330,7 +330,7 @@ export default function ProductsPage() {
   className="section-sub"
   style={{ maxWidth: "480px", lineHeight: "1.45" }}
 >
-  Browse quantum products from startups, labs, and companies
+  Browse quantum products/services from startups, labs, and companies
   worldwide.
 </div>
                 </div>
