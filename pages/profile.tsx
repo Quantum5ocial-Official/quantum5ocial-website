@@ -28,6 +28,11 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
   institutional_email: string | null;
+
+  institutional_email_verified?: boolean | null;
+  email?: string | null;
+  provider?: string | null;
+  raw_metadata?: any;
 };
 
 export default function ProfileViewPage() {
@@ -52,7 +57,33 @@ export default function ProfileViewPage() {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(
+          `
+            id,
+            full_name,
+            short_bio,
+            role,
+            affiliation,
+            country,
+            city,
+            focus_areas,
+            skills,
+            highest_education,
+            key_experience,
+            avatar_url,
+            orcid,
+            google_scholar,
+            linkedin_url,
+            github_url,
+            personal_website,
+            lab_website,
+            institutional_email,
+            institutional_email_verified,
+            email,
+            provider,
+            raw_metadata
+          `
+        )
         .eq("id", user.id)
         .maybeSingle();
 
@@ -121,7 +152,6 @@ export default function ProfileViewPage() {
       profile.key_experience ||
       profile.institutional_email);
 
-  // Reusable inline style for the slim, no-underline edit button
   const editLinkStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -153,21 +183,27 @@ export default function ProfileViewPage() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
-  <Link
-    href="/profile/edit"
-    className="nav-ghost-btn"
-    style={{
-      ...editLinkStyle,
-      maxWidth: "200px",       // smaller box
-      width: "auto",           // shrink to content
-      textAlign: "center",
-      padding: "8px 20px",
-    }}
-  >
-    Edit / complete profile
-  </Link>
-</div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  flex: 1,
+                }}
+              >
+                <Link
+                  href="/profile/edit"
+                  className="nav-ghost-btn"
+                  style={{
+                    ...editLinkStyle,
+                    maxWidth: "200px",
+                    width: "auto",
+                    textAlign: "center",
+                    padding: "8px 20px",
+                  }}
+                >
+                  Edit / complete profile
+                </Link>
+              </div>
             </div>
 
             <div className="profile-summary-card">
@@ -175,7 +211,10 @@ export default function ProfileViewPage() {
                 <p className="profile-muted">Loading your profile…</p>
               ) : !hasAnyProfileInfo ? (
                 <div>
-                  <p className="profile-muted" style={{ marginBottom: 12 }}>
+                  <p
+                    className="profile-muted"
+                    style={{ marginBottom: 12 }}
+                  >
                     You haven&apos;t filled in your profile yet. A complete
                     profile helps labs, companies, and collaborators know who
                     you are in the quantum ecosystem.
@@ -252,7 +291,7 @@ export default function ProfileViewPage() {
                     </p>
                   )}
 
-                  {/* Two-column balanced layout */}
+                  {/* Two-column layout */}
                   <div className="profile-two-columns">
                     {/* LEFT COLUMN */}
                     <div className="profile-col">
@@ -287,13 +326,15 @@ export default function ProfileViewPage() {
                         </div>
                       )}
 
-                      {/* Links (always bottom-left) */}
+                      {/* Links */}
                       {links.length > 0 && (
                         <div
                           className="profile-summary-item"
                           style={{ marginTop: 18 }}
                         >
-                          <div className="profile-section-label">Links</div>
+                          <div className="profile-section-label">
+                            Links
+                          </div>
                           <ul
                             style={{
                               paddingLeft: 16,
@@ -335,7 +376,9 @@ export default function ProfileViewPage() {
                       {/* Skills */}
                       {skillTags.length > 0 && (
                         <div className="profile-summary-item">
-                          <div className="profile-section-label">Skills</div>
+                          <div className="profile-section-label">
+                            Skills
+                          </div>
                           <div className="profile-tags">
                             {skillTags.map((tag) => (
                               <span
