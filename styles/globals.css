@@ -1774,7 +1774,92 @@ a:focus {
 .product-detail-section {
   max-width: 800px;
 }
+/* === 3 COLUMN LAYOUT === */
 
+.products-3col {
+  display: grid;
+  grid-template-columns: 240px 1fr 260px;
+  gap: 28px;
+  margin-top: 20px;
+}
+
+/* Left column */
+.products-left {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.products-filter-box {
+  padding: 14px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.products-filter-input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(15,23,42,0.9);
+  color: #e5e7eb;
+  border: 1px solid rgba(148,163,184,0.4);
+  font-size: 13px;
+}
+
+/* Middle column */
+.products-middle-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.products-middle {
+  min-width: 0;
+}
+
+/* Right column */
+.products-right {
+  display: flex;
+  flex-direction: column;
+}
+
+.featured-box {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.featured-title {
+  font-size: 15px;
+  color: #e5e7eb;
+  margin-bottom: 10px;
+  opacity: 0.9;
+}
+
+.featured-tile {
+  background: rgba(255,255,255,0.05);
+  padding: 12px;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* Heart button in card */
+.product-heart {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  font-size: 22px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  z-index: 5;
+}
 /* ========== JOBS GRID & CARDS (/jobs, saved jobs) ========== */
 
 .jobs-grid {
