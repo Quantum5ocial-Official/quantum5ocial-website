@@ -1,4 +1,5 @@
 // pages/auth.tsx
+import type React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -7,6 +8,8 @@ type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
 export default function AuthPage() {
   const router = useRouter();
+
+  // Allow ?redirect=/something, default to /dashboard
   const redirectPath =
     (router.query.redirect as string) || "/dashboard";
 
@@ -18,25 +21,31 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null);
 
   // ------------------------------
-  // Create profile if not exists
+  // Helper: create profile row if missing
   // ------------------------------
   async function createProfileIfMissing(user: any) {
     if (!user) return;
 
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
+    try {
+      // 1) Check if profile already exists
+      const { data: existing, error: selectError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (existing) {
-      return; // profile already exists
-    }
+      if (selectError) {
+        console.error("profiles select error:", selectError);
+      }
 
-    const meta = user.user_metadata || {};
+      if (existing) {
+        // Already have a profile → nothing to do
+        return;
+      }
 
-    await supabase.from("profiles").insert([
-      {
+      // 2) Build clean payload
+      const meta = user.user_metadata || {};
+      const payload = {
         id: user.id,
         email: user.email || null,
         full_name:
@@ -50,23 +59,55 @@ export default function AuthPage() {
           null,
         provider: user.app_metadata?.provider || null,
         raw_metadata: meta || {},
-      },
-    ]);
+      };
+
+      // 3) Insert (or upsert just to be safe)
+      const { error: upsertError } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
+
+      if (upsertError) {
+        console.error("profiles upsert error:", upsertError);
+      } else {
+        console.log("profiles upsert OK for user", user.id);
+      }
+    } catch (err) {
+      console.error("createProfileIfMissing crashed:", err);
+    }
   }
 
   // ------------------------------
-  // After OAuth redirect (Google/GitHub/LinkedIn)
+  // After OAuth redirect: watch auth state + initial check
   // ------------------------------
   useEffect(() => {
-    const checkSession = async () => {
+    // 1) Subscribe to auth state changes (important for OAuth redirect)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("onAuthStateChange:", event, session?.user?.id);
+        if (session?.user) {
+          await createProfileIfMissing(session.user);
+          router.replace(redirectPath);
+        }
+      }
+    );
+
+    // 2) Also do a one-shot check (covers already-signed-in case)
+    (async () => {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
+      console.log("getUser on /auth:", user?.id);
       if (user) {
         await createProfileIfMissing(user);
         router.replace(redirectPath);
       }
+    })();
+
+    // 3) Cleanup
+    return () => {
+      subscription.unsubscribe();
     };
-    checkSession();
   }, [router, redirectPath]);
 
   // ------------------------------
@@ -74,15 +115,25 @@ export default function AuthPage() {
   // ------------------------------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // Keep redirect param so we land back where we wanted
+          redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
+            redirectPath
+          )}`,
+        },
+      });
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth`,
-      },
-    });
-
-    if (error) setError(error.message);
+      if (error) {
+        console.error("OAuth error:", error);
+        setError(error.message);
+      }
+    } catch (err: any) {
+      console.error("OAuth crash:", err);
+      setError(err.message || "Something went wrong.");
+    }
   };
 
   // ------------------------------
@@ -105,6 +156,7 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
+
         if (data.user) {
           await createProfileIfMissing(data.user);
           router.push(redirectPath);
@@ -115,20 +167,22 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
+
         if (data.user) {
           await createProfileIfMissing(data.user);
           router.push(redirectPath);
         }
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error("Email auth error:", err);
+      setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
   // ------------------------------
-  // UI RENDER
+  // UI
   // ------------------------------
   return (
     <div
@@ -199,6 +253,7 @@ export default function AuthPage() {
             }}
           >
             <button
+              type="button"
               onClick={() => handleOAuthLogin("google")}
               style={oauthBtn}
             >
@@ -207,6 +262,7 @@ export default function AuthPage() {
             </button>
 
             <button
+              type="button"
               onClick={() => handleOAuthLogin("linkedin_oidc")}
               style={oauthBtn}
             >
@@ -215,6 +271,7 @@ export default function AuthPage() {
             </button>
 
             <button
+              type="button"
               onClick={() => handleOAuthLogin("github")}
               style={oauthBtn}
             >
@@ -230,9 +287,10 @@ export default function AuthPage() {
             <div style={dividerLine} />
           </div>
 
-          {/* Toggle */}
+          {/* Toggle login / signup */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
+              type="button"
               onClick={() => setMode("login")}
               style={{
                 ...toggleBtn,
@@ -245,6 +303,7 @@ export default function AuthPage() {
               Log in
             </button>
             <button
+              type="button"
               onClick={() => setMode("signup")}
               style={{
                 ...toggleBtn,
@@ -258,7 +317,7 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Email Form */}
+          {/* Email form */}
           <form onSubmit={handleEmailAuth}>
             <div style={{ marginBottom: 10 }}>
               <label style={{ fontSize: 12 }}>Email</label>
@@ -280,9 +339,7 @@ export default function AuthPage() {
               />
             </div>
 
-            {error && (
-              <div style={errorBox}>{error}</div>
-            )}
+            {error && <div style={errorBox}>{error}</div>}
 
             <button
               type="submit"
@@ -333,8 +390,8 @@ export default function AuthPage() {
   );
 }
 
-/* Styles */
-const oauthBtn: React.CSSProperties = {
+/* Styles (no explicit React.CSSProperties needed to keep it simple) */
+const oauthBtn = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -345,18 +402,18 @@ const oauthBtn: React.CSSProperties = {
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 13,
-};
+} as const;
 
-const icon = { width: 16, height: 16 };
+const icon = { width: 16, height: 16 } as const;
 
-const toggleBtn: React.CSSProperties = {
+const toggleBtn = {
   flex: 1,
   padding: "6px 0",
   borderRadius: 999,
   background: "transparent",
   color: "#e5e7eb",
   cursor: "pointer",
-};
+} as const;
 
 const input = {
   width: "100%",
@@ -365,7 +422,7 @@ const input = {
   border: "1px solid #374151",
   background: "#020617",
   color: "#e5e7eb",
-};
+} as const;
 
 const dividerRow = {
   display: "flex",
@@ -374,13 +431,13 @@ const dividerRow = {
   margin: "8px 0 14px",
   fontSize: 11,
   color: "#6b7280",
-};
+} as const;
 
 const dividerLine = {
   flex: 1,
   height: 1,
   background: "#1f2937",
-};
+} as const;
 
 const errorBox = {
   padding: "8px 10px",
@@ -389,7 +446,7 @@ const errorBox = {
   borderRadius: 9,
   fontSize: 12,
   marginBottom: 10,
-};
+} as const;
 
 const submitBtn = {
   width: "100%",
@@ -399,4 +456,5 @@ const submitBtn = {
   background: "#020617",
   color: "#e5e7eb",
   cursor: "pointer",
-};
+  fontSize: 14,
+} as const;
