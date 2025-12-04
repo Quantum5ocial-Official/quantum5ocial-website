@@ -1,5 +1,6 @@
 // pages/auth.tsx
 import { useEffect, useState } from "react";
+import type React from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 
@@ -15,24 +16,42 @@ export default function AuthPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // --- helper: ensure profile row exists for any authenticated user ---
+  const upsertProfileFromUser = async (user: any, fallbackFullName?: string) => {
+    if (!user) return;
+
+    const meta = user.user_metadata || {};
+    const derivedFullName =
+      fallbackFullName ||
+      meta.full_name ||
+      meta.name ||
+      meta.user_name ||
+      (user.email ? user.email.split("@")[0] : null) ||
+      "Quantum5ocial member";
+
+    const avatarUrl = meta.avatar_url || meta.picture || null;
+    const emailValue = user.email || null;
+
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      full_name: derivedFullName,
+      email: emailValue,
+      avatar_url: avatarUrl,
+    });
+  };
+
   // After OAuth redirect → user lands back on /auth
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (user) {
-        await supabase.from("profiles").upsert({
-          id: user.id,
-          full_name:
-            (user.user_metadata &&
-              (user.user_metadata.full_name || user.user_metadata.name)) ||
-            user.email ||
-            "",
-        });
+        await upsertProfileFromUser(user);
         router.replace("/dashboard");
       }
     };
     checkSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // OAuth Login Handler
@@ -91,10 +110,7 @@ export default function AuthPage() {
 
         const user = data.user;
         if (user) {
-          await supabase.from("profiles").upsert({
-            id: user.id,
-            full_name: fullName || user.email || "",
-          });
+          await upsertProfileFromUser(user, fullName || user.email || undefined);
         }
 
         setMessage("Sign up successful. You are now logged in.");
@@ -113,10 +129,7 @@ export default function AuthPage() {
 
         const user = data.user;
         if (user) {
-          await supabase.from("profiles").upsert({
-            id: user.id,
-            full_name: fullName || user.email || "",
-          });
+          await upsertProfileFromUser(user, fullName || user.email || undefined);
         }
 
         setMessage("Login successful.");
@@ -310,7 +323,12 @@ export default function AuthPage() {
 
           {/* Toggle login/signup */}
           <div
-            style={{ display: "flex", gap: 8, marginBottom: 12, fontSize: 13 }}
+            style={{
+              display: "flex",
+              gap: 8,
+              marginBottom: 12,
+              fontSize: 13,
+            }}
           >
             <button
               type="button"
