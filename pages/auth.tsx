@@ -15,29 +15,30 @@ export default function AuthPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // After OAuth redirect → user lands back on /auth
+  // --------- CHECK SESSION AFTER OAUTH ----------
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
+
       if (user) {
         await supabase.from("profiles").upsert({
           id: user.id,
           full_name:
-            (user.user_metadata &&
-              (user.user_metadata.full_name || user.user_metadata.name)) ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
             user.email ||
             "",
         });
+
         router.replace("/dashboard");
       }
     };
+
     checkSession();
   }, [router]);
 
-  // ----------------------------
-  // OAuth Login Handler
-  // ----------------------------
+  // --------- OAUTH LOGIN HANDLER ----------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
     setMessage(null);
@@ -50,18 +51,13 @@ export default function AuthPage() {
         },
       });
 
-      if (error) {
-        console.error(error);
-        setError(error.message);
-      }
+      if (error) setError(error.message);
     } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+      setError(err?.message || "OAuth login failed.");
     }
   };
 
-  // ----------------------------
-  // Email Login / Signup
-  // ----------------------------
+  // --------- EMAIL LOGIN/SIGNUP ----------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -82,10 +78,7 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-        });
+        const { data, error } = await supabase.auth.signUp({ email, password });
 
         if (error) {
           setError(error.message);
@@ -93,21 +86,17 @@ export default function AuthPage() {
           return;
         }
 
-        const user = data.user;
-        if (user) {
+        if (data.user) {
           await supabase.from("profiles").upsert({
-            id: user.id,
-            full_name: fullName || user.email || "",
+            id: data.user.id,
+            full_name: fullName || email,
           });
         }
 
-        setMessage("Sign up successful. You are now logged in.");
         router.push("/dashboard");
       } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { data, error } =
+          await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
           setError(error.message);
@@ -115,28 +104,25 @@ export default function AuthPage() {
           return;
         }
 
-        const user = data.user;
-        if (user) {
+        if (data.user) {
           await supabase.from("profiles").upsert({
-            id: user.id,
-            full_name: fullName || user.email || "",
+            id: data.user.id,
+            full_name: fullName || email,
           });
         }
 
-        setMessage("Login successful.");
         router.push("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Something went wrong.");
+      setError(err?.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ----------------------------
-  // UI
-  // ----------------------------
-
+  // -----------------------------------------------------
+  //  UI START
+  // -----------------------------------------------------
   return (
     <div
       style={{
@@ -162,14 +148,7 @@ export default function AuthPage() {
       >
         {/* BRAND HEADER */}
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div
-            style={{
-              position: "relative",
-              width: 90,
-              height: 90,
-              margin: "0 auto 12px",
-            }}
-          >
+          <div style={{ position: "relative", width: 90, height: 90, margin: "0 auto 12px" }}>
             <div
               style={{
                 position: "absolute",
@@ -185,17 +164,10 @@ export default function AuthPage() {
                 animation: "pulseGlow 3s ease-in-out infinite",
               }}
             />
-
             <img
               src="/Q5_white_bg.png"
               alt="Quantum5ocial Logo"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                position: "relative",
-                zIndex: 2,
-              }}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
           </div>
 
@@ -206,7 +178,6 @@ export default function AuthPage() {
               background: "linear-gradient(90deg, #22d3ee, #a855f7)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
-              marginBottom: 6,
             }}
           >
             Quantum5ocial
@@ -217,55 +188,62 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Glow animation */}
-        <style jsx>{`
-          @keyframes pulseGlow {
-            0% {
-              opacity: 0.6;
-              transform: translate(-50%, -50%) scale(1);
-            }
-            50% {
-              opacity: 1;
-              transform: translate(-50%, -50%) scale(1.08);
-            }
-            100% {
-              opacity: 0.6;
-              transform: translate(-50%, -50%) scale(1);
-            }
-          }
-        `}</style>
-
-        {/* Social logins */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-          <button
-            onClick={() => handleOAuthLogin("github")}
-            style={oauthButtonStyle}
-          >
-            Continue with GitHub
-          </button>
-
+        {/* ---- OAUTH BUTTONS ROW (NEW) ---- */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: 16,
+            gap: 8,
+          }}
+        >
+          {/* GOOGLE */}
           <button
             onClick={() => handleOAuthLogin("google")}
-            style={oauthButtonStyle}
+            style={oauthButton}
           >
-            Continue with Google
+            <img
+              src="/icons/google.svg"
+              style={{ width: 22, height: 22 }}
+              alt=""
+            />
+            <span>Google</span>
           </button>
 
+          {/* LINKEDIN */}
           <button
             onClick={() => handleOAuthLogin("linkedin_oidc")}
-            style={oauthButtonStyle}
+            style={oauthButton}
           >
-            Continue with LinkedIn
+            <img
+              src="/icons/linkedin.svg"
+              style={{ width: 22, height: 22 }}
+              alt=""
+            />
+            <span>LinkedIn</span>
+          </button>
+
+          {/* GITHUB */}
+          <button
+            onClick={() => handleOAuthLogin("github")}
+            style={oauthButton}
+          >
+            <img
+              src="/icons/github.svg"
+              style={{ width: 22, height: 22 }}
+              alt=""
+            />
+            <span>GitHub</span>
           </button>
         </div>
 
-        {/* Divider */}
+        {/* DIVIDER */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 8,
-            margin: "8px 0 14px",
+            margin: "10px 0 14px",
             fontSize: 11,
             color: "#6b7280",
           }}
@@ -275,13 +253,12 @@ export default function AuthPage() {
           <div style={{ flex: 1, height: 1, background: "#1f2937" }} />
         </div>
 
-        {/* Toggle login/signup */}
+        {/* LOGIN/SIGNUP TOGGLE */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12, fontSize: 13 }}>
           <button
-            type="button"
             onClick={() => setMode("login")}
             style={{
-              ...toggleButtonStyle,
+              ...toggleButton,
               border: mode === "login" ? "1px solid #22d3ee" : "1px solid #374151",
               background: mode === "login" ? "#0f172a" : "transparent",
             }}
@@ -290,10 +267,9 @@ export default function AuthPage() {
           </button>
 
           <button
-            type="button"
             onClick={() => setMode("signup")}
             style={{
-              ...toggleButtonStyle,
+              ...toggleButton,
               border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
               background: mode === "signup" ? "#0f172a" : "transparent",
             }}
@@ -302,7 +278,7 @@ export default function AuthPage() {
           </button>
         </div>
 
-        {/* Email/password form */}
+        {/* EMAIL FORM */}
         <form onSubmit={handleSubmit}>
           {mode === "signup" && (
             <InputBlock label="Full name">
@@ -331,24 +307,12 @@ export default function AuthPage() {
               onChange={(e) => setPassword(e.target.value)}
               style={inputStyle}
             />
-            <div style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-              For MVP you can use a simple password; later we enforce stronger rules.
-            </div>
           </InputBlock>
 
-          {error && (
-            <div style={errorBoxStyle}>{error}</div>
-          )}
+          {error && <div style={errorBox}>{error}</div>}
+          {message && <div style={successBox}>{message}</div>}
 
-          {message && (
-            <div style={successBoxStyle}>{message}</div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            style={submitButtonStyle}
-          >
+          <button type="submit" disabled={loading} style={submitButton}>
             {loading
               ? "Please wait..."
               : mode === "signup"
@@ -356,47 +320,37 @@ export default function AuthPage() {
               : "Log in with email"}
           </button>
         </form>
-
-        <div
-          style={{
-            marginTop: 12,
-            fontSize: 11,
-            color: "#6b7280",
-            textAlign: "center",
-          }}
-        >
-          After login, you'll be redirected to your dashboard.
-        </div>
       </div>
     </div>
   );
 }
 
-/* ---------------------------- */
-/* Reusable components & styles */
-/* ---------------------------- */
+/* -------------------- STYLES -------------------- */
 
-const oauthButtonStyle = {
-  width: "100%",
-  padding: "7px 10px",
+const oauthButton: React.CSSProperties = {
+  flex: 1,
+  padding: "8px 10px",
   borderRadius: 999,
   border: "1px solid #374151",
   background: "#020617",
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 13,
-  textAlign: "center" as const,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
 };
 
-const toggleButtonStyle = {
+const toggleButton: React.CSSProperties = {
   flex: 1,
   padding: "6px 0",
   borderRadius: 999,
-  color: "#e5e7eb",
   cursor: "pointer",
+  color: "#e5e7eb",
 };
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "7px 9px",
   borderRadius: 9,
@@ -406,7 +360,7 @@ const inputStyle = {
   fontSize: 13,
 };
 
-const errorBoxStyle = {
+const errorBox: React.CSSProperties = {
   marginBottom: 10,
   padding: "8px 10px",
   borderRadius: 9,
@@ -415,7 +369,7 @@ const errorBoxStyle = {
   fontSize: 12,
 };
 
-const successBoxStyle = {
+const successBox: React.CSSProperties = {
   marginBottom: 10,
   padding: "8px 10px",
   borderRadius: 9,
@@ -424,7 +378,7 @@ const successBoxStyle = {
   fontSize: 12,
 };
 
-const submitButtonStyle = {
+const submitButton: React.CSSProperties = {
   width: "100%",
   padding: "8px 0",
   borderRadius: 999,
