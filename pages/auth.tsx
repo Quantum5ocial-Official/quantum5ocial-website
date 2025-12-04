@@ -1,5 +1,4 @@
 // pages/auth.tsx
-import type React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -8,8 +7,6 @@ type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
 export default function AuthPage() {
   const router = useRouter();
-
-  // Allow ?redirect=/something, default to /dashboard
   const redirectPath =
     (router.query.redirect as string) || "/dashboard";
 
@@ -20,153 +17,103 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ------------------------------
-  // Helper: create profile row if missing
-  // ------------------------------
+  // -----------------------------------
+  // Helper: create profile if missing
+  // -----------------------------------
   async function createProfileIfMissing(user: any) {
-  if (!user) return;
+    if (!user) return;
 
-  // 1) Check if profile already exists
-  const { data: existing, error: checkError } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
+    // 1) Check if profile already exists
+    const { data: existing, error: checkError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  if (checkError) {
-    console.error("Error checking existing profile:", checkError);
-    return;
-  }
+    if (checkError) {
+      console.error("Error checking existing profile:", checkError);
+      return;
+    }
 
-  if (existing) {
-    console.log("Profile already exists for user", user.id);
-    return;
-  }
+    if (existing) {
+      console.log("Profile already exists for user", user.id);
+      return;
+    }
 
-  const meta = user.user_metadata || {};
+    // 2) Build clean payload
+    const meta = user.user_metadata || {};
+    const payload = {
+      id: user.id,
+      email: user.email || null,
+      full_name:
+        meta.full_name ||
+        meta.name ||
+        meta.preferred_username ||
+        null,
+      avatar_url: meta.avatar_url || meta.picture || null,
+      provider: user.app_metadata?.provider || null,
+      raw_metadata: meta || {},
+    };
 
-  const insertPayload = {
-    id: user.id,
-    email: user.email || null,
-    full_name:
-      meta.full_name ||
-      meta.name ||
-      meta.preferred_username ||
-      null,
-    avatar_url: meta.avatar_url || meta.picture || null,
-    provider: user.app_metadata?.provider || null,
-    raw_metadata: meta || {},
-  };
+    console.log("Creating profile with payload:", payload);
 
-  console.log("Creating profile with payload:", insertPayload);
+    const { error: insertError } = await supabase
+      .from("profiles")
+      .insert([payload]);
 
-  const { error: insertError } = await supabase
-    .from("profiles")
-    .insert([insertPayload]);
-
-  if (insertError) {
-    console.error("Error inserting profile:", insertError);
-  } else {
-    console.log("Profile created successfully for", user.id);
-  }
-}
-
-      // 2) Build clean payload
-      const meta = user.user_metadata || {};
-      const payload = {
-        id: user.id,
-        email: user.email || null,
-        full_name:
-          meta.full_name ||
-          meta.name ||
-          meta.preferred_username ||
-          null,
-        avatar_url:
-          meta.avatar_url ||
-          meta.picture ||
-          null,
-        provider: user.app_metadata?.provider || null,
-        raw_metadata: meta || {},
-      };
-
-      // 3) Insert (or upsert just to be safe)
-      const { error: upsertError } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" });
-
-      if (upsertError) {
-        console.error("profiles upsert error:", upsertError);
-      } else {
-        console.log("profiles upsert OK for user", user.id);
-      }
-    } catch (err) {
-      console.error("createProfileIfMissing crashed:", err);
+    if (insertError) {
+      console.error("Error inserting profile:", insertError);
+    } else {
+      console.log("Profile created successfully for", user.id);
     }
   }
 
-  // ------------------------------
-  // After OAuth redirect: watch auth state + initial check
-  // ------------------------------
+  // -----------------------------------
+  // After OAuth redirect: we are back on /auth
+  // -----------------------------------
   useEffect(() => {
-    // 1) Subscribe to auth state changes (important for OAuth redirect)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("onAuthStateChange:", event, session?.user?.id);
-        if (session?.user) {
-          await createProfileIfMissing(session.user);
-          router.replace(redirectPath);
-        }
-      }
-    );
+    const checkSession = async () => {
+      const { data, error } = await supabase.auth.getUser();
 
-    // 2) Also do a one-shot check (covers already-signed-in case)
-    (async () => {
-      const { data } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error getting user after redirect:", error);
+        return;
+      }
+
       const user = data.user;
-      console.log("getUser on /auth:", user?.id);
       if (user) {
         await createProfileIfMissing(user);
         router.replace(redirectPath);
       }
-    })();
-
-    // 3) Cleanup
-    return () => {
-      subscription.unsubscribe();
     };
+
+    checkSession();
   }, [router, redirectPath]);
 
-  // ------------------------------
+  // -----------------------------------
   // OAuth login handler
-  // ------------------------------
+  // -----------------------------------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          // Keep redirect param so we land back where we wanted
-          redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
-            redirectPath
-          )}`,
-        },
-      });
 
-      if (error) {
-        console.error("OAuth error:", error);
-        setError(error.message);
-      }
-    } catch (err: any) {
-      console.error("OAuth crash:", err);
-      setError(err.message || "Something went wrong.");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
+          redirectPath
+        )}`,
+      },
+    });
+
+    if (error) {
+      console.error("OAuth sign-in error:", error);
+      setError(error.message);
     }
   };
 
-  // ------------------------------
+  // -----------------------------------
   // Email login / signup
-  // ------------------------------
+  // -----------------------------------
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -209,9 +156,9 @@ export default function AuthPage() {
     }
   };
 
-  // ------------------------------
+  // -----------------------------------
   // UI
-  // ------------------------------
+  // -----------------------------------
   return (
     <div
       style={{
@@ -233,7 +180,7 @@ export default function AuthPage() {
           gap: 14,
         }}
       >
-        {/* AUTH CARD */}
+        {/* MAIN CARD */}
         <div
           style={{
             width: "100%",
@@ -244,10 +191,11 @@ export default function AuthPage() {
               "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
           }}
         >
-          {/* Header */}
+          {/* BRAND HEADER */}
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <img
               src="/Q5_white_bg.png"
+              alt="Quantum5ocial Logo"
               style={{
                 width: 90,
                 height: 90,
@@ -261,6 +209,7 @@ export default function AuthPage() {
                 background: "linear-gradient(90deg, #22d3ee, #a855f7)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
+                marginBottom: 6,
               }}
             >
               Quantum5ocial
@@ -270,7 +219,7 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* OAuth Buttons */}
+          {/* OAUTH BUTTON ROW */}
           <div
             style={{
               display: "flex",
@@ -285,7 +234,11 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("google")}
               style={oauthBtn}
             >
-              <img src="/google.svg" style={icon} />
+              <img
+                src="/google.svg"
+                alt="Google"
+                style={oauthIcon}
+              />
               Google
             </button>
 
@@ -294,7 +247,11 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("linkedin_oidc")}
               style={oauthBtn}
             >
-              <img src="/linkedin.svg" style={icon} />
+              <img
+                src="/linkedin.svg"
+                alt="LinkedIn"
+                style={oauthIcon}
+              />
               LinkedIn
             </button>
 
@@ -303,19 +260,23 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("github")}
               style={oauthBtn}
             >
-              <img src="/github.svg" style={icon} />
+              <img
+                src="/github.svg"
+                alt="GitHub"
+                style={oauthIcon}
+              />
               GitHub
             </button>
           </div>
 
-          {/* Divider */}
+          {/* DIVIDER */}
           <div style={dividerRow}>
             <div style={dividerLine} />
             <span>or continue with email</span>
             <div style={dividerLine} />
           </div>
 
-          {/* Toggle login / signup */}
+          {/* TOGGLE LOGIN / SIGNUP */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
               type="button"
@@ -345,10 +306,10 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Email form */}
+          {/* EMAIL FORM */}
           <form onSubmit={handleEmailAuth}>
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12 }}>Email</label>
+              <label style={{ fontSize: 12, display: "block" }}>Email</label>
               <input
                 type="email"
                 style={input}
@@ -358,7 +319,9 @@ export default function AuthPage() {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12 }}>Password</label>
+              <label style={{ fontSize: 12, display: "block" }}>
+                Password
+              </label>
               <input
                 type="password"
                 style={input}
@@ -367,7 +330,9 @@ export default function AuthPage() {
               />
             </div>
 
-            {error && <div style={errorBox}>{error}</div>}
+            {error && (
+              <div style={errorBox}>{error}</div>
+            )}
 
             <button
               type="submit"
@@ -383,7 +348,7 @@ export default function AuthPage() {
           </form>
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER CARD */}
         <div
           style={{
             borderRadius: 16,
@@ -392,13 +357,18 @@ export default function AuthPage() {
             background:
               "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
             display: "flex",
+            alignItems: "center",
             justifyContent: "space-between",
             fontSize: 11,
             color: "rgba(148,163,184,0.9)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src="/Q5_white_bg.png" style={{ width: 24 }} />
+            <img
+              src="/Q5_white_bg.png"
+              alt="Quantum5ocial logo"
+              style={{ width: 24, height: 24 }}
+            />
             <span
               style={{
                 fontSize: 13,
@@ -418,7 +388,8 @@ export default function AuthPage() {
   );
 }
 
-/* Styles (no explicit React.CSSProperties needed to keep it simple) */
+/* ---------------- Styles ---------------- */
+
 const oauthBtn = {
   display: "inline-flex",
   alignItems: "center",
@@ -432,7 +403,10 @@ const oauthBtn = {
   fontSize: 13,
 } as const;
 
-const icon = { width: 16, height: 16 } as const;
+const oauthIcon = {
+  width: 16,
+  height: 16,
+} as const;
 
 const toggleBtn = {
   flex: 1,
@@ -450,6 +424,7 @@ const input = {
   border: "1px solid #374151",
   background: "#020617",
   color: "#e5e7eb",
+  fontSize: 13,
 } as const;
 
 const dividerRow = {
