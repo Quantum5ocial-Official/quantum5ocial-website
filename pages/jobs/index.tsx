@@ -170,22 +170,11 @@ export default function JobsIndexPage() {
       <div className="page">
         <Navbar />
 
-        <section className="section">
-          <div className="section-header" style={{ marginBottom: 18 }}>
-            <div>
-              <div className="section-title">Quantum Jobs Universe</div>
-              <div className="section-sub">
-                Browse internships, MSc/PhD positions, postdocs, and industry
-                roles across labs and companies.
-              </div>
-            </div>
-            {/* Button moves into middle column header below */}
-          </div>
-
-          {/* 3-column layout, same as homepage / products */}
-          <div className="layout-3col">
-            {/* LEFT: filters */}
-            <aside className="products-filters">
+        {/* Same shell as community.tsx */}
+        <main className="layout-3col">
+          {/* ========== LEFT COLUMN – FILTER CARD ========== */}
+          <aside className="layout-left sticky-col">
+            <div className="sidebar-card">
               <div className="products-filters-section">
                 <div className="products-filters-title">Search</div>
                 <input
@@ -238,11 +227,31 @@ export default function JobsIndexPage() {
               >
                 Reset filters
               </button>
-            </aside>
+            </div>
+          </aside>
 
-            {/* MIDDLE: results */}
-            <div className="products-results">
-              <div className="products-results-header products-results-header--with-button">
+          {/* ========== MIDDLE COLUMN – JOBS LIST ========== */}
+          <section className="layout-main">
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <div className="section-title">Quantum Jobs Universe</div>
+                  <div className="section-sub">
+                    Browse internships, MSc/PhD positions, postdocs, and industry
+                    roles across labs and companies.
+                  </div>
+                </div>
+
+                <button
+                  className="nav-cta"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => router.push("/jobs/new")}
+                >
+                  Post a job
+                </button>
+              </div>
+
+              <div className="products-results-header">
                 <div className="products-status">
                   {loading
                     ? "Loading jobs…"
@@ -253,14 +262,6 @@ export default function JobsIndexPage() {
                       }`}
                   {savingId && " · updating saved…"}
                 </div>
-
-                <button
-                  className="nav-cta"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => router.push("/jobs/new")}
-                >
-                  Post a job
-                </button>
               </div>
 
               {!loading && !error && filteredJobs.length === 0 && (
@@ -329,18 +330,60 @@ export default function JobsIndexPage() {
                   );
                 })}
               </div>
-            </div>
+            </section>
+          </section>
 
-            {/* RIGHT: featured jobs */}
-            <aside className="jobs-featured">
-              <div className="jobs-featured-title">Featured jobs</div>
-              <div className="jobs-featured-item">Coming soon…</div>
-              <div className="jobs-featured-item">
-                Highlighted positions from partners
+          {/* ========== RIGHT COLUMN – HIGHLIGHTED TILES ========== */}
+          <aside className="layout-right sticky-col">
+            <div className="hero-tiles hero-tiles-vertical">
+              {/* Quantum roles spotlight */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum roles spotlight</div>
+                    <div className="tile-icon-orbit">🧪</div>
+                  </div>
+                  <p className="tile-text">
+                    This tile will later showcase a curated quantum job or role
+                    from the marketplace – ideal for demos.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Example: PhD position</span>
+                    <span className="tile-pill">Location</span>
+                    <span className="tile-pill">Lab / company</span>
+                  </div>
+                  <div className="tile-cta">
+                    Jobs spotlight <span>›</span>
+                  </div>
+                </div>
               </div>
-            </aside>
-          </div>
-        </section>
+
+              {/* Featured hiring partner */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Featured hiring partner</div>
+                    <div className="tile-icon-orbit">🏢</div>
+                  </div>
+                  <p className="tile-text">
+                    Later this can feature a lab, startup, or company actively
+                    hiring across multiple roles.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Superconducting</span>
+                    <span className="tile-pill">Spin qubits</span>
+                    <span className="tile-pill">Cryo engineer</span>
+                  </div>
+                  <div className="tile-cta">
+                    Partner spotlight <span>›</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </main>
       </div>
     </>
   );
