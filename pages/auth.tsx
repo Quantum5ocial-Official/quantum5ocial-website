@@ -253,7 +253,7 @@ export default function AuthPage() {
             >
               <span style={oauthIconWrapperStyle}>
                 <img
-                  src="/icons/google.svg"
+                  src="/google.svg"
                   alt="Google"
                   style={{ width: 16, height: 16 }}
                 />
@@ -268,7 +268,7 @@ export default function AuthPage() {
             >
               <span style={oauthIconWrapperStyle}>
                 <img
-                  src="/icons/linkedin.svg"
+                  src="/linkedin.svg"
                   alt="LinkedIn"
                   style={{ width: 16, height: 16 }}
                 />
@@ -283,7 +283,7 @@ export default function AuthPage() {
             >
               <span style={oauthIconWrapperStyle}>
                 <img
-                  src="/icons/github.svg"
+                  src="/github.svg"
                   alt="GitHub"
                   style={{ width: 16, height: 16 }}
                 />
