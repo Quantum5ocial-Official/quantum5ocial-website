@@ -24,24 +24,52 @@ export default function AuthPage() {
   // Helper: create profile row if missing
   // ------------------------------
   async function createProfileIfMissing(user: any) {
-    if (!user) return;
+  if (!user) return;
 
-    try {
-      // 1) Check if profile already exists
-      const { data: existing, error: selectError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
+  // 1) Check if profile already exists
+  const { data: existing, error: checkError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
 
-      if (selectError) {
-        console.error("profiles select error:", selectError);
-      }
+  if (checkError) {
+    console.error("Error checking existing profile:", checkError);
+    return;
+  }
 
-      if (existing) {
-        // Already have a profile → nothing to do
-        return;
-      }
+  if (existing) {
+    console.log("Profile already exists for user", user.id);
+    return;
+  }
+
+  const meta = user.user_metadata || {};
+
+  const insertPayload = {
+    id: user.id,
+    email: user.email || null,
+    full_name:
+      meta.full_name ||
+      meta.name ||
+      meta.preferred_username ||
+      null,
+    avatar_url: meta.avatar_url || meta.picture || null,
+    provider: user.app_metadata?.provider || null,
+    raw_metadata: meta || {},
+  };
+
+  console.log("Creating profile with payload:", insertPayload);
+
+  const { error: insertError } = await supabase
+    .from("profiles")
+    .insert([insertPayload]);
+
+  if (insertError) {
+    console.error("Error inserting profile:", insertError);
+  } else {
+    console.log("Profile created successfully for", user.id);
+  }
+}
 
       // 2) Build clean payload
       const meta = user.user_metadata || {};
