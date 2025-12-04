@@ -179,18 +179,12 @@ export default function JobsIndexPage() {
                 roles across labs and companies.
               </div>
             </div>
-
-            <button
-              className="nav-cta"
-              style={{ cursor: "pointer" }}
-              onClick={() => router.push("/jobs/new")}
-            >
-              Post a job
-            </button>
+            {/* Button moves into middle column header below */}
           </div>
 
-          <div className="products-layout">
-            {/* Filters on the left */}
+          {/* 3-column layout, same as homepage / products */}
+          <div className="layout-3col">
+            {/* LEFT: filters */}
             <aside className="products-filters">
               <div className="products-filters-section">
                 <div className="products-filters-title">Search</div>
@@ -246,9 +240,9 @@ export default function JobsIndexPage() {
               </button>
             </aside>
 
-            {/* Results */}
+            {/* MIDDLE: results */}
             <div className="products-results">
-              <div className="products-results-header">
+              <div className="products-results-header products-results-header--with-button">
                 <div className="products-status">
                   {loading
                     ? "Loading jobs…"
@@ -259,6 +253,14 @@ export default function JobsIndexPage() {
                       }`}
                   {savingId && " · updating saved…"}
                 </div>
+
+                <button
+                  className="nav-cta"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => router.push("/jobs/new")}
+                >
+                  Post a job
+                </button>
               </div>
 
               {!loading && !error && filteredJobs.length === 0 && (
@@ -328,6 +330,15 @@ export default function JobsIndexPage() {
                 })}
               </div>
             </div>
+
+            {/* RIGHT: featured jobs */}
+            <aside className="jobs-featured">
+              <div className="jobs-featured-title">Featured jobs</div>
+              <div className="jobs-featured-item">Coming soon…</div>
+              <div className="jobs-featured-item">
+                Highlighted positions from partners
+              </div>
+            </aside>
           </div>
         </section>
       </div>
