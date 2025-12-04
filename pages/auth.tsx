@@ -1,5 +1,6 @@
 // pages/auth.tsx
 import { useEffect, useState } from "react";
+import type React from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 
@@ -7,113 +8,90 @@ type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
 export default function AuthPage() {
   const router = useRouter();
-  const redirectPath =
-    (router.query.redirect as string) || "/dashboard";
+  const redirectPath = (router.query.redirect as string) || "/dashboard";
 
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // -----------------------------------
-  // Helper: create profile if missing
-  // -----------------------------------
-  async function createProfileIfMissing(user: any) {
+  // ------------------------------
+  // Create profile if not exists
+  // ------------------------------
+  async function createProfileIfMissing(user: any, overrides?: { full_name?: string | null }) {
     if (!user) return;
 
-    // 1) Check if profile already exists
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (checkError) {
-      console.error("Error checking existing profile:", checkError);
-      return;
-    }
+    if (existing) return; // profile already exists
 
-    if (existing) {
-      console.log("Profile already exists for user", user.id);
-      return;
-    }
-
-    // 2) Build clean payload
     const meta = user.user_metadata || {};
-    const payload = {
-      id: user.id,
-      email: user.email || null,
-      full_name:
-        meta.full_name ||
-        meta.name ||
-        meta.preferred_username ||
-        null,
-      avatar_url: meta.avatar_url || meta.picture || null,
-      provider: user.app_metadata?.provider || null,
-      raw_metadata: meta || {},
-    };
 
-    console.log("Creating profile with payload:", payload);
+    const full_name_from_meta =
+      overrides?.full_name ||
+      meta.full_name ||
+      meta.name ||
+      meta.preferred_username ||
+      null;
 
-    const { error: insertError } = await supabase
-      .from("profiles")
-      .insert([payload]);
+    const avatar_from_meta =
+      meta.avatar_url ||
+      meta.picture ||
+      null;
 
-    if (insertError) {
-      console.error("Error inserting profile:", insertError);
-    } else {
-      console.log("Profile created successfully for", user.id);
-    }
+    await supabase.from("profiles").insert([
+      {
+        id: user.id,
+        email: user.email || null,
+        full_name: full_name_from_meta,
+        avatar_url: avatar_from_meta,
+        provider: user.app_metadata?.provider || null,
+        raw_metadata: meta || {},
+      },
+    ]);
   }
 
-  // -----------------------------------
-  // After OAuth redirect: we are back on /auth
-  // -----------------------------------
+  // ------------------------------
+  // After OAuth redirect (Google/GitHub/LinkedIn)
+  // ------------------------------
   useEffect(() => {
     const checkSession = async () => {
-      const { data, error } = await supabase.auth.getUser();
-
-      if (error) {
-        console.error("Error getting user after redirect:", error);
-        return;
-      }
-
+      const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (user) {
         await createProfileIfMissing(user);
         router.replace(redirectPath);
       }
     };
-
     checkSession();
   }, [router, redirectPath]);
 
-  // -----------------------------------
+  // ------------------------------
   // OAuth login handler
-  // -----------------------------------
+  // ------------------------------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
-          redirectPath
-        )}`,
+        redirectTo: `${window.location.origin}/auth`,
       },
     });
 
-    if (error) {
-      console.error("OAuth sign-in error:", error);
-      setError(error.message);
-    }
+    if (error) setError(error.message);
   };
 
-  // -----------------------------------
+  // ------------------------------
   // Email login / signup
-  // -----------------------------------
+  // ------------------------------
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -125,15 +103,27 @@ export default function AuthPage() {
         return;
       }
 
+      if (mode === "signup" && !fullName.trim()) {
+        setError("Please enter your full name.");
+        return;
+      }
+
       if (mode === "signup") {
+        // pass full_name into user_metadata so it is available on user.user_metadata.full_name
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+            },
+          },
         });
         if (error) throw error;
-
         if (data.user) {
-          await createProfileIfMissing(data.user);
+          await createProfileIfMissing(data.user, {
+            full_name: fullName.trim(),
+          });
           router.push(redirectPath);
         }
       } else {
@@ -142,23 +132,21 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
-
         if (data.user) {
           await createProfileIfMissing(data.user);
           router.push(redirectPath);
         }
       }
     } catch (err: any) {
-      console.error("Email auth error:", err);
       setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   };
 
-  // -----------------------------------
-  // UI
-  // -----------------------------------
+  // ------------------------------
+  // UI RENDER
+  // ------------------------------
   return (
     <div
       style={{
@@ -180,7 +168,7 @@ export default function AuthPage() {
           gap: 14,
         }}
       >
-        {/* MAIN CARD */}
+        {/* AUTH CARD */}
         <div
           style={{
             width: "100%",
@@ -191,11 +179,10 @@ export default function AuthPage() {
               "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
           }}
         >
-          {/* BRAND HEADER */}
+          {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <img
               src="/Q5_white_bg.png"
-              alt="Quantum5ocial Logo"
               style={{
                 width: 90,
                 height: 90,
@@ -209,7 +196,6 @@ export default function AuthPage() {
                 background: "linear-gradient(90deg, #22d3ee, #a855f7)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
-                marginBottom: 6,
               }}
             >
               Quantum5ocial
@@ -219,7 +205,7 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* OAUTH BUTTON ROW */}
+          {/* OAuth Buttons */}
           <div
             style={{
               display: "flex",
@@ -234,11 +220,7 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("google")}
               style={oauthBtn}
             >
-              <img
-                src="/google.svg"
-                alt="Google"
-                style={oauthIcon}
-              />
+              <img src="/google.svg" style={icon} />
               Google
             </button>
 
@@ -247,11 +229,7 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("linkedin_oidc")}
               style={oauthBtn}
             >
-              <img
-                src="/linkedin.svg"
-                alt="LinkedIn"
-                style={oauthIcon}
-              />
+              <img src="/linkedin.svg" style={icon} />
               LinkedIn
             </button>
 
@@ -260,23 +238,19 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("github")}
               style={oauthBtn}
             >
-              <img
-                src="/github.svg"
-                alt="GitHub"
-                style={oauthIcon}
-              />
+              <img src="/github.svg" style={icon} />
               GitHub
             </button>
           </div>
 
-          {/* DIVIDER */}
+          {/* Divider */}
           <div style={dividerRow}>
             <div style={dividerLine} />
             <span>or continue with email</span>
             <div style={dividerLine} />
           </div>
 
-          {/* TOGGLE LOGIN / SIGNUP */}
+          {/* Toggle */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
               type="button"
@@ -306,33 +280,44 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* EMAIL FORM */}
+          {/* Email Form */}
           <form onSubmit={handleEmailAuth}>
+            {mode === "signup" && (
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: 12 }}>Full name</label>
+                <input
+                  type="text"
+                  style={input}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your full name"
+                />
+              </div>
+            )}
+
             <div style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12, display: "block" }}>Email</label>
+              <label style={{ fontSize: 12 }}>Email</label>
               <input
                 type="email"
                 style={input}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
               />
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, display: "block" }}>
-                Password
-              </label>
+              <label style={{ fontSize: 12 }}>Password</label>
               <input
                 type="password"
                 style={input}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
               />
             </div>
 
-            {error && (
-              <div style={errorBox}>{error}</div>
-            )}
+            {error && <div style={errorBox}>{error}</div>}
 
             <button
               type="submit"
@@ -348,7 +333,7 @@ export default function AuthPage() {
           </form>
         </div>
 
-        {/* FOOTER CARD */}
+        {/* FOOTER */}
         <div
           style={{
             borderRadius: 16,
@@ -357,18 +342,13 @@ export default function AuthPage() {
             background:
               "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
             fontSize: 11,
             color: "rgba(148,163,184,0.9)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img
-              src="/Q5_white_bg.png"
-              alt="Quantum5ocial logo"
-              style={{ width: 24, height: 24 }}
-            />
+            <img src="/Q5_white_bg.png" style={{ width: 24 }} />
             <span
               style={{
                 fontSize: 13,
@@ -388,9 +368,8 @@ export default function AuthPage() {
   );
 }
 
-/* ---------------- Styles ---------------- */
-
-const oauthBtn = {
+/* Styles */
+const oauthBtn: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 6,
@@ -401,23 +380,20 @@ const oauthBtn = {
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 13,
-} as const;
+};
 
-const oauthIcon = {
-  width: 16,
-  height: 16,
-} as const;
+const icon: React.CSSProperties = { width: 16, height: 16 };
 
-const toggleBtn = {
+const toggleBtn: React.CSSProperties = {
   flex: 1,
   padding: "6px 0",
   borderRadius: 999,
   background: "transparent",
   color: "#e5e7eb",
   cursor: "pointer",
-} as const;
+};
 
-const input = {
+const input: React.CSSProperties = {
   width: "100%",
   padding: "7px 9px",
   borderRadius: 9,
@@ -425,33 +401,33 @@ const input = {
   background: "#020617",
   color: "#e5e7eb",
   fontSize: 13,
-} as const;
+};
 
-const dividerRow = {
+const dividerRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 8,
   margin: "8px 0 14px",
   fontSize: 11,
   color: "#6b7280",
-} as const;
+};
 
-const dividerLine = {
+const dividerLine: React.CSSProperties = {
   flex: 1,
   height: 1,
   background: "#1f2937",
-} as const;
+};
 
-const errorBox = {
+const errorBox: React.CSSProperties = {
   padding: "8px 10px",
   background: "#7f1d1d",
   color: "#fecaca",
   borderRadius: 9,
   fontSize: 12,
   marginBottom: 10,
-} as const;
+};
 
-const submitBtn = {
+const submitBtn: React.CSSProperties = {
   width: "100%",
   padding: "8px 0",
   borderRadius: 999,
@@ -460,4 +436,4 @@ const submitBtn = {
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 14,
-} as const;
+};
