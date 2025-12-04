@@ -24,8 +24,8 @@ export default function AuthPage() {
         await supabase.from("profiles").upsert({
           id: user.id,
           full_name:
-            user.user_metadata?.full_name ||
-            user.user_metadata?.name ||
+            (user.user_metadata &&
+              (user.user_metadata.full_name || user.user_metadata.name)) ||
             user.email ||
             "",
         });
@@ -35,7 +35,7 @@ export default function AuthPage() {
     checkSession();
   }, [router]);
 
-  // OAuth login handler
+  // OAuth Login Handler
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
     setMessage(null);
@@ -47,6 +47,7 @@ export default function AuthPage() {
           redirectTo: `${window.location.origin}/auth`,
         },
       });
+
       if (error) {
         console.error(error);
         setError(error.message);
@@ -56,7 +57,7 @@ export default function AuthPage() {
     }
   };
 
-  // Email login / signup
+  // Email Login / Signup
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -140,7 +141,7 @@ export default function AuthPage() {
         padding: 24,
       }}
     >
-      {/* wrapper so card + footer sit stacked, both centered */}
+      {/* wrapper so card + footer sit stacked */}
       <div
         style={{
           width: "100%",
@@ -185,8 +186,7 @@ export default function AuthPage() {
                   filter: "blur(18px)",
                   animation: "pulseGlow 3s ease-in-out infinite",
                 }}
-              ></div>
-
+              />
               <img
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial Logo"
@@ -208,7 +208,6 @@ export default function AuthPage() {
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 marginBottom: 6,
-                letterSpacing: "0.3px",
               }}
             >
               Quantum5ocial
@@ -237,40 +236,59 @@ export default function AuthPage() {
             }
           `}</style>
 
-          {/* --- OAUTH ICON ROW --- */}
+          {/* SOCIAL LOGIN ROW */}
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
-              gap: 8,
-              marginBottom: 16,
+              gap: 10,
+              justifyContent: "center",
+              marginBottom: 18,
+              flexWrap: "wrap",
             }}
           >
             <button
               type="button"
               onClick={() => handleOAuthLogin("google")}
-              style={oauthButtonStyle}
+              style={oauthPillButtonStyle}
             >
-              <GoogleIcon />
-              <span>Google</span>
+              <span style={oauthIconWrapperStyle}>
+                <img
+                  src="/icons/google.svg"
+                  alt="Google"
+                  style={{ width: 16, height: 16 }}
+                />
+              </span>
+              <span style={oauthTextStyle}>Google</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleOAuthLogin("linkedin_oidc")}
-              style={oauthButtonStyle}
+              style={oauthPillButtonStyle}
             >
-              <LinkedInIcon />
-              <span>LinkedIn</span>
+              <span style={oauthIconWrapperStyle}>
+                <img
+                  src="/icons/linkedin.svg"
+                  alt="LinkedIn"
+                  style={{ width: 16, height: 16 }}
+                />
+              </span>
+              <span style={oauthTextStyle}>LinkedIn</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleOAuthLogin("github")}
-              style={oauthButtonStyle}
+              style={oauthPillButtonStyle}
             >
-              <GitHubIcon />
-              <span>GitHub</span>
+              <span style={oauthIconWrapperStyle}>
+                <img
+                  src="/icons/github.svg"
+                  alt="GitHub"
+                  style={{ width: 16, height: 16 }}
+                />
+              </span>
+              <span style={oauthTextStyle}>GitHub</span>
             </button>
           </div>
 
@@ -290,14 +308,9 @@ export default function AuthPage() {
             <div style={{ flex: 1, height: 1, background: "#1f2937" }} />
           </div>
 
-          {/* Toggle login / signup */}
+          {/* Toggle login/signup */}
           <div
-            style={{
-              display: "flex",
-              gap: 8,
-              marginBottom: 12,
-              fontSize: 13,
-            }}
+            style={{ display: "flex", gap: 8, marginBottom: 12, fontSize: 13 }}
           >
             <button
               type="button"
@@ -313,6 +326,7 @@ export default function AuthPage() {
             >
               Log in
             </button>
+
             <button
               type="button"
               onClick={() => setMode("signup")}
@@ -361,18 +375,14 @@ export default function AuthPage() {
               <div
                 style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}
               >
-                For MVP you can use a simple password; later we enforce
-                stronger rules.
+                For MVP you can use a simple password; later we enforce stronger
+                rules.
               </div>
             </InputBlock>
 
-            {error && (
-              <div style={errorBoxStyle}>{error}</div>
-            )}
+            {error && <div style={errorBoxStyle}>{error}</div>}
 
-            {message && (
-              <div style={successBoxStyle}>{message}</div>
-            )}
+            {message && <div style={successBoxStyle}>{message}</div>}
 
             <button
               type="submit"
@@ -395,12 +405,11 @@ export default function AuthPage() {
               textAlign: "center",
             }}
           >
-            After login, you&apos;ll be redirected to your dashboard to choose
-            how you want to use Quantum5ocial.
+            After login, you&apos;ll be redirected to your dashboard.
           </div>
         </div>
 
-        {/* FOOTER UNDER CARD */}
+        {/* FOOTER CARD */}
         <div
           style={{
             borderRadius: 16,
@@ -455,101 +464,43 @@ export default function AuthPage() {
 }
 
 /* ---------------------------- */
-/* Small “icon” components      */
+/* Reusable components & styles */
 /* ---------------------------- */
 
-function GoogleIcon() {
-  return (
-    <div
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: "999px",
-        background: "#ffffff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 12,
-        fontWeight: 700,
-        color: "#1f2937",
-      }}
-    >
-      G
-    </div>
-  );
-}
-
-function LinkedInIcon() {
-  return (
-    <div
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: "4px",
-        background: "#0a66c2",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 11,
-        fontWeight: 700,
-        color: "#ffffff",
-      }}
-    >
-      in
-    </div>
-  );
-}
-
-function GitHubIcon() {
-  return (
-    <div
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: "999px",
-        background: "#111827",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 13,
-        fontWeight: 700,
-        color: "#f9fafb",
-      }}
-    >
-      {/* simple cat-ish glyph: just “GH” for now */}
-      GH
-    </div>
-  );
-}
-
-/* ---------------------------- */
-/* Reusable styles + component  */
-/* ---------------------------- */
-
-const oauthButtonStyle = {
-  flex: 1,
-  padding: "7px 10px",
+const oauthPillButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  padding: "7px 14px",
   borderRadius: 999,
   border: "1px solid #374151",
   background: "#020617",
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 13,
-  display: "flex",
+  minWidth: 120,
+};
+
+const oauthIconWrapperStyle: React.CSSProperties = {
+  display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 6,
-} as const;
+};
 
-const toggleButtonStyle = {
+const oauthTextStyle: React.CSSProperties = {
+  lineHeight: 1,
+};
+
+const toggleButtonStyle: React.CSSProperties = {
   flex: 1,
   padding: "6px 0",
   borderRadius: 999,
   color: "#e5e7eb",
   cursor: "pointer",
-} as const;
+};
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "7px 9px",
   borderRadius: 9,
@@ -557,27 +508,27 @@ const inputStyle = {
   background: "#020617",
   color: "#e5e7eb",
   fontSize: 13,
-} as const;
+};
 
-const errorBoxStyle = {
+const errorBoxStyle: React.CSSProperties = {
   marginBottom: 10,
   padding: "8px 10px",
   borderRadius: 9,
   background: "#7f1d1d",
   color: "#fecaca",
   fontSize: 12,
-} as const;
+};
 
-const successBoxStyle = {
+const successBoxStyle: React.CSSProperties = {
   marginBottom: 10,
   padding: "8px 10px",
   borderRadius: 9,
   background: "#064e3b",
   color: "#bbf7d0",
   fontSize: 12,
-} as const;
+};
 
-const submitButtonStyle = {
+const submitButtonStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 0",
   borderRadius: 999,
@@ -586,7 +537,7 @@ const submitButtonStyle = {
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 14,
-} as const;
+};
 
 function InputBlock({ label, children }: any) {
   return (
