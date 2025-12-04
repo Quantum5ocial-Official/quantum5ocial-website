@@ -215,132 +215,121 @@ export default function ProductsPage() {
       <div className="page">
         <Navbar />
 
-        <section className="section">
-          <div className="section-header" style={{ marginBottom: 18 }}>
-            <div>
-              <div className="section-title">Quantum Marketplace</div>
-              <div className="section-sub">
-                Browse quantum products from startups, labs, and companies
-                worldwide.
-              </div>
+        {/* Same top-level layout as community.tsx */}
+        <main className="layout-3col">
+          {/* ========== LEFT: filters (acts like left column card) ========== */}
+          <aside className="products-filters layout-left">
+            <div className="products-filters-section">
+              <div className="products-filters-title">Search</div>
+              <input
+                className="products-filters-search"
+                type="text"
+                placeholder="Name, company, keywords..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
             </div>
-            {/* Button moved into middle column header below */}
-          </div>
 
-          {/* 3-column layout with same width as homepage */}
-          <div className="layout-3col">
-            {/* LEFT: filters */}
-            <aside className="products-filters">
-              <div className="products-filters-section">
-                <div className="products-filters-title">Search</div>
-                <input
-                  className="products-filters-search"
-                  type="text"
-                  placeholder="Name, company, keywords..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                />
-              </div>
-
-              <div className="products-filters-section">
-                <div className="products-filters-title">Category</div>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.4)",
-                    background: "rgba(15,23,42,0.9)",
-                    color: "#e5e7eb",
-                    fontSize: 13,
-                  }}
-                >
-                  <option value="all">All categories</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="products-filters-section">
-                <div className="products-filters-title">Price</div>
-                <select
-                  value={priceFilter}
-                  onChange={(e) =>
-                    setPriceFilter(e.target.value as "all" | "fixed" | "contact")
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.4)",
-                    background: "rgba(15,23,42,0.9)",
-                    color: "#e5e7eb",
-                    fontSize: 13,
-                  }}
-                >
-                  <option value="all">All</option>
-                  <option value="fixed">Fixed price</option>
-                  <option value="contact">Contact for price</option>
-                </select>
-              </div>
-
-              <div className="products-filters-section">
-                <div className="products-filters-title">Stock</div>
-                <select
-                  value={stockFilter}
-                  onChange={(e) =>
-                    setStockFilter(e.target.value as "all" | "in" | "out")
-                  }
-                  style={{
-                    width: "100%",
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.4)",
-                    background: "rgba(15,23,42,0.9)",
-                    color: "#e5e7eb",
-                    fontSize: 13,
-                  }}
-                >
-                  <option value="all">All</option>
-                  <option value="in">In stock</option>
-                  <option value="out">Out of stock</option>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={resetFilters}
+            <div className="products-filters-section">
+              <div className="products-filters-title">Category</div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
                 style={{
-                  marginTop: 8,
                   width: "100%",
-                  padding: "6px 12px",
+                  padding: "6px 10px",
                   borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.5)",
-                  background: "rgba(15,23,42,0.95)",
+                  border: "1px solid rgba(148,163,184,0.4)",
+                  background: "rgba(15,23,42,0.9)",
                   color: "#e5e7eb",
                   fontSize: 13,
-                  cursor: "pointer",
                 }}
               >
-                Reset filters
-              </button>
-            </aside>
+                <option value="all">All categories</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            {/* MIDDLE: results */}
-            <main className="products-results">
-              <div className="products-results-header products-results-header--with-button">
-                <div className="products-status">
-                  {loadingProducts
-                    ? "Loading products…"
-                    : `${filteredProducts.length} product${
-                        filteredProducts.length === 1 ? "" : "s"
-                      }`}
-                  {loadingSaved && " · updating saved…"}
+            <div className="products-filters-section">
+              <div className="products-filters-title">Price</div>
+              <select
+                value={priceFilter}
+                onChange={(e) =>
+                  setPriceFilter(e.target.value as "all" | "fixed" | "contact")
+                }
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.4)",
+                  background: "rgba(15,23,42,0.9)",
+                  color: "#e5e7eb",
+                  fontSize: 13,
+                }}
+              >
+                <option value="all">All</option>
+                <option value="fixed">Fixed price</option>
+                <option value="contact">Contact for price</option>
+              </select>
+            </div>
+
+            <div className="products-filters-section">
+              <div className="products-filters-title">Stock</div>
+              <select
+                value={stockFilter}
+                onChange={(e) =>
+                  setStockFilter(e.target.value as "all" | "in" | "out")
+                }
+                style={{
+                  width: "100%",
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.4)",
+                  background: "rgba(15,23,42,0.9)",
+                  color: "#e5e7eb",
+                  fontSize: 13,
+                }}
+              >
+                <option value="all">All</option>
+                <option value="in">In stock</option>
+                <option value="out">Out of stock</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={resetFilters}
+              style={{
+                marginTop: 8,
+                width: "100%",
+                padding: "6px 12px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.5)",
+                background: "rgba(15,23,42,0.95)",
+                color: "#e5e7eb",
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              Reset filters
+            </button>
+          </aside>
+
+          {/* ========== MIDDLE: header + products (inside layout-main like community) ========== */}
+          <section className="layout-main">
+            <section className="section">
+              {/* Heading now aligned with middle column like community/jobs */}
+              <div className="section-header">
+                <div>
+                  <div className="section-title">Quantum Marketplace</div>
+                  <div className="section-sub">
+                    Browse quantum products from startups, labs, and companies
+                    worldwide.
+                  </div>
                 </div>
 
                 <button
@@ -350,6 +339,17 @@ export default function ProductsPage() {
                 >
                   List your product
                 </button>
+              </div>
+
+              <div className="products-results-header">
+                <div className="products-status">
+                  {loadingProducts
+                    ? "Loading products…"
+                    : `${filteredProducts.length} product${
+                        filteredProducts.length === 1 ? "" : "s"
+                      }`}
+                  {loadingSaved && " · updating saved…"}
+                </div>
               </div>
 
               {error && (
@@ -399,8 +399,8 @@ export default function ProductsPage() {
                               type="button"
                               className="product-save-btn"
                               onClick={(e) => {
-                                e.preventDefault(); // don't navigate
-                                e.stopPropagation(); // don't bubble to Link
+                                e.preventDefault();
+                                e.stopPropagation();
                                 toggleSaved(p.id);
                               }}
                               aria-label={
@@ -445,18 +445,16 @@ export default function ProductsPage() {
                   })}
                 </div>
               )}
-            </main>
+            </section>
+          </section>
 
-            {/* RIGHT: featured column */}
-            <aside className="products-featured">
-              <div className="products-featured-title">Featured</div>
-              <div className="products-featured-item">Coming soon…</div>
-              <div className="products-featured-item">
-                Sponsored product slot
-              </div>
-            </aside>
-          </div>
-        </section>
+          {/* ========== RIGHT: featured column, same width style as community right bar ========== */}
+          <aside className="products-featured layout-right">
+            <div className="products-featured-title">Featured</div>
+            <div className="products-featured-item">Coming soon…</div>
+            <div className="products-featured-item">Sponsored product slot</div>
+          </aside>
+        </main>
       </div>
     </>
   );
