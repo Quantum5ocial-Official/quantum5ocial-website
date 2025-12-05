@@ -222,7 +222,21 @@ export default function Home() {
     <>
       <div className="bg-layer" />
       <div className="page">
-        <Navbar />
+
+  {/* NAVBAR aligned to the grid */}
+  <div className="layout-3col navbar-grid">
+    <div className="navbar-left">
+      <Navbar section="left" />
+    </div>
+
+    <div className="navbar-middle"></div>
+
+    <div className="navbar-right">
+      <Navbar section="right" />
+    </div>
+  </div>
+
+  <main className="layout-3col">
 
         {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
