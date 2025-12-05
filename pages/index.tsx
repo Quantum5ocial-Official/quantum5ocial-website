@@ -282,47 +282,30 @@ export default function Home() {
                 </div>
               )}
             </Link>
-            // === LOAD DASHBOARD COUNTS (saved jobs/products + entangled states) ===
-useEffect(() => {
-  const loadCounts = async () => {
-    if (!user) {
-      setSavedJobsCount(null);
-      setSavedProductsCount(null);
-      setEntangledCount(null);
-      return;
-    }
-
-    const userId = user.id;
-
-    // Saved jobs
-    const { count: jobsCount } = await supabase
-      .from("saved_jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-
-    setSavedJobsCount(jobsCount ?? 0);
-
-    // Saved products
-    const { count: productsCount } = await supabase
-      .from("saved_products")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-
-    setSavedProductsCount(productsCount ?? 0);
-
-    // Entangled states (accepted connections involving this user)
-    const { count: entCount } = await supabase
-      .from("connections")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "accepted")
-      .or(`user_id.eq.${userId},target_user_id.eq.${userId}`);
-
-    setEntangledCount(entCount ?? 0);
-  };
-
-  loadCounts();
-}, [user]);
-
+            {/* Quick dashboard card */}
+            <div className="sidebar-card dashboard-sidebar-card">
+              <div className="dashboard-sidebar-title">Quick dashboard</div>
+              <div className="dashboard-sidebar-links">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="dashboard-sidebar-link"
+                >
+                  Entangled states
+                </Link>
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-sidebar-link"
+                >
+                  Saved jobs
+                </Link>
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-sidebar-link"
+                >
+                  Saved products
+                </Link>
+              </div>
+            </div>
             {/* Social icons + brand logo/name at bottom of left column */}
             <div
               style={{
