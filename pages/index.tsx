@@ -60,9 +60,7 @@ export default function Home() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
 
   // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
@@ -154,9 +152,7 @@ export default function Home() {
   // === HELPERS ===
 
   const formatJobMeta = (job: Job) =>
-    [job.company_name, job.location, job.remote_type]
-      .filter(Boolean)
-      .join(" · ");
+    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -222,7 +218,7 @@ export default function Home() {
     <>
       <div className="bg-layer" />
       <div className="page">
-  <Navbar />
+        <Navbar />
 
         {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
