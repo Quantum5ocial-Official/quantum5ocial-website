@@ -2433,3 +2433,28 @@ html.theme-light footer {
     grid-template-columns: 1fr !important;
   }
 }
+.navbar-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr 280px;   /* MUST match layout-3col */
+  padding: 16px 0;
+  align-items: center;
+}
+
+.navbar-left,
+.navbar-middle,
+.navbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.navbar-left {
+  justify-content: flex-start;
+}
+
+.navbar-middle {
+  justify-content: center;
+}
+
+.navbar-right {
+  justify-content: flex-end;
+}
