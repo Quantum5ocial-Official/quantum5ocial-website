@@ -448,16 +448,16 @@ export default function Home() {
                 </h1>
                 <p className="hero-sub">
                   Quantum5ocial connects students, researchers, and companies
-                  with curated opportunities and products across the global
+                  with curated opportunities, services and products across the global
                   quantum ecosystem.
                 </p>
 
                 <div className="hero-tags">
                   <span className="tag-chip">
-                    PhD, postdoc, and industry roles
+                    Intern, PhD, Postdoc, and Industry roles
                   </span>
                   <span className="tag-chip">
-                    Startups, vendors, and labs
+                    Startups, Vendors, and Labs
                   </span>
                   <span className="tag-chip">
                     Hardware · Software · Services
@@ -465,7 +465,7 @@ export default function Home() {
                 </div>
 
                 <p className="hero-note">
-                  Start with marketplace features now – and evolve into a full
+                  Starting with marketplace features now, and evolving into a full
                   social platform as the community grows.
                 </p>
               </div>
