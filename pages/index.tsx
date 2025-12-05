@@ -236,8 +236,6 @@ export default function Home() {
     </div>
   </div>
 
-  <main className="layout-3col">
-
         {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
           {/* LEFT SIDEBAR */}
