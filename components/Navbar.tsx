@@ -147,9 +147,9 @@ export default function Navbar() {
       <div
         className="nav-inner"
         style={{
-          maxWidth: 1400,          // <--- was 1280, now a bit wider
+          maxWidth: 1400,
           margin: "0 auto",
-          padding: "0 32px",       // <--- slightly more padding
+          padding: "0 32px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -223,6 +223,14 @@ export default function Navbar() {
 
               {isDashboardOpen && (
                 <div className="nav-dashboard-menu right-align">
+                  {/* NEW: Overview item */}
+                  <Link
+                    href="/dashboard"
+                    className="nav-dropdown-item"
+                    onClick={() => setIsDashboardOpen(false)}
+                  >
+                    Overview
+                  </Link>
                   <Link
                     href="/dashboard/entangled-states"
                     className="nav-dropdown-item"
