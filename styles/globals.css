@@ -141,7 +141,7 @@ a:focus {
 .brand-clickable {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   text-decoration: none !important;
   color: inherit !important;
 }
