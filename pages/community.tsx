@@ -685,7 +685,7 @@ export default function CommunityPage() {
                 textAlign: "right",
               }}
             >
-              © 2025 Quantum5ocial · All rights reserved
+              © 2025 Quantum5ocial
             </div>
           </aside>
         </main>
