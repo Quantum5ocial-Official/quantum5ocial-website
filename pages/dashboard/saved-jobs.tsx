@@ -2,14 +2,27 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import { useRouter } from "next/router";
+import JobCard from "../../components/JobCard";
 
-// Reuse Navbar
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
-// Sidebar profile fields
+// Job fields as used by JobCard
+type Job = {
+  id: string;
+  title: string | null;
+  company_name: string | null;
+  location: string | null;
+  employment_type: string | null;
+  remote_type: string | null;
+  short_description: string | null;
+  salary_display: string | null;
+  keywords: string | null;
+};
+
+// Sidebar profile summary
 type ProfileSummary = {
   id: string;
   full_name: string | null;
@@ -21,72 +34,75 @@ type ProfileSummary = {
   city: string | null;
 };
 
-// Saved job row (with nested job)
-type SavedJob = {
-  id: string;
-  job: {
-    id: string;
-    title: string;
-    organisation_name: string | null;
-    location_text: string | null;
-    job_type: string | null;
-    salary_text: string | null;
-    short_description: string | null;
-  } | null;
-};
-
 export default function SavedJobsPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  // Sidebar
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [status, setStatus] = useState<string>("Loading saved jobs…");
+  const [error, setError] = useState<string | null>(null);
+
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  // ----- sidebar state -----
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
   const [savedJobsCount, setSavedJobsCount] = useState(0);
   const [savedProductsCount, setSavedProductsCount] = useState(0);
   const [entangledCount, setEntangledCount] = useState(0);
 
-  // Saved jobs list
-  const [saved, setSaved] = useState<SavedJob[]>([]);
-  const [loadingSaved, setLoadingSaved] = useState(true);
-
-  // --------------------------
-  // Redirect non-logged users
-  // --------------------------
+  // redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/dashboard/saved-jobs");
     }
   }, [loading, user, router]);
 
-  // --------------------------
-  // Load sidebar profile
-  // --------------------------
+  // ---- load sidebar profile ----
   useEffect(() => {
-    if (!user) return;
-
     const loadProfile = async () => {
-      const { data } = await supabase
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
         .from("profiles")
         .select(
           `
-          id, full_name, avatar_url, role,
-          highest_education, affiliation, country, city
+          id,
+          full_name,
+          avatar_url,
+          role,
+          highest_education,
+          affiliation,
+          country,
+          city
         `
         )
         .eq("id", user.id)
         .maybeSingle();
 
-      setProfileSummary(data || null);
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
     };
 
-    loadProfile();
+    if (user) loadProfile();
   }, [user]);
 
-  // --------------------------
-  // Load sidebar counters
-  // --------------------------
+  // ---- load sidebar counters ----
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setSavedJobsCount(0);
+      setSavedProductsCount(0);
+      setEntangledCount(0);
+      return;
+    }
 
     const loadCounts = async () => {
       const { count: jobsCount } = await supabase
@@ -113,38 +129,127 @@ export default function SavedJobsPage() {
     loadCounts();
   }, [user]);
 
-  // --------------------------
-  // Load saved jobs
-  // --------------------------
+  // ---- load saved jobs list ----
   useEffect(() => {
-    if (!user) return;
+    const loadSavedJobs = async () => {
+      if (!user) return;
 
-    const loadSaved = async () => {
-      setLoadingSaved(true);
+      setStatus("Loading saved jobs…");
+      setError(null);
 
-      const { data } = await supabase
+      // 1) fetch ids from saved_jobs
+      const { data: savedRows, error: savedErr } = await supabase
         .from("saved_jobs")
-        .select("id, job:jobs(*)")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .select("job_id")
+        .eq("user_id", user.id);
 
-      setSaved((data as SavedJob[]) || []);
-      setLoadingSaved(false);
+      if (savedErr) {
+        console.error("Error loading saved jobs", savedErr);
+        setError("Could not load saved jobs.");
+        setStatus("");
+        return;
+      }
+
+      const ids = (savedRows || []).map((r: any) => r.job_id as string);
+
+      if (ids.length === 0) {
+        setJobs([]);
+        setSavedJobIds([]);
+        setSavedJobsCount(0);
+        setStatus("You have not saved any jobs yet.");
+        return;
+      }
+
+      // 2) fetch job records
+      const { data: jobsData, error: jobsErr } = await supabase
+        .from("jobs")
+        .select("*")
+        .in("id", ids);
+
+      if (jobsErr) {
+        console.error("Error loading jobs", jobsErr);
+        setError("Could not load jobs.");
+        setStatus("");
+        return;
+      }
+
+      setJobs((jobsData || []) as Job[]);
+      setSavedJobIds(ids);
+      setSavedJobsCount(ids.length);
+      setStatus("");
     };
 
-    loadSaved();
+    if (user) loadSavedJobs();
   }, [user]);
 
-  // ==========================
-  // Render
-  // ==========================
+  const isSaved = (id: string) => savedJobIds.includes(id);
 
-  const sidebarName =
-    profileSummary?.full_name ||
-    user?.email?.split("@")[0] ||
-    "Your profile";
+  const handleToggleSave = async (jobId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/dashboard/saved-jobs");
+      return;
+    }
+
+    const alreadySaved = isSaved(jobId);
+    setSavingId(jobId);
+
+    try {
+      if (alreadySaved) {
+        const { error } = await supabase
+          .from("saved_jobs")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("job_id", jobId);
+
+        if (error) {
+          console.error("Error unsaving job", error);
+        } else {
+          setSavedJobIds((prev) => prev.filter((id) => id !== jobId));
+          setJobs((prev) => prev.filter((job) => job.id !== jobId));
+          setSavedJobsCount((c) => Math.max(0, c - 1));
+        }
+      } else {
+        const { error } = await supabase.from("saved_jobs").insert({
+          user_id: user.id,
+          job_id: jobId,
+        });
+
+        if (error) {
+          console.error("Error saving job", error);
+        } else {
+          setSavedJobIds((prev) => [...prev, jobId]);
+          setSavedJobsCount((c) => c + 1);
+        }
+      }
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  if (!user && !loading) return null;
+
+  // ---- sidebar helpers ----
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
+
+  const sidebarFullName =
+    profileSummary?.full_name || fallbackName || "Your profile";
 
   const avatarUrl = profileSummary?.avatar_url || null;
+  const educationLevel = profileSummary?.highest_education || "";
+  const describesYou = profileSummary?.role || "";
+  const affiliation =
+    profileSummary?.affiliation ||
+    [profileSummary?.city, profileSummary?.country]
+      .filter(Boolean)
+      .join(", ") ||
+    "";
+
+  const hasProfileExtraInfo =
+    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
 
   return (
     <>
@@ -153,55 +258,88 @@ export default function SavedJobsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* -------------------------------------- */}
-          {/* LEFT SIDEBAR (same as community) */}
-          {/* -------------------------------------- */}
-          <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column" }}>
-            {/* Profile card */}
-            <Link href="/profile" className="sidebar-card profile-sidebar-card">
+          {/* ========== LEFT SIDEBAR (same as community / saved-products) ========== */}
+          <aside
+            className="layout-left sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
+            {/* Profile card – clickable, goes to My profile */}
+            <Link
+              href="/profile"
+              className="sidebar-card profile-sidebar-card"
+            >
               <div className="profile-sidebar-header">
                 <div className="profile-sidebar-avatar-wrapper">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt={sidebarName} className="profile-sidebar-avatar" />
+                    <img
+                      src={avatarUrl}
+                      alt={sidebarFullName}
+                      className="profile-sidebar-avatar"
+                    />
                   ) : (
                     <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarName.charAt(0).toUpperCase()}
+                      {sidebarFullName.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="profile-sidebar-name">{sidebarName}</div>
+                <div className="profile-sidebar-name">
+                  {sidebarFullName}
+                </div>
               </div>
 
-              <div className="profile-sidebar-info-block">
-                {profileSummary?.role && (
-                  <div className="profile-sidebar-info-value">{profileSummary.role}</div>
-                )}
-                {profileSummary?.affiliation && (
-                  <div className="profile-sidebar-info-value">{profileSummary.affiliation}</div>
-                )}
-              </div>
+              {hasProfileExtraInfo && (
+                <div className="profile-sidebar-info-block">
+                  {educationLevel && (
+                    <div className="profile-sidebar-info-value">
+                      {educationLevel}
+                    </div>
+                  )}
+                  {describesYou && (
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
+                      {describesYou}
+                    </div>
+                  )}
+                  {affiliation && (
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
+                      {affiliation}
+                    </div>
+                  )}
+                </div>
+              )}
             </Link>
 
-            {/* Dashboard quick links */}
+            {/* Quick dashboard card with counters */}
             <div className="sidebar-card dashboard-sidebar-card">
               <div className="dashboard-sidebar-title">Quick dashboard</div>
-
               <div className="dashboard-sidebar-links">
-                <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="dashboard-sidebar-link"
+                >
                   Entangled states ({entangledCount})
                 </Link>
-
-                <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link">
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-sidebar-link"
+                >
                   Saved jobs ({savedJobsCount})
                 </Link>
-
-                <Link href="/dashboard/saved-products" className="dashboard-sidebar-link">
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-sidebar-link"
+                >
                   Saved products ({savedProductsCount})
                 </Link>
               </div>
             </div>
 
-            {/* Footer social */}
+            {/* Social icons + brand logo/name */}
             <div
               style={{
                 marginTop: "auto",
@@ -212,22 +350,71 @@ export default function SavedJobsPage() {
                 gap: 10,
               }}
             >
-              <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-                <a style={{ color: "rgba(148,163,184,0.9)" }} href="mailto:info@quantum5ocial.com">
+              {/* Icons row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  fontSize: 18,
+                  alignItems: "center",
+                }}
+              >
+                {/* Email */}
+                <a
+                  href="mailto:info@quantum5ocial.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Email Quantum5ocial"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
                   ✉️
                 </a>
-                <a style={{ color: "rgba(148,163,184,0.9)" }} href="#">
+
+                {/* X */}
+                <a
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Quantum5ocial on X"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
                   𝕏
                 </a>
-                <a style={{ color: "rgba(148,163,184,0.9)" }} href="#">
+
+                {/* GitHub */}
+                <a
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Quantum5ocial on GitHub"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
                   🐱
                 </a>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <img src="/Q5_white_bg.png" style={{ width: 32, height: 32 }} />
+              {/* Brand row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <img
+                  src="/Q5_white_bg.png"
+                  alt="Quantum5ocial logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 4,
+                    objectFit: "contain",
+                  }}
+                />
                 <span
                   style={{
+                    fontSize: 14,
+                    fontWeight: 500,
                     background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
@@ -239,132 +426,138 @@ export default function SavedJobsPage() {
             </div>
           </aside>
 
-          {/* -------------------------------------- */}
-          {/* MIDDLE COLUMN — SAVED JOB CARDS */}
-          {/* -------------------------------------- */}
+          {/* ========== MIDDLE COLUMN – SAVED JOB CARDS ========== */}
           <section className="layout-main">
             <section className="section">
               <div className="section-header">
                 <div>
                   <div className="section-title">Saved jobs</div>
                   <div className="section-sub">
-                    Jobs you've liked from the Quantum Jobs Universe.
+                    Jobs you&apos;ve liked from the Quantum Jobs Universe.
                   </div>
                 </div>
-
-                <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
-                  {saved.length} job{saved.length === 1 ? "" : "s"} saved
-                </div>
+                {!status && (
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {jobs.length} job{jobs.length === 1 ? "" : "s"} saved
+                  </div>
+                )}
               </div>
 
-              {loadingSaved && <p className="profile-muted">Loading saved jobs…</p>}
-
-              {!loadingSaved && saved.length === 0 && (
-                <p className="profile-muted">
-                  You haven't saved any jobs yet. Tap the heart on a job to add it here.
+              {status && (
+                <p
+                  className={
+                    error ? "dashboard-status error" : "dashboard-status"
+                  }
+                >
+                  {status}
                 </p>
               )}
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                  gap: 18,
-                }}
-              >
-                {saved.map((row) => {
-                  const job = row.job;
-                  if (!job) return null;
+              {!status && jobs.length === 0 && !error && (
+                <p className="dashboard-status">
+                  You haven&apos;t saved any roles yet. Explore jobs and tap the
+                  heart to keep them here.
+                </p>
+              )}
 
-                  return (
-                    <div
+              {jobs.length > 0 && (
+                <div className="jobs-grid">
+                  {jobs.map((job) => (
+                    <JobCard
                       key={job.id}
-                      className="job-tile"
-                      style={{
-                        padding: "16px 18px",
-                        borderRadius: 16,
-                        border: "1px solid rgba(148,163,184,0.18)",
-                        background:
-                          "radial-gradient(circle at top left, rgba(34,211,238,0.10), transparent 55%), rgba(2,6,23,0.6)",
+                      job={job as any}
+                      isSaved={isSaved(job.id)}
+                      onToggleSave={() => {
+                        if (!savingId) handleToggleSave(job.id);
                       }}
-                    >
-                      <div style={{ marginBottom: 4, fontWeight: 600, fontSize: 15 }}>
-                        {job.title}
-                      </div>
-
-                      <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 4 }}>
-                        {job.organisation_name || "Unknown org"} · {job.location_text || "Location TBA"}
-                      </div>
-
-                      <div style={{ fontSize: 13, marginBottom: 6 }}>
-                        {job.short_description || ""}
-                      </div>
-
-                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>
-                          {job.salary_text || ""}
-                        </div>
-                        <div style={{ fontSize: 13, opacity: 0.7 }}>
-                          {job.job_type || "Full-time"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           </section>
 
-          {/* -------------------------------------- */}
-          {/* RIGHT SIDEBAR — HIGHLIGHTED TILES */}
-          {/* -------------------------------------- */}
-          <aside className="layout-right sticky-col">
+          {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES ========== */}
+          <aside
+            className="layout-right sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             <div className="hero-tiles hero-tiles-vertical">
-              {/* spotlight tiles reused exactly */}
+              {/* Highlighted jobs */}
               <div className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
                   <div className="tile-title-row">
-                    <div className="tile-title">Quantum roles spotlight</div>
+                    <div className="tile-title">
+                      Quantum roles spotlight
+                    </div>
                     <div className="tile-icon-orbit">🧪</div>
                   </div>
                   <p className="tile-text">
                     A curated spotlight job from the Quantum Jobs Universe.
                   </p>
-                  <div className="tile-cta">Jobs spotlight ›</div>
+                  <div className="tile-cta">
+                    Jobs spotlight <span>›</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Highlighted products */}
               <div className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
                   <div className="tile-title-row">
-                    <div className="tile-title">Quantum product of the week</div>
+                    <div className="tile-title">
+                      Quantum product of the week
+                    </div>
                     <div className="tile-icon-orbit">🔧</div>
                   </div>
                   <p className="tile-text">
-                    Highlighting a selected product from the Quantum Products Lab.
+                    Highlighting a selected hardware, software, or service from
+                    the Quantum Products Lab.
                   </p>
-                  <div className="tile-cta">Product spotlight ›</div>
+                  <div className="tile-cta">
+                    Product spotlight <span>›</span>
+                  </div>
                 </div>
               </div>
 
+              {/* Highlighted talent */}
               <div className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
                   <div className="tile-title-row">
-                    <div className="tile-title">Featured quantum talent</div>
+                    <div className="tile-title">
+                      Featured quantum talent
+                    </div>
                     <div className="tile-icon-orbit">🤝</div>
                   </div>
                   <p className="tile-text">
-                    A standout researcher, founder, or engineer.
+                    A standout community member – for example a PI, postdoc, or
+                    startup founder.
                   </p>
-                  <div className="tile-cta">Talent spotlight ›</div>
+                  <div className="tile-cta">
+                    Talent spotlight <span>›</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div style={{ marginTop: "auto", paddingTop: 12, textAlign: "right", fontSize: 12 }}>
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 12,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                fontSize: 12,
+                color: "rgba(148,163,184,0.9)",
+                textAlign: "right",
+              }}
+            >
               © 2025 Quantum5ocial
             </div>
           </aside>
