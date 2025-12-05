@@ -19,6 +19,44 @@ const CATEGORIES = [
   "Other",
 ];
 
+const PRODUCT_TYPE_FILTERS = [
+  "All",
+  "Hardware",
+  "Software",
+  "Service",
+  "Consulting",
+  "Other",
+];
+
+const TECH_TYPE_FILTERS = [
+  "All",
+  "Cryogenics",
+  "Control / AWG / RF",
+  "Readout / Amplifiers",
+  "Fabrication / Foundry",
+  "Qubits / Chips / Devices",
+  "Software / Simulation",
+  "Other",
+];
+
+const ORG_TYPE_FILTERS = [
+  "All",
+  "Startup",
+  "Company",
+  "University / Lab",
+  "Consortium / Institute",
+  "Other",
+];
+
+const DOMAIN_FILTERS = [
+  "All",
+  "Quantum computing",
+  "Quantum communication",
+  "Quantum sensing / metrology",
+  "Quantum materials / fabrication",
+  "Generic / platform",
+];
+
 type Product = {
   id: string;
   name: string;
@@ -32,6 +70,12 @@ type Product = {
   image1_url: string | null;
   image2_url: string | null;
   image3_url: string | null;
+
+  // extra optional metadata for richer filters
+  product_type: string | null;      // Hardware / Software / Service / Consulting / Other
+  technology_type: string | null;   // coarse tech modality
+  organisation_type: string | null; // Startup / Company / University / ...
+  quantum_domain: string | null;    // Computing / Communication / Sensing / ...
 };
 
 export default function ProductsPage() {
@@ -48,6 +92,10 @@ export default function ProductsPage() {
   // Filters
   const [searchText, setSearchText] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [productTypeFilter, setProductTypeFilter] = useState<string>("All");
+  const [techTypeFilter, setTechTypeFilter] = useState<string>("All");
+  const [orgTypeFilter, setOrgTypeFilter] = useState<string>("All");
+  const [domainFilter, setDomainFilter] = useState<string>("All");
   const [priceFilter, setPriceFilter] = useState<"all" | "fixed" | "contact">(
     "all"
   );
@@ -144,6 +192,13 @@ export default function ProductsPage() {
     }
   };
 
+  const normalize = (v: string | null) => (v || "").toLowerCase();
+
+  const matchesCategoryFilter = (filterValue: string, fieldValue: string | null) => {
+    if (filterValue === "All") return true;
+    return normalize(fieldValue) === filterValue.toLowerCase();
+  };
+
   // --- Filtered & derived lists ---
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -155,6 +210,9 @@ export default function ProductsPage() {
           p.company_name,
           p.short_description,
           p.category,
+          p.product_type,
+          p.technology_type,
+          p.quantum_domain,
         ]
           .filter(Boolean)
           .join(" ")
@@ -168,7 +226,27 @@ export default function ProductsPage() {
         if (!p.category || p.category !== categoryFilter) return false;
       }
 
-      // price
+      // product type (Hardware / Software / Service / Consulting / Other)
+      if (!matchesCategoryFilter(productTypeFilter, p.product_type)) {
+        return false;
+      }
+
+      // technology type
+      if (!matchesCategoryFilter(techTypeFilter, p.technology_type)) {
+        return false;
+      }
+
+      // organisation type
+      if (!matchesCategoryFilter(orgTypeFilter, p.organisation_type)) {
+        return false;
+      }
+
+      // quantum domain
+      if (!matchesCategoryFilter(domainFilter, p.quantum_domain)) {
+        return false;
+      }
+
+      // price type
       if (priceFilter !== "all") {
         const pt = p.price_type || "contact";
         if (priceFilter === "fixed" && pt !== "fixed") return false;
@@ -184,11 +262,25 @@ export default function ProductsPage() {
 
       return true;
     });
-  }, [products, searchText, categoryFilter, priceFilter, stockFilter]);
+  }, [
+    products,
+    searchText,
+    categoryFilter,
+    productTypeFilter,
+    techTypeFilter,
+    orgTypeFilter,
+    domainFilter,
+    priceFilter,
+    stockFilter,
+  ]);
 
   const resetFilters = () => {
     setSearchText("");
     setCategoryFilter("all");
+    setProductTypeFilter("All");
+    setTechTypeFilter("All");
+    setOrgTypeFilter("All");
+    setDomainFilter("All");
     setPriceFilter("all");
     setStockFilter("all");
   };
@@ -215,124 +307,162 @@ export default function ProductsPage() {
       <div className="page">
         <Navbar />
 
-        {/* Same top-level layout as community.tsx */}
+        {/* Same 3-column layout as community / jobs */}
         <main className="layout-3col">
-          {/* ========== LEFT: filters (acts like left column card) ========== */}
-          <aside className="products-filters layout-left">
-            <div className="products-filters-section">
-              <div className="products-filters-title">Search</div>
-              <input
-                className="products-filters-search"
-                type="text"
-                placeholder="Name, company, keywords..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-              />
-            </div>
+          {/* ========== LEFT: filters inside sidebar-card ========== */}
+          <aside className="layout-left sticky-col">
+            <div className="sidebar-card">
+              {/* Search */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Search</div>
+                <input
+                  className="products-filters-input"
+                  type="text"
+                  placeholder="Name, company, keywords…"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                />
+              </div>
 
-            <div className="products-filters-section">
-              <div className="products-filters-title">Category</div>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  background: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 13,
-                }}
+              {/* Category */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Category</div>
+                <select
+                  className="products-filters-input"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <option value="all">All categories</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Product type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Product type</div>
+                <select
+                  className="products-filters-input"
+                  value={productTypeFilter}
+                  onChange={(e) => setProductTypeFilter(e.target.value)}
+                >
+                  {PRODUCT_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Technology type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Technology</div>
+                <select
+                  className="products-filters-input"
+                  value={techTypeFilter}
+                  onChange={(e) => setTechTypeFilter(e.target.value)}
+                >
+                  {TECH_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Organisation type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Organisation</div>
+                <select
+                  className="products-filters-input"
+                  value={orgTypeFilter}
+                  onChange={(e) => setOrgTypeFilter(e.target.value)}
+                >
+                  {ORG_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantum domain */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Quantum domain</div>
+                <select
+                  className="products-filters-input"
+                  value={domainFilter}
+                  onChange={(e) => setDomainFilter(e.target.value)}
+                >
+                  {DOMAIN_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Price</div>
+                <select
+                  className="products-filters-input"
+                  value={priceFilter}
+                  onChange={(e) =>
+                    setPriceFilter(
+                      e.target.value as "all" | "fixed" | "contact"
+                    )
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="fixed">Fixed price</option>
+                  <option value="contact">Contact for price</option>
+                </select>
+              </div>
+
+              {/* Stock */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Stock</div>
+                <select
+                  className="products-filters-input"
+                  value={stockFilter}
+                  onChange={(e) =>
+                    setStockFilter(e.target.value as "all" | "in" | "out")
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="in">In stock</option>
+                  <option value="out">Out of stock</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                style={{ width: "100%", marginTop: 8 }}
+                onClick={resetFilters}
               >
-                <option value="all">All categories</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                Reset filters
+              </button>
             </div>
-
-            <div className="products-filters-section">
-              <div className="products-filters-title">Price</div>
-              <select
-                value={priceFilter}
-                onChange={(e) =>
-                  setPriceFilter(e.target.value as "all" | "fixed" | "contact")
-                }
-                style={{
-                  width: "100%",
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  background: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 13,
-                }}
-              >
-                <option value="all">All</option>
-                <option value="fixed">Fixed price</option>
-                <option value="contact">Contact for price</option>
-              </select>
-            </div>
-
-            <div className="products-filters-section">
-              <div className="products-filters-title">Stock</div>
-              <select
-                value={stockFilter}
-                onChange={(e) =>
-                  setStockFilter(e.target.value as "all" | "in" | "out")
-                }
-                style={{
-                  width: "100%",
-                  padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  background: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 13,
-                }}
-              >
-                <option value="all">All</option>
-                <option value="in">In stock</option>
-                <option value="out">Out of stock</option>
-              </select>
-            </div>
-
-            <button
-              type="button"
-              onClick={resetFilters}
-              style={{
-                marginTop: 8,
-                width: "100%",
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.5)",
-                background: "rgba(15,23,42,0.95)",
-                color: "#e5e7eb",
-                fontSize: 13,
-                cursor: "pointer",
-              }}
-            >
-              Reset filters
-            </button>
           </aside>
 
-          {/* ========== MIDDLE: header + products (inside layout-main like community) ========== */}
+          {/* ========== MIDDLE: header + products (layout-main) ========== */}
           <section className="layout-main">
             <section className="section">
-              {/* Heading now aligned with middle column like community/jobs */}
               <div className="section-header">
                 <div>
                   <div className="section-title">Quantum Marketplace</div>
                   <div
-  className="section-sub"
-  style={{ maxWidth: "480px", lineHeight: "1.45" }}
->
-  Browse quantum products/services from startups, labs, and companies
-  worldwide.
-</div>
+                    className="section-sub"
+                    style={{ maxWidth: "480px", lineHeight: "1.45" }}
+                  >
+                    Browse quantum hardware, software, and services from startups,
+                    labs, and companies.
+                  </div>
                 </div>
 
                 <button
@@ -356,7 +486,10 @@ export default function ProductsPage() {
               </div>
 
               {error && (
-                <div className="products-status error" style={{ marginBottom: 8 }}>
+                <div
+                  className="products-status"
+                  style={{ marginBottom: 8, color: "#f97373" }}
+                >
                   {error}
                 </div>
               )}
@@ -451,11 +584,55 @@ export default function ProductsPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT: featured column, same width style as community right bar ========== */}
-          <aside className="products-featured layout-right">
-            <div className="products-featured-title">Featured</div>
-            <div className="products-featured-item">Coming soon…</div>
-            <div className="products-featured-item">Sponsored product slot</div>
+          {/* ========== RIGHT: highlighted tiles like other pages ========== */}
+          <aside className="layout-right sticky-col">
+            <div className="hero-tiles hero-tiles-vertical">
+              {/* Highlighted product */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Product of the week</div>
+                    <div className="tile-icon-orbit">🔧</div>
+                  </div>
+                  <p className="tile-text">
+                    Later this can highlight a sponsored or curated product from
+                    the marketplace.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Hardware</span>
+                    <span className="tile-pill">Software</span>
+                    <span className="tile-pill">Service</span>
+                  </div>
+                  <div className="tile-cta">
+                    Product spotlight <span>›</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vendor spotlight */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Featured vendor</div>
+                    <div className="tile-icon-orbit">🏭</div>
+                  </div>
+                  <p className="tile-text">
+                    A startup, company, or lab showcasing multiple products in
+                    the Quantum Marketplace.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Startup</span>
+                    <span className="tile-pill">Cryo / RF</span>
+                    <span className="tile-pill">Chips</span>
+                  </div>
+                  <div className="tile-cta">
+                    Vendor spotlight <span>›</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </aside>
         </main>
       </div>
