@@ -469,100 +469,124 @@ export default function JobsIndexPage() {
                 <>
                   {/* Top recommendations */}
                   {recommendedJobs.length > 0 && (
-                    <div style={{ marginBottom: 24 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "baseline",
-                          marginBottom: 8,
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: "0.9rem",
-                            fontWeight: 500,
-                          }}
-                        >
-                          Top recommendations based on your profile
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: "var(--text-muted)",
-                          }}
-                        >
-                          For now this uses your filters · later: AI profile
-                          matching
-                        </div>
-                      </div>
+  <div
+    style={{
+      marginBottom: 32,
+      padding: 16,
+      borderRadius: 16,
+      border: "1px solid rgba(56,189,248,0.35)", // cyan-ish
+      background:
+        "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        marginBottom: 12,
+        gap: 12,
+      }}
+    >
+      <div>
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#7dd3fc",
+            marginBottom: 4,
+          }}
+        >
+          Recommended for you
+        </div>
+        <div
+          style={{
+            fontSize: "0.95rem",
+            fontWeight: 600,
+            background: "linear-gradient(90deg,#22d3ee,#a855f7)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          Top recommendations based on your profile
+        </div>
+      </div>
 
-                      <div className="jobs-grid">
-                        {recommendedJobs.map((job) => {
-                          const saved = isSaved(job.id);
-                          return (
-                            <Link
-                              key={job.id}
-                              href={`/jobs/${job.id}`}
-                              className="job-card"
-                            >
-                              <div className="job-card-header">
-                                <div>
-                                  <div className="job-card-title">
-                                    {job.title || "Untitled role"}
-                                  </div>
-                                  <div className="job-card-meta">
-                                    {job.company_name &&
-                                      `${job.company_name} · `}
-                                    {job.location}
-                                    {job.remote_type
-                                      ? ` · ${job.remote_type}`
-                                      : ""}
-                                  </div>
-                                </div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--text-muted)",
+          textAlign: "right",
+        }}
+      >
+        For now based on your filters. <br />
+        Later: AI profile matching.
+      </div>
+    </div>
 
-                                <button
-                                  type="button"
-                                  className="product-save-btn"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    if (!savingId) {
-                                      handleToggleSave(job.id);
-                                    }
-                                  }}
-                                  aria-label={
-                                    saved
-                                      ? "Remove from saved jobs"
-                                      : "Save job"
-                                  }
-                                >
-                                  {saved ? "❤️" : "🤍"}
-                                </button>
-                              </div>
+    <div className="jobs-grid">
+      {recommendedJobs.map((job) => {
+        const saved = isSaved(job.id);
+        return (
+          <Link
+            key={job.id}
+            href={`/jobs/${job.id}`}
+            className="job-card"
+          >
+            {/* existing job card content stays the same */}
+            <div className="job-card-header">
+              <div>
+                <div className="job-card-title">
+                  {job.title || "Untitled role"}
+                </div>
+                <div className="job-card-meta">
+                  {job.company_name && `${job.company_name} · `}
+                  {job.location}
+                  {job.remote_type ? ` · ${job.remote_type}` : ""}
+                </div>
+              </div>
 
-                              {job.short_description && (
-                                <div className="job-card-description">
-                                  {job.short_description}
-                                </div>
-                              )}
+              <button
+                type="button"
+                className="product-save-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!savingId) {
+                    handleToggleSave(job.id);
+                  }
+                }}
+                aria-label={
+                  saved ? "Remove from saved jobs" : "Save job"
+                }
+              >
+                {saved ? "❤️" : "🤍"}
+              </button>
+            </div>
 
-                              <div className="job-card-footer">
-                                <span className="job-salary">
-                                  {job.salary_display || ""}
-                                </span>
-                                {job.employment_type && (
-                                  <span className="job-type">
-                                    {job.employment_type}
-                                  </span>
-                                )}
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+            {job.short_description && (
+              <div className="job-card-description">
+                {job.short_description}
+              </div>
+            )}
+
+            <div className="job-card-footer">
+              <span className="job-salary">
+                {job.salary_display || ""}
+              </span>
+              {job.employment_type && (
+                <span className="job-type">
+                  {job.employment_type}
+                </span>
+              )}
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  </div>
+)}
 
                   {/* All roles (excluding the ones shown in recommendations) */}
                   {remainingJobs.length > 0 && (
