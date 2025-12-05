@@ -54,13 +54,24 @@ export default function Home() {
 
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>([]);
+  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>(
+    []
+  );
 
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
+
+  // counts for sidebar quick dashboard
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
+    null
+  );
+  const [entangledCount, setEntangledCount] = useState<number | null>(null);
 
   // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
@@ -104,7 +115,7 @@ export default function Home() {
     loadProducts();
   }, []);
 
-  // === LOAD FEATURED COMMUNITY MEMBERS (latest 3 profiles) ===
+  // === LOAD FEATURED COMMUNITY MEMBERS (latest 2 profiles) ===
   useEffect(() => {
     const loadMembers = async () => {
       setLoadingMembers(true);
@@ -149,6 +160,71 @@ export default function Home() {
     loadProfile();
   }, [user]);
 
+  // === LOAD COUNTS FOR QUICK DASHBOARD (saved jobs/products + entangled states) ===
+  useEffect(() => {
+    const loadCounts = async () => {
+      if (!user) {
+        setSavedJobsCount(null);
+        setSavedProductsCount(null);
+        setEntangledCount(null);
+        return;
+      }
+
+      try {
+        // Saved jobs
+        const { data: savedJobsRows, error: savedJobsErr } = await supabase
+          .from("saved_jobs")
+          .select("job_id")
+          .eq("user_id", user.id);
+
+        if (!savedJobsErr && savedJobsRows) {
+          setSavedJobsCount(savedJobsRows.length);
+        } else {
+          setSavedJobsCount(0);
+        }
+
+        // Saved products
+        const { data: savedProdRows, error: savedProdErr } = await supabase
+          .from("saved_products")
+          .select("product_id")
+          .eq("user_id", user.id);
+
+        if (!savedProdErr && savedProdRows) {
+          setSavedProductsCount(savedProdRows.length);
+        } else {
+          setSavedProductsCount(0);
+        }
+
+        // Entangled states – count unique "other" users in accepted connections
+        const { data: connRows, error: connErr } = await supabase
+          .from("connections")
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+        if (!connErr && connRows && connRows.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connRows.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
+          );
+          setEntangledCount(otherIds.length);
+        } else {
+          setEntangledCount(0);
+        }
+      } catch (e) {
+        console.error("Error loading sidebar counts", e);
+        setSavedJobsCount(0);
+        setSavedProductsCount(0);
+        setEntangledCount(0);
+      }
+    };
+
+    loadCounts();
+  }, [user]);
+
   // === HELPERS ===
 
   const formatJobMeta = (job: Job) =>
@@ -167,8 +243,8 @@ export default function Home() {
 
   const formatProductTags = (p: Product) => {
     const tags: string[] = [];
-    if (p.category) tags.push(p.category);
     const price = formatPrice(p);
+    if (p.category) tags.push(p.category);
     if (price) tags.push(price);
     if (p.in_stock === true) tags.push("In stock");
     if (p.in_stock === false) tags.push("Out of stock");
@@ -214,6 +290,21 @@ export default function Home() {
   const hasProfileExtraInfo =
     Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
 
+  // Sidebar labels with counts
+  const entangledLabel = !user
+    ? "Entangled states"
+    : `Entangled states (${entangledCount === null ? "…" : entangledCount})`;
+
+  const savedJobsLabel = !user
+    ? "Saved jobs"
+    : `Saved jobs (${savedJobsCount === null ? "…" : savedJobsCount})`;
+
+  const savedProductsLabel = !user
+    ? "Saved products"
+    : `Saved products (${
+        savedProductsCount === null ? "…" : savedProductsCount
+      })`;
+
   return (
     <>
       <div className="bg-layer" />
@@ -251,9 +342,7 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                <div className="profile-sidebar-name">
-                  {sidebarFullName}
-                </div>
+                <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
               {hasProfileExtraInfo && (
@@ -282,6 +371,7 @@ export default function Home() {
                 </div>
               )}
             </Link>
+
             {/* Quick dashboard card */}
             <div className="sidebar-card dashboard-sidebar-card">
               <div className="dashboard-sidebar-title">Quick dashboard</div>
@@ -290,22 +380,23 @@ export default function Home() {
                   href="/dashboard/entangled-states"
                   className="dashboard-sidebar-link"
                 >
-                  Entangled states
+                  {entangledLabel}
                 </Link>
                 <Link
                   href="/dashboard/saved-jobs"
                   className="dashboard-sidebar-link"
                 >
-                  Saved jobs
+                  {savedJobsLabel}
                 </Link>
                 <Link
                   href="/dashboard/saved-products"
                   className="dashboard-sidebar-link"
                 >
-                  Saved products
+                  {savedProductsLabel}
                 </Link>
               </div>
             </div>
+
             {/* Social icons + brand logo/name at bottom of left column */}
             <div
               style={{
@@ -344,14 +435,7 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <rect
-                      x="3"
-                      y="5"
-                      width="18"
-                      height="14"
-                      rx="2"
-                      ry="2"
-                    />
+                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
                     <polyline points="3 7 12 13 21 7" />
                   </svg>
                 </a>
@@ -446,25 +530,23 @@ export default function Home() {
                 </h1>
                 <p className="hero-sub">
                   Quantum5ocial connects students, researchers, and companies
-                  with curated opportunities, services and products across the global
-                  quantum ecosystem.
+                  with curated opportunities, services and products across the
+                  global quantum ecosystem.
                 </p>
 
                 <div className="hero-tags">
                   <span className="tag-chip">
                     Intern, PhD, Postdoc, and Industry roles
                   </span>
-                  <span className="tag-chip">
-                    Startups, Vendors, and Labs
-                  </span>
+                  <span className="tag-chip">Startups, Vendors, and Labs</span>
                   <span className="tag-chip">
                     Hardware · Software · Services
                   </span>
                 </div>
 
                 <p className="hero-note">
-                  Starting with marketplace features now, and evolving into a full
-                  social platform as the community grows.
+                  Starting with marketplace features now, and evolving into a
+                  full social platform as the community grows.
                 </p>
               </div>
             </section>
@@ -897,9 +979,7 @@ export default function Home() {
                 <div className="who-card">
                   <div className="who-title-row">
                     <span className="who-emoji">🧑‍🔬</span>
-                    <span className="who-title">
-                      Researchers &amp; labs
-                    </span>
+                    <span className="who-title">Researchers &amp; labs</span>
                   </div>
                   <p className="who-text">
                     Showcase your group, attract collaborators, and make it
@@ -924,6 +1004,7 @@ export default function Home() {
             </section>
           </section>
 
+          
           {/* RIGHT SIDEBAR – STACKED HERO TILES + COPYRIGHT */}
           <aside
             className="layout-right sticky-col"
