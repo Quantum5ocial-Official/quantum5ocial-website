@@ -262,6 +262,10 @@ export default function JobsIndexPage() {
     seniorityFilter,
   ]);
 
+  // Split into: recommended (first 2) + remaining
+  const recommendedJobs = filteredJobs.slice(0, 2);
+  const remainingJobs = filteredJobs.slice(recommendedJobs.length);
+
   const resetFilters = () => {
     setSearch("");
     setEmploymentFilter("All");
@@ -461,66 +465,206 @@ export default function JobsIndexPage() {
                 </p>
               )}
 
-              <div className="jobs-grid">
-                {filteredJobs.map((job) => {
-                  const saved = isSaved(job.id);
-
-                  return (
-                    <Link
-                      key={job.id}
-                      href={`/jobs/${job.id}`}
-                      className="job-card"
-                    >
-                      <div className="job-card-header">
-                        <div>
-                          <div className="job-card-title">
-                            {job.title || "Untitled role"}
-                          </div>
-                          <div className="job-card-meta">
-                            {job.company_name && `${job.company_name} · `}
-                            {job.location}
-                            {job.remote_type ? ` · ${job.remote_type}` : ""}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="product-save-btn"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (!savingId) {
-                              handleToggleSave(job.id);
-                            }
+              {!loading && !error && filteredJobs.length > 0 && (
+                <>
+                  {/* Top recommendations */}
+                  {recommendedJobs.length > 0 && (
+                    <div style={{ marginBottom: 24 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "0.9rem",
+                            fontWeight: 500,
                           }}
-                          aria-label={
-                            saved ? "Remove from saved jobs" : "Save job"
-                          }
                         >
-                          {saved ? "❤️" : "🤍"}
-                        </button>
-                      </div>
-
-                      {job.short_description && (
-                        <div className="job-card-description">
-                          {job.short_description}
+                          Top recommendations based on your profile
                         </div>
-                      )}
-
-                      <div className="job-card-footer">
-                        <span className="job-salary">
-                          {job.salary_display || ""}
-                        </span>
-                        {job.employment_type && (
-                          <span className="job-type">
-                            {job.employment_type}
-                          </span>
-                        )}
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          For now this uses your filters · later: AI profile
+                          matching
+                        </div>
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
+
+                      <div className="jobs-grid">
+                        {recommendedJobs.map((job) => {
+                          const saved = isSaved(job.id);
+                          return (
+                            <Link
+                              key={job.id}
+                              href={`/jobs/${job.id}`}
+                              className="job-card"
+                            >
+                              <div className="job-card-header">
+                                <div>
+                                  <div className="job-card-title">
+                                    {job.title || "Untitled role"}
+                                  </div>
+                                  <div className="job-card-meta">
+                                    {job.company_name &&
+                                      `${job.company_name} · `}
+                                    {job.location}
+                                    {job.remote_type
+                                      ? ` · ${job.remote_type}`
+                                      : ""}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="product-save-btn"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!savingId) {
+                                      handleToggleSave(job.id);
+                                    }
+                                  }}
+                                  aria-label={
+                                    saved
+                                      ? "Remove from saved jobs"
+                                      : "Save job"
+                                  }
+                                >
+                                  {saved ? "❤️" : "🤍"}
+                                </button>
+                              </div>
+
+                              {job.short_description && (
+                                <div className="job-card-description">
+                                  {job.short_description}
+                                </div>
+                              )}
+
+                              <div className="job-card-footer">
+                                <span className="job-salary">
+                                  {job.salary_display || ""}
+                                </span>
+                                {job.employment_type && (
+                                  <span className="job-type">
+                                    {job.employment_type}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All roles (excluding the ones shown in recommendations) */}
+                  {remainingJobs.length > 0 && (
+                    <div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "0.9rem",
+                            fontWeight: 500,
+                          }}
+                        >
+                          All roles
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          {remainingJobs.length} more role
+                          {remainingJobs.length === 1 ? "" : "s"}
+                        </div>
+                      </div>
+
+                      <div className="jobs-grid">
+                        {remainingJobs.map((job) => {
+                          const saved = isSaved(job.id);
+
+                          return (
+                            <Link
+                              key={job.id}
+                              href={`/jobs/${job.id}`}
+                              className="job-card"
+                            >
+                              <div className="job-card-header">
+                                <div>
+                                  <div className="job-card-title">
+                                    {job.title || "Untitled role"}
+                                  </div>
+                                  <div className="job-card-meta">
+                                    {job.company_name &&
+                                      `${job.company_name} · `}
+                                    {job.location}
+                                    {job.remote_type
+                                      ? ` · ${job.remote_type}`
+                                      : ""}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="product-save-btn"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (!savingId) {
+                                      handleToggleSave(job.id);
+                                    }
+                                  }}
+                                  aria-label={
+                                    saved
+                                      ? "Remove from saved jobs"
+                                      : "Save job"
+                                  }
+                                >
+                                  {saved ? "❤️" : "🤍"}
+                                </button>
+                              </div>
+
+                              {job.short_description && (
+                                <div className="job-card-description">
+                                  {job.short_description}
+                                </div>
+                              )}
+
+                              <div className="job-card-footer">
+                                <span className="job-salary">
+                                  {job.salary_display || ""}
+                                </span>
+                                {job.employment_type && (
+                                  <span className="job-type">
+                                    {job.employment_type}
+                                  </span>
+                                )}
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Edge case: only 1–2 jobs total => only recommendations section visible */}
+                </>
+              )}
             </section>
           </section>
 
