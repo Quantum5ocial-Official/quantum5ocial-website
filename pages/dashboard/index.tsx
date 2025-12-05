@@ -64,6 +64,11 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  // NEW: entangled states count
+  const [entangledCount, setEntangledCount] = useState<number>(0);
+  const [entangledLoading, setEntangledLoading] = useState(false);
+  const [entangledError, setEntangledError] = useState<string | null>(null);
+
   // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
@@ -169,6 +174,43 @@ export default function DashboardPage() {
     loadProducts();
   }, [user]);
 
+  // Load entangled states count (from connections)
+  useEffect(() => {
+    const loadEntangled = async () => {
+      if (!user) return;
+
+      setEntangledLoading(true);
+      setEntangledError(null);
+
+      const { data, error } = await supabase
+        .from("connections")
+        .select("id, user_id, target_user_id, status")
+        .eq("status", "accepted")
+        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+      if (error) {
+        console.error("Error loading entangled states", error);
+        setEntangledError("Could not load entangled states.");
+        setEntangledCount(0);
+        setEntangledLoading(false);
+        return;
+      }
+
+      const otherIds = Array.from(
+        new Set(
+          (data || []).map((c: any) =>
+            c.user_id === user.id ? c.target_user_id : c.user_id
+          )
+        )
+      );
+
+      setEntangledCount(otherIds.length);
+      setEntangledLoading(false);
+    };
+
+    if (user) loadEntangled();
+  }, [user]);
+
   // Load profile (same as profile page)
   useEffect(() => {
     const loadProfile = async () => {
@@ -260,14 +302,14 @@ export default function DashboardPage() {
             <div>
               <div className="section-title">Dashboard</div>
               <div className="section-sub">
-                Your activity inside Quantum5ocial — saved jobs, products, and
-                your profile snapshot.
+                Your activity inside Quantum5ocial — saved jobs, products, your
+                entangled states, and your profile snapshot.
               </div>
             </div>
           </div>
 
           <div className="dashboard-layout">
-            {/* Summary tiles row: compact */}
+            {/* Summary tiles row: now Entangled / Saved jobs / Saved products */}
             <div
               className="dashboard-summary-row"
               style={{
@@ -277,6 +319,29 @@ export default function DashboardPage() {
                 marginBottom: 28,
               }}
             >
+              {/* Entangled states tile */}
+              <Link
+                href="/dashboard/entangled-states"
+                className="dashboard-summary-card"
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: "0 0 260px",
+                  maxWidth: 260,
+                  position: "relative",
+                }}
+              >
+                <div className="dashboard-summary-label">
+                  Entangled states
+                  {entangledLoading && " (loading…)"}
+                </div>
+                <div className="dashboard-summary-value-wrapper">
+                  <div className="dashboard-summary-value">
+                    {entangledError ? "–" : entangledCount}
+                  </div>
+                </div>
+              </Link>
+
               {/* Saved jobs tile */}
               <Link
                 href="/dashboard/saved-jobs"
@@ -322,33 +387,9 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </Link>
-
-              {/* Take me home tile with logo */}
-              <Link
-                href="/"
-                className="dashboard-summary-card"
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  flex: "0 0 260px",
-                  maxWidth: 260,
-                  position: "relative",
-                }}
-              >
-                <div className="dashboard-summary-label">Take me home</div>
-                <div className="dashboard-summary-value-wrapper">
-                  <Image
-                    src="/Q5_black_bg2.png"
-                    alt="Quantum5ocial logo"
-                    width={60}
-                    height={60}
-                    style={{ borderRadius: 6 }}
-                  />
-                </div>
-              </Link>
             </div>
 
-            {/* Profile card – same style, but wider on dashboard */}
+            {/* Profile card – same as before */}
             <div
               className="profile-container"
               style={{
