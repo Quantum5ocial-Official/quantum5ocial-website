@@ -2366,3 +2366,70 @@ html.theme-light footer {
 .nav-links .dashboard-trigger.nav-link-active {
   color: var(--text-main) !important;       /* bright when on /dashboard */
 }
+/* ===== 3-COLUMN LAYOUT – DESKTOP DEFAULT ===== */
+.layout-3col {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.layout-left,
+.layout-main,
+.layout-right {
+  min-width: 0;
+}
+
+/* Make sticky sidebars not break mobile layout */
+.sticky-col {
+  position: sticky;
+  top: 80px; /* adjust if your navbar height is different */
+}
+
+/* ===== CARD GRIDS (jobs / products / community) – DESKTOP DEFAULT ===== */
+.card-row {
+  /* your existing styles, plus: */
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* ===== TABLET (<= 1024px) ===== */
+@media (max-width: 1024px) {
+  .layout-3col {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  /* Hide right sidebar on mid-sized screens (optional) */
+  .layout-right {
+    display: none;
+  }
+}
+
+/* ===== MOBILE (<= 768px) ===== */
+@media (max-width: 768px) {
+  /* Stack everything vertically */
+  .layout-3col {
+    display: block;
+  }
+
+  .layout-left,
+  .layout-main,
+  .layout-right {
+    width: 100%;
+  }
+
+  .sticky-col {
+    position: static;
+    top: auto;
+  }
+
+  .layout-left {
+    margin-bottom: 16px;
+  }
+
+  /* Cards: 1 column on mobile, even if inline style says 2 */
+  .card-row {
+    grid-template-columns: 1fr !important;
+  }
+}
