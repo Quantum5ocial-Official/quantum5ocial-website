@@ -18,7 +18,7 @@ type Product = {
   specifications: string | null;
   product_url: string | null;
   keywords: string | null;
-  price_type: string | null;      // 'fixed' | 'contact' | null
+  price_type: string | null; // 'fixed' | 'contact' | null
   price_value: string | null;
   in_stock: boolean | null;
   stock_quantity: number | null;
@@ -38,6 +38,9 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // carousel index
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Load product
   useEffect(() => {
@@ -66,6 +69,11 @@ export default function ProductDetailPage() {
 
     load();
   }, [id]);
+
+  // reset carousel when product changes
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [product?.id]);
 
   const ownerId = product?.owner_id ?? null;
   const isOwner = !!user && !!ownerId && !userLoading && user.id === ownerId;
@@ -126,12 +134,12 @@ export default function ProductDetailPage() {
     );
   }
 
-    // 💰 Price: if price_type is 'fixed' and a value exists, show it. Otherwise "Contact for price".
+  // 💰 Price: if price_type is 'fixed' and a value exists, show it. Otherwise "Contact for price".
   const hasFixedPrice =
     product.price_type === "fixed" && product.price_value !== null;
 
   const priceLabel = hasFixedPrice
-    ? String(product.price_value) // handles both number and string
+    ? String(product.price_value)
     : "Contact for price";
 
   const stockLabel =
@@ -149,9 +157,23 @@ export default function ProductDetailPage() {
       .map((k) => k.trim())
       .filter(Boolean) ?? [];
 
-  const images = [product.image1_url, product.image2_url, product.image3_url].filter(
-    Boolean
-  ) as string[];
+  const images = [
+    product.image1_url,
+    product.image2_url,
+    product.image3_url,
+  ].filter(Boolean) as string[];
+
+  const hasImages = images.length > 0;
+
+  const nextImage = () => {
+    if (!hasImages) return;
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    if (!hasImages) return;
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
 
   return (
     <>
@@ -177,7 +199,6 @@ export default function ProductDetailPage() {
 
               {isOwner && (
                 <>
-                  {/* For now: use the same UI as "List your product" */}
                   <button
                     type="button"
                     className="nav-ghost-btn"
@@ -203,13 +224,51 @@ export default function ProductDetailPage() {
           <div className="product-detail-card">
             {/* Top layout: images + main info */}
             <div className="product-detail-top">
-              <div className="product-detail-images">
-                {images.length > 0 ? (
-                  images.map((url) => (
-                    <div key={url} className="product-detail-image-box">
-                      <img src={url} alt={product.name} />
+              {/* IMAGE CAROUSEL */}
+              <div className="product-carousel-wrapper">
+                {hasImages ? (
+                  <>
+                    <div className="product-carousel">
+                      <button
+                        type="button"
+                        className="carousel-arrow left"
+                        onClick={prevImage}
+                        disabled={images.length <= 1}
+                      >
+                        ‹
+                      </button>
+
+                      <img
+                        src={images[currentImageIndex]}
+                        alt={product.name}
+                        className="carousel-image"
+                      />
+
+                      <button
+                        type="button"
+                        className="carousel-arrow right"
+                        onClick={nextImage}
+                        disabled={images.length <= 1}
+                      >
+                        ›
+                      </button>
                     </div>
-                  ))
+
+                    {images.length > 1 && (
+                      <div className="carousel-dots">
+                        {images.map((_, i) => (
+                          <div
+                            key={i}
+                            className={
+                              "carousel-dot" +
+                              (i === currentImageIndex ? " active" : "")
+                            }
+                            onClick={() => setCurrentImageIndex(i)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="product-detail-image-placeholder">
                     No images provided
@@ -347,27 +406,89 @@ export default function ProductDetailPage() {
           }
         }
 
-        .product-detail-images {
+        /* === Carousel === */
+
+        .product-carousel-wrapper {
           display: flex;
           flex-direction: column;
+          align-items: center;
           gap: 10px;
         }
 
-        .product-detail-image-box {
+        .product-carousel {
+          position: relative;
+          width: 100%;
+          height: 260px;
           border-radius: 14px;
           overflow: hidden;
-          border: 1px solid rgba(148, 163, 184, 0.25);
           background: #020617;
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
-        .product-detail-image-box img {
+        .carousel-image {
           width: 100%;
-          height: 220px;
+          height: 100%;
           object-fit: cover;
         }
 
+        .carousel-arrow {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-50%);
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          background: rgba(15, 23, 42, 0.8);
+          color: #e5e7eb;
+          cursor: pointer;
+          font-size: 20px;
+          backdrop-filter: blur(10px);
+          z-index: 10;
+        }
+
+        .carousel-arrow.left {
+          left: 10px;
+        }
+
+        .carousel-arrow.right {
+          right: 10px;
+        }
+
+        .carousel-arrow:disabled {
+          opacity: 0.4;
+          cursor: default;
+        }
+
+        .carousel-arrow:not(:disabled):hover {
+          background: rgba(34, 211, 238, 0.15);
+          border-color: rgba(34, 211, 238, 0.6);
+        }
+
+        .carousel-dots {
+          display: flex;
+          gap: 6px;
+          justify-content: center;
+        }
+
+        .carousel-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(148, 163, 184, 0.5);
+          cursor: pointer;
+        }
+
+        .carousel-dot.active {
+          background: #22d3ee;
+          box-shadow: 0 0 6px #22d3ee;
+        }
+
         .product-detail-image-placeholder {
-          height: 220px;
+          width: 100%;
+          height: 260px;
           border-radius: 14px;
           border: 1px dashed rgba(148, 163, 184, 0.5);
           display: flex;
