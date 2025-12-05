@@ -60,7 +60,9 @@ export default function Home() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
 
   // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
@@ -152,7 +154,9 @@ export default function Home() {
   // === HELPERS ===
 
   const formatJobMeta = (job: Job) =>
-    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
+    [job.company_name, job.location, job.remote_type]
+      .filter(Boolean)
+      .join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -161,7 +165,9 @@ export default function Home() {
   };
 
   const formatProductMeta = (p: Product) =>
-    [p.company_name ? `Vendor: ${p.company_name}` : null].filter(Boolean).join(" · ");
+    [p.company_name ? `Vendor: ${p.company_name}` : null]
+      .filter(Boolean)
+      .join(" · ");
 
   const formatProductTags = (p: Product) => {
     const tags: string[] = [];
@@ -192,7 +198,8 @@ export default function Home() {
     (user as any)?.email?.split("@")[0] ||
     "User";
 
-  const sidebarFullName = profileSummary?.full_name || fallbackName || "Your profile";
+  const sidebarFullName =
+    profileSummary?.full_name || fallbackName || "Your profile";
 
   const avatarUrl = profileSummary?.avatar_url || null;
   const educationLevel =
@@ -225,71 +232,85 @@ export default function Home() {
             style={{ display: "flex", flexDirection: "column" }}
           >
             {/* Profile card – clickable, goes to My profile */}
-<Link
-  href="/profile"          // <-- change this path if your My Profile page is different
-  className="sidebar-card profile-sidebar-card"
-  style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
->
-  <div className="profile-sidebar-header">
-    <div className="profile-sidebar-avatar-wrapper">
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={sidebarFullName}
-          className="profile-sidebar-avatar"
-        />
-      ) : (
-        <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-          {sidebarFullName.charAt(0).toUpperCase()}
-        </div>
-      )}
-    </div>
-    <div className="profile-sidebar-name">{sidebarFullName}</div>
-  </div>
+            <Link
+              href="/profile"
+              className="sidebar-card profile-sidebar-card"
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              <div className="profile-sidebar-header">
+                <div className="profile-sidebar-avatar-wrapper">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={sidebarFullName}
+                      className="profile-sidebar-avatar"
+                    />
+                  ) : (
+                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                      {sidebarFullName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="profile-sidebar-name">
+                  {sidebarFullName}
+                </div>
+              </div>
 
-  {hasProfileExtraInfo && (
-    <div className="profile-sidebar-info-block">
-      {educationLevel && (
-        <div className="profile-sidebar-info-value">{educationLevel}</div>
-      )}
-      {describesYou && (
-        <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-          {describesYou}
-        </div>
-      )}
-      {affiliation && (
-        <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-          {affiliation}
-        </div>
-      )}
-    </div>
-  )}
-</Link>
+              {hasProfileExtraInfo && (
+                <div className="profile-sidebar-info-block">
+                  {educationLevel && (
+                    <div className="profile-sidebar-info-value">
+                      {educationLevel}
+                    </div>
+                  )}
+                  {describesYou && (
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
+                      {describesYou}
+                    </div>
+                  )}
+                  {affiliation && (
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
+                      {affiliation}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Link>
 
             {/* Quick dashboard card */}
             <div className="sidebar-card dashboard-sidebar-card">
-  <div className="dashboard-sidebar-title">Quick dashboard</div>
-  <div className="dashboard-sidebar-links">
-    <Link
-      href="/dashboard/entangled-states"
-      className="dashboard-sidebar-link"
-    >
-      Entangled states
-    </Link>
-    <Link
-      href="/dashboard/saved-jobs"
-      className="dashboard-sidebar-link"
-    >
-      Saved jobs
-    </Link>
-    <Link
-      href="/dashboard/saved-products"
-      className="dashboard-sidebar-link"
-    >
-      Saved products
-    </Link>
-  </div>
-</div>
+              <div className="dashboard-sidebar-title">Quick dashboard</div>
+              <div className="dashboard-sidebar-links">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="dashboard-sidebar-link"
+                >
+                  Entangled states
+                </Link>
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-sidebar-link"
+                >
+                  Saved jobs
+                </Link>
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-sidebar-link"
+                >
+                  Saved products
+                </Link>
+              </div>
+            </div>
 
             {/* Social icons + brand logo/name at bottom of left column */}
             <div
@@ -329,7 +350,14 @@ export default function Home() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
+                    <rect
+                      x="3"
+                      y="5"
+                      width="18"
+                      height="14"
+                      rx="2"
+                      ry="2"
+                    />
                     <polyline points="3 7 12 13 21 7" />
                   </svg>
                 </a>
@@ -416,23 +444,33 @@ export default function Home() {
               <div>
                 <div className="eyebrow">Quantum ecosystem hub</div>
                 <h1 className="hero-title">
-                  Discover <span className="hero-highlight">jobs, products &amp; services</span>{" "}
+                  Discover{" "}
+                  <span className="hero-highlight">
+                    jobs, products &amp; services
+                  </span>{" "}
                   shaping the future of quantum technology.
                 </h1>
                 <p className="hero-sub">
-                  Quantum5ocial connects students, researchers, and companies with
-                  curated opportunities and products across the global quantum ecosystem.
+                  Quantum5ocial connects students, researchers, and companies
+                  with curated opportunities and products across the global
+                  quantum ecosystem.
                 </p>
 
                 <div className="hero-tags">
-                  <span className="tag-chip">PhD, postdoc, and industry roles</span>
-                  <span className="tag-chip">Startups, vendors, and labs</span>
-                  <span className="tag-chip">Hardware · Software · Services</span>
+                  <span className="tag-chip">
+                    PhD, postdoc, and industry roles
+                  </span>
+                  <span className="tag-chip">
+                    Startups, vendors, and labs
+                  </span>
+                  <span className="tag-chip">
+                    Hardware · Software · Services
+                  </span>
                 </div>
 
                 <p className="hero-note">
-                  Start with marketplace features now – and evolve into a full social
-                  platform as the community grows.
+                  Start with marketplace features now – and evolve into a full
+                  social platform as the community grows.
                 </p>
               </div>
             </section>
@@ -468,7 +506,14 @@ export default function Home() {
               ) : featuredJobs.length === 0 ? (
                 <div className="products-empty">No jobs posted yet.</div>
               ) : (
-                <div className="card-row">
+                <div
+                  className="card-row"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 16,
+                  }}
+                >
                   {featuredJobs.map((job) => (
                     <Link
                       key={job.id}
@@ -543,7 +588,14 @@ export default function Home() {
               ) : featuredProducts.length === 0 ? (
                 <div className="products-empty">No products listed yet.</div>
               ) : (
-                <div className="card-row">
+                <div
+                  className="card-row"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 16,
+                  }}
+                >
                   {featuredProducts.map((p) => (
                     <Link
                       key={p.id}
@@ -623,7 +675,8 @@ export default function Home() {
                             </div>
                           )}
                           <div className="card-footer-text">
-                            Click to see full details in the Quantum Products Lab.
+                            Click to see full details in the Quantum Products
+                            Lab.
                           </div>
                         </div>
                       </div>
@@ -637,7 +690,9 @@ export default function Home() {
             <section className="section" id="community">
               <div className="section-header">
                 <div>
-                  <div className="section-title">Featured community members</div>
+                  <div className="section-title">
+                    Featured community members
+                  </div>
                   <div className="section-sub">
                     Recently joined profiles from the Quantum Community.
                   </div>
@@ -666,7 +721,14 @@ export default function Home() {
                   No community members visible yet.
                 </div>
               ) : (
-                <div className="card-row">
+                <div
+                  className="card-row"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 16,
+                  }}
+                >
                   {featuredMembers.map((m) => {
                     const name = m.full_name || "Quantum member";
                     const firstName =
@@ -727,7 +789,10 @@ export default function Home() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div className="card-title">{name}</div>
                             {meta && (
-                              <div className="card-meta" style={{ marginTop: 2 }}>
+                              <div
+                                className="card-meta"
+                                style={{ marginTop: 2 }}
+                              >
                                 {meta}
                               </div>
                             )}
@@ -774,16 +839,16 @@ export default function Home() {
                     Earn Quantum Points (QP) &amp; unlock quantum-themed badges
                   </div>
                   <p className="gamify-text">
-                    Quantum5ocial stays professional but adds a light gamified layer –
-                    rewarding meaningful activity like completing your profile, posting
-                    jobs/products, and exploring the ecosystem.
+                    Quantum5ocial stays professional but adds a light gamified
+                    layer – rewarding meaningful activity like completing your
+                    profile, posting jobs/products, and exploring the ecosystem.
                   </p>
                   <ul className="gamify-list">
                     <li>Complete your profile → gain QP and visibility</li>
                     <li>Post roles or products → earn vendor &amp; mentor badges</li>
                     <li>
-                      Explore and engage → unlock levels like Superposition, Entangled,
-                      Resonant
+                      Explore and engage → unlock levels like Superposition,
+                      Entangled, Resonant
                     </li>
                   </ul>
                 </div>
@@ -792,13 +857,16 @@ export default function Home() {
                     <span className="badge-dot" /> Superposition · New member
                   </div>
                   <div className="badge-pill">
-                    <span className="badge-dot" /> Entangled · Connected with labs
+                    <span className="badge-dot" /> Entangled · Connected with
+                    labs
                   </div>
                   <div className="badge-pill">
-                    <span className="badge-dot" /> Quantum Vendor · Active startup
+                    <span className="badge-dot" /> Quantum Vendor · Active
+                    startup
                   </div>
                   <div className="badge-pill">
-                    <span className="badge-dot" /> Resonant · Highly active profile
+                    <span className="badge-dot" /> Resonant · Highly active
+                    profile
                   </div>
                 </div>
               </div>
@@ -821,33 +889,41 @@ export default function Home() {
                 <div className="who-card">
                   <div className="who-title-row">
                     <span className="who-emoji">👨‍🎓</span>
-                    <span className="who-title">Students &amp; early-career</span>
+                    <span className="who-title">
+                      Students &amp; early-career
+                    </span>
                   </div>
                   <p className="who-text">
-                    Explore internships, MSc/PhD projects, and your first postdoc or
-                    industry role. Build your profile as you grow into the field.
+                    Explore internships, MSc/PhD projects, and your first
+                    postdoc or industry role. Build your profile as you grow
+                    into the field.
                   </p>
                 </div>
 
                 <div className="who-card">
                   <div className="who-title-row">
                     <span className="who-emoji">🧑‍🔬</span>
-                    <span className="who-title">Researchers &amp; labs</span>
+                    <span className="who-title">
+                      Researchers &amp; labs
+                    </span>
                   </div>
                   <p className="who-text">
-                    Showcase your group, attract collaborators, and make it easier to
-                    find the right candidates for your quantum projects.
+                    Showcase your group, attract collaborators, and make it
+                    easier to find the right candidates for your quantum
+                    projects.
                   </p>
                 </div>
 
                 <div className="who-card">
                   <div className="who-title-row">
                     <span className="who-emoji">🏢</span>
-                    <span className="who-title">Companies &amp; startups</span>
+                    <span className="who-title">
+                      Companies &amp; startups
+                    </span>
                   </div>
                   <p className="who-text">
-                    Post jobs, list your hero products, and reach a focused audience that
-                    already cares about quantum technologies.
+                    Post jobs, list your hero products, and reach a focused
+                    audience that already cares about quantum technologies.
                   </p>
                 </div>
               </div>
@@ -869,8 +945,8 @@ export default function Home() {
                     <div className="tile-icon-orbit">🧪</div>
                   </div>
                   <p className="tile-text">
-                    Browse internships, MSc/PhD positions, postdocs, and industry roles
-                    from labs and companies worldwide.
+                    Browse internships, MSc/PhD positions, postdocs, and
+                    industry roles from labs and companies worldwide.
                   </p>
                   <div className="tile-pill-row">
                     <span className="tile-pill">MSc / PhD</span>
@@ -892,8 +968,8 @@ export default function Home() {
                     <div className="tile-icon-orbit">🔧</div>
                   </div>
                   <p className="tile-text">
-                    Discover quantum hardware, control electronics, software tools, and
-                    services from specialized vendors.
+                    Discover quantum hardware, control electronics, software
+                    tools, and services from specialized vendors.
                   </p>
                   <div className="tile-pill-row">
                     <span className="tile-pill">Hardware</span>
@@ -915,12 +991,14 @@ export default function Home() {
                     <div className="tile-icon-orbit">🤝</div>
                   </div>
                   <p className="tile-text">
-                    Discover people working in quantum technology – students, researchers,
-                    and industry professionals across the world.
+                    Discover people working in quantum technology – students,
+                    researchers, and industry professionals across the world.
                   </p>
                   <div className="tile-pill-row">
                     <span className="tile-pill">Profiles</span>
-                    <span className="tile-pill">Labs &amp; companies</span>
+                    <span className="tile-pill">
+                      Labs &amp; companies
+                    </span>
                     <span className="tile-pill">Entangle connections</span>
                   </div>
                   <div className="tile-cta">
