@@ -1015,7 +1015,7 @@ export default function Home() {
                 textAlign: "right",
               }}
             >
-              © 2025 Quantum5ocial · All rights reserved
+              © 2025 Quantum5ocial
             </div>
           </aside>
         </main>
