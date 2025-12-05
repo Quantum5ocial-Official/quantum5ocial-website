@@ -114,7 +114,6 @@ export default function Navbar() {
   // ----- ACTIVE LINK HELPER -----
   const isActive = (path: string) => {
     if (path === "/dashboard") {
-      // Dashboard is active ONLY on /dashboard routes
       return router.pathname.startsWith("/dashboard");
     }
     return (
@@ -135,7 +134,6 @@ export default function Navbar() {
       ? fullName.split(" ")[0] || fullName
       : "User";
 
-  // Keyboard handler for the Dashboard "button"
   const toggleDashboardFromKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -145,13 +143,13 @@ export default function Navbar() {
 
   return (
     <header className="nav">
-      {/* Inner container to prevent stretching on ultra-wide screens */}
+      {/* Slightly wider inner container so navbar extends a bit past main layout */}
       <div
         className="nav-inner"
         style={{
-          maxWidth: 1280,
+          maxWidth: 1400,          // <--- was 1280, now a bit wider
           margin: "0 auto",
-          padding: "0 24px",
+          padding: "0 32px",       // <--- slightly more padding
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
