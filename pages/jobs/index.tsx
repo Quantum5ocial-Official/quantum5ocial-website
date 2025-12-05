@@ -21,6 +21,13 @@ type Job = {
   salary_display: string | null;
   created_at: string | null;
   owner_id: string | null;
+
+  // extra optional metadata for richer filters
+  technology_type: string | null;   // "Hardware" | "Software" | "Consulting" | ...
+  organisation_type: string | null; // "University / Lab" | "Startup" | "Company" | ...
+  quantum_domain: string | null;    // "Computing" | "Communication" | ...
+  role_track: string | null;        // "Research" | "Engineering" | ...
+  seniority_level: string | null;   // "Student / Intern" | "Early-career" | ...
 };
 
 const EMPLOYMENT_FILTERS = [
@@ -37,6 +44,52 @@ const EMPLOYMENT_FILTERS = [
 
 const REMOTE_FILTERS = ["All", "On-site", "Hybrid", "Remote"];
 
+const TECHNOLOGY_FILTERS = [
+  "All",
+  "Hardware",
+  "Software",
+  "Consulting",
+  "Cryogenics / Electronics",
+  "Other",
+];
+
+const ORG_TYPE_FILTERS = [
+  "All",
+  "University / Lab",
+  "Startup",
+  "Company",
+  "Consortium / Institute",
+  "Other",
+];
+
+const DOMAIN_FILTERS = [
+  "All",
+  "Quantum computing",
+  "Quantum communication",
+  "Quantum sensing / metrology",
+  "Quantum materials / fabrication",
+  "Quantum control / electronics",
+  "Other",
+];
+
+const ROLE_TRACK_FILTERS = [
+  "All",
+  "Research",
+  "Engineering",
+  "Theory / algorithms",
+  "Product / business",
+  "Other",
+];
+
+const SENIORITY_FILTERS = [
+  "All",
+  "Student / Intern",
+  "Early-career",
+  "Mid-level",
+  "Senior / Lead",
+  "PI / Professor",
+];
+
 export default function JobsIndexPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
@@ -48,6 +101,12 @@ export default function JobsIndexPage() {
   const [search, setSearch] = useState("");
   const [employmentFilter, setEmploymentFilter] = useState("All");
   const [remoteFilter, setRemoteFilter] = useState("All");
+
+  const [technologyFilter, setTechnologyFilter] = useState("All");
+  const [orgTypeFilter, setOrgTypeFilter] = useState("All");
+  const [domainFilter, setDomainFilter] = useState("All");
+  const [roleTrackFilter, setRoleTrackFilter] = useState("All");
+  const [seniorityFilter, setSeniorityFilter] = useState("All");
 
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -145,7 +204,15 @@ export default function JobsIndexPage() {
   const filteredJobs = useMemo(() => {
     const q = search.toLowerCase().trim();
 
+    const normalize = (v: string | null) => (v || "").toLowerCase();
+
+    const matchesCategory = (filterValue: string, fieldValue: string | null) => {
+      if (filterValue === "All") return true;
+      return normalize(fieldValue) === filterValue.toLowerCase();
+    };
+
     return jobs.filter((job) => {
+      // Employment & remote filters (existing)
       if (employmentFilter !== "All" && job.employment_type !== employmentFilter) {
         return false;
       }
@@ -153,16 +220,58 @@ export default function JobsIndexPage() {
         return false;
       }
 
+      // New filters
+      if (!matchesCategory(technologyFilter, job.technology_type)) {
+        return false;
+      }
+      if (!matchesCategory(orgTypeFilter, job.organisation_type)) {
+        return false;
+      }
+      if (!matchesCategory(domainFilter, job.quantum_domain)) {
+        return false;
+      }
+      if (!matchesCategory(roleTrackFilter, job.role_track)) {
+        return false;
+      }
+      if (!matchesCategory(seniorityFilter, job.seniority_level)) {
+        return false;
+      }
+
+      // Search text
       if (!q) return true;
 
-      const haystack =
+      const haystack = (
         `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${
           job.short_description || ""
-        } ${job.keywords || ""}`.toLowerCase();
+        } ${job.keywords || ""} ${job.technology_type || ""} ${
+          job.quantum_domain || ""
+        } ${job.role_track || ""} ${job.seniority_level || ""}`
+      ).toLowerCase();
 
       return haystack.includes(q);
     });
-  }, [jobs, search, employmentFilter, remoteFilter]);
+  }, [
+    jobs,
+    search,
+    employmentFilter,
+    remoteFilter,
+    technologyFilter,
+    orgTypeFilter,
+    domainFilter,
+    roleTrackFilter,
+    seniorityFilter,
+  ]);
+
+  const resetFilters = () => {
+    setSearch("");
+    setEmploymentFilter("All");
+    setRemoteFilter("All");
+    setTechnologyFilter("All");
+    setOrgTypeFilter("All");
+    setDomainFilter("All");
+    setRoleTrackFilter("All");
+    setSeniorityFilter("All");
+  };
 
   return (
     <>
@@ -175,6 +284,7 @@ export default function JobsIndexPage() {
           {/* ========== LEFT COLUMN – FILTER CARD ========== */}
           <aside className="layout-left sticky-col">
             <div className="sidebar-card">
+              {/* Search */}
               <div className="products-filters-section">
                 <div className="products-filters-title">Search</div>
                 <input
@@ -185,6 +295,7 @@ export default function JobsIndexPage() {
                 />
               </div>
 
+              {/* Employment type */}
               <div className="products-filters-section">
                 <div className="products-filters-title">Employment type</div>
                 <select
@@ -200,6 +311,7 @@ export default function JobsIndexPage() {
                 </select>
               </div>
 
+              {/* Work mode */}
               <div className="products-filters-section">
                 <div className="products-filters-title">Work mode</div>
                 <select
@@ -215,15 +327,91 @@ export default function JobsIndexPage() {
                 </select>
               </div>
 
+              {/* Technology type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Technology type</div>
+                <select
+                  className="products-filters-input"
+                  value={technologyFilter}
+                  onChange={(e) => setTechnologyFilter(e.target.value)}
+                >
+                  {TECHNOLOGY_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Organisation type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Organisation</div>
+                <select
+                  className="products-filters-input"
+                  value={orgTypeFilter}
+                  onChange={(e) => setOrgTypeFilter(e.target.value)}
+                >
+                  {ORG_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantum domain */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Quantum domain</div>
+                <select
+                  className="products-filters-input"
+                  value={domainFilter}
+                  onChange={(e) => setDomainFilter(e.target.value)}
+                >
+                  {DOMAIN_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Role track */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Role focus</div>
+                <select
+                  className="products-filters-input"
+                  value={roleTrackFilter}
+                  onChange={(e) => setRoleTrackFilter(e.target.value)}
+                >
+                  {ROLE_TRACK_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Seniority */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Seniority</div>
+                <select
+                  className="products-filters-input"
+                  value={seniorityFilter}
+                  onChange={(e) => setSeniorityFilter(e.target.value)}
+                >
+                  {SENIORITY_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 type="button"
                 className="nav-ghost-btn"
                 style={{ width: "100%", marginTop: 8 }}
-                onClick={() => {
-                  setSearch("");
-                  setEmploymentFilter("All");
-                  setRemoteFilter("All");
-                }}
+                onClick={resetFilters}
               >
                 Reset filters
               </button>
@@ -237,12 +425,12 @@ export default function JobsIndexPage() {
                 <div>
                   <div className="section-title">Quantum Jobs Universe</div>
                   <div
-  className="section-sub"
-  style={{ maxWidth: "480px", lineHeight: "1.45" }}
->
-  Browse internships, MSc/PhD positions, postdocs, and industry
-  roles across labs and companies.
-</div>
+                    className="section-sub"
+                    style={{ maxWidth: "480px", lineHeight: "1.45" }}
+                  >
+                    Browse internships, MSc/PhD positions, postdocs, and
+                    industry roles across labs and companies.
+                  </div>
                 </div>
 
                 <button
