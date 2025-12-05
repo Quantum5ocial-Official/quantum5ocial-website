@@ -7,6 +7,19 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
+// Sidebar profile summary (same shape as community.tsx)
+type ProfileSummary = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+  highest_education: string | null;
+  affiliation: string | null;
+  country: string | null;
+  city: string | null;
+};
+
+// Connection profile card
 type Profile = {
   id: string;
   full_name: string | null;
@@ -19,24 +32,102 @@ type Profile = {
 
 export default function EntangledStatesPage() {
   const { user } = useSupabaseUser();
+
+  // main data
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // sidebar profile + counters
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
+  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [savedProductsCount, setSavedProductsCount] = useState(0);
+  const [entangledCount, setEntangledCount] = useState(0);
+
+  // ----- load sidebar profile -----
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          full_name,
+          avatar_url,
+          role,
+          highest_education,
+          affiliation,
+          country,
+          city
+        `)
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  // ----- sidebar counters -----
+  useEffect(() => {
+    if (!user) {
+      setSavedJobsCount(0);
+      setSavedProductsCount(0);
+      setEntangledCount(0);
+      return;
+    }
+
+    const loadCounts = async () => {
+      const { count: jobsCount } = await supabase
+        .from("saved_jobs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      const { count: productsCount } = await supabase
+        .from("saved_products")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      const { count: entCount } = await supabase
+        .from("connections")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "accepted")
+        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+      setSavedJobsCount(jobsCount || 0);
+      setSavedProductsCount(productsCount || 0);
+      setEntangledCount(entCount || 0);
+    };
+
+    loadCounts();
+  }, [user]);
+
+  // ----- load entangled states -----
   useEffect(() => {
     const loadConnections = async () => {
       if (!user) {
         setProfiles([]);
         setLoading(false);
+        setEntangledCount(0);
         return;
       }
 
       setLoading(true);
       setErrorMsg(null);
 
-      // 1) Get all accepted connections that involve this user
       const { data: connData, error: connError } = await supabase
-        .from("connections") // <- adjust table name if different
+        .from("connections")
         .select("id, user_id, target_user_id, status")
         .eq("status", "accepted")
         .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
@@ -51,11 +142,11 @@ export default function EntangledStatesPage() {
 
       if (!connData || connData.length === 0) {
         setProfiles([]);
+        setEntangledCount(0);
         setLoading(false);
         return;
       }
 
-      // 2) Determine the "other side" of each connection
       const otherIds = Array.from(
         new Set(
           connData.map((c: any) =>
@@ -64,10 +155,11 @@ export default function EntangledStatesPage() {
         )
       );
 
-      // 3) Fetch their profiles
       const { data: profData, error: profError } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, affiliation, current_org, role, describes_you")
+        .select(
+          "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
+        )
         .in("id", otherIds);
 
       if (profError) {
@@ -78,14 +170,37 @@ export default function EntangledStatesPage() {
         return;
       }
 
-      setProfiles((profData || []) as Profile[]);
+      const list = (profData || []) as Profile[];
+      setProfiles(list);
+      setEntangledCount(list.length);
       setLoading(false);
     };
 
     loadConnections();
   }, [user]);
 
-  const entangledCount = profiles.length;
+  // Sidebar helpers
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
+
+  const sidebarFullName =
+    profileSummary?.full_name || fallbackName || "Your profile";
+
+  const avatarUrl = profileSummary?.avatar_url || null;
+  const educationLevel = profileSummary?.highest_education || "";
+  const describesYou = profileSummary?.role || "";
+  const affiliation =
+    profileSummary?.affiliation ||
+    [profileSummary?.city, profileSummary?.country]
+      .filter(Boolean)
+      .join(", ") ||
+    "";
+
+  const hasProfileExtraInfo =
+    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
 
   return (
     <>
@@ -93,146 +208,249 @@ export default function EntangledStatesPage() {
       <div className="page">
         <Navbar />
 
-        <main className="section">
-          <header
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              marginBottom: 20,
-            }}
-          >
-            <div>
-              <h1
-                style={{
-                  fontSize: "1.3rem",
-                  marginBottom: 4,
-                }}
-              >
-                Entangled states
-              </h1>
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                Your accepted connections in the Quantum Community.
-              </p>
+        <main className="layout-3col">
+          {/* ========== LEFT SIDEBAR ========== */}
+          <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column" }}>
+            <Link
+              href="/profile"
+              className="sidebar-card profile-sidebar-card"
+              style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+            >
+              <div className="profile-sidebar-header">
+                <div className="profile-sidebar-avatar-wrapper">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={sidebarFullName}
+                      className="profile-sidebar-avatar"
+                    />
+                  ) : (
+                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                      {sidebarFullName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="profile-sidebar-name">{sidebarFullName}</div>
+              </div>
+
+              {hasProfileExtraInfo && (
+                <div className="profile-sidebar-info-block">
+                  {educationLevel && <div className="profile-sidebar-info-value">{educationLevel}</div>}
+                  {describesYou && (
+                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                      {describesYou}
+                    </div>
+                  )}
+                  {affiliation && (
+                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                      {affiliation}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Link>
+
+            {/* Dashboard counters */}
+            <div className="sidebar-card dashboard-sidebar-card">
+              <div className="dashboard-sidebar-title">Quick dashboard</div>
+              <div className="dashboard-sidebar-links">
+                <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link">
+                  Entangled states ({entangledCount})
+                </Link>
+                <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link">
+                  Saved jobs ({savedJobsCount})
+                </Link>
+                <Link href="/dashboard/saved-products" className="dashboard-sidebar-link">
+                  Saved products ({savedProductsCount})
+                </Link>
+              </div>
             </div>
 
+            {/* Social + Brand */}
             <div
               style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.7)",
-                fontSize: 13,
+                marginTop: "auto",
+                paddingTop: 16,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
               }}
             >
-              Entangled states: <strong>{entangledCount}</strong>
-            </div>
-          </header>
+              <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
+                <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
+                <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
+                <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>🐱</a>
+              </div>
 
-          {loading ? (
-            <div className="products-status">Loading entangled states…</div>
-          ) : !user ? (
-            <div className="products-empty">
-              Please sign in to see your entangled states.
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <img src="/Q5_white_bg.png" alt="Quantum5ocial logo" style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 4,
+                  objectFit: "contain",
+                }} />
+                <span style={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}>
+                  Quantum5ocial
+                </span>
+              </div>
             </div>
-          ) : entangledCount === 0 ? (
-            <div className="products-empty">
-              You have no entangled states yet. Visit the{" "}
-              <Link href="/community" className="section-link">
-                community
-              </Link>{" "}
-              and start connecting.
-            </div>
-          ) : (
-            <div className="card-row">
-              {profiles.map((p) => {
-                const name = p.full_name || "Quantum member";
-                const meta = [
-                  p.role || p.describes_you || null,
-                  p.affiliation || p.current_org || null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ");
+          </aside>
 
-                return (
-                  <div key={p.id} className="card">
-                    <div
-                      className="card-inner"
-                      style={{
+          {/* ========== MIDDLE COLUMN ========== */}
+          <section className="layout-main">
+            <section className="section">
+              <div className="section-header">
+                <div>
+                  <div className="section-title">Entangled states</div>
+                  <div className="section-sub">Your accepted connections in the Quantum Community.</div>
+                </div>
+                <div
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.7)",
+                    fontSize: 13,
+                  }}
+                >
+                  Entangled states: <strong>{entangledCount}</strong>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="products-status">Loading entangled states…</div>
+              ) : entangledCount === 0 ? (
+                <div className="products-empty">
+                  You have no entangled states yet. Visit the{" "}
+                  <Link href="/community" className="section-link">community</Link> and start connecting.
+                </div>
+              ) : (
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+                  gap: 16,
+                }}>
+                  {profiles.map((p) => {
+                    const name = p.full_name || "Quantum member";
+                    const meta = [
+                      p.role || p.describes_you || null,
+                      p.affiliation || p.current_org || null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+
+                    return (
+                      <div key={p.id} className="card" style={{
+                        padding: 14,
+                        minHeight: 160,
                         display: "flex",
-                        gap: 14,
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      {/* avatar */}
-                      <div
-                        style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: "999px",
-                          overflow: "hidden",
-                          border: "1px solid rgba(148,163,184,0.5)",
-                          flexShrink: 0,
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                      }}>
+                        <div className="card-inner" style={{
                           display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background:
-                            "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                          color: "#fff",
-                          fontWeight: 600,
-                        }}
-                      >
-                        {p.avatar_url ? (
-                          <img
-                            src={p.avatar_url}
-                            alt={name}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              display: "block",
-                            }}
-                          />
-                        ) : (
-                          (name || "Q").charAt(0).toUpperCase()
-                        )}
-                      </div>
-
-                      {/* text */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="card-title">{name}</div>
-                        {meta && (
-                          <div
-                            className="card-meta"
-                            style={{ marginTop: 2 }}
-                          >
-                            {meta}
+                          gap: 14,
+                          alignItems: "flex-start",
+                        }}>
+                          {/* Avatar */}
+                          <div style={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: "999px",
+                            overflow: "hidden",
+                            border: "1px solid rgba(148,163,184,0.5)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                            color: "#fff",
+                            fontWeight: 600,
+                          }}>
+                            {p.avatar_url ? (
+                              <img src={p.avatar_url} alt={name}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : (
+                              name.charAt(0).toUpperCase()
+                            )}
                           </div>
-                        )}
-                        <div
-                          className="card-footer-text"
-                          style={{ marginTop: 6 }}
-                        >
-                          One of your entangled states in the Quantum Community.
+
+                          <div style={{ flex: 1 }}>
+                            <div className="card-title">{name}</div>
+                            {meta && <div className="card-meta" style={{ marginTop: 2 }}>{meta}</div>}
+                            <div className="card-footer-text" style={{ marginTop: 6, fontSize: 12 }}>
+                              One of your entangled states in the Quantum Community.
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    );
+                  })}
+                </div>
+              )}
 
-          {errorMsg && (
-            <p
-              style={{
-                marginTop: 12,
-                fontSize: 13,
-                color: "#f97373",
-              }}
-            >
-              {errorMsg}
-            </p>
-          )}
+              {errorMsg && (
+                <p style={{ marginTop: 12, fontSize: 13, color: "#f97373" }}>{errorMsg}</p>
+              )}
+            </section>
+          </section>
+
+          {/* ========== RIGHT SIDEBAR ========== */}
+          <aside className="layout-right sticky-col" style={{ display: "flex", flexDirection: "column" }}>
+            <div className="hero-tiles hero-tiles-vertical">
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum roles spotlight</div>
+                    <div className="tile-icon-orbit">🧪</div>
+                  </div>
+                  <p className="tile-text">A curated job or role from the Quantum Jobs Universe.</p>
+                  <div className="tile-cta">Jobs spotlight <span>›</span></div>
+                </div>
+              </div>
+
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum product of the week</div>
+                    <div className="tile-icon-orbit">🔧</div>
+                  </div>
+                  <p className="tile-text">A selected hardware, software, or service from the Quantum Products Lab.</p>
+                  <div className="tile-cta">Product spotlight <span>›</span></div>
+                </div>
+              </div>
+
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Featured quantum talent</div>
+                    <div className="tile-icon-orbit">🤝</div>
+                  </div>
+                  <p className="tile-text">A standout member of the quantum ecosystem.</p>
+                  <div className="tile-cta">Talent spotlight <span>›</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              marginTop: "auto",
+              paddingTop: 12,
+              borderTop: "1px solid rgba(148,163,184,0.18)",
+              fontSize: 12,
+              color: "rgba(148,163,184,0.9)",
+              textAlign: "right",
+            }}>
+              © 2025 Quantum5ocial
+            </div>
+          </aside>
         </main>
       </div>
     </>
