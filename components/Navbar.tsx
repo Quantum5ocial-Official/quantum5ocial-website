@@ -22,7 +22,7 @@ export default function Navbar() {
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // ----- THEME INITIALIZATION -----
+  // ----- THEME HANDLING -----
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -30,21 +30,27 @@ export default function Navbar() {
     const initial: Theme = stored === "light" ? "light" : "dark";
 
     setTheme(initial);
-    document.documentElement.classList.toggle("theme-light", initial === "light");
+    document.documentElement.classList.toggle(
+      "theme-light",
+      initial === "light"
+    );
   }, []);
 
   const toggleTheme = () => {
-    setTheme(prev => {
+    setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
       if (typeof window !== "undefined") {
-        document.documentElement.classList.toggle("theme-light", next === "light");
+        document.documentElement.classList.toggle(
+          "theme-light",
+          next === "light"
+        );
         window.localStorage.setItem("q5_theme", next);
       }
       return next;
     });
   };
 
-  // ----- LOAD PROFILE -----
+  // ----- PROFILE LOADING -----
   useEffect(() => {
     let cancelled = false;
 
@@ -55,7 +61,7 @@ export default function Navbar() {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("full_name, avatar_url")
         .eq("id", user.id)
@@ -63,12 +69,9 @@ export default function Navbar() {
 
       if (cancelled) return;
 
-      if (!error && data) {
+      if (data) {
         setProfileName(data.full_name || null);
         setAvatarUrl(data.avatar_url || null);
-      } else {
-        setProfileName(null);
-        setAvatarUrl(null);
       }
     };
 
@@ -79,16 +82,23 @@ export default function Navbar() {
     };
   }, [user]);
 
-  // ----- CLOSE MENUS WHEN CLICKING OUTSIDE -----
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dashboardRef.current && !dashboardRef.current.contains(e.target as Node)) {
+      if (
+        dashboardRef.current &&
+        !dashboardRef.current.contains(e.target as Node)
+      ) {
         setIsDashboardOpen(false);
       }
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setIsUserMenuOpen(false);
       }
     }
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -99,144 +109,156 @@ export default function Navbar() {
   };
 
   const isActive = (path: string) => {
-    if (path === "/dashboard") return router.pathname.startsWith("/dashboard");
+    if (path === "/dashboard") {
+      return router.pathname.startsWith("/dashboard");
+    }
     return router.pathname === path || router.pathname.startsWith(path + "/");
   };
 
+  // Fallback name
   const fallbackName =
-    (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
+    (user as any)?.user_metadata?.name ||
     (user as any)?.email?.split("@")[0] ||
     "User";
 
   const fullName = profileName || fallbackName;
-  const firstName =
-    fullName && typeof fullName === "string" ? fullName.split(" ")[0] : "User";
+  const firstName = fullName?.split(" ")[0] || "User";
 
   return (
     <header className="nav">
-      {/* 
-        This aligns:
-        - Logo with LEFT profile column
-        - Links centered
-        - Avatar + theme toggle with RIGHT tiles
-      */}
-      <div className="layout-3col nav-grid">
-        
-        {/* LEFT COLUMN (Logo aligned over profile card) */}
-        <div className="nav-grid-left">
-          <Link href="/" className="brand-clickable">
-            <div className="brand">
-              <img src="/Q5_white_bg.png" className="brand-logo" alt="Quantum5ocial" />
-              <div>
-                <div className="brand-text-main brand-text-gradient">Quantum5ocial</div>
-                <div className="brand-text-sub">Connecting the quantum world</div>
-              </div>
+      {/* Left: Brand */}
+      <Link href="/" className="brand-clickable">
+        <div className="brand">
+          <img src="/Q5_white_bg.png" className="brand-logo" />
+          <div>
+            <div className="brand-text-main brand-text-gradient">
+              Quantum5ocial
             </div>
-          </Link>
+            <div className="brand-text-sub">
+              Connecting the quantum world
+            </div>
+          </div>
         </div>
+      </Link>
 
-        {/* CENTER COLUMN (Links) */}
-        <div className="nav-grid-center">
-          <nav className="nav-links">
-            <Link
-              href="/jobs"
-              className={`nav-link ${isActive("/jobs") ? "nav-link-active" : ""}`}
+      {/* Right: Nav links */}
+      <nav className="nav-links">
+        <Link
+          href="/jobs"
+          className={`nav-link ${isActive("/jobs") ? "nav-link-active" : ""}`}
+        >
+          Jobs
+        </Link>
+
+        <Link
+          href="/products"
+          className={`nav-link ${
+            isActive("/products") ? "nav-link-active" : ""
+          }`}
+        >
+          Products
+        </Link>
+
+        <Link
+          href="/community"
+          className={`nav-link ${
+            isActive("/community") ? "nav-link-active" : ""
+          }`}
+        >
+          Community
+        </Link>
+
+        {/* DASHBOARD for logged in users */}
+        {!loading && user && (
+          <div className="nav-dashboard-wrapper" ref={dashboardRef}>
+            <div
+              className={`nav-link dashboard-trigger ${
+                isActive("/dashboard") ? "nav-link-active" : ""
+              }`}
+              onClick={() => setIsDashboardOpen((o) => !o)}
             >
-              Jobs
-            </Link>
+              Dashboard
+            </div>
 
-            <Link
-              href="/products"
-              className={`nav-link ${isActive("/products") ? "nav-link-active" : ""}`}
-            >
-              Products
-            </Link>
-
-            <Link
-              href="/community"
-              className={`nav-link ${isActive("/community") ? "nav-link-active" : ""}`}
-            >
-              Community
-            </Link>
-
-            {/* Dashboard dropdown */}
-            {user && (
-              <div className="nav-dashboard-wrapper" ref={dashboardRef}>
-                <div
-                  className={`nav-link dashboard-trigger ${
-                    isActive("/dashboard") ? "nav-link-active" : ""
-                  }`}
-                  onClick={() => setIsDashboardOpen(o => !o)}
+            {isDashboardOpen && (
+              <div className="nav-dashboard-menu right-align">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="nav-dropdown-item"
                 >
-                  Dashboard
-                </div>
-
-                {isDashboardOpen && (
-                  <div className="nav-dashboard-menu right-align">
-                    <Link href="/dashboard/entangled-states" className="nav-dropdown-item">
-                      Entangled states
-                    </Link>
-                    <Link href="/dashboard/saved-jobs" className="nav-dropdown-item">
-                      Saved jobs
-                    </Link>
-                    <Link href="/dashboard/saved-products" className="nav-dropdown-item">
-                      Saved products
-                    </Link>
-                  </div>
-                )}
+                  Entangled states
+                </Link>
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="nav-dropdown-item"
+                >
+                  Saved jobs
+                </Link>
+                <Link
+                  href="/dashboard/saved-products"
+                  className="nav-dropdown-item"
+                >
+                  Saved products
+                </Link>
               </div>
             )}
-          </nav>
-        </div>
+          </div>
+        )}
 
-        {/* RIGHT COLUMN (Theme toggle + user avatar aligned with right tiles) */}
-        <div className="nav-grid-right">
-          <button
-            type="button"
-            className="nav-link nav-link-button theme-toggle"
-            onClick={toggleTheme}
-          >
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
+        {/* THEME TOGGLE */}
+        <button
+          type="button"
+          className="nav-link nav-link-button theme-toggle"
+          onClick={toggleTheme}
+        >
+          {theme === "dark" ? "☀️" : "🌙"}
+        </button>
 
-          {/* Show login button if logged out */}
-          {!loading && !user && (
-            <Link href="/auth" className="nav-cta">Login / Sign up</Link>
-          )}
+        {/* IF NOT LOGGED IN → show auth button */}
+        {!loading && !user && (
+          <Link href="/auth" className="nav-cta">
+            Login / Sign up
+          </Link>
+        )}
 
-          {/* Avatar & menu */}
-          {user && (
-            <div className="nav-dashboard-wrapper" ref={userMenuRef}>
-              <button
-                type="button"
-                className="nav-user-button nav-link-button"
-                onClick={() => setIsUserMenuOpen(o => !o)}
-              >
-                <div className="nav-user-avatar">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt={firstName} />
-                  ) : (
-                    <span className="nav-user-initial">{firstName.charAt(0)}</span>
-                  )}
-                </div>
-                <span className="nav-user-name">{firstName}</span>
-              </button>
+        {/* USER MENU */}
+        {!loading && user && (
+          <div className="nav-dashboard-wrapper" ref={userMenuRef}>
+            <button
+              className={`nav-user-button nav-link-button ${
+                isActive("/profile") ? "nav-link-active" : ""
+              }`}
+              onClick={() => setIsUserMenuOpen((o) => !o)}
+            >
+              <div className="nav-user-avatar">
+                {avatarUrl ? (
+                  <img src={avatarUrl} />
+                ) : (
+                  <span className="nav-user-initial">
+                    {firstName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <span className="nav-user-name">{firstName}</span>
+            </button>
 
-              {isUserMenuOpen && (
-                <div className="nav-dashboard-menu right-align">
-                  <Link href="/profile" className="nav-dropdown-item">
-                    My profile
-                  </Link>
-                  <button className="nav-dropdown-item nav-dropdown-danger" onClick={handleLogout}>
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+            {isUserMenuOpen && (
+              <div className="nav-dashboard-menu right-align">
+                <Link href="/profile" className="nav-dropdown-item">
+                  My profile
+                </Link>
+                <button
+                  className="nav-dropdown-item nav-dropdown-danger"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </nav>
     </header>
   );
 }
