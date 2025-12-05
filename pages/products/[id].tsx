@@ -18,7 +18,7 @@ type Product = {
   specifications: string | null;
   product_url: string | null;
   keywords: string | null;
-  price_type: string | null; // 'fixed' | 'contact' | null
+  price_type: string | null;
   price_value: string | null;
   in_stock: boolean | null;
   stock_quantity: number | null;
@@ -39,8 +39,8 @@ export default function ProductDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // carousel index
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  // active image index for carousel
+  const [activeIndex, setActiveIndex] = useState(0);
 
   // Load product
   useEffect(() => {
@@ -70,10 +70,10 @@ export default function ProductDetailPage() {
     load();
   }, [id]);
 
-  // reset carousel when product changes
+  // Reset carousel index whenever product images change
   useEffect(() => {
-    setCurrentImageIndex(0);
-  }, [product?.id]);
+    setActiveIndex(0);
+  }, [product?.image1_url, product?.image2_url, product?.image3_url]);
 
   const ownerId = product?.owner_id ?? null;
   const isOwner = !!user && !!ownerId && !userLoading && user.id === ownerId;
@@ -134,7 +134,7 @@ export default function ProductDetailPage() {
     );
   }
 
-  // 💰 Price: if price_type is 'fixed' and a value exists, show it. Otherwise "Contact for price".
+  // 💰 Price label
   const hasFixedPrice =
     product.price_type === "fixed" && product.price_value !== null;
 
@@ -163,16 +163,14 @@ export default function ProductDetailPage() {
     product.image3_url,
   ].filter(Boolean) as string[];
 
-  const hasImages = images.length > 0;
-
-  const nextImage = () => {
-    if (!hasImages) return;
-    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  const showPrev = () => {
+    if (images.length <= 1) return;
+    setActiveIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
   };
 
-  const prevImage = () => {
-    if (!hasImages) return;
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  const showNext = () => {
+    if (images.length <= 1) return;
+    setActiveIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
   return (
@@ -181,208 +179,226 @@ export default function ProductDetailPage() {
       <Navbar />
       <div className="page">
         <section className="section">
-          {/* Header with actions */}
-          <div className="section-header" style={{ marginBottom: 20 }}>
-            <div>
-              <div className="section-title">{product.name}</div>
-              <div className="section-sub">
-                {product.company_name
-                  ? `Listed by ${product.company_name}`
-                  : "Listed by unknown vendor"}
+          <div className="product-detail-shell">
+            {/* Header with actions – aligned to same width as card */}
+            <div className="section-header product-detail-header">
+              <div>
+                <div className="section-title">{product.name}</div>
+                <div className="section-sub">
+                  {product.company_name
+                    ? `Listed by ${product.company_name}`
+                    : "Listed by unknown vendor"}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <Link href="/products" className="nav-ghost-btn">
+                  ← Back to products
+                </Link>
+
+                {isOwner && (
+                  <>
+                    <button
+                      type="button"
+                      className="nav-ghost-btn"
+                      style={{ cursor: "pointer" }}
+                      onClick={() =>
+                        router.push(`/products/new?id=${product.id}`)
+                      }
+                    >
+                      Edit product
+                    </button>
+
+                    <button
+                      onClick={handleDelete}
+                      className="nav-cta"
+                      style={{ background: "#b91c1c", cursor: "pointer" }}
+                      disabled={deleting}
+                    >
+                      {deleting ? "Deleting…" : "Delete"}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <Link href="/products" className="nav-ghost-btn">
-                ← Back to products
-              </Link>
+            {/* Main card */}
+            <div className="product-detail-card">
+              <div className="product-detail-top">
+                {/* LEFT: image carousel */}
+                <div className="product-detail-images">
+                  {images.length > 0 ? (
+                    <div className="product-detail-carousel">
+                      {images.length > 1 && (
+                        <>
+                          <button
+                            className="product-detail-carousel-arrow left"
+                            onClick={showPrev}
+                            aria-label="Previous image"
+                          >
+                            ‹
+                          </button>
+                          <button
+                            className="product-detail-carousel-arrow right"
+                            onClick={showNext}
+                            aria-label="Next image"
+                          >
+                            ›
+                          </button>
+                        </>
+                      )}
 
-              {isOwner && (
-                <>
-                  <button
-                    type="button"
-                    className="nav-ghost-btn"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => router.push(`/products/new?id=${product.id}`)}
-                  >
-                    Edit product
-                  </button>
+                      <div className="product-detail-image-box">
+                        <img
+                          src={images[activeIndex]}
+                          alt={product.name}
+                        />
+                      </div>
 
-                  <button
-                    onClick={handleDelete}
-                    className="nav-cta"
-                    style={{ background: "#b91c1c", cursor: "pointer" }}
-                    disabled={deleting}
-                  >
-                    {deleting ? "Deleting…" : "Delete"}
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+                      {images.length > 1 && (
+                        <div className="product-detail-dots">
+                          {images.map((_, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className={
+                                "product-detail-dot" +
+                                (idx === activeIndex ? " active" : "")
+                              }
+                              onClick={() => setActiveIndex(idx)}
+                              aria-label={`Show image ${idx + 1}`}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="product-detail-image-placeholder">
+                      No images provided
+                    </div>
+                  )}
+                </div>
 
-          <div className="product-detail-card">
-            {/* Top layout: images + main info */}
-            <div className="product-detail-top">
-              {/* IMAGE CAROUSEL */}
-              <div className="product-carousel-wrapper">
-                {hasImages ? (
-                  <>
-                    <div className="product-carousel">
-                      <button
-                        type="button"
-                        className="carousel-arrow left"
-                        onClick={prevImage}
-                        disabled={images.length <= 1}
-                      >
-                        ‹
-                      </button>
+                {/* RIGHT: main info */}
+                <div className="product-detail-main">
+                  {product.category && (
+                    <div className="product-detail-category">
+                      {product.category}
+                    </div>
+                  )}
 
-                      <img
-                        src={images[currentImageIndex]}
-                        alt={product.name}
-                        className="carousel-image"
-                      />
+                  {product.short_description && (
+                    <p className="product-detail-short">
+                      {product.short_description}
+                    </p>
+                  )}
 
-                      <button
-                        type="button"
-                        className="carousel-arrow right"
-                        onClick={nextImage}
-                        disabled={images.length <= 1}
-                      >
-                        ›
-                      </button>
+                  <div className="product-detail-meta">
+                    <div>
+                      <div className="profile-summary-label">Price</div>
+                      <div className="profile-summary-text">{priceLabel}</div>
                     </div>
 
-                    {images.length > 1 && (
-                      <div className="carousel-dots">
-                        {images.map((_, i) => (
-                          <div
-                            key={i}
-                            className={
-                              "carousel-dot" +
-                              (i === currentImageIndex ? " active" : "")
-                            }
-                            onClick={() => setCurrentImageIndex(i)}
-                          />
+                    <div>
+                      <div className="profile-summary-label">Stock</div>
+                      <div className="profile-summary-text">{stockLabel}</div>
+                    </div>
+                  </div>
+
+                  {product.product_url && (
+                    <div style={{ marginTop: 14 }}>
+                      <a
+                        href={product.product_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#7dd3fc", fontSize: 14 }}
+                      >
+                        Visit product page ↗
+                      </a>
+                    </div>
+                  )}
+
+                  {keywordList.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <div className="profile-tags-label">Keywords</div>
+                      <div className="profile-tags">
+                        {keywordList.map((k) => (
+                          <span key={k} className="profile-tag-chip">
+                            {k}
+                          </span>
                         ))}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="product-detail-image-placeholder">
-                    No images provided
-                  </div>
-                )}
-              </div>
-
-              <div className="product-detail-main">
-                {product.category && (
-                  <div className="product-detail-category">
-                    {product.category}
-                  </div>
-                )}
-
-                {product.short_description && (
-                  <p className="product-detail-short">
-                    {product.short_description}
-                  </p>
-                )}
-
-                <div className="product-detail-meta">
-                  <div>
-                    <div className="profile-summary-label">Price</div>
-                    <div className="profile-summary-text">{priceLabel}</div>
-                  </div>
-
-                  <div>
-                    <div className="profile-summary-label">Stock</div>
-                    <div className="profile-summary-text">{stockLabel}</div>
-                  </div>
-                </div>
-
-                {product.product_url && (
-                  <div style={{ marginTop: 14 }}>
-                    <a
-                      href={product.product_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: "#7dd3fc", fontSize: 14 }}
-                    >
-                      Visit product page ↗
-                    </a>
-                  </div>
-                )}
-
-                {keywordList.length > 0 && (
-                  <div style={{ marginTop: 14 }}>
-                    <div className="profile-tags-label">Keywords</div>
-                    <div className="profile-tags">
-                      {keywordList.map((k) => (
-                        <span key={k} className="profile-tag-chip">
-                          {k}
-                        </span>
-                      ))}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {product.datasheet_url && (
-                  <div style={{ marginTop: 16 }}>
-                    <a
-                      href={product.datasheet_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: "#7dd3fc", fontSize: 14 }}
-                    >
-                      View datasheet (PDF)
-                    </a>
+                  {product.datasheet_url && (
+                    <div style={{ marginTop: 16 }}>
+                      <a
+                        href={product.datasheet_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "#7dd3fc", fontSize: 14 }}
+                      >
+                        View datasheet (PDF)
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom: specifications */}
+              <div className="product-detail-body">
+                {product.specifications && (
+                  <div className="product-detail-section">
+                    <div className="profile-section-label">Specifications</div>
+                    <p className="profile-summary-text">
+                      {product.specifications}
+                    </p>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Bottom: technical text */}
-            <div className="product-detail-body">
-              {product.specifications && (
-                <div className="product-detail-section">
-                  <div className="profile-section-label">Specifications</div>
-                  <p className="profile-summary-text">
-                    {product.specifications}
-                  </p>
-                </div>
+              {errorMsg && (
+                <p
+                  style={{
+                    color: "#fecaca",
+                    marginTop: 16,
+                    fontSize: 13,
+                  }}
+                >
+                  {errorMsg}
+                </p>
               )}
             </div>
 
-            {errorMsg && (
-              <p
-                style={{
-                  color: "#fecaca",
-                  marginTop: 16,
-                  fontSize: 13,
-                }}
-              >
-                {errorMsg}
-              </p>
+            {/* Optional debug */}
+            {process.env.NODE_ENV === "development" && (
+              <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
+                <div>Debug:</div>
+                <div>current user id: {user?.id || "none"}</div>
+                <div>product.owner_id: {product.owner_id || "null"}</div>
+                <div>isOwner: {String(isOwner)}</div>
+              </div>
             )}
           </div>
-
-          {/* Optional small debug in dev */}
-          {process.env.NODE_ENV === "development" && (
-            <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
-              <div>Debug:</div>
-              <div>current user id: {user?.id || "none"}</div>
-              <div>product.owner_id: {product.owner_id || "null"}</div>
-              <div>isOwner: {String(isOwner)}</div>
-            </div>
-          )}
         </section>
       </div>
 
       <style jsx>{`
-        .product-detail-card {
-          max-width: 1100px;
+        /* Outer shell -> same width as homepage layout-3col (1320px) */
+        .product-detail-shell {
+          width: 100%;
+          max-width: 1320px;
           margin: 0 auto;
+        }
+
+        .product-detail-header {
+          margin-bottom: 18px;
+          align-items: flex-start;
+        }
+
+        .product-detail-card {
+          width: 100%;
           padding: 24px 22px 28px;
           border-radius: 18px;
           background: radial-gradient(
@@ -397,7 +413,7 @@ export default function ProductDetailPage() {
         .product-detail-top {
           display: grid;
           grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr);
-          gap: 26px;
+          gap: 32px;
         }
 
         @media (max-width: 900px) {
@@ -406,89 +422,88 @@ export default function ProductDetailPage() {
           }
         }
 
-        /* === Carousel === */
-
-        .product-carousel-wrapper {
+        .product-detail-images {
           display: flex;
           flex-direction: column;
-          align-items: center;
           gap: 10px;
         }
 
-        .product-carousel {
+        .product-detail-carousel {
           position: relative;
-          width: 100%;
-          height: 260px;
           border-radius: 14px;
           overflow: hidden;
-          background: #020617;
           border: 1px solid rgba(148, 163, 184, 0.25);
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          background: #020617;
         }
 
-        .carousel-image {
+        .product-detail-image-box img {
           width: 100%;
-          height: 100%;
+          height: 300px;
           object-fit: cover;
+          display: block;
         }
 
-        .carousel-arrow {
+        .product-detail-carousel-arrow {
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          padding: 6px 12px;
+          width: 28px;
+          height: 28px;
           border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.6);
-          background: rgba(15, 23, 42, 0.8);
+          border: 1px solid rgba(148, 163, 184, 0.7);
+          background: rgba(15, 23, 42, 0.96);
           color: #e5e7eb;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           cursor: pointer;
-          font-size: 20px;
-          backdrop-filter: blur(10px);
-          z-index: 10;
+          font-size: 16px;
+          transition: all 0.15s ease-out;
         }
 
-        .carousel-arrow.left {
-          left: 10px;
+        .product-detail-carousel-arrow.left {
+          left: 18px;
         }
 
-        .carousel-arrow.right {
-          right: 10px;
+        .product-detail-carousel-arrow.right {
+          right: 18px;
         }
 
-        .carousel-arrow:disabled {
-          opacity: 0.4;
-          cursor: default;
+        .product-detail-carousel-arrow:hover {
+          border-color: rgba(56, 189, 248, 0.9);
+          box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
         }
 
-        .carousel-arrow:not(:disabled):hover {
-          background: rgba(34, 211, 238, 0.15);
-          border-color: rgba(34, 211, 238, 0.6);
-        }
-
-        .carousel-dots {
+        .product-detail-dots {
+          position: absolute;
+          bottom: 12px;
+          left: 50%;
+          transform: translateX(-50%);
           display: flex;
           gap: 6px;
-          justify-content: center;
         }
 
-        .carousel-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: rgba(148, 163, 184, 0.5);
+        .product-detail-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 999px;
+          border: none;
+          padding: 0;
+          background: rgba(148, 163, 184, 0.35);
           cursor: pointer;
+          transition: transform 0.12s ease, background 0.12s ease;
         }
 
-        .carousel-dot.active {
+        .product-detail-dot:hover {
+          transform: scale(1.15);
+        }
+
+        .product-detail-dot.active {
           background: #22d3ee;
-          box-shadow: 0 0 6px #22d3ee;
         }
 
         .product-detail-image-placeholder {
-          width: 100%;
-          height: 260px;
+          height: 300px;
           border-radius: 14px;
           border: 1px dashed rgba(148, 163, 184, 0.5);
           display: flex;
@@ -525,11 +540,13 @@ export default function ProductDetailPage() {
           margin-top: 10px;
           display: flex;
           flex-wrap: wrap;
-          gap: 18px;
+          gap: 24px;
         }
 
         .product-detail-body {
           margin-top: 22px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(31, 41, 55, 0.9);
           display: flex;
           flex-direction: column;
           gap: 16px;
