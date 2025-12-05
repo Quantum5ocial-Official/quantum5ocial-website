@@ -5,11 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import JobCard from "../../components/JobCard";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
-// Job fields as used by JobCard
+// Job shape – same fields we use on jobs/index.tsx
 type Job = {
   id: string;
   title: string | null;
@@ -22,7 +21,7 @@ type Job = {
   keywords: string | null;
 };
 
-// Sidebar profile summary
+// Sidebar profile summary (same as community.tsx)
 type ProfileSummary = {
   id: string;
   full_name: string | null;
@@ -45,7 +44,7 @@ export default function SavedJobsPage() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // ----- sidebar state -----
+  // ----- sidebar state (copied from community.tsx) -----
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
     null
   );
@@ -60,7 +59,7 @@ export default function SavedJobsPage() {
     }
   }, [loading, user, router]);
 
-  // ---- load sidebar profile ----
+  // ---- load sidebar profile (same logic as community.tsx) ----
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) {
@@ -95,7 +94,7 @@ export default function SavedJobsPage() {
     if (user) loadProfile();
   }, [user]);
 
-  // ---- load sidebar counters ----
+  // ---- load sidebar counters (same logic as community.tsx) ----
   useEffect(() => {
     if (!user) {
       setSavedJobsCount(0);
@@ -105,24 +104,29 @@ export default function SavedJobsPage() {
     }
 
     const loadCounts = async () => {
+      // Saved jobs
       const { count: jobsCount } = await supabase
         .from("saved_jobs")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
 
+      setSavedJobsCount(jobsCount || 0);
+
+      // Saved products
       const { count: productsCount } = await supabase
         .from("saved_products")
         .select("*", { count: "exact", head: true })
         .eq("user_id", user.id);
 
+      setSavedProductsCount(productsCount || 0);
+
+      // Entangled states (accepted connections)
       const { count: entCount } = await supabase
         .from("connections")
         .select("*", { count: "exact", head: true })
         .eq("status", "accepted")
         .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
 
-      setSavedJobsCount(jobsCount || 0);
-      setSavedProductsCount(productsCount || 0);
       setEntangledCount(entCount || 0);
     };
 
@@ -228,7 +232,7 @@ export default function SavedJobsPage() {
 
   if (!user && !loading) return null;
 
-  // ---- sidebar helpers ----
+  // ---- sidebar helpers (same as community.tsx) ----
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -258,7 +262,7 @@ export default function SavedJobsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT SIDEBAR (same as community / saved-products) ========== */}
+          {/* ========== LEFT SIDEBAR (identical to community.tsx) ========== */}
           <aside
             className="layout-left sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
@@ -267,6 +271,11 @@ export default function SavedJobsPage() {
             <Link
               href="/profile"
               className="sidebar-card profile-sidebar-card"
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                cursor: "pointer",
+              }}
             >
               <div className="profile-sidebar-header">
                 <div className="profile-sidebar-avatar-wrapper">
@@ -282,9 +291,7 @@ export default function SavedJobsPage() {
                     </div>
                   )}
                 </div>
-                <div className="profile-sidebar-name">
-                  {sidebarFullName}
-                </div>
+                <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
               {hasProfileExtraInfo && (
@@ -322,19 +329,22 @@ export default function SavedJobsPage() {
                   href="/dashboard/entangled-states"
                   className="dashboard-sidebar-link"
                 >
-                  Entangled states ({entangledCount})
+                  Entangled states
+                  {user ? ` (${entangledCount})` : ""}
                 </Link>
                 <Link
                   href="/dashboard/saved-jobs"
                   className="dashboard-sidebar-link"
                 >
-                  Saved jobs ({savedJobsCount})
+                  Saved jobs
+                  {user ? ` (${savedJobsCount})` : ""}
                 </Link>
                 <Link
                   href="/dashboard/saved-products"
                   className="dashboard-sidebar-link"
                 >
-                  Saved products ({savedProductsCount})
+                  Saved products
+                  {user ? ` (${savedProductsCount})` : ""}
                 </Link>
               </div>
             </div>
@@ -367,7 +377,19 @@ export default function SavedJobsPage() {
                   aria-label="Email Quantum5ocial"
                   style={{ color: "rgba(148,163,184,0.9)" }}
                 >
-                  ✉️
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
+                    <polyline points="3 7 12 13 21 7" />
+                  </svg>
                 </a>
 
                 {/* X */}
@@ -378,7 +400,19 @@ export default function SavedJobsPage() {
                   aria-label="Quantum5ocial on X"
                   style={{ color: "rgba(148,163,184,0.9)" }}
                 >
-                  𝕏
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4l8 9.5L20 4" />
+                    <path d="M4 20l6.5-7.5L20 20" />
+                  </svg>
                 </a>
 
                 {/* GitHub */}
@@ -389,7 +423,14 @@ export default function SavedJobsPage() {
                   aria-label="Quantum5ocial on GitHub"
                   style={{ color: "rgba(148,163,184,0.9)" }}
                 >
-                  🐱
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
+                  </svg>
                 </a>
               </div>
 
@@ -426,7 +467,7 @@ export default function SavedJobsPage() {
             </div>
           </aside>
 
-          {/* ========== MIDDLE COLUMN – SAVED JOB CARDS ========== */}
+          {/* ========== MIDDLE COLUMN – SAVED JOB CARDS (same style as jobs/index) ========== */}
           <section className="layout-main">
             <section className="section">
               <div className="section-header">
@@ -467,22 +508,74 @@ export default function SavedJobsPage() {
 
               {jobs.length > 0 && (
                 <div className="jobs-grid">
-                  {jobs.map((job) => (
-                    <JobCard
-                      key={job.id}
-                      job={job as any}
-                      isSaved={isSaved(job.id)}
-                      onToggleSave={() => {
-                        if (!savingId) handleToggleSave(job.id);
-                      }}
-                    />
-                  ))}
+                  {jobs.map((job) => {
+                    const saved = isSaved(job.id);
+
+                    return (
+                      <Link
+                        key={job.id}
+                        href={`/jobs/${job.id}`}
+                        className="job-card"
+                      >
+                        <div className="job-card-header">
+                          <div>
+                            <div className="job-card-title">
+                              {job.title || "Untitled role"}
+                            </div>
+                            <div className="job-card-meta">
+                              {job.company_name && `${job.company_name} · `}
+                              {job.location}
+                              {job.remote_type
+                                ? ` · ${job.remote_type}`
+                                : ""}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            className="product-save-btn"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (!savingId) {
+                                handleToggleSave(job.id);
+                              }
+                            }}
+                            aria-label={
+                              saved
+                                ? "Remove from saved jobs"
+                                : "Save job"
+                            }
+                          >
+                            {saved ? "❤️" : "🤍"}
+                          </button>
+                        </div>
+
+                        {job.short_description && (
+                          <div className="job-card-description">
+                            {job.short_description}
+                          </div>
+                        )}
+
+                        <div className="job-card-footer">
+                          <span className="job-salary">
+                            {job.salary_display || ""}
+                          </span>
+                          {job.employment_type && (
+                            <span className="job-type">
+                              {job.employment_type}
+                            </span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </section>
           </section>
 
-          {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES ========== */}
+          {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES (same vibe as other pages) ========== */}
           <aside
             className="layout-right sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
