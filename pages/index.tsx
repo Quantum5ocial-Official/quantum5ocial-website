@@ -72,7 +72,7 @@ export default function Home() {
           "id, title, company_name, location, employment_type, remote_type, short_description"
         )
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(2);
 
       if (!error && data) {
         setFeaturedJobs(data as Job[]);
@@ -90,7 +90,7 @@ export default function Home() {
           "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
         )
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(2);
 
       if (!error && data) {
         setFeaturedProducts(data as Product[]);
@@ -112,7 +112,7 @@ export default function Home() {
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(3);
+        .limit(2);
 
       if (!error && data) {
         setFeaturedMembers(data as CommunityProfile[]);
