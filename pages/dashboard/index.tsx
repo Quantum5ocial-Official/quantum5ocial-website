@@ -64,11 +64,6 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // NEW: entangled states count
-  const [entangledCount, setEntangledCount] = useState<number>(0);
-  const [entangledLoading, setEntangledLoading] = useState(false);
-  const [entangledError, setEntangledError] = useState<string | null>(null);
-
   // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
@@ -174,43 +169,6 @@ export default function DashboardPage() {
     loadProducts();
   }, [user]);
 
-  // Load entangled states count (from connections)
-  useEffect(() => {
-    const loadEntangled = async () => {
-      if (!user) return;
-
-      setEntangledLoading(true);
-      setEntangledError(null);
-
-      const { data, error } = await supabase
-        .from("connections")
-        .select("id, user_id, target_user_id, status")
-        .eq("status", "accepted")
-        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-      if (error) {
-        console.error("Error loading entangled states", error);
-        setEntangledError("Could not load entangled states.");
-        setEntangledCount(0);
-        setEntangledLoading(false);
-        return;
-      }
-
-      const otherIds = Array.from(
-        new Set(
-          (data || []).map((c: any) =>
-            c.user_id === user.id ? c.target_user_id : c.user_id
-          )
-        )
-      );
-
-      setEntangledCount(otherIds.length);
-      setEntangledLoading(false);
-    };
-
-    if (user) loadEntangled();
-  }, [user]);
-
   // Load profile (same as profile page)
   useEffect(() => {
     const loadProfile = async () => {
@@ -297,287 +255,297 @@ export default function DashboardPage() {
         <Navbar />
 
         <section className="section">
-          {/* Header */}
-          <div className="section-header" style={{ marginBottom: 18 }}>
-            <div>
-              <div className="section-title">Dashboard</div>
-              <div className="section-sub">
-                Your activity inside Quantum5ocial — saved jobs, products, your
-                entangled states, and your profile snapshot.
+          {/* NEW: shared content container to match homepage width */}
+          <div
+            style={{
+              maxWidth: 1100,
+              margin: "0 auto",
+            }}
+          >
+            {/* Header */}
+            <div className="section-header" style={{ marginBottom: 18 }}>
+              <div>
+                <div className="section-title">Dashboard</div>
+                <div className="section-sub">
+                  Your activity inside Quantum5ocial — saved jobs, products,
+                  your entangled states, and your profile snapshot.
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="dashboard-layout">
-            {/* Summary tiles row: now Entangled / Saved jobs / Saved products */}
-            <div
-              className="dashboard-summary-row"
-              style={{
-                justifyContent: "flex-start",
-                gap: 16,
-                maxWidth: 900,
-                marginBottom: 28,
-              }}
-            >
-              {/* Entangled states tile */}
-              <Link
-                href="/dashboard/entangled-states"
-                className="dashboard-summary-card"
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  flex: "0 0 260px",
-                  maxWidth: 260,
-                  position: "relative",
-                }}
-              >
-                <div className="dashboard-summary-label">
-                  Entangled states
-                  {entangledLoading && " (loading…)"}
-                </div>
-                <div className="dashboard-summary-value-wrapper">
-                  <div className="dashboard-summary-value">
-                    {entangledError ? "–" : entangledCount}
-                  </div>
-                </div>
-              </Link>
-
-              {/* Saved jobs tile */}
-              <Link
-                href="/dashboard/saved-jobs"
-                className="dashboard-summary-card"
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  flex: "0 0 260px",
-                  maxWidth: 260,
-                  position: "relative",
-                }}
-              >
-                <div className="dashboard-summary-label">
-                  Saved jobs
-                  {jobsLoading && " (loading…)"}
-                </div>
-                <div className="dashboard-summary-value-wrapper">
-                  <div className="dashboard-summary-value">
-                    {jobsError ? "–" : savedJobs.length}
-                  </div>
-                </div>
-              </Link>
-
-              {/* Saved products tile */}
-              <Link
-                href="/dashboard/saved-products"
-                className="dashboard-summary-card"
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  flex: "0 0 260px",
-                  maxWidth: 260,
-                  position: "relative",
-                }}
-              >
-                <div className="dashboard-summary-label">
-                  Saved products
-                  {productsLoading && " (loading…)"}
-                </div>
-                <div className="dashboard-summary-value-wrapper">
-                  <div className="dashboard-summary-value">
-                    {productsError ? "–" : savedProducts.length}
-                  </div>
-                </div>
-              </Link>
-            </div>
-
-            {/* Profile card – same as before */}
-            <div
-              className="profile-container"
-              style={{
-                marginTop: 16,
-                display: "flex",
-                justifyContent: "center",
-              }}
-            >
+            <div className="dashboard-layout">
+              {/* Summary tiles row: compact */}
               <div
-                className="profile-summary-card"
-                style={{ width: "100%", maxWidth: 960 }}
+                className="dashboard-summary-row"
+                style={{
+                  justifyContent: "flex-start",
+                  gap: 16,
+                  maxWidth: 900,
+                  marginBottom: 28,
+                }}
               >
-                {profileLoading ? (
-                  <p className="profile-muted">Loading your profile…</p>
-                ) : !hasAnyProfileInfo ? (
-                  <div>
-                    <p className="profile-muted" style={{ marginBottom: 12 }}>
-                      You haven&apos;t filled in your profile yet. A complete
-                      profile helps labs, companies, and collaborators know who
-                      you are in the quantum ecosystem.
-                    </p>
-                    <Link href="/profile/edit" className="nav-cta">
-                      Complete your profile
-                    </Link>
+                {/* Entangled states tile – count is not loaded here yet, so “–” */}
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="dashboard-summary-card"
+                  style={{
+                    textDecoration: "none",
+                    color: "inherit",
+                    flex: "0 0 260px",
+                    maxWidth: 260,
+                    position: "relative",
+                  }}
+                >
+                  <div className="dashboard-summary-label">Entangled states</div>
+                  <div className="dashboard-summary-value-wrapper">
+                    <div className="dashboard-summary-value">–</div>
                   </div>
-                ) : (
-                  <>
-                    {/* Top identity */}
-                    <div className="profile-header">
-                      <div className="profile-avatar">
-                        {profile?.avatar_url ? (
-                          <img
-                            src={profile.avatar_url}
-                            alt={displayName}
-                            className="profile-avatar-img"
-                          />
-                        ) : (
-                          <span>{initials || "Q5"}</span>
-                        )}
-                      </div>
+                </Link>
 
-                      <div className="profile-header-text">
-                        <div className="profile-name">{displayName}</div>
+                {/* Saved jobs tile */}
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-summary-card"
+                  style={{
+                    textDecoration: "none",
+                    color: "inherit",
+                    flex: "0 0 260px",
+                    maxWidth: 260,
+                    position: "relative",
+                  }}
+                >
+                  <div className="dashboard-summary-label">
+                    Saved jobs
+                    {jobsLoading && " (loading…)"}
+                  </div>
+                  <div className="dashboard-summary-value-wrapper">
+                    <div className="dashboard-summary-value">
+                      {jobsError ? "–" : savedJobs.length}
+                    </div>
+                  </div>
+                </Link>
 
-                        {(profile?.role || profile?.affiliation) && (
-                          <div className="profile-role">
-                            {[profile?.role, profile?.affiliation]
-                              .filter(Boolean)
-                              .join(" · ")}
+                {/* Saved products tile */}
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-summary-card"
+                  style={{
+                    textDecoration: "none",
+                    color: "inherit",
+                    flex: "0 0 260px",
+                    maxWidth: 260,
+                    position: "relative",
+                  }}
+                >
+                  <div className="dashboard-summary-label">
+                    Saved products
+                    {productsLoading && " (loading…)"}
+                  </div>
+                  <div className="dashboard-summary-value-wrapper">
+                    <div className="dashboard-summary-value">
+                      {productsError ? "–" : savedProducts.length}
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              {/* Profile card – same style, but wider on dashboard */}
+              <div
+                className="profile-container"
+                style={{
+                  marginTop: 16,
+                  display: "flex",
+                  justifyContent: "center",
+                }}
+              >
+                <div
+                  className="profile-summary-card"
+                  style={{ width: "100%", maxWidth: 960 }}
+                >
+                  {profileLoading ? (
+                    <p className="profile-muted">Loading your profile…</p>
+                  ) : !hasAnyProfileInfo ? (
+                    <div>
+                      <p
+                        className="profile-muted"
+                        style={{ marginBottom: 12 }}
+                      >
+                        You haven&apos;t filled in your profile yet. A complete
+                        profile helps labs, companies, and collaborators know
+                        who you are in the quantum ecosystem.
+                      </p>
+                      <Link href="/profile/edit" className="nav-cta">
+                        Complete your profile
+                      </Link>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Top identity */}
+                      <div className="profile-header">
+                        <div className="profile-avatar">
+                          {profile?.avatar_url ? (
+                            <img
+                              src={profile.avatar_url}
+                              alt={displayName}
+                              className="profile-avatar-img"
+                            />
+                          ) : (
+                            <span>{initials || "Q5"}</span>
+                          )}
+                        </div>
+
+                        <div className="profile-header-text">
+                          <div className="profile-name">{displayName}</div>
+
+                          {(profile?.role || profile?.affiliation) && (
+                            <div className="profile-role">
+                              {[profile?.role, profile?.affiliation]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          )}
+
+                          {(profile?.city || profile?.country) && (
+                            <div className="profile-location">
+                              {[profile?.city, profile?.country]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </div>
+                          )}
+
+                          {profile?.institutional_email && (
+                            <div className="profile-location">
+                              Verified email: {profile.institutional_email}
+                            </div>
+                          )}
+
+                          <div style={{ marginTop: 12 }}>
+                            <Link
+                              href="/profile/edit"
+                              className="nav-ghost-btn"
+                              style={{ textDecoration: "none" }}
+                            >
+                              Edit / complete your profile
+                            </Link>
                           </div>
-                        )}
-
-                        {(profile?.city || profile?.country) && (
-                          <div className="profile-location">
-                            {[profile?.city, profile?.country]
-                              .filter(Boolean)
-                              .join(", ")}
-                          </div>
-                        )}
-
-                        {profile?.institutional_email && (
-                          <div className="profile-location">
-                            Verified email: {profile.institutional_email}
-                          </div>
-                        )}
-
-                        <div style={{ marginTop: 12 }}>
-                          <Link
-                            href="/profile/edit"
-                            className="nav-ghost-btn"
-                            style={{ textDecoration: "none" }}
-                          >
-                            Edit / complete your profile
-                          </Link>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Short bio */}
-                    {profile?.short_bio && (
-                      <p className="profile-bio">{profile.short_bio}</p>
-                    )}
+                      {/* Short bio */}
+                      {profile?.short_bio && (
+                        <p className="profile-bio">{profile.short_bio}</p>
+                      )}
 
-                    {/* Experience inline */}
-                    {profile?.key_experience && (
-                      <p className="profile-bio">
-                        <span className="profile-section-label-inline">
-                          Experience:
-                        </span>{" "}
-                        {profile.key_experience}
-                      </p>
-                    )}
+                      {/* Experience inline */}
+                      {profile?.key_experience && (
+                        <p className="profile-bio">
+                          <span className="profile-section-label-inline">
+                            Experience:
+                          </span>{" "}
+                          {profile.key_experience}
+                        </p>
+                      )}
 
-                    {/* Two-column layout */}
-                    <div className="profile-two-columns">
-                      {/* LEFT */}
-                      <div className="profile-col">
-                        {profile?.affiliation && (
-                          <div className="profile-summary-item">
-                            <div className="profile-section-label">
-                              Affiliation
+                      {/* Two-column layout */}
+                      <div className="profile-two-columns">
+                        {/* LEFT */}
+                        <div className="profile-col">
+                          {profile?.affiliation && (
+                            <div className="profile-summary-item">
+                              <div className="profile-section-label">
+                                Affiliation
+                              </div>
+                              <div className="profile-summary-text">
+                                {profile.affiliation}
+                              </div>
                             </div>
-                            <div className="profile-summary-text">
-                              {profile.affiliation}
-                            </div>
-                          </div>
-                        )}
+                          )}
 
-                        {focusTags.length > 0 && (
-                          <div className="profile-summary-item">
-                            <div className="profile-section-label">
-                              Focus areas
-                            </div>
-                            <div className="profile-tags">
-                              {focusTags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="profile-tag-chip"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {links.length > 0 && (
-                          <div
-                            className="profile-summary-item"
-                            style={{ marginTop: 18 }}
-                          >
-                            <div className="profile-section-label">Links</div>
-                            <ul
-                              style={{
-                                paddingLeft: 16,
-                                fontSize: 13,
-                                marginTop: 4,
-                              }}
-                            >
-                              {links.map((l) => (
-                                <li key={l.label}>
-                                  <a
-                                    href={l.value as string}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ color: "#7dd3fc" }}
+                          {focusTags.length > 0 && (
+                            <div className="profile-summary-item">
+                              <div className="profile-section-label">
+                                Focus areas
+                              </div>
+                              <div className="profile-tags">
+                                {focusTags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="profile-tag-chip"
                                   >
-                                    {l.label}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                      {/* RIGHT */}
-                      <div className="profile-col">
-                        {profile?.highest_education && (
-                          <div className="profile-summary-item">
-                            <div className="profile-section-label">
-                              Highest education
+                          {links.length > 0 && (
+                            <div
+                              className="profile-summary-item"
+                              style={{ marginTop: 18 }}
+                            >
+                              <div className="profile-section-label">
+                                Links
+                              </div>
+                              <ul
+                                style={{
+                                  paddingLeft: 16,
+                                  fontSize: 13,
+                                  marginTop: 4,
+                                }}
+                              >
+                                {links.map((l) => (
+                                  <li key={l.label}>
+                                    <a
+                                      href={l.value as string}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      style={{ color: "#7dd3fc" }}
+                                    >
+                                      {l.label}
+                                    </a>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-                            <div className="profile-summary-text">
-                              {profile.highest_education}
-                            </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
 
-                        {skillTags.length > 0 && (
-                          <div className="profile-summary-item">
-                            <div className="profile-section-label">Skills</div>
-                            <div className="profile-tags">
-                              {skillTags.map((tag) => (
-                                <span
-                                  key={tag}
-                                  className="profile-tag-chip"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+                        {/* RIGHT */}
+                        <div className="profile-col">
+                          {profile?.highest_education && (
+                            <div className="profile-summary-item">
+                              <div className="profile-section-label">
+                                Highest education
+                              </div>
+                              <div className="profile-summary-text">
+                                {profile.highest_education}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+
+                          {skillTags.length > 0 && (
+                            <div className="profile-summary-item">
+                              <div className="profile-section-label">
+                                Skills
+                              </div>
+                              <div className="profile-tags">
+                                {skillTags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="profile-tag-chip"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
