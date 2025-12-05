@@ -8,7 +8,7 @@ type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
 export default function AuthPage() {
   const router = useRouter();
-  const redirectPath = (router.query.redirect as string) || "/dashboard";
+  const redirectPath = (router.query.redirect as string) || "/";
 
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [fullName, setFullName] = useState("");
