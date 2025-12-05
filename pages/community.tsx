@@ -42,6 +42,11 @@ export default function CommunityPage() {
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Sidebar counters
+  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [savedProductsCount, setSavedProductsCount] = useState(0);
+  const [entangledCount, setEntangledCount] = useState(0);
+
   // ---- Load current user profile for left sidebar ----
   useEffect(() => {
     const loadProfile = async () => {
@@ -75,6 +80,45 @@ export default function CommunityPage() {
     };
 
     loadProfile();
+  }, [user]);
+
+  // ---- Load dashboard counters (saved jobs, saved products, entangled states) ----
+  useEffect(() => {
+    if (!user) {
+      setSavedJobsCount(0);
+      setSavedProductsCount(0);
+      setEntangledCount(0);
+      return;
+    }
+
+    const loadCounts = async () => {
+      // Saved jobs
+      const { count: jobsCount } = await supabase
+        .from("saved_jobs")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      setSavedJobsCount(jobsCount || 0);
+
+      // Saved products
+      const { count: productsCount } = await supabase
+        .from("saved_products")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+
+      setSavedProductsCount(productsCount || 0);
+
+      // Entangled states (accepted connections)
+      const { count: entCount } = await supabase
+        .from("connections")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "accepted")
+        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+      setEntangledCount(entCount || 0);
+    };
+
+    loadCounts();
   }, [user]);
 
   // ---- Load community profiles for middle column ----
@@ -218,7 +262,7 @@ export default function CommunityPage() {
               )}
             </Link>
 
-            {/* Quick dashboard card */}
+            {/* Quick dashboard card with counters */}
             <div className="sidebar-card dashboard-sidebar-card">
               <div className="dashboard-sidebar-title">Quick dashboard</div>
               <div className="dashboard-sidebar-links">
@@ -227,18 +271,21 @@ export default function CommunityPage() {
                   className="dashboard-sidebar-link"
                 >
                   Entangled states
+                  {user ? ` (${entangledCount})` : ""}
                 </Link>
                 <Link
                   href="/dashboard/saved-jobs"
                   className="dashboard-sidebar-link"
                 >
                   Saved jobs
+                  {user ? ` (${savedJobsCount})` : ""}
                 </Link>
                 <Link
                   href="/dashboard/saved-products"
                   className="dashboard-sidebar-link"
                 >
                   Saved products
+                  {user ? ` (${savedProductsCount})` : ""}
                 </Link>
               </div>
             </div>
@@ -288,7 +335,7 @@ export default function CommunityPage() {
 
                 {/* X */}
                 <a
-                  href="#" // TODO: add real link
+                  href="#"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Quantum5ocial on X"
@@ -420,11 +467,8 @@ export default function CommunityPage() {
                     const name = p.full_name || "Quantum5ocial member";
                     const initial = name.charAt(0).toUpperCase();
 
-                    const highestEducation =
-                      p.highest_education || "—";
-
-                    const role =
-                      p.role || "Quantum5ocial member";
+                    const highestEducation = p.highest_education || "—";
+                    const role = p.role || "Quantum5ocial member";
 
                     const location = [p.city, p.country]
                       .filter(Boolean)
