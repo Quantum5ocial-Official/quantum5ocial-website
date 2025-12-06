@@ -288,16 +288,6 @@ export default function JobsIndexPage() {
           {/* ========== LEFT COLUMN – FILTER CARD ========== */}
           <aside className="layout-left sticky-col">
             <div className="sidebar-card">
-              {/* Search */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Search</div>
-                <input
-                  className="products-filters-input"
-                  placeholder="Title, company, keywords…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
 
               {/* Employment type */}
               <div className="products-filters-section">
@@ -445,6 +435,57 @@ export default function JobsIndexPage() {
                   Post a job
                 </button>
               </div>
+
+              {/* Center-column search bar */}
+<div
+  style={{
+    marginTop: 16,
+    marginBottom: 18,
+  }}
+>
+  <div
+    style={{
+      width: "100%",
+      borderRadius: 999,
+      padding: "2px",
+      background:
+        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+    }}
+  >
+    <div
+      style={{
+        borderRadius: 999,
+        background: "rgba(15,23,42,0.97)",
+        padding: "6px 12px",
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 14,
+          opacity: 0.85,
+        }}
+      >
+        🔍
+      </span>
+      <input
+        style={{
+          border: "none",
+          outline: "none",
+          background: "transparent",
+          color: "#e5e7eb",
+          fontSize: 14,
+          width: "100%",
+        }}
+        placeholder="Search by title, company, location, keywords…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+    </div>
+  </div>
+</div>
 
               <div className="products-results-header">
                 <div className="products-status">
