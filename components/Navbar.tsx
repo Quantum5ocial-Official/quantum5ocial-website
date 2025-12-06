@@ -105,13 +105,13 @@ export default function Navbar() {
       }
 
       const { data, error } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("owner_id", user.id)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-
+  .from("organizations")
+  .select("id")
+  .eq("created_by", user.id)   // ✅ use created_by
+  .eq("is_active", true)
+  .limit(1)
+  .maybeSingle();
+      
       if (cancelled) return;
 
       if (!error && data) {
