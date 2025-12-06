@@ -457,92 +457,86 @@ export default function CommunityPage() {
           {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
           <section className="layout-main">
             <section className="section">
-              {/* STICKY HEADER + SEARCH */}
-              <div className="community-main-header">
-                <div className="section-header">
-                  <div>
-                    <div
-                      className="section-title"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                      }}
-                    >
-                      Quantum5ocial community
-                      {!loadingProfiles && !error && totalMembers !== null && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            background: "rgba(56,189,248,0.15)",
-                            border: "1px solid rgba(56,189,248,0.35)",
-                            color: "#7dd3fc",
-                          }}
-                        >
-                          {totalMembers} member
-                          {totalMembers === 1 ? "" : "s"}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="section-sub"
-                      style={{ maxWidth: 480, lineHeight: 1.45 }}
-                    >
-                      Discover members of the quantum ecosystem and{" "}
-                      <span style={{ color: "#7dd3fc" }}>entangle</span> with
-                      them.
-                    </div>
-                  </div>
-                </div>
+                  {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
+    <div className="jobs-main-header">
+      <div className="section-header">
+        <div>
+          <div
+            className="section-title"
+            style={{ display: "flex", alignItems: "center", gap: 10 }}
+          >
+            Quantum5ocial community
+            {!loadingProfiles && !error && (
+              <span
+                style={{
+                  fontSize: 12,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: "rgba(56,189,248,0.15)",
+                  border: "1px solid rgba(56,189,248,0.35)",
+                  color: "#7dd3fc",
+                }}
+              >
+                {profiles.length} member{profiles.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          <div
+            className="section-sub"
+            style={{ maxWidth: 480, lineHeight: 1.45 }}
+          >
+            Discover members of the quantum ecosystem and{" "}
+            <span style={{ color: "#7dd3fc" }}>entangle</span> with them.
+          </div>
+        </div>
+      </div>
 
-                {/* Center-column search bar */}
-                <div className="community-main-search">
-                  <div
-                    style={{
-                      width: "100%",
-                      borderRadius: 999,
-                      padding: 2,
-                      background:
-                        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
-                    }}
-                  >
-                    <div
-                      style={{
-                        borderRadius: 999,
-                        background: "rgba(15,23,42,0.97)",
-                        padding: "6px 12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 14,
-                          opacity: 0.85,
-                        }}
-                      >
-                        🔍
-                      </span>
-                      <input
-                        style={{
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          color: "#e5e7eb",
-                          fontSize: 14,
-                          width: "100%",
-                        }}
-                        placeholder="Search by name, role, affiliation, location…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {/* Center-column search bar */}
+      <div className="jobs-main-search">
+        <div
+          style={{
+            width: "100%",
+            borderRadius: 999,
+            padding: 2,
+            background:
+              "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.97)",
+              padding: "6px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 14,
+                opacity: 0.85,
+              }}
+            >
+              🔍
+            </span>
+            <input
+              style={{
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "#e5e7eb",
+                fontSize: 14,
+                width: "100%",
+              }}
+              placeholder="Search by name, role, affiliation, location…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
 
               {/* BODY */}
               {loadingProfiles && (
