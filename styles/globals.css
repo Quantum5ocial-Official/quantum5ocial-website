@@ -2531,3 +2531,88 @@ html.theme-light footer {
   background: #22d3ee;
   box-shadow: 0 0 6px #22d3ee;
 }
+/* --- mobile toggle base (hidden on desktop) --- */
+.nav-mobile-toggle {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.6);
+  background: rgba(15,23,42,0.95);
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.nav-mobile-bar {
+  width: 16px;
+  height: 1.6px;
+  background: #e5e7eb;
+  display: block;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.nav-mobile-bar + .nav-mobile-bar {
+  margin-top: 4px;
+}
+
+/* transform bars into an X when menu is open */
+.nav-mobile-toggle.open .nav-mobile-bar:first-child {
+  transform: translateY(2.5px) rotate(45deg);
+}
+
+.nav-mobile-toggle.open .nav-mobile-bar:last-child {
+  transform: translateY(-2.5px) rotate(-45deg);
+}
+
+/* --- responsive behaviour --- */
+@media (max-width: 768px) {
+  .nav-inner {
+    padding-inline: 16px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  /* Show burger, hide inline nav initially */
+  .nav-mobile-toggle {
+    display: flex;
+  }
+
+  .nav-links {
+    display: none;
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(15,23,42,0.9);
+    flex-direction: column;
+    gap: 4px;
+    background: radial-gradient(circle at top left, rgba(15,23,42,0.98), rgba(15,23,42,0.96));
+  }
+
+  .nav-links.nav-links-open {
+    display: flex;
+  }
+
+  /* make individual items full-width / comfy */
+  .nav-link,
+  .nav-link.nav-link-button,
+  .nav-cta,
+  .nav-user-button {
+    width: 100%;
+    justify-content: flex-start;
+    padding-inline: 0;
+  }
+
+  .nav-cta {
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  .nav-dashboard-menu.right-align {
+    position: static;       /* so dashboard dropdown just expands in flow */
+    margin-top: 4px;
+    width: 100%;
+  }
+}
