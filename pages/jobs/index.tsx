@@ -413,106 +413,106 @@ export default function JobsIndexPage() {
           </aside>
 
           {/* ========== MIDDLE COLUMN – JOBS LIST ========== */}
-          <section className="layout-main">
-            <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-  Quantum Jobs Universe
-  {!loading && !error && (
-    <span
-      style={{
-        fontSize: 12,
-        padding: "2px 8px",
-        borderRadius: 999,
-        background: "rgba(56,189,248,0.15)",
-        border: "1px solid rgba(56,189,248,0.35)",
-        color: "#7dd3fc",
-      }}
-    >
-      {filteredJobs.length} roles
-    </span>
-  )}
-</div>
-                  <div
-                    className="section-sub"
-                    style={{ maxWidth: "480px", lineHeight: "1.45" }}
-                  >
-                    Browse internships, MSc/PhD positions, postdocs, and
-                    industry roles across labs and companies.
-                  </div>
-                </div>
+          <section className="section">
+  {/* STICKY HEADER + SEARCH */}
+  <div className="jobs-main-header">
+    <div className="section-header">
+      <div>
+        <div
+          className="section-title"
+          style={{ display: "flex", alignItems: "center", gap: 10 }}
+        >
+          Quantum Jobs Universe
+          {!loading && !error && (
+            <span
+              style={{
+                fontSize: 12,
+                padding: "2px 8px",
+                borderRadius: 999,
+                background: "rgba(56,189,248,0.15)",
+                border: "1px solid rgba(56,189,248,0.35)",
+                color: "#7dd3fc",
+              }}
+            >
+              {filteredJobs.length} roles
+            </span>
+          )}
+        </div>
+        <div
+          className="section-sub"
+          style={{ maxWidth: "480px", lineHeight: "1.45" }}
+        >
+          Browse internships, MSc/PhD positions, postdocs, and
+          industry roles across labs and companies.
+        </div>
+      </div>
 
-                <button
-                  className="nav-cta"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => router.push("/jobs/new")}
-                >
-                  Post a job
-                </button>
-              </div>
+      <button
+        className="nav-cta"
+        style={{ cursor: "pointer" }}
+        onClick={() => router.push("/jobs/new")}
+      >
+        Post a job
+      </button>
+    </div>
 
-              {/* Center-column search bar */}
-<div
-  style={{
-    marginTop: 16,
-    marginBottom: 18,
-  }}
->
-  <div
-    style={{
-      width: "100%",
-      borderRadius: 999,
-      padding: "2px",
-      background:
-        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
-    }}
-  >
-    <div
-      style={{
-        borderRadius: 999,
-        background: "rgba(15,23,42,0.97)",
-        padding: "6px 12px",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
-      <span
+    {/* Center-column search bar */}
+    <div className="jobs-main-search">
+      <div
         style={{
-          fontSize: 14,
-          opacity: 0.85,
+          width: "100%",
+          borderRadius: 999,
+          padding: "2px",
+          background:
+            "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
         }}
       >
-        🔍
-      </span>
-      <input
-        style={{
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          color: "#e5e7eb",
-          fontSize: 14,
-          width: "100%",
-        }}
-        placeholder="Search by title, company, location, keywords…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+        <div
+          style={{
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.97)",
+            padding: "6px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 14,
+              opacity: 0.85,
+            }}
+          >
+            🔍
+          </span>
+          <input
+            style={{
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              color: "#e5e7eb",
+              fontSize: 14,
+              width: "100%",
+            }}
+            placeholder="Search by title, company, location, keywords…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
     </div>
   </div>
-</div>
 
+  {/* everything below (no-change): recommendations, All roles, etc. */}
+  {!loading && !error && filteredJobs.length === 0 && (
+    <p className="products-empty">
+      No roles match your filters yet. Try broadening your search.
+    </p>
+  )}
 
-              {!loading && !error && filteredJobs.length === 0 && (
-                <p className="products-empty">
-                  No roles match your filters yet. Try broadening your search.
-                </p>
-              )}
-
-              {!loading && !error && filteredJobs.length > 0 && (
-                <>
-                  {/* Top recommendations */}
+  {!loading && !error && filteredJobs.length > 0 && (
+    <>
+      {/* Top recommendations ... */}
                   {recommendedJobs.length > 0 && (
   <div
     style={{
