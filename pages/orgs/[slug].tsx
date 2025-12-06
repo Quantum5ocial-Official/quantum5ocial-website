@@ -1,8 +1,10 @@
 // pages/orgs/[slug].tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/router";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), {
   ssr: false,
@@ -10,6 +12,7 @@ const Navbar = dynamic(() => import("../../components/Navbar"), {
 
 type Org = {
   id: string;
+  owner_id: string | null;
   kind: "company" | "research_group";
   name: string;
   slug: string;
@@ -17,7 +20,6 @@ type Org = {
   description: string | null;
   website: string | null;
   logo_url: string | null;
-  banner_url: string | null;
   country: string | null;
   city: string | null;
   industry: string | null;
@@ -29,8 +31,9 @@ type Org = {
   department: string | null;
 };
 
-export default function OrganizationPage() {
+export default function OrganizationDetailPage() {
   const router = useRouter();
+  const { user } = useSupabaseUser();
   const { slug } = router.query;
 
   const [org, setOrg] = useState<Org | null>(null);
@@ -38,32 +41,60 @@ export default function OrganizationPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!slug) return;
+
     const loadOrg = async () => {
-      if (!slug || typeof slug !== "string") return;
       setLoading(true);
       setNotFound(false);
 
       const { data, error } = await supabase
         .from("organizations")
         .select("*")
-        .eq("slug", slug.toLowerCase())
+        .eq("slug", slug)
+        .eq("is_active", true)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error loading organization", error);
-        setOrg(null);
-        setNotFound(true);
-      } else if (!data) {
-        setOrg(null);
-        setNotFound(true);
-      } else {
+      if (!error && data) {
         setOrg(data as Org);
+      } else {
+        setOrg(null);
+        setNotFound(true);
       }
       setLoading(false);
     };
 
     loadOrg();
   }, [slug]);
+
+  const isOwner = useMemo(() => {
+    if (!user || !org) return false;
+    return org.owner_id === user.id;
+  }, [user, org]);
+
+  const kindLabel = org?.kind === "company" ? "Company" : "Research group";
+
+  const metaLine = useMemo(() => {
+    if (!org) return "";
+
+    const bits: string[] = [];
+
+    if (org.kind === "company") {
+      if (org.industry) bits.push(org.industry);
+      if (org.company_type) bits.push(org.company_type);
+    } else {
+      if (org.institution) bits.push(org.institution);
+      if (org.department) bits.push(org.department);
+    }
+
+    if (org.size_label) bits.push(org.size_label);
+
+    if (org.city && org.country) bits.push(`${org.city}, ${org.country}`);
+    else if (org.country) bits.push(org.country);
+
+    return bits.join(" · ");
+  }, [org]);
+
+  const firstLetter = org?.name?.charAt(0).toUpperCase() || "Q";
 
   return (
     <>
@@ -78,113 +109,210 @@ export default function OrganizationPage() {
             padding: "32px 24px 64px",
           }}
         >
-          {loading && (
-            <div style={{ color: "#e5e7eb", fontSize: 15 }}>Loading…</div>
-          )}
-
-          {!loading && notFound && (
+          {loading ? (
             <div
               style={{
-                color: "#e5e7eb",
-                fontSize: 16,
-                padding: 24,
-                borderRadius: 16,
-                border: "1px solid rgba(148,163,184,0.35)",
-                background: "rgba(15,23,42,0.9)",
+                fontSize: 14,
+                color: "rgba(209,213,219,0.9)",
               }}
             >
-              Organization not found.
+              Loading organization…
             </div>
-          )}
-
-          {!loading && org && (
+          ) : notFound || !org ? (
+            <div
+              style={{
+                fontSize: 14,
+                color: "rgba(209,213,219,0.9)",
+              }}
+            >
+              Organization not found or no longer active.
+            </div>
+          ) : (
             <>
+              {/* Top bar: back link */}
+              <div
+                style={{
+                  marginBottom: 16,
+                  fontSize: 13,
+                }}
+              >
+                <Link
+                  href="/orgs"
+                  style={{
+                    color: "#7dd3fc",
+                    textDecoration: "none",
+                  }}
+                >
+                  ← Back to organizations
+                </Link>
+              </div>
+
               {/* Header card */}
               <section
                 style={{
-                  borderRadius: 18,
-                  border: "1px solid rgba(148,163,184,0.35)",
+                  borderRadius: 20,
+                  padding: 20,
+                  border: "1px solid rgba(148,163,184,0.3)",
                   background:
-                    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.92))",
-                  boxShadow: "0 20px 50px rgba(15,23,42,0.7)",
-                  marginBottom: 28,
-                  overflow: "hidden",
+                    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98))",
+                  boxShadow: "0 18px 40px rgba(15,23,42,0.6)",
+                  marginBottom: 24,
+                  display: "flex",
+                  gap: 18,
+                  alignItems: "flex-start",
                 }}
               >
-                {/* Banner */}
+                {/* Logo / initial */}
                 <div
                   style={{
-                    height: 120,
+                    width: 70,
+                    height: 70,
+                    borderRadius: 20,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "1px solid rgba(148,163,184,0.45)",
                     background:
-                      org.banner_url
-                        ? `url(${org.banner_url}) center/cover no-repeat`
-                        : "radial-gradient(circle at 0% 0%, #3bc7f399, #0f172a 55%)",
-                  }}
-                />
-
-                <div
-                  style={{
-                    padding: "20px 22px 22px",
+                      "linear-gradient(135deg,#3bc7f3,#8468ff)",
                     display: "flex",
-                    gap: 20,
-                    alignItems: "flex-end",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#0f172a",
+                    fontWeight: 700,
+                    fontSize: 26,
                   }}
                 >
-                  {/* Logo */}
+                  {org.logo_url ? (
+                    <img
+                      src={org.logo_url}
+                      alt={org.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    firstLetter
+                  )}
+                </div>
+
+                {/* Text + actions */}
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      marginTop: -64,
-                      width: 90,
-                      height: 90,
-                      borderRadius: 20,
-                      border: "2px solid rgba(15,23,42,0.9)",
-                      overflow: "hidden",
-                      background:
-                        "linear-gradient(135deg,#3bc7f3,#8468ff)",
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      marginBottom: 4,
                     }}
                   >
-                    {org.logo_url ? (
-                      <img
-                        src={org.logo_url}
-                        alt={org.name}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          display: "block",
-                        }}
-                      />
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: 34,
-                          fontWeight: 700,
-                          color: "#0f172a",
-                        }}
-                      >
-                        {org.name.charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Text block */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontSize: 24,
-                        fontWeight: 600,
-                        color: "#e5e7eb",
-                        marginBottom: 4,
+                        minWidth: 0,
                       }}
                     >
-                      {org.name}
+                      <h1
+                        style={{
+                          fontSize: 26,
+                          fontWeight: 600,
+                          margin: 0,
+                          marginBottom: 4,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {org.name}
+                      </h1>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 12,
+                            borderRadius: 999,
+                            padding: "3px 9px",
+                            border:
+                              "1px solid rgba(148,163,184,0.7)",
+                            color: "rgba(226,232,240,0.95)",
+                          }}
+                        >
+                          {kindLabel}
+                        </span>
+                        {org.size_label && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              borderRadius: 999,
+                              padding: "3px 9px",
+                              border:
+                                "1px solid rgba(148,163,184,0.5)",
+                              color: "rgba(226,232,240,0.9)",
+                            }}
+                          >
+                            {org.size_label}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Meta line */}
+                    {/* Actions: Edit for owner, placeholder Follow for others */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        gap: 8,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {isOwner ? (
+                        <Link
+                          href={`/orgs/${org.slug}/edit`}
+                          style={{
+                            padding: "8px 14px",
+                            borderRadius: 999,
+                            fontSize: 13,
+                            fontWeight: 500,
+                            textDecoration: "none",
+                            background:
+                              "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                            color: "#0f172a",
+                            border: "none",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Edit organization
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          style={{
+                            padding: "8px 14px",
+                            borderRadius: 999,
+                            fontSize: 13,
+                            border: "1px solid rgba(148,163,184,0.6)",
+                            background: "transparent",
+                            color: "rgba(148,163,184,0.95)",
+                            cursor: "not-allowed",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Follow (soon)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {metaLine && (
                     <div
                       style={{
                         fontSize: 13,
@@ -192,184 +320,95 @@ export default function OrganizationPage() {
                         marginBottom: 6,
                       }}
                     >
-                      {org.kind === "company"
-                        ? "Company"
-                        : "Research group"}
-                      {org.institution && org.kind === "research_group"
-                        ? ` · ${org.institution}`
-                        : ""}
-                      {org.city && org.country
-                        ? ` · ${org.city}, ${org.country}`
-                        : org.country
-                        ? ` · ${org.country}`
-                        : ""}
+                      {metaLine}
                     </div>
+                  )}
 
-                    {/* Tagline */}
-                    {org.tagline && (
-                      <div
-                        style={{
-                          fontSize: 14,
-                          color: "rgba(226,232,240,0.95)",
-                          marginTop: 2,
-                        }}
-                      >
-                        {org.tagline}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Website button */}
-                  {org.website && (
-                    <a
-                      href={org.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  {org.tagline && (
+                    <div
                       style={{
-                        padding: "8px 16px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(148,163,184,0.7)",
-                        fontSize: 13,
-                        color: "#7dd3fc",
-                        textDecoration: "none",
-                        whiteSpace: "nowrap",
+                        fontSize: 14,
+                        color: "rgba(209,213,219,0.95)",
                       }}
                     >
-                      Visit website ↗
-                    </a>
+                      {org.tagline}
+                    </div>
+                  )}
+
+                  {org.website && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 13,
+                      }}
+                    >
+                      <a
+                        href={org.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#7dd3fc",
+                          textDecoration: "none",
+                        }}
+                      >
+                        {org.website.replace(/^https?:\/\//, "")} ↗
+                      </a>
+                    </div>
                   )}
                 </div>
               </section>
 
-              {/* Details section */}
-              <section
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1.2fr)",
-                  gap: 20,
-                }}
-              >
-                {/* Left: description placeholder */}
-                <div
-                  style={{
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    background: "rgba(15,23,42,0.92)",
-                    padding: 18,
-                  }}
-                >
+              {/* Content section */}
+              <section>
+                {org.description ? (
                   <div
                     style={{
-                      fontSize: 15,
-                      fontWeight: 500,
-                      marginBottom: 8,
-                      color: "#e5e7eb",
+                      fontSize: 14,
+                      lineHeight: 1.6,
+                      color: "rgba(226,232,240,0.95)",
+                      whiteSpace: "pre-wrap",
                     }}
                   >
-                    About
+                    {org.description}
                   </div>
-                  {org.description ? (
-                    <p
-                      style={{
-                        fontSize: 14,
-                        color: "rgba(209,213,219,0.95)",
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      {org.description}
-                    </p>
-                  ) : (
-                    <p
-                      style={{
-                        fontSize: 14,
-                        color: "rgba(148,163,184,0.95)",
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      This organization has not added a full description yet.
-                      As Quantum5ocial evolves, this section will show more
-                      details, projects, and links.
-                    </p>
-                  )}
-                </div>
-
-                {/* Right: meta info */}
-                <div
-                  style={{
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    background: "rgba(15,23,42,0.92)",
-                    padding: 18,
-                    fontSize: 13,
-                    color: "rgba(209,213,219,0.95)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
+                ) : (
                   <div
                     style={{
-                      fontSize: 14.5,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: "#e5e7eb",
+                      fontSize: 14,
+                      color: "rgba(156,163,175,0.95)",
                     }}
                   >
-                    Details
+                    No detailed description added yet.
                   </div>
+                )}
 
-                  {org.kind === "company" && org.industry && (
-                    <div>
-                      <span style={{ opacity: 0.7 }}>Industry:</span>{" "}
-                      {org.industry}
+                {org.focus_areas && (
+                  <div
+                    style={{
+                      marginTop: 18,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 13,
+                        textTransform: "uppercase",
+                        letterSpacing: 0.08,
+                        color: "rgba(148,163,184,0.9)",
+                        marginBottom: 6,
+                      }}
+                    >
+                      Focus areas
                     </div>
-                  )}
-
-                  {org.kind === "company" && org.company_type && (
-                    <div>
-                      <span style={{ opacity: 0.7 }}>Type:</span>{" "}
-                      {org.company_type}
-                    </div>
-                  )}
-
-                  {org.kind === "research_group" && org.institution && (
-                    <div>
-                      <span style={{ opacity: 0.7 }}>Institution:</span>{" "}
-                      {org.institution}
-                    </div>
-                  )}
-
-                  {org.kind === "research_group" && org.department && (
-                    <div>
-                      <span style={{ opacity: 0.7 }}>Department:</span>{" "}
-                      {org.department}
-                    </div>
-                  )}
-
-                  {org.focus_areas && (
-                    <div>
-                      <span style={{ opacity: 0.7 }}>Focus areas:</span>{" "}
+                    <div
+                      style={{
+                        fontSize: 14,
+                        color: "rgba(226,232,240,0.95)",
+                      }}
+                    >
                       {org.focus_areas}
                     </div>
-                  )}
-
-                  {org.size_label && (
-                    <div>
-                      <span style={{ opacity: 0.7 }}>Size:</span>{" "}
-                      {org.size_label} people
-                    </div>
-                  )}
-
-                  {!org.industry &&
-                    !org.focus_areas &&
-                    !org.size_label &&
-                    !org.institution && (
-                      <div style={{ opacity: 0.7 }}>
-                        More details will appear here as this organization
-                        completes its profile.
-                      </div>
-                    )}
-                </div>
+                  </div>
+                )}
               </section>
             </>
           )}
