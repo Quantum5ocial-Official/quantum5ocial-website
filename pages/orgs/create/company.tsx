@@ -108,6 +108,10 @@ export default function CreateCompanyPage() {
       );
       return;
     }
+    if (!user) {
+      setSubmitError("You must be logged in to create an organization.");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -117,6 +121,7 @@ export default function CreateCompanyPage() {
       const { data, error } = await supabase
         .from("organizations")
         .insert({
+          created_by: user.id,         // 🔹 link org to creator
           kind: "company",
           name,
           slug: effectiveSlug,
