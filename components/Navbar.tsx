@@ -126,7 +126,7 @@ export default function Navbar() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, router.pathname]); // 👈 re-run when route changes
 
   // Close dropdowns on outside click (desktop)
   useEffect(() => {
@@ -322,7 +322,7 @@ export default function Navbar() {
                       Saved products
                     </Link>
 
-                    {/* NEW: My organizations – only if user owns any */}
+                    {/* My organizations – only if user owns any */}
                     {hasOrganizations && (
                       <Link
                         href="/dashboard/my-organizations"
@@ -509,7 +509,7 @@ export default function Navbar() {
                 Saved products
               </Link>
 
-              {/* NEW: My organizations – only if user owns any */}
+              {/* My organizations – only if user owns any */}
               {hasOrganizations && (
                 <Link
                   href="/dashboard/my-organizations"
