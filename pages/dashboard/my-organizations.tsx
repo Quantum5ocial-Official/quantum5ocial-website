@@ -10,15 +10,23 @@ const Navbar = dynamic(() => import("../../components/Navbar"), {
   ssr: false,
 });
 
+type OrgKind = "company" | "research_group";
+
 type Org = {
   id: string;
-  kind: "company" | "research_group";
+  kind: OrgKind;
   name: string;
   slug: string;
   tagline: string | null;
   logo_url: string | null;
   city: string | null;
   country: string | null;
+  // a few extra fields in case we want richer meta later
+  industry?: string | null;
+  company_type?: string | null;
+  institution?: string | null;
+  department?: string | null;
+  size_label?: string | null;
 };
 
 export default function MyOrganizationsPage() {
@@ -28,15 +36,18 @@ export default function MyOrganizationsPage() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
 
+  // redirect to auth if not logged in
   useEffect(() => {
     if (!loading && !user) {
-      // not logged in – send to auth
       router.push("/auth");
     }
   }, [user, loading, router]);
 
+  // load organizations created by this user
   useEffect(() => {
     const loadMyOrgs = async () => {
+      if (loading) return;
+
       if (!user) {
         setOrgs([]);
         setLoadingOrgs(false);
@@ -44,10 +55,13 @@ export default function MyOrganizationsPage() {
       }
 
       setLoadingOrgs(true);
+
       const { data, error } = await supabase
         .from("organizations")
-        .select("id, kind, name, slug, tagline, logo_url, city, country")
-        .eq("owner_id", user.id)
+        .select(
+          "id, kind, name, slug, tagline, logo_url, city, country, industry, company_type, institution, department, size_label"
+        )
+        .eq("created_by", user.id)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
@@ -57,11 +71,12 @@ export default function MyOrganizationsPage() {
         setOrgs([]);
         if (error) console.error("Error loading my organizations", error);
       }
+
       setLoadingOrgs(false);
     };
 
     loadMyOrgs();
-  }, [user]);
+  }, [user, loading]);
 
   const formatKindLabel = (kind: Org["kind"]) =>
     kind === "company" ? "Company" : "Research group";
@@ -171,13 +186,23 @@ export default function MyOrganizationsPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(260px, 1fr))",
                   gap: 16,
                 }}
               >
                 {orgs.map((org) => {
                   const firstLetter = org.name.charAt(0).toUpperCase();
                   const location = formatLocation(org);
+
+                  const editHref =
+                    org.kind === "company"
+                      ? `/orgs/create/company?edit=${encodeURIComponent(
+                          org.slug
+                        )}`
+                      : `/orgs/create/research-group?edit=${encodeURIComponent(
+                          org.slug
+                        )}`;
 
                   return (
                     <div
@@ -308,8 +333,15 @@ export default function MyOrganizationsPage() {
                           >
                             View profile →
                           </Link>
-                          {/* Placeholder for future edit page */}
-                          {/* <Link href={`/orgs/edit/${org.id}`}>Edit</Link> */}
+                          <Link
+                            href={editHref}
+                            style={{
+                              color: "#c4b5fd",
+                              textDecoration: "none",
+                            }}
+                          >
+                            Edit
+                          </Link>
                         </div>
                       </div>
                     </div>
