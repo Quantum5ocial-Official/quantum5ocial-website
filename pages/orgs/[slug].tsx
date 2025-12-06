@@ -12,7 +12,7 @@ const Navbar = dynamic(() => import("../../components/Navbar"), {
 
 type Org = {
   id: string;
-  created_by: string | null; // 👈 changed from owner_id
+  created_by: string | null;
   kind: "company" | "research_group";
   name: string;
   slug: string;
@@ -66,7 +66,6 @@ export default function OrganizationDetailPage() {
     loadOrg();
   }, [slug]);
 
-  // 👇 use created_by to determine ownership
   const isOwner = useMemo(() => {
     if (!user || !org) return false;
     return org.created_by === user.id;
@@ -96,6 +95,17 @@ export default function OrganizationDetailPage() {
   }, [org]);
 
   const firstLetter = org?.name?.charAt(0).toUpperCase() || "Q";
+
+  // 🆕 Edit target – go back to the corresponding create form in "edit" mode
+  const editHref = useMemo(() => {
+    if (!org) return "#";
+    if (org.kind === "company") {
+      return `/orgs/create/company?edit=${encodeURIComponent(org.slug)}`;
+    }
+    return `/orgs/create/research-group?edit=${encodeURIComponent(
+      org.slug
+    )}`;
+  }, [org]);
 
   return (
     <>
@@ -275,7 +285,7 @@ export default function OrganizationDetailPage() {
                     >
                       {isOwner ? (
                         <Link
-                          href={`/orgs/${org.slug}/edit`}
+                          href={editHref}
                           style={{
                             padding: "8px 14px",
                             borderRadius: 999,
