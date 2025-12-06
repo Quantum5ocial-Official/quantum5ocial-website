@@ -318,32 +318,34 @@ export default function Navbar() {
                 </button>
 
                 {isUserMenuOpen && (
-                  <div className="nav-dashboard-menu right-align">
-                    {/* NEW: Create organization page */}
-                    <Link
-                      href="/orgs/create"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      Create your organization page
-                    </Link>
+  <div className="nav-dashboard-menu right-align">
+    {/* My profile FIRST */}
+    <Link
+      href="/profile"
+      className="nav-dropdown-item"
+      onClick={() => setIsUserMenuOpen(false)}
+    >
+      My profile
+    </Link>
 
-                    <Link
-                      href="/profile"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      My profile
-                    </Link>
-                    <button
-                      type="button"
-                      className="nav-dropdown-item nav-dropdown-danger"
-                      onClick={handleLogout}
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
+    {/* Create organization BELOW profile */}
+    <Link
+      href="/orgs/create"
+      className="nav-dropdown-item"
+      onClick={() => setIsUserMenuOpen(false)}
+    >
+      Create my organization page
+    </Link>
+
+    <button
+      type="button"
+      className="nav-dropdown-item nav-dropdown-danger"
+      onClick={handleLogout}
+    >
+      Logout
+    </button>
+  </div>
+)}
               </div>
             )}
           </nav>
@@ -458,37 +460,39 @@ export default function Navbar() {
           )}
 
           {!loading && user && (
-            <>
-              <div className="nav-mobile-section-label">
-                Account
-              </div>
-              {/* NEW: Create org page in mobile drawer */}
-              <Link
-                href="/orgs/create"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                Create your organization page
-              </Link>
-              <Link
-                href="/profile"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                My profile
-              </Link>
-              <button
-                type="button"
-                className="nav-link nav-dropdown-danger"
-                onClick={async () => {
-                  await handleLogout();
-                  closeMobileMenu();
-                }}
-              >
-                Logout
-              </button>
-            </>
-          )}
+  <>
+    <div className="nav-mobile-section-label">Account</div>
+
+    {/* My profile FIRST */}
+    <Link
+      href="/profile"
+      className="nav-link"
+      onClick={closeMobileMenu}
+    >
+      My profile
+    </Link>
+
+    {/* Create organization BELOW profile */}
+    <Link
+      href="/orgs/create"
+      className="nav-link"
+      onClick={closeMobileMenu}
+    >
+      Create my organization page
+    </Link>
+
+    <button
+      type="button"
+      className="nav-link nav-dropdown-danger"
+      onClick={async () => {
+        await handleLogout();
+        closeMobileMenu();
+      }}
+    >
+      Logout
+    </button>
+  </>
+)}
         </nav>
       </div>
     </header>
