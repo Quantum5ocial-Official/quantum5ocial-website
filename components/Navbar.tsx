@@ -16,19 +16,12 @@ export default function Navbar() {
 
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<Theme>("dark");
 
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const handleLogout = async () => {
-  await supabase.auth.signOut();
-  setIsUserMenuOpen(false);
-  setIsDashboardOpen(false);
-  setIsMobileMenuOpen(false);
-  router.push("/");
-};
 
   // ----- THEME HANDLING -----
   useEffect(() => {
@@ -116,6 +109,9 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    setIsUserMenuOpen(false);
+    setIsDashboardOpen(false);
+    setIsMobileMenuOpen(false);
     router.push("/");
   };
 
@@ -165,7 +161,11 @@ export default function Navbar() {
         }}
       >
         {/* Brand – clickable to home */}
-        <Link href="/" className="brand-clickable">
+        <Link
+          href="/"
+          className="brand-clickable"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
           <div className="brand">
             <img
               src="/Q5_white_bg.png"
@@ -183,13 +183,31 @@ export default function Navbar() {
           </div>
         </Link>
 
-        <nav className="nav-links">
+        {/* Mobile hamburger toggle */}
+        <button
+          type="button"
+          className={`nav-mobile-toggle ${
+            isMobileMenuOpen ? "open" : ""
+          }`}
+          onClick={() => setIsMobileMenuOpen((o) => !o)}
+          aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+        >
+          <span className="nav-mobile-bar" />
+          <span className="nav-mobile-bar" />
+        </button>
+
+        <nav
+          className={`nav-links ${
+            isMobileMenuOpen ? "nav-links-open" : ""
+          }`}
+        >
           {/* Jobs */}
           <Link
             href="/jobs"
             className={`nav-link ${
               isActive("/jobs") ? "nav-link-active" : ""
             }`}
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             <span className="nav-link-label">Jobs</span>
           </Link>
@@ -200,6 +218,7 @@ export default function Navbar() {
             className={`nav-link ${
               isActive("/products") ? "nav-link-active" : ""
             }`}
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             <span className="nav-link-label">Products</span>
           </Link>
@@ -210,6 +229,7 @@ export default function Navbar() {
             className={`nav-link ${
               isActive("/community") ? "nav-link-active" : ""
             }`}
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             <span className="nav-link-label">Community</span>
           </Link>
@@ -231,32 +251,43 @@ export default function Navbar() {
 
               {isDashboardOpen && (
                 <div className="nav-dashboard-menu right-align">
-                  {/* NEW: Overview item */}
                   <Link
                     href="/dashboard"
                     className="nav-dropdown-item"
-                    onClick={() => setIsDashboardOpen(false)}
+                    onClick={() => {
+                      setIsDashboardOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
                   >
                     Overview
                   </Link>
                   <Link
                     href="/dashboard/entangled-states"
                     className="nav-dropdown-item"
-                    onClick={() => setIsDashboardOpen(false)}
+                    onClick={() => {
+                      setIsDashboardOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
                   >
                     Entangled states
                   </Link>
                   <Link
                     href="/dashboard/saved-jobs"
                     className="nav-dropdown-item"
-                    onClick={() => setIsDashboardOpen(false)}
+                    onClick={() => {
+                      setIsDashboardOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
                   >
                     Saved jobs
                   </Link>
                   <Link
                     href="/dashboard/saved-products"
                     className="nav-dropdown-item"
-                    onClick={() => setIsDashboardOpen(false)}
+                    onClick={() => {
+                      setIsDashboardOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
                   >
                     Saved products
                   </Link>
@@ -277,7 +308,11 @@ export default function Navbar() {
 
           {/* Logged-out CTA */}
           {!loading && !user && (
-            <Link href="/auth" className="nav-cta">
+            <Link
+              href="/auth"
+              className="nav-cta"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
               Login / Sign up
             </Link>
           )}
@@ -309,7 +344,10 @@ export default function Navbar() {
                   <Link
                     href="/profile"
                     className="nav-dropdown-item"
-                    onClick={() => setIsUserMenuOpen(false)}
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
                   >
                     My profile
                   </Link>
