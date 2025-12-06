@@ -21,6 +21,14 @@ export default function Navbar() {
 
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const handleLogout = async () => {
+  await supabase.auth.signOut();
+  setIsUserMenuOpen(false);
+  setIsDashboardOpen(false);
+  setIsMobileMenuOpen(false);
+  router.push("/");
+};
 
   // ----- THEME HANDLING -----
   useEffect(() => {
