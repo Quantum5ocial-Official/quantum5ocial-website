@@ -2627,10 +2627,12 @@ html.theme-light footer {
    =========================== */
 
 /* Desktop defaults */
-.nav-links-desktop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+@media (min-width: 769px) {
+  .nav-links-desktop {
+    display: flex;
+    align-items: center;
+    gap: 18px;          /* increase spacing between items */
+  }
 }
 
 @media (min-width: 769px) {
