@@ -975,92 +975,97 @@ export default function CommunityPage() {
     )}
   </section>
 </section>
-  {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES ========== */}
-<aside
-  className="layout-right sticky-col"
-  style={{ display: "flex", flexDirection: "column" }}
->
-  <div className="hero-tiles hero-tiles-vertical">
-    {/* Highlighted jobs */}
-    <div className="hero-tile">
-      <div className="hero-tile-inner">
-        <div className="tile-label">Highlighted</div>
-        <div className="tile-title-row">
-          <div className="tile-title">Quantum roles spotlight</div>
-          <div className="tile-icon-orbit">🧪</div>
-        </div>
-        <p className="tile-text">
-          This tile will later showcase a curated quantum job or role
-          from the marketplace – ideal to show during demos.
-        </p>
-        <div className="tile-pill-row">
-          <span className="tile-pill">Example: PhD position</span>
-          <span className="tile-pill">Location</span>
-          <span className="tile-pill">Lab / company</span>
-        </div>
-        <div className="tile-cta">
-          Jobs spotlight <span>›</span>
-        </div>
-      </div>
-    </div>
+            {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES + COPYRIGHT ========== */}
+          <aside
+            className="layout-right sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
+            <div className="hero-tiles hero-tiles-vertical">
+              {/* Highlighted jobs */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum roles spotlight</div>
+                    <div className="tile-icon-orbit">🧪</div>
+                  </div>
+                  <p className="tile-text">
+                    This tile will later showcase a curated quantum job or role
+                    from the marketplace – ideal to show during demos.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Example: PhD position</span>
+                    <span className="tile-pill">Location</span>
+                    <span className="tile-pill">Lab / company</span>
+                  </div>
+                  <div className="tile-cta">
+                    Jobs spotlight <span>›</span>
+                  </div>
+                </div>
+              </div>
 
-    {/* Highlighted products */}
-    <div className="hero-tile">
-      <div className="hero-tile-inner">
-        <div className="tile-label">Highlighted</div>
-        <div className="tile-title-row">
-          <div className="tile-title">Quantum product of the week</div>
-          <div className="tile-icon-orbit">🔧</div>
-        </div>
-        <p className="tile-text">
-          This tile will highlight one selected hardware, software,
-          or service from the Quantum Products Lab.
-        </p>
-        <div className="tile-pill-row">
-          <span className="tile-pill">Example: Cryo system</span>
-          <span className="tile-pill">Control electronics</span>
-          <span className="tile-pill">Software suite</span>
-        </div>
-        <div className="tile-cta">
-          Product spotlight <span>›</span>
-        </div>
-      </div>
-    </div>
+              {/* Highlighted products */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Quantum product of the week</div>
+                    <div className="tile-icon-orbit">🔧</div>
+                  </div>
+                  <p className="tile-text">
+                    This tile will highlight one selected hardware, software,
+                    or service from the Quantum Products Lab.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Example: Cryo system</span>
+                    <span className="tile-pill">Control electronics</span>
+                    <span className="tile-pill">Software suite</span>
+                  </div>
+                  <div className="tile-cta">
+                    Product spotlight <span>›</span>
+                  </div>
+                </div>
+              </div>
 
-    {/* Highlighted talent */}
-    <div className="hero-tile">
-      <div className="hero-tile-inner">
-        <div className="tile-label">Highlighted</div>
-        <div className="tile-title-row">
-          <div className="tile-title">Featured quantum talent</div>
-          <div className="tile-icon-orbit">🤝</div>
-        </div>
-        <p className="tile-text">
-          Later this tile can feature a standout community member –
-          for example a PI, postdoc, or startup founder.
-        </p>
-        <div className="tile-pill-row">
-          <span className="tile-pill">Example: Role</span>
-          <span className="tile-pill">Field</span>
-          <span className="tile-pill">Affiliation</span>
-        </div>
-        <div className="tile-cta">
-          Talent spotlight <span>›</span>
-        </div>
-      </div>
-    </div>
-  </div>
+              {/* Highlighted talent */}
+              <div className="hero-tile">
+                <div className="hero-tile-inner">
+                  <div className="tile-label">Highlighted</div>
+                  <div className="tile-title-row">
+                    <div className="tile-title">Featured quantum talent</div>
+                    <div className="tile-icon-orbit">🤝</div>
+                  </div>
+                  <p className="tile-text">
+                    Later this tile can feature a standout community member –
+                    for example a PI, postdoc, or startup founder.
+                  </p>
+                  <div className="tile-pill-row">
+                    <span className="tile-pill">Example: Role</span>
+                    <span className="tile-pill">Field</span>
+                    <span className="tile-pill">Affiliation</span>
+                  </div>
+                  <div className="tile-cta">
+                    Talent spotlight <span>›</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-  <div
-    style={{
-      marginTop: "auto",
-      paddingTop: 12,
-      borderTop: "1px solid rgba(148,163,184,0.18)",
-      fontSize: 12,
-      color: "rgba(148,163,184,0.9)",
-      textAlign: "right",
-    }}
-  >
-    © 2025 Quantum5ocial
-  </div>
-</aside>
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 12,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                fontSize: 12,
+                color: "rgba(148,163,184,0.9)",
+                textAlign: "right",
+              }}
+            >
+              © 2025 Quantum5ocial
+            </div>
+          </aside>
+        </main>
+      </div>
+    </>
+  );
+}
