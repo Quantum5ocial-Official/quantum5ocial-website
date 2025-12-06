@@ -228,7 +228,7 @@ export default function Navbar() {
               <span className="nav-link-label">Community</span>
             </Link>
 
-            {/* NEW: Organizations directory link */}
+            {/* NEW: Organizations tab */}
             <Link
               href="/orgs"
               className={`nav-link ${
@@ -329,6 +329,7 @@ export default function Navbar() {
 
                 {isUserMenuOpen && (
                   <div className="nav-dashboard-menu right-align">
+                    {/* My profile FIRST */}
                     <Link
                       href="/profile"
                       className="nav-dropdown-item"
@@ -336,6 +337,16 @@ export default function Navbar() {
                     >
                       My profile
                     </Link>
+
+                    {/* Create organization BELOW profile */}
+                    <Link
+                      href="/orgs/create"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Create my organization page
+                    </Link>
+
                     <button
                       type="button"
                       className="nav-dropdown-item nav-dropdown-danger"
@@ -401,7 +412,7 @@ export default function Navbar() {
             Community
           </Link>
 
-          {/* NEW: Organizations link in mobile drawer */}
+          {/* NEW: Organizations in mobile menu */}
           <Link
             href="/orgs"
             className={`nav-link ${
@@ -471,9 +482,9 @@ export default function Navbar() {
 
           {!loading && user && (
             <>
-              <div className="nav-mobile-section-label">
-                Account
-              </div>
+              <div className="nav-mobile-section-label">Account</div>
+
+              {/* My profile FIRST */}
               <Link
                 href="/profile"
                 className="nav-link"
@@ -481,6 +492,16 @@ export default function Navbar() {
               >
                 My profile
               </Link>
+
+              {/* Create organization BELOW profile */}
+              <Link
+                href="/orgs/create"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                Create my organization page
+              </Link>
+
               <button
                 type="button"
                 className="nav-link nav-dropdown-danger"
