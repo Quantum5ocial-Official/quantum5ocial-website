@@ -3,7 +3,7 @@ import { useEffect, useState, FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useSupabaseUser } from "../../../lib/useSupabaseUser";
-// import { supabase } from "../../../lib/supabaseClient"; // use later when DB is ready
+import { supabase } from "../../../lib/supabaseClient";
 
 const Navbar = dynamic(() => import("../../../components/Navbar"), {
   ssr: false,
@@ -54,7 +54,6 @@ export default function CreateCompanyPage() {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // slug helper
   const slugify = (value: string) =>
     value
       .toLowerCase()
@@ -113,49 +112,39 @@ export default function CreateCompanyPage() {
     setSubmitting(true);
 
     try {
-      // TODO: connect to Supabase once `organizations` table exists.
-      // Example skeleton:
-      //
-      // const { data, error } = await supabase
-      //   .from("organizations")
-      //   .insert({
-      //     name,
-      //     slug: slug || slugify(name),
-      //     website,
-      //     industry,
-      //     size,
-      //     org_type: orgType,
-      //     tagline,
-      //     created_by: user?.id,
-      //   })
-      //   .select("slug")
-      //   .single();
-      //
-      // if (error) throw error;
-      //
-      // // handle logo upload separately here…
-      //
-      // router.push(`/orgs/${data.slug}`);
+      const effectiveSlug = (slug || slugify(name)).toLowerCase();
 
-      console.log("Company form submitted (placeholder):", {
-        name,
-        slug: slug || slugify(name),
-        website,
-        industry,
-        size,
-        orgType,
-        tagline,
-        logoFile,
-        authorized,
-      });
+      const { data, error } = await supabase
+        .from("organizations")
+        .insert({
+          kind: "company",
+          name,
+          slug: effectiveSlug,
+          website: website || null,
+          industry: industry || null,
+          size_label: size || null,
+          company_type: orgType || null,
+          tagline: tagline || null,
+          // logo_url will be set later when we add Storage upload
+        })
+        .select("slug")
+        .single();
 
-      setSubmitMessage(
-        "Form submitted locally. Connect this to Supabase when your organizations table is ready."
-      );
+      if (error) {
+        throw error;
+      }
+
+      setSubmitMessage("Company page created successfully.");
+      setSubmitError(null);
+
+      if (data?.slug) {
+        router.push(`/orgs/${data.slug}`);
+      }
     } catch (err: any) {
       console.error(err);
       setSubmitError(
-        err?.message || "Something went wrong while creating the organization."
+        err?.message ||
+          "Something went wrong while creating the organization."
       );
     } finally {
       setSubmitting(false);
@@ -334,7 +323,8 @@ export default function CreateCompanyPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)",
+                gridTemplateColumns:
+                  "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)",
                 gap: 16,
               }}
             >
@@ -485,7 +475,7 @@ export default function CreateCompanyPage() {
                     color: "rgba(148,163,184,0.95)",
                   }}
                 >
-                  Selected: {logoFile.name}
+                  Selected: {logoFile.name} (logo upload wiring will come later)
                 </div>
               )}
             </div>
@@ -586,8 +576,7 @@ export default function CreateCompanyPage() {
                   fontWeight: 500,
                   cursor: submitting ? "default" : "pointer",
                   opacity: submitting ? 0.7 : 1,
-                  background:
-                    "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                   color: "#0f172a",
                 }}
               >
