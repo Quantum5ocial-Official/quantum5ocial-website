@@ -426,7 +426,7 @@ export default function JobsIndexPage() {
                       className="section-sub"
                       style={{ maxWidth: "480px", lineHeight: "1.45" }}
                     >
-                      Browse internships, MSc/PhD positions, postdocs, and
+                      Browse internships, PhD positions, postdocs, and
                       industry roles across labs and companies.
                     </div>
                   </div>
