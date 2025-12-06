@@ -417,7 +417,23 @@ export default function JobsIndexPage() {
             <section className="section">
               <div className="section-header">
                 <div>
-                  <div className="section-title">Quantum Jobs Universe</div>
+                  <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  Quantum Jobs Universe
+  {!loading && !error && (
+    <span
+      style={{
+        fontSize: 12,
+        padding: "2px 8px",
+        borderRadius: 999,
+        background: "rgba(56,189,248,0.15)",
+        border: "1px solid rgba(56,189,248,0.35)",
+        color: "#7dd3fc",
+      }}
+    >
+      {filteredJobs.length} roles
+    </span>
+  )}
+</div>
                   <div
                     className="section-sub"
                     style={{ maxWidth: "480px", lineHeight: "1.45" }}
@@ -487,18 +503,6 @@ export default function JobsIndexPage() {
   </div>
 </div>
 
-              <div className="products-results-header">
-                <div className="products-status">
-                  {loading
-                    ? "Loading jobs…"
-                    : error
-                    ? error
-                    : `${filteredJobs.length} job${
-                        filteredJobs.length === 1 ? "" : "s"
-                      }`}
-                  {savingId && " · updating saved…"}
-                </div>
-              </div>
 
               {!loading && !error && filteredJobs.length === 0 && (
                 <p className="products-empty">
@@ -674,15 +678,7 @@ export default function JobsIndexPage() {
         </div>
       </div>
 
-      <div
-        style={{
-          fontSize: 12,
-          color: "var(--text-muted)",
-        }}
-      >
-        {remainingJobs.length} role
-        {remainingJobs.length === 1 ? "" : "s"} available
-      </div>
+      
     </div>
 
     <div className="jobs-grid">
