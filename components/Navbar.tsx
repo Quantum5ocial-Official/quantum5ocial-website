@@ -319,6 +319,15 @@ export default function Navbar() {
 
                 {isUserMenuOpen && (
                   <div className="nav-dashboard-menu right-align">
+                    {/* NEW: Create organization page */}
+                    <Link
+                      href="/orgs/create"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Create your organization page
+                    </Link>
+
                     <Link
                       href="/profile"
                       className="nav-dropdown-item"
@@ -453,6 +462,14 @@ export default function Navbar() {
               <div className="nav-mobile-section-label">
                 Account
               </div>
+              {/* NEW: Create org page in mobile drawer */}
+              <Link
+                href="/orgs/create"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                Create your organization page
+              </Link>
               <Link
                 href="/profile"
                 className="nav-link"
