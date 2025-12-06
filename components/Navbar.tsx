@@ -1,5 +1,10 @@
 // components/Navbar.tsx
-import { useState, useEffect, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  KeyboardEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -16,9 +21,11 @@ export default function Navbar() {
 
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<Theme>("dark");
+
+  // NEW: mobile drawer state
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
@@ -86,7 +93,7 @@ export default function Navbar() {
     };
   }, [user]);
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click (desktop)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -107,11 +114,14 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Lock scroll when mobile drawer is open
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+  }, [isMobileMenuOpen]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setIsUserMenuOpen(false);
-    setIsDashboardOpen(false);
-    setIsMobileMenuOpen(false);
     router.push("/");
   };
 
@@ -138,34 +148,32 @@ export default function Navbar() {
       ? fullName.split(" ")[0] || fullName
       : "User";
 
-  const toggleDashboardFromKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const toggleDashboardFromKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       setIsDashboardOpen((o) => !o);
     }
   };
 
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
   return (
     <header className="nav">
-      {/* Slightly wider inner container so navbar extends a bit past main layout */}
       <div
         className="nav-inner"
         style={{
           maxWidth: 1400,
           margin: "0 auto",
-          padding: "0 32px",
+          padding: "0 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
+          height: 72,
         }}
       >
         {/* Brand – clickable to home */}
-        <Link
-          href="/"
-          className="brand-clickable"
-          onClick={() => setIsMobileMenuOpen(false)}
-        >
+        <Link href="/" className="brand-clickable">
           <div className="brand">
             <img
               src="/Q5_white_bg.png"
@@ -183,184 +191,286 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Mobile hamburger toggle */}
-        <button
-          type="button"
-          className={`nav-mobile-toggle ${
-            isMobileMenuOpen ? "open" : ""
-          }`}
-          onClick={() => setIsMobileMenuOpen((o) => !o)}
-          aria-label={isMobileMenuOpen ? "Close navigation" : "Open navigation"}
+        {/* RIGHT SIDE: desktop nav + mobile hamburger */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+          }}
         >
-          <span className="nav-mobile-bar" />
-          <span className="nav-mobile-bar" />
-        </button>
+          {/* DESKTOP NAV LINKS */}
+          <nav className="nav-links nav-links-desktop">
+            <Link
+              href="/jobs"
+              className={`nav-link ${
+                isActive("/jobs") ? "nav-link-active" : ""
+              }`}
+            >
+              <span className="nav-link-label">Jobs</span>
+            </Link>
 
-        <nav
-          className={`nav-links ${
-            isMobileMenuOpen ? "nav-links-open" : ""
-          }`}
-        >
-          {/* Jobs */}
+            <Link
+              href="/products"
+              className={`nav-link ${
+                isActive("/products") ? "nav-link-active" : ""
+              }`}
+            >
+              <span className="nav-link-label">Products</span>
+            </Link>
+
+            <Link
+              href="/community"
+              className={`nav-link ${
+                isActive("/community") ? "nav-link-active" : ""
+              }`}
+            >
+              <span className="nav-link-label">Community</span>
+            </Link>
+
+            {/* Dashboard dropdown (desktop only) */}
+            {!loading && user && (
+              <div className="nav-dashboard-wrapper" ref={dashboardRef}>
+                <div
+                  className={`nav-link dashboard-trigger ${
+                    isActive("/dashboard") ? "nav-link-active" : ""
+                  }`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setIsDashboardOpen((o) => !o)}
+                  onKeyDown={toggleDashboardFromKey}
+                >
+                  <span className="nav-link-label">Dashboard</span>
+                </div>
+
+                {isDashboardOpen && (
+                  <div className="nav-dashboard-menu right-align">
+                    <Link
+                      href="/dashboard"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsDashboardOpen(false)}
+                    >
+                      Overview
+                    </Link>
+                    <Link
+                      href="/dashboard/entangled-states"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsDashboardOpen(false)}
+                    >
+                      Entangled states
+                    </Link>
+                    <Link
+                      href="/dashboard/saved-jobs"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsDashboardOpen(false)}
+                    >
+                      Saved jobs
+                    </Link>
+                    <Link
+                      href="/dashboard/saved-products"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsDashboardOpen(false)}
+                    >
+                      Saved products
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Theme toggle */}
+            <button
+              type="button"
+              className="nav-link nav-link-button theme-toggle"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
+
+            {/* Logged-out CTA */}
+            {!loading && !user && (
+              <Link href="/auth" className="nav-cta">
+                Login / Sign up
+              </Link>
+            )}
+
+            {/* Avatar + first name dropdown */}
+            {!loading && user && (
+              <div className="nav-dashboard-wrapper" ref={userMenuRef}>
+                <button
+                  type="button"
+                  className={`nav-user-button nav-link-button ${
+                    isActive("/profile") ? "nav-link-active" : ""
+                  }`}
+                  onClick={() => setIsUserMenuOpen((o) => !o)}
+                >
+                  <div className="nav-user-avatar">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={firstName} />
+                    ) : (
+                      <span className="nav-user-initial">
+                        {firstName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <span className="nav-user-name">{firstName}</span>
+                </button>
+
+                {isUserMenuOpen && (
+                  <div className="nav-dashboard-menu right-align">
+                    <Link
+                      href="/profile"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      My profile
+                    </Link>
+                    <button
+                      type="button"
+                      className="nav-dropdown-item nav-dropdown-danger"
+                      onClick={handleLogout}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </nav>
+
+          {/* MOBILE HAMBURGER */}
+          <button
+            type="button"
+            className={`nav-mobile-toggle ${
+              isMobileMenuOpen ? "open" : ""
+            }`}
+            aria-label="Open navigation"
+            onClick={() => setIsMobileMenuOpen((o) => !o)}
+          >
+            <span className="nav-mobile-bar" />
+            <span className="nav-mobile-bar" />
+          </button>
+        </div>
+      </div>
+
+      {/* MOBILE DRAWER – slides in from the right */}
+      <div
+        className={`nav-drawer ${
+          isMobileMenuOpen ? "nav-drawer-open" : ""
+        }`}
+      >
+        <nav className="nav-links nav-links-mobile">
           <Link
             href="/jobs"
             className={`nav-link ${
               isActive("/jobs") ? "nav-link-active" : ""
             }`}
-            onClick={() => setIsMobileMenuOpen(false)}
+            onClick={closeMobileMenu}
           >
-            <span className="nav-link-label">Jobs</span>
+            Jobs
           </Link>
 
-          {/* Products */}
           <Link
             href="/products"
             className={`nav-link ${
               isActive("/products") ? "nav-link-active" : ""
             }`}
-            onClick={() => setIsMobileMenuOpen(false)}
+            onClick={closeMobileMenu}
           >
-            <span className="nav-link-label">Products</span>
+            Products
           </Link>
 
-          {/* Community */}
           <Link
             href="/community"
             className={`nav-link ${
               isActive("/community") ? "nav-link-active" : ""
             }`}
-            onClick={() => setIsMobileMenuOpen(false)}
+            onClick={closeMobileMenu}
           >
-            <span className="nav-link-label">Community</span>
+            Community
           </Link>
 
-          {/* Dashboard dropdown */}
+          {/* Dashboard links as simple items on mobile */}
           {!loading && user && (
-            <div className="nav-dashboard-wrapper" ref={dashboardRef}>
-              <div
-                className={`nav-link dashboard-trigger ${
+            <>
+              <div className="nav-mobile-section-label">
+                Dashboard
+              </div>
+              <Link
+                href="/dashboard"
+                className={`nav-link ${
                   isActive("/dashboard") ? "nav-link-active" : ""
                 }`}
-                role="button"
-                tabIndex={0}
-                onClick={() => setIsDashboardOpen((o) => !o)}
-                onKeyDown={toggleDashboardFromKey}
+                onClick={closeMobileMenu}
               >
-                <span className="nav-link-label">Dashboard</span>
-              </div>
-
-              {isDashboardOpen && (
-                <div className="nav-dashboard-menu right-align">
-                  <Link
-                    href="/dashboard"
-                    className="nav-dropdown-item"
-                    onClick={() => {
-                      setIsDashboardOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    Overview
-                  </Link>
-                  <Link
-                    href="/dashboard/entangled-states"
-                    className="nav-dropdown-item"
-                    onClick={() => {
-                      setIsDashboardOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    Entangled states
-                  </Link>
-                  <Link
-                    href="/dashboard/saved-jobs"
-                    className="nav-dropdown-item"
-                    onClick={() => {
-                      setIsDashboardOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    Saved jobs
-                  </Link>
-                  <Link
-                    href="/dashboard/saved-products"
-                    className="nav-dropdown-item"
-                    onClick={() => {
-                      setIsDashboardOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    Saved products
-                  </Link>
-                </div>
-              )}
-            </div>
+                Overview
+              </Link>
+              <Link
+                href="/dashboard/entangled-states"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                Entangled states
+              </Link>
+              <Link
+                href="/dashboard/saved-jobs"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                Saved jobs
+              </Link>
+              <Link
+                href="/dashboard/saved-products"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                Saved products
+              </Link>
+            </>
           )}
 
-          {/* Theme toggle */}
           <button
             type="button"
-            className="nav-link nav-link-button theme-toggle"
+            className="nav-link nav-link-button theme-toggle mobile-theme-toggle"
             onClick={toggleTheme}
-            aria-label="Toggle theme"
           >
-            {theme === "dark" ? "☀️" : "🌙"}
+            Theme: {theme === "dark" ? "Dark" : "Light"}
           </button>
 
-          {/* Logged-out CTA */}
           {!loading && !user && (
             <Link
               href="/auth"
-              className="nav-cta"
-              onClick={() => setIsMobileMenuOpen(false)}
+              className="nav-cta nav-cta-mobile"
+              onClick={closeMobileMenu}
             >
               Login / Sign up
             </Link>
           )}
 
-          {/* Avatar + first name dropdown */}
           {!loading && user && (
-            <div className="nav-dashboard-wrapper" ref={userMenuRef}>
+            <>
+              <div className="nav-mobile-section-label">
+                Account
+              </div>
+              <Link
+                href="/profile"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                My profile
+              </Link>
               <button
                 type="button"
-                className={`nav-user-button nav-link-button ${
-                  isActive("/profile") ? "nav-link-active" : ""
-                }`}
-                onClick={() => setIsUserMenuOpen((o) => !o)}
+                className="nav-link nav-dropdown-danger"
+                onClick={async () => {
+                  await handleLogout();
+                  closeMobileMenu();
+                }}
               >
-                <div className="nav-user-avatar">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt={firstName} />
-                  ) : (
-                    <span className="nav-user-initial">
-                      {firstName.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <span className="nav-user-name">{firstName}</span>
+                Logout
               </button>
-
-              {isUserMenuOpen && (
-                <div className="nav-dashboard-menu right-align">
-                  <Link
-                    href="/profile"
-                    className="nav-dropdown-item"
-                    onClick={() => {
-                      setIsUserMenuOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                  >
-                    My profile
-                  </Link>
-                  <button
-                    type="button"
-                    className="nav-dropdown-item nav-dropdown-danger"
-                    onClick={handleLogout}
-                  >
-                    Logout
-                  </button>
-                </div>
-              )}
-            </div>
+            </>
           )}
         </nav>
       </div>
