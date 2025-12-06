@@ -5,7 +5,10 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
+const Navbar = dynamic(
+  () => import("../../components/Navbar"),
+  { ssr: false }
+);
 
 // What we need for the left sidebar
 type ProfileSummary = {
