@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), {
   ssr: false,
@@ -31,6 +32,8 @@ type Org = {
 type KindFilter = "all" | "company" | "research_group";
 
 export default function OrganizationsDirectoryPage() {
+  const { user } = useSupabaseUser();
+
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -49,6 +52,7 @@ export default function OrganizationsDirectoryPage() {
         setOrgs(data as Org[]);
       } else {
         setOrgs([]);
+        if (error) console.error("Error loading organizations", error);
       }
       setLoading(false);
     };
@@ -117,39 +121,59 @@ export default function OrganizationsDirectoryPage() {
           <header
             style={{
               marginBottom: 20,
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 16,
             }}
           >
-            <div
-              style={{
-                fontSize: 13,
-                letterSpacing: 0.06,
-                textTransform: "uppercase",
-                color: "rgba(148,163,184,0.9)",
-                marginBottom: 4,
-              }}
-            >
-              Directory
+            <div>
+              <div
+                style={{
+                  fontSize: 13,
+                  letterSpacing: 0.06,
+                  textTransform: "uppercase",
+                  color: "rgba(148,163,184,0.9)",
+                  marginBottom: 4,
+                }}
+              >
+                Directory
+              </div>
+              <h1
+                style={{
+                  fontSize: 28,
+                  fontWeight: 600,
+                  marginBottom: 6,
+                }}
+              >
+                Organizations in the quantum ecosystem
+              </h1>
+              <p
+                style={{
+                  fontSize: 15,
+                  opacity: 0.85,
+                  maxWidth: 640,
+                }}
+              >
+                Explore companies, vendors, labs, and research groups active in
+                quantum technologies. This is just the beginning of the
+                Quantum5ocial organization directory.
+              </p>
             </div>
-            <h1
-              style={{
-                fontSize: 28,
-                fontWeight: 600,
-                marginBottom: 6,
-              }}
-            >
-              Organizations in the quantum ecosystem
-            </h1>
-            <p
-              style={{
-                fontSize: 15,
-                opacity: 0.85,
-                maxWidth: 640,
-              }}
-            >
-              Explore companies, vendors, labs, and research groups active in
-              quantum technologies. This is just the beginning of the Quantum5ocial
-              organization directory.
-            </p>
+
+            {/* CTA to create org page (only if logged in) */}
+            {user && (
+              <Link
+                href="/orgs/create"
+                className="nav-cta"
+                style={{
+                  alignSelf: "center",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + Create my organization page
+              </Link>
+            )}
           </header>
 
           {/* Controls */}
