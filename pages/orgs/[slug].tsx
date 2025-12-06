@@ -12,7 +12,7 @@ const Navbar = dynamic(() => import("../../components/Navbar"), {
 
 type Org = {
   id: string;
-  owner_id: string | null;
+  created_by: string | null; // 👈 changed from owner_id
   kind: "company" | "research_group";
   name: string;
   slug: string;
@@ -66,9 +66,10 @@ export default function OrganizationDetailPage() {
     loadOrg();
   }, [slug]);
 
+  // 👇 use created_by to determine ownership
   const isOwner = useMemo(() => {
     if (!user || !org) return false;
-    return org.owner_id === user.id;
+    return org.created_by === user.id;
   }, [user, org]);
 
   const kindLabel = org?.kind === "company" ? "Company" : "Research group";
