@@ -922,7 +922,38 @@ a:focus {
     position: static;
   }
 }
+/* Sticky header + search in jobs middle column */
+.jobs-main-header {
+  position: sticky;
+  top: 72px; /* adjust if your navbar is taller/shorter */
+  z-index: 15;
+  padding: 10px 0 12px;
+  background: radial-gradient(
+      circle at top,
+      rgba(15, 23, 42, 0.98),
+      rgba(15, 23, 42, 0.96)
+    );
+  backdrop-filter: blur(14px);
+}
 
+/* tighten spacing when sticky */
+.jobs-main-header .section-header {
+  margin-bottom: 8px;
+}
+
+.jobs-main-search {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+/* On small screens you can keep it sticky or disable it.
+   If you want to DISABLE sticky on mobile: */
+@media (max-width: 768px) {
+  .jobs-main-header {
+    position: static;
+    padding-top: 4px;
+  }
+}
 /* Sidebar card base */
 
 .sidebar-card {
