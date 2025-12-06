@@ -2616,3 +2616,127 @@ html.theme-light footer {
     width: 100%;
   }
 }
+/* Keep navbar above everything */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+/* Mobile layout for navbar */
+@media (max-width: 768px) {
+  .nav-inner {
+    padding: 8px 16px;
+    height: 56px;
+  }
+
+  /* Hide desktop links by default on mobile */
+  .nav-links {
+    position: fixed;
+    inset: 56px 0 0 0;              /* full width, below header */
+    display: none;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    background: rgba(8, 14, 32, 0.96);
+    backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(148, 163, 184, 0.3);
+    z-index: 40;
+  }
+
+  /* When mobile menu is open */
+  .nav-links.nav-links-open {
+    display: flex;
+  }
+
+  .nav-link,
+  .nav-cta,
+  .nav-user-button {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .nav-dashboard-wrapper {
+    width: 100%;
+  }
+
+  .nav-dashboard-menu {
+    position: static;
+    margin-top: 4px;
+    box-shadow: none;
+    width: 100%;
+  }
+
+  /* Hamburger button */
+  .nav-mobile-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    border: 1px solid rgba(148,163,184,0.6);
+    background: rgba(15,23,42,0.9);
+    cursor: pointer;
+  }
+
+  .nav-mobile-bar {
+    width: 14px;
+    height: 1.7px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+
+  .nav-mobile-toggle.open .nav-mobile-bar:first-child {
+    transform: translateY(3px) rotate(45deg);
+  }
+
+  .nav-mobile-toggle.open .nav-mobile-bar:last-child {
+    transform: translateY(-3px) rotate(-45deg);
+  }
+
+  /* Hide desktop-only bits if you want even cleaner mobile:
+     e.g. you can reduce brand text size, etc. */
+}
+
+/* Desktop 3-column layout – keep as you have it, or something like: */
+.layout-3col {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 260px;
+  gap: 24px;
+}
+
+/* On mobile: single column, stacked in a nice order */
+@media (max-width: 900px) {
+  .layout-3col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .layout-left,
+  .layout-right,
+  .layout-main {
+    width: 100%;
+  }
+
+  .sticky-col {
+    position: static;     /* no sticky on tiny screens */
+  }
+
+  /* Order: filters first, main content next, right sidebar last */
+  .layout-left {
+    order: 1;
+    margin-bottom: 16px;
+  }
+
+  .layout-main {
+    order: 2;
+  }
+
+  .layout-right {
+    order: 3;
+    margin-top: 24px;
+  }
+}
