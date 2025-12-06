@@ -103,6 +103,10 @@ export default function CreateResearchGroupPage() {
       );
       return;
     }
+    if (!user) {
+      setSubmitError("You must be logged in to create a research group.");
+      return;
+    }
 
     setSubmitting(true);
 
@@ -112,6 +116,7 @@ export default function CreateResearchGroupPage() {
       const { data, error } = await supabase
         .from("organizations")
         .insert({
+          created_by: user.id,          // 🔹 link to creator
           kind: "research_group",
           name: groupName,
           slug: effectiveSlug,
@@ -473,9 +478,7 @@ export default function CreateResearchGroupPage() {
                 <select
                   id="group-type"
                   value={groupType}
-                  onChange={(e) =>
-                    setGroupType(e.target.value as GroupType)
-                  }
+                  onChange={(e) => setGroupType(e.target.value as GroupType)}
                   style={{
                     width: "100%",
                     padding: "10px 12px",
