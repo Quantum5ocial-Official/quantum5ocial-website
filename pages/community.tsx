@@ -27,12 +27,14 @@ type CommunityProfile = {
   short_bio: string | null;
   highest_education: string | null;
   affiliation: string | null;
-
-  // add these two:
   country?: string | null;
   city?: string | null;
-};
 
+  // extra optional fields used in formatMemberMeta
+  education_level?: string | null;
+  describes_you?: string | null;
+  current_org?: string | null;
+};
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
 
