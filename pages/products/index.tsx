@@ -273,6 +273,8 @@ export default function ProductsPage() {
     priceFilter,
     stockFilter,
   ]);
+  const heroProducts = filteredProducts.slice(0, 2);
+  const remainingProducts = filteredProducts.slice(heroProducts.length);
 
   const resetFilters = () => {
     setSearchText("");
@@ -312,17 +314,7 @@ export default function ProductsPage() {
           {/* ========== LEFT: filters inside sidebar-card ========== */}
           <aside className="layout-left sticky-col">
             <div className="sidebar-card">
-              {/* Search */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Search</div>
-                <input
-                  className="products-filters-input"
-                  type="text"
-                  placeholder="Name, company, keywords…"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                />
-              </div>
+              
 
               {/* Category */}
               <div className="products-filters-section">
@@ -450,30 +442,99 @@ export default function ProductsPage() {
             </div>
           </aside>
 
-          {/* ========== MIDDLE: header + products (layout-main) ========== */}
+                    {/* ========== MIDDLE: header + products (layout-main) ========== */}
           <section className="layout-main">
             <section className="section">
-              <div className="section-header">
-                <div>
-                  <div className="section-title">Quantum Marketplace</div>
-                  <div
-                    className="section-sub"
-                    style={{ maxWidth: "480px", lineHeight: "1.45" }}
-                  >
-                    Browse quantum hardware, software, and services from startups,
-                    labs, and companies.
+              {/* STICKY HEADER + SEARCH */}
+              <div className="jobs-main-header">
+                <div className="section-header">
+                  <div>
+                    <div
+                      className="section-title"
+                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    >
+                      Quantum Marketplace
+                      {!loadingProducts && !error && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "rgba(56,189,248,0.15)",
+                            border: "1px solid rgba(56,189,248,0.35)",
+                            color: "#7dd3fc",
+                          }}
+                        >
+                          {filteredProducts.length} products
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="section-sub"
+                      style={{ maxWidth: "480px", lineHeight: "1.45" }}
+                    >
+                      Browse quantum hardware, software, and services from
+                      startups, labs, and companies.
+                    </div>
                   </div>
+
+                  <button
+                    className="nav-cta"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => router.push("/products/new")}
+                  >
+                    List your product
+                  </button>
                 </div>
 
-                <button
-                  className="nav-cta"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => router.push("/products/new")}
-                >
-                  List your product
-                </button>
+                {/* Center-column search bar */}
+                <div className="jobs-main-search">
+                  <div
+                    style={{
+                      width: "100%",
+                      borderRadius: 999,
+                      padding: "2px",
+                      background:
+                        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+                    }}
+                  >
+                    <div
+                      style={{
+                        borderRadius: 999,
+                        background: "rgba(15,23,42,0.97)",
+                        padding: "6px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 14,
+                          opacity: 0.85,
+                        }}
+                      >
+                        🔍
+                      </span>
+                      <input
+                        style={{
+                          border: "none",
+                          outline: "none",
+                          background: "transparent",
+                          color: "#e5e7eb",
+                          fontSize: 14,
+                          width: "100%",
+                        }}
+                        placeholder="Search by name, company, keywords…"
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
+              {/* STATUS LINE */}
               <div className="products-results-header">
                 <div className="products-status">
                   {loadingProducts
@@ -494,92 +555,285 @@ export default function ProductsPage() {
                 </div>
               )}
 
+              {/* EMPTY STATE */}
               {filteredProducts.length === 0 && !loadingProducts ? (
                 <div className="products-empty">
                   No products match these filters yet.
                 </div>
               ) : (
-                <div className="products-grid products-grid-market">
-                  {filteredProducts.map((p) => {
-                    const isSaved = savedIds.has(p.id);
-
-                    return (
-                      <Link
-                        key={p.id}
-                        href={`/products/${p.id}`}
-                        className="products-card"
+                <>
+                  {/* HERO PRODUCTS (top recommendations) */}
+                  {heroProducts.length > 0 && (
+                    <div
+                      style={{
+                        marginBottom: 32,
+                        padding: 16,
+                        borderRadius: 16,
+                        border: "1px solid rgba(56,189,248,0.35)",
+                        background:
+                          "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          marginBottom: 12,
+                          gap: 12,
+                        }}
                       >
-                        <div className="products-card-image">
-                          {p.image1_url ? (
-                            <img src={p.image1_url} alt={p.name} />
-                          ) : (
-                            <div className="products-card-image-placeholder">
-                              No image
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="products-card-body">
-                          {/* HEADER: name + vendor + heart on the right */}
-                          <div className="products-card-header">
-                            <div>
-                              <div className="products-card-name">{p.name}</div>
-                              {p.company_name && (
-                                <div className="products-card-vendor">
-                                  {p.company_name}
-                                </div>
-                              )}
-                            </div>
-
-                            <button
-                              type="button"
-                              className="product-save-btn"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleSaved(p.id);
-                              }}
-                              aria-label={
-                                isSaved
-                                  ? "Remove from saved products"
-                                  : "Save product"
-                              }
-                            >
-                              {isSaved ? "❤️" : "🤍"}
-                            </button>
-                          </div>
-
-                          {p.short_description && (
-                            <div className="products-card-description">
-                              {p.short_description}
-                            </div>
-                          )}
-
-                          <div className="products-card-footer">
-                            <span className="products-card-price">
-                              {formatPrice(p)}
-                            </span>
-                            {p.category && (
-                              <span className="products-card-category">
-                                {p.category}
-                              </span>
-                            )}
-                          </div>
-
+                        <div>
                           <div
                             style={{
-                              marginTop: 2,
                               fontSize: 11,
-                              color: "#9ca3af",
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: "#7dd3fc",
+                              marginBottom: 4,
                             }}
                           >
-                            {formatStock(p)}
+                            Highlighted for you
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.95rem",
+                              fontWeight: 600,
+                              background:
+                                "linear-gradient(90deg,#22d3ee,#a855f7)",
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent",
+                            }}
+                          >
+                            Hero products & services
                           </div>
                         </div>
-                      </Link>
-                    );
-                  })}
-                </div>
+
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "var(--text-muted)",
+                            textAlign: "right",
+                          }}
+                        >
+                          For now based on your filters. <br />
+                          Later: AI-driven ranking.
+                        </div>
+                      </div>
+
+                      <div className="products-grid products-grid-market">
+                        {heroProducts.map((p) => {
+                          const isSaved = savedIds.has(p.id);
+                          return (
+                            <Link
+                              key={p.id}
+                              href={`/products/${p.id}`}
+                              className="products-card"
+                            >
+                              <div className="products-card-image">
+                                {p.image1_url ? (
+                                  <img src={p.image1_url} alt={p.name} />
+                                ) : (
+                                  <div className="products-card-image-placeholder">
+                                    No image
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="products-card-body">
+                                <div className="products-card-header">
+                                  <div>
+                                    <div className="products-card-name">
+                                      {p.name}
+                                    </div>
+                                    {p.company_name && (
+                                      <div className="products-card-vendor">
+                                        {p.company_name}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="product-save-btn"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      toggleSaved(p.id);
+                                    }}
+                                    aria-label={
+                                      isSaved
+                                        ? "Remove from saved products"
+                                        : "Save product"
+                                    }
+                                  >
+                                    {isSaved ? "❤️" : "🤍"}
+                                  </button>
+                                </div>
+
+                                {p.short_description && (
+                                  <div className="products-card-description">
+                                    {p.short_description}
+                                  </div>
+                                )}
+
+                                <div className="products-card-footer">
+                                  <span className="products-card-price">
+                                    {formatPrice(p)}
+                                  </span>
+                                  {p.category && (
+                                    <span className="products-card-category">
+                                      {p.category}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: 2,
+                                    fontSize: 11,
+                                    color: "#9ca3af",
+                                  }}
+                                >
+                                  {formatStock(p)}
+                                </div>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ALL REMAINING PRODUCTS */}
+                  {remainingProducts.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      {heroProducts.length > 0 && (
+                        <div
+                          style={{
+                            height: 1,
+                            margin: "4px 0 20px",
+                            background:
+                              "linear-gradient(90deg, rgba(148,163,184,0), rgba(148,163,184,0.6), rgba(148,163,184,0))",
+                          }}
+                        />
+                      )}
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "baseline",
+                          marginBottom: 10,
+                        }}
+                      >
+                        <div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: "rgba(148,163,184,0.9)",
+                              marginBottom: 3,
+                            }}
+                          >
+                            Browse everything
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.95rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            All products
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="products-grid products-grid-market">
+                        {remainingProducts.map((p) => {
+                          const isSaved = savedIds.has(p.id);
+                          return (
+                            <Link
+                              key={p.id}
+                              href={`/products/${p.id}`}
+                              className="products-card"
+                            >
+                              <div className="products-card-image">
+                                {p.image1_url ? (
+                                  <img src={p.image1_url} alt={p.name} />
+                                ) : (
+                                  <div className="products-card-image-placeholder">
+                                    No image
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="products-card-body">
+                                <div className="products-card-header">
+                                  <div>
+                                    <div className="products-card-name">
+                                      {p.name}
+                                    </div>
+                                    {p.company_name && (
+                                      <div className="products-card-vendor">
+                                        {p.company_name}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    className="product-save-btn"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      toggleSaved(p.id);
+                                    }}
+                                    aria-label={
+                                      isSaved
+                                        ? "Remove from saved products"
+                                        : "Save product"
+                                    }
+                                  >
+                                    {isSaved ? "❤️" : "🤍"}
+                                  </button>
+                                </div>
+
+                                {p.short_description && (
+                                  <div className="products-card-description">
+                                    {p.short_description}
+                                  </div>
+                                )}
+
+                                <div className="products-card-footer">
+                                  <span className="products-card-price">
+                                    {formatPrice(p)}
+                                  </span>
+                                  {p.category && (
+                                    <span className="products-card-category">
+                                      {p.category}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: 2,
+                                    fontSize: 11,
+                                    color: "#9ca3af",
+                                  }}
+                                >
+                                  {formatStock(p)}
+                                </div>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </section>
           </section>
