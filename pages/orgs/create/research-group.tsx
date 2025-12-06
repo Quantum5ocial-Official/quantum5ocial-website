@@ -3,7 +3,7 @@ import { useEffect, useState, FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { useSupabaseUser } from "../../../lib/useSupabaseUser";
-// import { supabase } from "../../../lib/supabaseClient"; // to use later
+import { supabase } from "../../../lib/supabaseClient";
 
 const Navbar = dynamic(() => import("../../../components/Navbar"), {
   ssr: false,
@@ -23,7 +23,7 @@ export default function CreateResearchGroupPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  // redirect if not logged in
+  // Redirect to auth if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth");
@@ -56,7 +56,7 @@ export default function CreateResearchGroupPage() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
-  // auto-generate slug
+  // Auto-generate slug from group name unless user edits slug manually
   useEffect(() => {
     if (!slugManuallyEdited) {
       setSlug(slugify(groupName));
@@ -107,48 +107,36 @@ export default function CreateResearchGroupPage() {
     setSubmitting(true);
 
     try {
-      // TODO: connect to Supabase once `organizations` table exists.
-      // Example skeleton:
-      //
-      // const { data, error } = await supabase
-      //   .from("organizations")
-      //   .insert({
-      //     name: groupName,
-      //     slug: slug || slugify(groupName),
-      //     website,
-      //     institution,
-      //     department,
-      //     focus_areas: focusAreas,
-      //     size,
-      //     org_type: "research_group",
-      //     group_type: groupType,
-      //     tagline,
-      //     created_by: user?.id,
-      //   })
-      //   .select("slug")
-      //   .single();
-      //
-      // if (error) throw error;
-      //
-      // router.push(`/orgs/${data.slug}`);
+      const effectiveSlug = (slug || slugify(groupName)).toLowerCase();
 
-      console.log("Research group form submitted (placeholder):", {
-        groupName,
-        slug: slug || slugify(groupName),
-        institution,
-        department,
-        website,
-        focusAreas,
-        size,
-        groupType,
-        tagline,
-        logoFile,
-        authorized,
-      });
+      const { data, error } = await supabase
+        .from("organizations")
+        .insert({
+          kind: "research_group",
+          name: groupName,
+          slug: effectiveSlug,
+          institution: institution || null,
+          department: department || null,
+          website: website || null,
+          focus_areas: focusAreas || null,
+          size_label: size || null,
+          group_type: groupType || null,
+          tagline: tagline || null,
+          // logo_url will be wired later when we add Storage upload
+        })
+        .select("slug")
+        .single();
 
-      setSubmitMessage(
-        "Form submitted locally. Connect this to Supabase when your organizations table is ready."
-      );
+      if (error) {
+        throw error;
+      }
+
+      setSubmitMessage("Research group page created successfully.");
+      setSubmitError(null);
+
+      if (data?.slug) {
+        router.push(`/orgs/${data.slug}`);
+      }
     } catch (err: any) {
       console.error(err);
       setSubmitError(
@@ -305,7 +293,8 @@ export default function CreateResearchGroupPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr)",
+                gridTemplateColumns:
+                  "minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr)",
                 gap: 16,
               }}
             >
@@ -402,7 +391,8 @@ export default function CreateResearchGroupPage() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)",
+                gridTemplateColumns:
+                  "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)",
                 gap: 16,
               }}
             >
@@ -550,7 +540,8 @@ export default function CreateResearchGroupPage() {
                     color: "rgba(148,163,184,0.95)",
                   }}
                 >
-                  Selected: {logoFile.name}
+                  Selected: {logoFile.name} (logo upload wiring will come
+                  later)
                 </div>
               )}
             </div>
@@ -651,8 +642,7 @@ export default function CreateResearchGroupPage() {
                   fontWeight: 500,
                   cursor: submitting ? "default" : "pointer",
                   opacity: submitting ? 0.7 : 1,
-                  background:
-                    "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                   color: "#0f172a",
                 }}
               >
