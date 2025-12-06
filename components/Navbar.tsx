@@ -127,9 +127,17 @@ export default function Navbar() {
 
   // ----- ACTIVE LINK HELPER -----
   const isActive = (path: string) => {
+    // Dashboard should be active for any /dashboard... route
     if (path === "/dashboard") {
       return router.pathname.startsWith("/dashboard");
     }
+
+    // Organizations: only active on /orgs (not /orgs/create, /orgs/[slug], etc.)
+    if (path === "/orgs") {
+      return router.pathname === "/orgs";
+    }
+
+    // Default: exact or subpath match
     return (
       router.pathname === path || router.pathname.startsWith(path + "/")
     );
