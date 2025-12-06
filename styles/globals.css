@@ -2531,24 +2531,28 @@ html.theme-light footer {
   background: #22d3ee;
   box-shadow: 0 0 6px #22d3ee;
 }
-/* --- mobile toggle base (hidden on desktop) --- */
+/* ===========================
+   NAVBAR – MOBILE TOGGLE
+   =========================== */
+
+/* hamburger – hidden on desktop by default */
 .nav-mobile-toggle {
-  display: none;
+  display: none;                  /* shown only on small screens */
   width: 34px;
   height: 34px;
   border-radius: 999px;
-  border: 1px solid rgba(148,163,184,0.6);
-  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.95);
   align-items: center;
   justify-content: center;
   padding: 0;
-  margin-left: auto;
   cursor: pointer;
 }
 
 .nav-mobile-bar {
   width: 16px;
-  height: 1.6px;
+  height: 1.8px;
+  border-radius: 999px;
   background: #e5e7eb;
   display: block;
   transition: transform 0.2s ease, opacity 0.2s ease;
@@ -2560,150 +2564,139 @@ html.theme-light footer {
 
 /* transform bars into an X when menu is open */
 .nav-mobile-toggle.open .nav-mobile-bar:first-child {
-  transform: translateY(2.5px) rotate(45deg);
+  transform: translateY(3px) rotate(45deg);
 }
 
 .nav-mobile-toggle.open .nav-mobile-bar:last-child {
-  transform: translateY(-2.5px) rotate(-45deg);
+  transform: translateY(-3px) rotate(-45deg);
 }
 
-/* --- responsive behaviour --- */
-@media (max-width: 768px) {
-  .nav-inner {
-    padding-inline: 16px;
-    flex-wrap: wrap;
-    align-items: flex-start;
+/* ===========================
+   NAVBAR – DRAWER (MOBILE)
+   =========================== */
+
+.nav-drawer {
+  position: fixed;
+  top: 72px; /* matches navbar height on desktop */
+  right: 0;
+  width: 80%;
+  max-width: 320px;
+  height: calc(100vh - 72px);
+  background: rgba(8, 14, 32, 0.96);
+  backdrop-filter: blur(18px);
+  border-left: 1px solid rgba(148, 163, 184, 0.3);
+  transform: translateX(100%);
+  transition: transform 0.22s ease-out;
+  z-index: 60;
+}
+
+/* when drawer is open */
+.nav-drawer-open {
+  transform: translateX(0);
+}
+
+.nav-links-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 24px;
+}
+
+.nav-mobile-section-label {
+  margin-top: 12px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.nav-cta-mobile {
+  width: 100%;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.mobile-theme-toggle {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+/* ===========================
+   NAVBAR – RESPONSIVE RULES
+   =========================== */
+
+/* Desktop defaults */
+.nav-links-desktop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (min-width: 769px) {
+  .nav-drawer {
+    display: none; /* drawer never appears on desktop */
   }
 
-  /* Show burger, hide inline nav initially */
   .nav-mobile-toggle {
-    display: flex;
-  }
-
-  .nav-links {
-    display: none;
-    width: 100%;
-    margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px solid rgba(15,23,42,0.9);
-    flex-direction: column;
-    gap: 4px;
-    background: radial-gradient(circle at top left, rgba(15,23,42,0.98), rgba(15,23,42,0.96));
-  }
-
-  .nav-links.nav-links-open {
-    display: flex;
-  }
-
-  /* make individual items full-width / comfy */
-  .nav-link,
-  .nav-link.nav-link-button,
-  .nav-cta,
-  .nav-user-button {
-    width: 100%;
-    justify-content: flex-start;
-    padding-inline: 0;
-  }
-
-  .nav-cta {
-    margin-top: 6px;
-    text-align: center;
-  }
-
-  .nav-dashboard-menu.right-align {
-    position: static;       /* so dashboard dropdown just expands in flow */
-    margin-top: 4px;
-    width: 100%;
+    display: none; /* no hamburger on desktop */
   }
 }
 
-/* Mobile layout for navbar */
+/* Mobile layout */
 @media (max-width: 768px) {
   .nav-inner {
     padding: 8px 16px;
-    height: 56px;
+    height: 60px;
   }
 
-  /* Hide desktop links by default on mobile */
-  .nav-links {
-    position: fixed;
-    inset: 56px 0 0 0;              /* full width, below header */
+  /* shrink brand text slightly on mobile if needed */
+  .brand-text-main {
+    font-size: 16px;
+  }
+
+  .brand-text-sub {
+    font-size: 10px;
+  }
+
+  /* hide desktop links on small screens */
+  .nav-links-desktop {
     display: none;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px;
-    background: rgba(8, 14, 32, 0.96);
-    backdrop-filter: blur(18px);
-    border-top: 1px solid rgba(148, 163, 184, 0.3);
-    z-index: 40;
   }
 
-  /* When mobile menu is open */
-  .nav-links.nav-links-open {
-    display: flex;
-  }
-
-  .nav-link,
-  .nav-cta,
-  .nav-user-button {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .nav-dashboard-wrapper {
-    width: 100%;
-  }
-
-  .nav-dashboard-menu {
-    position: static;
-    margin-top: 4px;
-    box-shadow: none;
-    width: 100%;
-  }
-
-  /* Hamburger button */
+  /* show hamburger */
   .nav-mobile-toggle {
     display: inline-flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    gap: 4px;
-    width: 32px;
-    height: 32px;
-    border-radius: 999px;
-    border: 1px solid rgba(148,163,184,0.6);
-    background: rgba(15,23,42,0.9);
-    cursor: pointer;
   }
 
-  .nav-mobile-bar {
-    width: 14px;
-    height: 1.7px;
-    border-radius: 999px;
-    background: #e5e7eb;
-    transition: transform 0.18s ease, opacity 0.18s ease;
+  /* drawer top aligned with smaller navbar */
+  .nav-drawer {
+    top: 60px;
+    height: calc(100vh - 60px);
   }
 
-  .nav-mobile-toggle.open .nav-mobile-bar:first-child {
-    transform: translateY(3px) rotate(45deg);
+  /* make nav-link / buttons look good in drawer */
+  .nav-links-mobile .nav-link,
+  .nav-links-mobile .nav-cta,
+  .nav-links-mobile .nav-link-button {
+    width: 100%;
+    justify-content: flex-start;
   }
-
-  .nav-mobile-toggle.open .nav-mobile-bar:last-child {
-    transform: translateY(-3px) rotate(-45deg);
-  }
-
-  /* Hide desktop-only bits if you want even cleaner mobile:
-     e.g. you can reduce brand text size, etc. */
 }
 
-/* Desktop 3-column layout – keep as you have it, or something like: */
+/* ===========================
+   3-COLUMN LAYOUT (ALREADY USED)
+   =========================== */
+
 .layout-3col {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 260px;
   gap: 24px;
 }
 
-/* On mobile: single column, stacked in a nice order */
 @media (max-width: 900px) {
   .layout-3col {
     grid-template-columns: minmax(0, 1fr);
@@ -2716,10 +2709,9 @@ html.theme-light footer {
   }
 
   .sticky-col {
-    position: static;     /* no sticky on tiny screens */
+    position: static;
   }
 
-  /* Order: filters first, main content next, right sidebar last */
   .layout-left {
     order: 1;
     margin-bottom: 16px;
