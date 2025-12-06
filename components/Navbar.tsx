@@ -228,6 +228,16 @@ export default function Navbar() {
               <span className="nav-link-label">Community</span>
             </Link>
 
+            {/* NEW: Organizations directory link */}
+            <Link
+              href="/orgs"
+              className={`nav-link ${
+                isActive("/orgs") ? "nav-link-active" : ""
+              }`}
+            >
+              <span className="nav-link-label">Organizations</span>
+            </Link>
+
             {/* Dashboard dropdown (desktop only) */}
             {!loading && user && (
               <div className="nav-dashboard-wrapper" ref={dashboardRef}>
@@ -318,34 +328,23 @@ export default function Navbar() {
                 </button>
 
                 {isUserMenuOpen && (
-  <div className="nav-dashboard-menu right-align">
-    {/* My profile FIRST */}
-    <Link
-      href="/profile"
-      className="nav-dropdown-item"
-      onClick={() => setIsUserMenuOpen(false)}
-    >
-      My profile
-    </Link>
-
-    {/* Create organization BELOW profile */}
-    <Link
-      href="/orgs/create"
-      className="nav-dropdown-item"
-      onClick={() => setIsUserMenuOpen(false)}
-    >
-      Create my organization page
-    </Link>
-
-    <button
-      type="button"
-      className="nav-dropdown-item nav-dropdown-danger"
-      onClick={handleLogout}
-    >
-      Logout
-    </button>
-  </div>
-)}
+                  <div className="nav-dashboard-menu right-align">
+                    <Link
+                      href="/profile"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      My profile
+                    </Link>
+                    <button
+                      type="button"
+                      className="nav-dropdown-item nav-dropdown-danger"
+                      onClick={handleLogout}
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </nav>
@@ -400,6 +399,17 @@ export default function Navbar() {
             onClick={closeMobileMenu}
           >
             Community
+          </Link>
+
+          {/* NEW: Organizations link in mobile drawer */}
+          <Link
+            href="/orgs"
+            className={`nav-link ${
+              isActive("/orgs") ? "nav-link-active" : ""
+            }`}
+            onClick={closeMobileMenu}
+          >
+            Organizations
           </Link>
 
           {/* Dashboard links as simple items on mobile */}
@@ -460,39 +470,29 @@ export default function Navbar() {
           )}
 
           {!loading && user && (
-  <>
-    <div className="nav-mobile-section-label">Account</div>
-
-    {/* My profile FIRST */}
-    <Link
-      href="/profile"
-      className="nav-link"
-      onClick={closeMobileMenu}
-    >
-      My profile
-    </Link>
-
-    {/* Create organization BELOW profile */}
-    <Link
-      href="/orgs/create"
-      className="nav-link"
-      onClick={closeMobileMenu}
-    >
-      Create my organization page
-    </Link>
-
-    <button
-      type="button"
-      className="nav-link nav-dropdown-danger"
-      onClick={async () => {
-        await handleLogout();
-        closeMobileMenu();
-      }}
-    >
-      Logout
-    </button>
-  </>
-)}
+            <>
+              <div className="nav-mobile-section-label">
+                Account
+              </div>
+              <Link
+                href="/profile"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                My profile
+              </Link>
+              <button
+                type="button"
+                className="nav-link nav-dropdown-danger"
+                onClick={async () => {
+                  await handleLogout();
+                  closeMobileMenu();
+                }}
+              >
+                Logout
+              </button>
+            </>
+          )}
         </nav>
       </div>
     </header>
