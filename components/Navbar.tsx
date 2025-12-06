@@ -23,6 +23,7 @@ export default function Navbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<Theme>("dark");
+  const [hasOrganizations, setHasOrganizations] = useState(false);
 
   // NEW: mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -93,6 +94,40 @@ export default function Navbar() {
     };
   }, [user]);
 
+  // ----- HAS ORGANIZATIONS? (for conditional dashboard link) -----
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkOrganizations = async () => {
+      if (!user) {
+        setHasOrganizations(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id")
+        .eq("owner_id", user.id)
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (!error && data) {
+        setHasOrganizations(true);
+      } else {
+        setHasOrganizations(false);
+      }
+    };
+
+    checkOrganizations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
   // Close dropdowns on outside click (desktop)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -125,23 +160,18 @@ export default function Navbar() {
     router.push("/");
   };
 
-  // ----- ACTIVE LINK HELPER -----
+  // ----- ACTIVE LINK HELPERS -----
   const isActive = (path: string) => {
-    // Dashboard should be active for any /dashboard... route
     if (path === "/dashboard") {
       return router.pathname.startsWith("/dashboard");
     }
-
-    // Organizations: only active on /orgs (not /orgs/create, /orgs/[slug], etc.)
-    if (path === "/orgs") {
-      return router.pathname === "/orgs";
-    }
-
-    // Default: exact or subpath match
     return (
       router.pathname === path || router.pathname.startsWith(path + "/")
     );
   };
+
+  // Top-level Organizations tab: only active on /orgs (not /orgs/create etc.)
+  const isOrganizationsNavActive = () => router.pathname === "/orgs";
 
   // Fallback name from auth if profile.full_name is missing
   const fallbackName =
@@ -236,11 +266,11 @@ export default function Navbar() {
               <span className="nav-link-label">Community</span>
             </Link>
 
-            {/* NEW: Organizations tab */}
+            {/* Organizations tab */}
             <Link
               href="/orgs"
               className={`nav-link ${
-                isActive("/orgs") ? "nav-link-active" : ""
+                isOrganizationsNavActive() ? "nav-link-active" : ""
               }`}
             >
               <span className="nav-link-label">Organizations</span>
@@ -291,6 +321,17 @@ export default function Navbar() {
                     >
                       Saved products
                     </Link>
+
+                    {/* NEW: My organizations – only if user owns any */}
+                    {hasOrganizations && (
+                      <Link
+                        href="/dashboard/my-organizations"
+                        className="nav-dropdown-item"
+                        onClick={() => setIsDashboardOpen(false)}
+                      >
+                        My organizations
+                      </Link>
+                    )}
                   </div>
                 )}
               </div>
@@ -420,11 +461,11 @@ export default function Navbar() {
             Community
           </Link>
 
-          {/* NEW: Organizations in mobile menu */}
+          {/* Organizations in mobile menu */}
           <Link
             href="/orgs"
             className={`nav-link ${
-              isActive("/orgs") ? "nav-link-active" : ""
+              isOrganizationsNavActive() ? "nav-link-active" : ""
             }`}
             onClick={closeMobileMenu}
           >
@@ -467,6 +508,17 @@ export default function Navbar() {
               >
                 Saved products
               </Link>
+
+              {/* NEW: My organizations – only if user owns any */}
+              {hasOrganizations && (
+                <Link
+                  href="/dashboard/my-organizations"
+                  className="nav-link"
+                  onClick={closeMobileMenu}
+                >
+                  My organizations
+                </Link>
+              )}
             </>
           )}
 
