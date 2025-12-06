@@ -23,13 +23,14 @@ type CommunityProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  highest_education?: string | null;
-  role?: string | null;
-  affiliation?: string | null;
-  short_bio?: string | null;
-  education_level?: string | null;
-  describes_you?: string | null;
-  current_org?: string | null;
+  role: string | null;
+  short_bio: string | null;
+  highest_education: string | null;
+  affiliation: string | null;
+
+  // add these two:
+  country?: string | null;
+  city?: string | null;
 };
 
 export default function CommunityPage() {
