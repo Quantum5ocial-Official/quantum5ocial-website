@@ -838,92 +838,148 @@ export default function CommunityPage() {
           {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
           <section className="layout-main">
             <section className="section">
-              {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
-              <div className="jobs-main-header">
-                <div className="section-header">
-                  <div>
-                    <div
-                      className="section-title"
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      Quantum5ocial community
-                      {!communityLoading && !communityError && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            background: "rgba(56,189,248,0.15)",
-                            border: "1px solid rgba(56,189,248,0.35)",
-                            color: "#7dd3fc",
-                          }}
-                        >
-                          {totalCommunityCount} member
-                          {totalCommunityCount === 1 ? "" : "s"}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="section-sub"
-                      style={{ maxWidth: 480, lineHeight: 1.45 }}
-                    >
-                      Discover members, labs, and companies in the quantum
-                      ecosystem –{" "}
-                      <span style={{ color: "#7dd3fc" }}>
-                        entangle with people and follow organizations
-                      </span>
-                      .
-                    </div>
-                  </div>
-                </div>
+  {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
+  <div className="jobs-main-header">
+    <div
+      className="card"
+      style={{
+        padding: 16,
+        background:
+          "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.98))",
+        border: "1px solid rgba(148,163,184,0.35)",
+        boxShadow: "0 18px 45px rgba(15,23,42,0.8)",
+      }}
+    >
+      {/* HERO HEADER */}
+      <div
+        className="section-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <div
+            className="section-title"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            Quantum5ocial community
+            {!communityLoading && !communityError && (
+              <span
+                style={{
+                  fontSize: 12,
+                  padding: "2px 10px",
+                  borderRadius: 999,
+                  background: "rgba(15,23,42,0.9)",
+                  border: "1px solid rgba(56,189,248,0.5)",
+                  color: "#7dd3fc",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <span style={{ fontSize: 11 }}>🌐</span>
+                <span>
+                  {totalCommunityCount} member
+                  {totalCommunityCount === 1 ? "" : "s"}
+                </span>
+              </span>
+            )}
+          </div>
+          <div
+            className="section-sub"
+            style={{ maxWidth: 520, lineHeight: 1.45 }}
+          >
+            Discover members, labs, and companies in the quantum ecosystem{" "}
+            <span style={{ color: "#7dd3fc" }}>
+              – entangle with people and follow organizations that matter to
+              you.
+            </span>
+          </div>
+        </div>
 
-                {/* Center-column search bar */}
-                <div className="jobs-main-search">
-                  <div
-                    style={{
-                      width: "100%",
-                      borderRadius: 999,
-                      padding: 2,
-                      background:
-                        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
-                    }}
-                  >
-                    <div
-                      style={{
-                        borderRadius: 999,
-                        background: "rgba(15,23,42,0.97)",
-                        padding: "6px 12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 14,
-                          opacity: 0.85,
-                        }}
-                      >
-                        🔍
-                      </span>
-                      <input
-                        style={{
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          color: "#e5e7eb",
-                          fontSize: 14,
-                          width: "100%",
-                        }}
-                        placeholder="Search by name, role, organization, location…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+        {/* Small CTA block on the right */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 4,
+            minWidth: 160,
+          }}
+        >
+          <Link
+            href="/ecosystem"
+            className="section-link"
+            style={{ fontSize: 13 }}
+          >
+            View my ecosystem →
+          </Link>
+          <Link
+            href="/orgs"
+            className="section-link"
+            style={{ fontSize: 13 }}
+          >
+            Browse organizations →
+          </Link>
+        </div>
+      </div>
 
+      {/* Center-column search bar */}
+      <div className="jobs-main-search" style={{ marginTop: 14 }}>
+        <div
+          style={{
+            width: "100%",
+            borderRadius: 999,
+            padding: 2,
+            background:
+              "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.97)",
+              padding: "7px 13px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 14,
+                opacity: 0.9,
+              }}
+            >
+              🔍
+            </span>
+            <input
+              style={{
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "#e5e7eb",
+                fontSize: 14,
+                width: "100%",
+              }}
+              placeholder="Search by name, role, organization, location…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
               {/* BODY STATES */}
               {communityLoading && (
                 <div className="products-status">
