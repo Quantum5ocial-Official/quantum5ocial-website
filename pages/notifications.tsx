@@ -257,88 +257,98 @@ export default function NotificationsPage() {
   }, [user]);
 
   // Load recent entanglements (accepted + declined where current user is either side)
-  useEffect(() => {
-    const loadEntanglements = async () => {
-      if (!user) {
+useEffect(() => {
+  const loadEntanglements = async () => {
+    if (!user) {
+      setRecentEntanglements([]);
+      setLoadingEntanglements(false);
+      return;
+    }
+
+    setLoadingEntanglements(true);
+
+    try {
+      const { data: connRows, error: connErr } = await supabase
+        .from("connections")
+        .select("id, user_id, target_user_id, status, created_at")
+        .in("status", ["accepted", "declined"])
+        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (connErr) throw connErr;
+
+      if (!connRows || connRows.length === 0) {
         setRecentEntanglements([]);
-        setLoadingEntanglements(false);
         return;
       }
 
-      setLoadingEntanglements(true);
+      const rows = connRows as ConnectionRow[];
 
-      try {
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("id, user_id, target_user_id, status, created_at")
-          .in("status", ["accepted", "declined"])
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
-          .order("created_at", { ascending: false })
-          .limit(30);
-
-        if (connErr) throw connErr;
-
-        if (!connRows || connRows.length === 0) {
-          setRecentEntanglements([]);
-          return;
-        }
-
-        const rows = connRows as ConnectionRow[];
-
-        const otherIdByConnection: Record<string, string> = {};
-        const isSenderByConnection: Record<string, boolean> = {};
-        const otherIdsSet = new Set<string>();
-
-        rows.forEach((c) => {
+      const entanglements: RecentEntanglement[] = rows
+        .map((c) => {
           const isSender = c.user_id === user.id;
           const otherId = isSender ? c.target_user_id : c.user_id;
-          otherIdByConnection[c.id] = otherId;
-          isSenderByConnection[c.id] = isSender;
-          otherIdsSet.add(otherId);
-        });
 
-        const otherIds = Array.from(otherIdsSet);
+          return {
+            connectionId: c.id,
+            created_at: c.created_at,
+            status: c.status,
+            isSender,
+            otherUser: {
+              // we'll fill this properly just below
+              id: otherId,
+              full_name: null,
+              avatar_url: null,
+              role: null,
+              short_bio: null,
+              highest_education: null,
+              affiliation: null,
+              country: null,
+              city: null,
+            },
+          };
+        })
+        .filter(Boolean) as RecentEntanglement[];
 
-        const { data: otherProfiles, error: profErr } = await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, country, city"
-          )
-          .in("id", otherIds);
+      const otherIds = Array.from(
+        new Set(entanglements.map((e) => e.otherUser.id))
+      );
 
-        if (profErr) throw profErr;
+      const { data: otherProfiles, error: profErr } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, country, city"
+        )
+        .in("id", otherIds);
 
-        const profilesById: Record<string, UserProfile> = {};
-        (otherProfiles || []).forEach((p: any) => {
-          profilesById[p.id] = p as UserProfile;
-        });
+      if (profErr) throw profErr;
 
-        const entanglements: RecentEntanglement[] = rows
-          .map((c) => {
-            const otherUser = profilesById[otherIdByConnection[c.id]];
-            if (!otherUser) return null;
-            return {
-              connectionId: c.id,
-              created_at: c.created_at,
-              status: c.status,
-              isSender: isSenderByConnection[c.id],
-              otherUser,
-            };
-          })
-          .filter(Boolean) as RecentEntanglement[];
+      const profilesById: Record<string, UserProfile> = {};
+      (otherProfiles || []).forEach((p: any) => {
+        profilesById[p.id] = p as UserProfile;
+      });
 
-        setRecentEntanglements(entanglements);
-      } catch (e) {
-        console.error("Error loading entanglements", e);
-        setRecentEntanglements([]);
-      } finally {
-        setLoadingEntanglements(false);
-      }
-    };
+      const withProfiles = entanglements
+        .map((e) => {
+          const otherUser = profilesById[e.otherUser.id];
+          if (!otherUser) return null;
+          return { ...e, otherUser };
+        })
+        .filter(Boolean) as RecentEntanglement[];
 
-    loadEntanglements();
-  }, [user]);
+      setRecentEntanglements(withProfiles);
+    } catch (e) {
+      console.error("Error loading entanglements", e);
+      setRecentEntanglements([]);
+    } finally {
+      setLoadingEntanglements(false);
+    }
+  };
 
+  loadEntanglements();
+}, [user]);
+  
   const isActionLoading = (connectionId: string) =>
     actionLoadingIds.includes(connectionId);
 
@@ -883,104 +893,100 @@ export default function NotificationsPage() {
                     }}
                   >
                     {recentEntanglements.map(
-                      ({ connectionId, otherUser, created_at, status, isSender }) => {
-                        const name =
-                          otherUser.full_name || "Quantum5ocial member";
-                        const initials = name
-                          .split(" ")
-                          .map((p) => p[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase();
-                        const when = formatDateTime(created_at);
+  ({ connectionId, otherUser, created_at, status, isSender }) => {
+    const name = otherUser.full_name || "Quantum5ocial member";
+    const initials = name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+    const when = formatDateTime(created_at);
 
-                        let message: string;
-                        if (status === "accepted") {
-                          message = `You are now entangled with ${name}`;
-                        } else if (status === "declined") {
-                          if (isSender) {
-                            message = `Your entanglement request has been declined by ${name}`;
-                          } else {
-                            message = `You declined the entanglement request from ${name}`;
-                          }
-                        } else {
-                          // Fallback (should not happen)
-                          message = `Entanglement activity with ${name}`;
-                        }
+    let message: string;
+    if (status === "accepted") {
+      message = `You are now entangled with ${name}`;
+    } else if (status === "declined") {
+      if (isSender) {
+        message = `Your entanglement request has been declined by ${name}`;
+      } else {
+        message = `You declined the entanglement request from ${name}`;
+      }
+    } else {
+      message = `Entanglement activity with ${name}`;
+    }
 
-                        return (
-                          <div
-                            key={`ent-${connectionId}`}
-                            className="card"
-                            style={{
-                              padding: 10,
-                              borderRadius: 12,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 10,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: "999px",
-                                  overflow: "hidden",
-                                  flexShrink: 0,
-                                  background:
-                                    "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 13,
-                                  color: "#e5e7eb",
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {otherUser.avatar_url ? (
-                                  <img
-                                    src={otherUser.avatar_url}
-                                    alt={name}
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      objectFit: "cover",
-                                      display: "block",
-                                    }}
-                                  />
-                                ) : (
-                                  initials
-                                )}
-                              </div>
-                              <div style={{ fontSize: 13 }}>
-                                <span style={{ opacity: 0.9 }}>
-                                  {message}
-                                </span>
-                              </div>
-                            </div>
-                            {when && (
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: "rgba(148,163,184,0.95)",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {when}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                    )}
+    return (
+      <div
+        key={`ent-${connectionId}`}
+        className="card"
+        style={{
+          padding: 10,
+          borderRadius: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "999px",
+              overflow: "hidden",
+              flexShrink: 0,
+              background:
+                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              color: "#e5e7eb",
+              fontWeight: 600,
+            }}
+          >
+            {otherUser.avatar_url ? (
+              <img
+                src={otherUser.avatar_url}
+                alt={name}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            ) : (
+              initials
+            )}
+          </div>
+          <div style={{ fontSize: 13 }}>
+            <span style={{ opacity: 0.9 }}>{message}</span>
+          </div>
+        </div>
+        {when && (
+          <div
+            style={{
+              fontSize: 11,
+              color: "rgba(148,163,184,0.95)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {when}
+          </div>
+        )}
+      </div>
+    );
+  }
+)}
                   </div>
                 )}
             </div>
