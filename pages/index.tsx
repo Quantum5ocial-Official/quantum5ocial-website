@@ -250,7 +250,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name, slug, logo_url")
-        .eq("owner_id", user.id)
+        .eq("created_by", user.id)
         .eq("is_active", true)
         .order("created_at", { ascending: true })
         .limit(1)
