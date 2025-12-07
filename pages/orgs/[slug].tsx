@@ -96,16 +96,13 @@ export default function OrganizationDetailPage() {
 
   const firstLetter = org?.name?.charAt(0).toUpperCase() || "Q";
 
-  // 🆕 Edit target – go back to the corresponding create form in "edit" mode
-  const editHref = useMemo(() => {
-    if (!org) return "#";
-    if (org.kind === "company") {
-      return `/orgs/create/company?edit=${encodeURIComponent(org.slug)}`;
-    }
-    return `/orgs/create/research-group?edit=${encodeURIComponent(
-      org.slug
-    )}`;
-  }, [org]);
+  // Edit target – go to dedicated edit pages
+const editHref = useMemo(() => {
+  if (!org) return "#";
+  return org.kind === "company"
+    ? `/orgs/edit/company/${org.slug}`
+    : `/orgs/edit/research-group/${org.slug}`;
+}, [org]);
 
   return (
     <>
