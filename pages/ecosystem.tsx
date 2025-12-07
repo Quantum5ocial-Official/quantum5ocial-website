@@ -258,6 +258,9 @@ export default function MyEcosystemPage() {
   const hasProfileExtraInfo =
     Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
 
+  const entangledTotal = entangledProfiles.length;
+  const orgsTotal = followedOrgs.length;
+
   return (
     <>
       <div className="bg-layer" />
@@ -364,12 +367,76 @@ export default function MyEcosystemPage() {
 
           {/* CENTER CONTENT */}
           <section className="layout-center">
-            <div className="section-header" style={{ marginBottom: 20 }}>
-              <div>
-                <div className="section-title">My ecosystem</div>
-                <div className="section-sub">
-                  Your personal Quantum5ocial network — people you&apos;re
-                  entangled with and organizations you follow.
+            {/* HERO CARD */}
+            <div
+              className="card"
+              style={{
+                padding: 20,
+                marginBottom: 24,
+                background:
+                  "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.95))",
+                border: "1px solid rgba(148,163,184,0.35)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 16,
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <div className="section-title">My ecosystem</div>
+                  <div className="section-sub">
+                    A snapshot of your quantum network – the people you&apos;re
+                    entangled with and the organizations you follow.
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                    }}
+                  >
+                    <span className="pill pill-soft">
+                      🧬 Entangled members:{" "}
+                      <strong style={{ marginLeft: 4 }}>
+                        {entangledTotal}
+                      </strong>
+                    </span>
+                    <span className="pill pill-soft">
+                      🏢 Followed organizations:{" "}
+                      <strong style={{ marginLeft: 4 }}>{orgsTotal}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: 8,
+                    minWidth: 160,
+                  }}
+                >
+                  <Link
+                    href="/community"
+                    className="section-link"
+                    style={{ fontSize: 13 }}
+                  >
+                    Explore community →
+                  </Link>
+                  <Link
+                    href="/orgs"
+                    className="section-link"
+                    style={{ fontSize: 13 }}
+                  >
+                    Discover organizations →
+                  </Link>
                 </div>
               </div>
             </div>
@@ -383,10 +450,27 @@ export default function MyEcosystemPage() {
                 {/* Entangled people */}
                 <div style={{ marginBottom: 32 }}>
                   <div
-                    className="section-subtitle"
-                    style={{ marginBottom: 8 }}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 8,
+                    }}
                   >
-                    Entangled members ({entangledProfiles.length})
+                    <div className="section-subtitle">
+                      🧬 Entangled members
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 12,
+                          color: "rgba(148,163,184,0.9)",
+                          fontWeight: 400,
+                        }}
+                      >
+                        {entangledTotal} connection
+                        {entangledTotal === 1 ? "" : "s"}
+                      </span>
+                    </div>
                   </div>
 
                   {entangledProfiles.length === 0 ? (
@@ -395,13 +479,14 @@ export default function MyEcosystemPage() {
                       <Link href="/community" className="section-link">
                         community
                       </Link>{" "}
-                      and start connecting.
+                      and start connecting with quantum people.
                     </div>
                   ) : (
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: 16,
                       }}
                     >
@@ -420,10 +505,13 @@ export default function MyEcosystemPage() {
                             className="card"
                             style={{
                               padding: 14,
-                              minHeight: 140,
+                              minHeight: 150,
                               display: "flex",
                               flexDirection: "column",
                               justifyContent: "space-between",
+                              border: "1px solid rgba(148,163,184,0.28)",
+                              background:
+                                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,64,175,0.45))",
                             }}
                           >
                             <div
@@ -489,7 +577,7 @@ export default function MyEcosystemPage() {
                                   <div
                                     style={{
                                       fontSize: 13,
-                                      color: "rgba(148,163,184,0.95)",
+                                      color: "rgba(191,219,254,0.95)",
                                       whiteSpace: "nowrap",
                                       overflow: "hidden",
                                       textOverflow: "ellipsis",
@@ -499,6 +587,22 @@ export default function MyEcosystemPage() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                marginTop: 12,
+                              }}
+                            >
+                              <Link
+                                href={`/profile/${p.id}`}
+                                className="section-link"
+                                style={{ fontSize: 12 }}
+                              >
+                                View profile →
+                              </Link>
                             </div>
                           </div>
                         );
@@ -510,10 +614,27 @@ export default function MyEcosystemPage() {
                 {/* Followed orgs */}
                 <div>
                   <div
-                    className="section-subtitle"
-                    style={{ marginBottom: 8 }}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 8,
+                    }}
                   >
-                    Followed organizations ({followedOrgs.length})
+                    <div className="section-subtitle">
+                      🏢 Followed organizations
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          fontSize: 12,
+                          color: "rgba(148,163,184,0.9)",
+                          fontWeight: 400,
+                        }}
+                      >
+                        {orgsTotal} organization
+                        {orgsTotal === 1 ? "" : "s"}
+                      </span>
+                    </div>
                   </div>
 
                   {followedOrgs.length === 0 ? (
@@ -529,7 +650,8 @@ export default function MyEcosystemPage() {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: 16,
                       }}
                     >
@@ -551,6 +673,9 @@ export default function MyEcosystemPage() {
                               padding: 14,
                               textDecoration: "none",
                               color: "inherit",
+                              border: "1px solid rgba(148,163,184,0.28)",
+                              background:
+                                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(147,51,234,0.4))",
                             }}
                           >
                             <div
@@ -619,7 +744,7 @@ export default function MyEcosystemPage() {
                                   <div
                                     style={{
                                       fontSize: 13,
-                                      color: "rgba(148,163,184,0.95)",
+                                      color: "rgba(191,219,254,0.95)",
                                       whiteSpace: "nowrap",
                                       overflow: "hidden",
                                       textOverflow: "ellipsis",
@@ -632,7 +757,7 @@ export default function MyEcosystemPage() {
                                   <div
                                     style={{
                                       fontSize: 12,
-                                      color: "rgba(148,163,184,0.8)",
+                                      color: "rgba(148,163,184,0.9)",
                                       marginTop: 2,
                                     }}
                                   >
@@ -640,6 +765,33 @@ export default function MyEcosystemPage() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+
+                            {org.tagline && (
+                              <div
+                                style={{
+                                  marginTop: 10,
+                                  fontSize: 12,
+                                  color: "rgba(148,163,184,0.95)",
+                                }}
+                              >
+                                {org.tagline}
+                              </div>
+                            )}
+
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                marginTop: 10,
+                              }}
+                            >
+                              <span
+                                className="section-link"
+                                style={{ fontSize: 12 }}
+                              >
+                                View organization →
+                              </span>
                             </div>
                           </Link>
                         );
@@ -651,7 +803,7 @@ export default function MyEcosystemPage() {
             )}
           </section>
 
-          {/* RIGHT COLUMN – empty for now (can add suggestions later) */}
+          {/* RIGHT COLUMN – reserved for future suggestions / feed */}
           <aside className="layout-right" />
         </main>
       </div>
