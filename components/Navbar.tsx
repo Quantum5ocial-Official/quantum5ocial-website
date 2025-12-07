@@ -282,7 +282,7 @@ export default function Navbar() {
     isActive("/ecosystem") ? "nav-link-active" : ""
   }`}
 >
-  <span className="nav-link-label">My ecosystem</span>
+  <span className="nav-link-label">My Ecosystem</span>
 </Link>
 
             {/* Dashboard dropdown (desktop only) */}
