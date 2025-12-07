@@ -32,19 +32,12 @@ export default function CreateCompanyPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  // If there's a ?slug=... in the URL we are in "edit mode"
-  const rawSlug = router.query.slug;
-  const editSlug = typeof rawSlug === "string" ? rawSlug : undefined;
-  const isEditMode = Boolean(editSlug);
-
   // redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth");
     }
   }, [loading, user, router]);
-
-  const [orgId, setOrgId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -70,11 +63,10 @@ export default function CreateCompanyPage() {
 
   // auto-update slug from name until user edits slug manually
   useEffect(() => {
-    // In edit mode we keep the existing slug unless the user changes it manually
-    if (!slugManuallyEdited && !isEditMode) {
+    if (!slugManuallyEdited) {
       setSlug(slugify(name));
     }
-  }, [name, slugManuallyEdited, isEditMode]);
+  }, [name, slugManuallyEdited]);
 
   const handleSlugChange = (value: string) => {
     setSlug(value);
@@ -88,47 +80,6 @@ export default function CreateCompanyPage() {
     }
     setLogoFile(files[0]);
   };
-
-  // EDIT MODE: load existing organization
-  useEffect(() => {
-    const loadOrgForEdit = async () => {
-      if (!user || !editSlug) return;
-
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("slug", editSlug)
-        .eq("created_by", user.id)
-        .eq("kind", "company")
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error loading organization for edit", error);
-        setSubmitError("Could not load company details for editing.");
-        return;
-      }
-
-      if (!data) {
-        setSubmitError("Company not found or you are not allowed to edit it.");
-        return;
-      }
-
-      setOrgId(data.id);
-      setName(data.name ?? "");
-      setSlug(data.slug ?? "");
-      setSlugManuallyEdited(true); // avoid auto-overwriting slug
-      setWebsite(data.website ?? "");
-      setIndustry(data.industry ?? "");
-      setSize((data.size_label as OrgSize) || "");
-      setOrgType((data.company_type as OrgType) || "");
-      setTagline(data.tagline ?? "");
-      setAuthorized(true); // they already created it
-    };
-
-    if (isEditMode) {
-      loadOrgForEdit();
-    }
-  }, [user, editSlug, isEditMode]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -153,12 +104,12 @@ export default function CreateCompanyPage() {
     }
     if (!authorized) {
       setSubmitError(
-        "Please confirm that you are authorized to create or manage this page."
+        "Please confirm that you are authorized to create this page."
       );
       return;
     }
     if (!user) {
-      setSubmitError("You must be logged in to manage an organization.");
+      setSubmitError("You must be logged in to create an organization.");
       return;
     }
 
@@ -167,70 +118,38 @@ export default function CreateCompanyPage() {
     try {
       const effectiveSlug = (slug || slugify(name)).toLowerCase();
 
-      if (isEditMode && orgId) {
-        // UPDATE EXISTING ORG
-        const { data, error } = await supabase
-          .from("organizations")
-          .update({
-            name,
-            slug: effectiveSlug,
-            website: website || null,
-            industry: industry || null,
-            size_label: size || null,
-            company_type: orgType || null,
-            tagline: tagline || null,
-            // logo_url will be handled when Storage upload is wired
-          })
-          .eq("id", orgId)
-          .eq("created_by", user.id)
-          .select("slug")
-          .single();
+      const { data, error } = await supabase
+        .from("organizations")
+        .insert({
+          created_by: user.id,
+          kind: "company",
+          name,
+          slug: effectiveSlug,
+          website: website || null,
+          industry: industry || null,
+          size_label: size || null,
+          company_type: orgType || null,
+          tagline: tagline || null,
+          // logo_url will be set later when we add Storage upload
+        })
+        .select("slug")
+        .single();
 
-        if (error) {
-          throw error;
-        }
+      if (error) {
+        throw error;
+      }
 
-        setSubmitMessage("Company page updated successfully.");
-        setSubmitError(null);
+      setSubmitMessage("Company page created successfully.");
+      setSubmitError(null);
 
-        if (data?.slug) {
-          router.push(`/orgs/${data.slug}`);
-        }
-      } else {
-        // CREATE NEW ORG
-        const { data, error } = await supabase
-          .from("organizations")
-          .insert({
-            created_by: user.id,
-            kind: "company",
-            name,
-            slug: effectiveSlug,
-            website: website || null,
-            industry: industry || null,
-            size_label: size || null,
-            company_type: orgType || null,
-            tagline: tagline || null,
-            // logo_url will be set later when we add Storage upload
-          })
-          .select("slug")
-          .single();
-
-        if (error) {
-          throw error;
-        }
-
-        setSubmitMessage("Company page created successfully.");
-        setSubmitError(null);
-
-        if (data?.slug) {
-          router.push(`/orgs/${data.slug}`);
-        }
+      if (data?.slug) {
+        router.push(`/orgs/${data.slug}`);
       }
     } catch (err: any) {
       console.error(err);
       setSubmitError(
         err?.message ||
-          "Something went wrong while saving the organization."
+          "Something went wrong while creating the organization."
       );
     } finally {
       setSubmitting(false);
@@ -240,18 +159,6 @@ export default function CreateCompanyPage() {
   if (loading || (!user && typeof window !== "undefined")) {
     return null;
   }
-
-  const pageTitle = isEditMode ? "Edit company page" : "Create a company page";
-  const pageSubtitle = isEditMode
-    ? "Update your company or vendor profile on Quantum5ocial."
-    : "Set up a presence for your company, startup, or vendor on Quantum5ocial. You’ll be able to link jobs and products to this page later.";
-  const submitLabel = submitting
-    ? isEditMode
-      ? "Saving…"
-      : "Creating…"
-    : isEditMode
-    ? "Save changes"
-    : "Create company page";
 
   return (
     <>
@@ -278,7 +185,7 @@ export default function CreateCompanyPage() {
                 marginBottom: 8,
               }}
             >
-              {pageTitle}
+              Create a company page
             </h1>
             <p
               style={{
@@ -287,7 +194,9 @@ export default function CreateCompanyPage() {
                 maxWidth: 620,
               }}
             >
-              {pageSubtitle}
+              Set up a presence for your company, startup, or vendor on
+              Quantum5ocial. You&apos;ll be able to link jobs and products to
+              this page later.
             </p>
           </header>
 
@@ -676,7 +585,7 @@ export default function CreateCompanyPage() {
                   color: "#0f172a",
                 }}
               >
-                {submitLabel}
+                {submitting ? "Creating…" : "Create company page"}
               </button>
             </div>
           </form>
