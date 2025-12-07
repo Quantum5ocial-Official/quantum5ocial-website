@@ -134,20 +134,20 @@ export default function CommunityPage() {
 
   // --- HELPERS FOR CONNECTION/FOLLOW STATE ---
   const getConnectionStatus = (otherUserId: string): ConnectionStatus => {
-  if (!user) return "none";
-  const row = connectionsByOtherId[otherUserId];
-  if (!row) return "none";
+    if (!user) return "none";
+    const row = connectionsByOtherId[otherUserId];
+    if (!row) return "none";
 
-  if (row.status === "accepted") return "accepted";
-  if (row.status === "declined") return "declined";
+    if (row.status === "accepted") return "accepted";
+    if (row.status === "declined") return "declined";
 
-  if (row.status === "pending") {
-    if (row.user_id === user.id) return "pending_outgoing";
-    if (row.target_user_id === user.id) return "pending_incoming";
-  }
+    if (row.status === "pending") {
+      if (row.user_id === user.id) return "pending_outgoing";
+      if (row.target_user_id === user.id) return "pending_incoming";
+    }
 
-  return "none";
-};
+    return "none";
+  };
 
   const isEntangleLoading = (otherUserId: string) =>
     entangleLoadingIds.includes(otherUserId);
@@ -194,7 +194,7 @@ export default function CommunityPage() {
       }
 
       // Case 2: no connection yet → send request (pending_outgoing)
-      if (currentStatus === "none") {
+      if (currentStatus === "none" || currentStatus === "declined") {
         const { data, error } = await supabase
           .from("connections")
           .insert({
@@ -218,9 +218,9 @@ export default function CommunityPage() {
     } catch (e) {
       console.error("Unexpected error creating/accepting entanglement", e);
     } finally {
-      setEntangleLoadingIds((prev) =>
-        prev.filter((id) => id !== targetUserId)
-      );
+    setEntangleLoadingIds((prev) =>
+      prev.filter((id) => id !== targetUserId)
+    );
     }
   };
 
@@ -250,7 +250,7 @@ export default function CommunityPage() {
       if (error) {
         console.error("Error declining entanglement", error);
       } else {
-        // Mark as declined (getConnectionStatus will treat this as "none")
+        // Mark as declined
         setConnectionsByOtherId((prev) => ({
           ...prev,
           [targetUserId]: { ...currentRow, status: "declined" },
@@ -1457,37 +1457,37 @@ export default function CommunityPage() {
                                 }
 
                                 // All other states → single button
-let label = "Entangle +";
-let bg =
-  "linear-gradient(90deg,#22d3ee,#6366f1)";
-let border = "none";
-let color = "#0f172a";
-let disabled = false;
+                                let label = "Entangle +";
+                                let bg =
+                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
+                                let border = "none";
+                                let color = "#0f172a";
+                                let disabled = false;
 
-if (user) {
-  if (status === "pending_outgoing") {
-    label = "Requested";
-    bg = "transparent";
-    border =
-      "1px solid rgba(148,163,184,0.7)";
-    color = "rgba(148,163,184,0.95)";
-    disabled = true;
-  } else if (status === "accepted") {
-    label = "Entangled ✓";
-    bg = "transparent";
-    border =
-      "1px solid rgba(74,222,128,0.7)";
-    color = "rgba(187,247,208,0.95)";
-    disabled = true;
-  } else if (status === "declined") {
-    label = "Declined";
-    bg = "transparent";
-    border =
-      "1px solid rgba(148,163,184,0.5)";
-    color = "rgba(148,163,184,0.7)";
-    disabled = true;
-  }
-}
+                                if (user) {
+                                  if (status === "pending_outgoing") {
+                                    label = "Requested";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.7)";
+                                    color = "rgba(148,163,184,0.95)";
+                                    disabled = true;
+                                  } else if (status === "accepted") {
+                                    label = "Entangled ✓";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(74,222,128,0.7)";
+                                    color = "rgba(187,247,208,0.95)";
+                                    disabled = true;
+                                  } else if (status === "declined") {
+                                    label = "Declined";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.5)";
+                                    color = "rgba(148,163,184,0.7)";
+                                    disabled = true;
+                                  }
+                                }
 
                                 return (
                                   <button
@@ -2116,37 +2116,37 @@ if (user) {
                                 }
 
                                 // Other states → single button
-let label = "Entangle +";
-let bg =
-  "linear-gradient(90deg,#22d3ee,#6366f1)";
-let border = "none";
-let color = "#0f172a";
-let disabled = false;
+                                let label = "Entangle +";
+                                let bg =
+                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
+                                let border = "none";
+                                let color = "#0f172a";
+                                let disabled = false;
 
-if (user) {
-  if (status === "pending_outgoing") {
-    label = "Requested";
-    bg = "transparent";
-    border =
-      "1px solid rgba(148,163,184,0.7)";
-    color = "rgba(148,163,184,0.95)";
-    disabled = true;
-  } else if (status === "accepted") {
-    label = "Entangled ✓";
-    bg = "transparent";
-    border =
-      "1px solid rgba(74,222,128,0.7)";
-    color = "rgba(187,247,208,0.95)";
-    disabled = true;
-  } else if (status === "declined") {
-    label = "Declined";
-    bg = "transparent";
-    border =
-      "1px solid rgba(148,163,184,0.5)";
-    color = "rgba(148,163,184,0.7)";
-    disabled = true;
-  }
-}
+                                if (user) {
+                                  if (status === "pending_outgoing") {
+                                    label = "Requested";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.7)";
+                                    color = "rgba(148,163,184,0.95)";
+                                    disabled = true;
+                                  } else if (status === "accepted") {
+                                    label = "Entangled ✓";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(74,222,128,0.7)";
+                                    color = "rgba(187,247,208,0.95)";
+                                    disabled = true;
+                                  } else if (status === "declined") {
+                                    label = "Declined";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.5)";
+                                    color = "rgba(148,163,184,0.7)";
+                                    disabled = true;
+                                  }
+                                }
 
                                 return (
                                   <button
