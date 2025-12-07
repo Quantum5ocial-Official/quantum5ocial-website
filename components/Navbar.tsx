@@ -275,7 +275,7 @@ export default function Navbar() {
             >
               <span className="nav-link-label">Organizations</span>
             </Link>
-            {/* My ecosystem */}
+            {/* My Ecosystem */}
 <Link
   href="/ecosystem"
   className={`nav-link ${
@@ -489,7 +489,7 @@ export default function Navbar() {
     }`}
     onClick={closeMobileMenu}
   >
-    My ecosystem
+    My Ecosystem
   </Link>
 
           {/* Dashboard links as simple items on mobile */}
