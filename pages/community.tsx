@@ -221,6 +221,46 @@ export default function CommunityPage() {
       );
     }
   };
+    // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
+  const handleDeclineEntangle = async (targetUserId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/community");
+      return;
+    }
+
+    const currentRow = connectionsByOtherId[targetUserId];
+    const currentStatus = getConnectionStatus(targetUserId);
+
+    // Only allow decline if there is a pending incoming request
+    if (!currentRow || currentStatus !== "pending_incoming") {
+      return;
+    }
+
+    setEntangleLoadingIds((prev) => [...prev, targetUserId]);
+
+    try {
+      const { error } = await supabase
+        .from("connections")
+        .update({ status: "declined" })
+        .eq("id", currentRow.id);
+
+      if (error) {
+        console.error("Error declining entanglement", error);
+      } else {
+        // Mark as declined (getConnectionStatus will treat this as "none")
+        setConnectionsByOtherId((prev) => ({
+          ...prev,
+          [targetUserId]: { ...currentRow, status: "declined" },
+        }));
+      }
+    } catch (e) {
+      console.error("Unexpected error declining entanglement", e);
+    } finally {
+      setEntangleLoadingIds((prev) =>
+        prev.filter((id) => id !== targetUserId)
+      );
+    }
+  };
 
   // --- FOLLOW / UNFOLLOW ORG HANDLER ---
   const handleFollowOrg = async (orgId: string) => {
@@ -1336,7 +1376,8 @@ export default function CommunityPage() {
                                 "Active contributor in the quantum ecosystem on Quantum5ocial."}
                             </div>
 
-                            {/* Entangle button with status */}
+
+                                                        {/* Entangle button with status */}
                             {(!user || featuredProfile.id !== user.id) && (
                               (() => {
                                 const status = getConnectionStatus(
@@ -1346,11 +1387,79 @@ export default function CommunityPage() {
                                   featuredProfile.id
                                 );
 
+                                // Incoming request → show Accept + Decline (like notifications)
+                                if (user && status === "pending_incoming") {
+                                  return (
+                                    <div
+                                      style={{
+                                        marginTop: 10,
+                                        display: "flex",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() =>
+                                          handleEntangle(featuredProfile.id)
+                                        }
+                                        style={{
+                                          flex: 1,
+                                          minWidth: 120,
+                                          padding: "6px 0",
+                                          borderRadius: 999,
+                                          border: "none",
+                                          background:
+                                            "linear-gradient(90deg,#22c55e,#16a34a)",
+                                          color: "#0f172a",
+                                          fontSize: 12,
+                                          fontWeight: 600,
+                                          cursor: loading
+                                            ? "default"
+                                            : "pointer",
+                                          opacity: loading ? 0.7 : 1,
+                                        }}
+                                      >
+                                        {loading ? "…" : "Accept request"}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() =>
+                                          handleDeclineEntangle(
+                                            featuredProfile.id
+                                          )
+                                        }
+                                        style={{
+                                          flex: 1,
+                                          minWidth: 100,
+                                          padding: "6px 0",
+                                          borderRadius: 999,
+                                          border:
+                                            "1px solid rgba(148,163,184,0.7)",
+                                          background: "transparent",
+                                          color: "rgba(248,250,252,0.9)",
+                                          fontSize: 12,
+                                          cursor: loading
+                                            ? "default"
+                                            : "pointer",
+                                          opacity: loading ? 0.7 : 1,
+                                        }}
+                                      >
+                                        Decline
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                // All other states → single button
                                 let label = "Entangle +";
-                                let bg = "rgba(59,130,246,0.16)";
-                                let border =
-                                  "1px solid rgba(59,130,246,0.6)";
-                                let color = "#bfdbfe";
+                                let bg =
+                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
+                                let border = "none";
+                                let color = "#0f172a";
                                 let disabled = false;
 
                                 if (user) {
@@ -1361,12 +1470,6 @@ export default function CommunityPage() {
                                       "1px solid rgba(148,163,184,0.7)";
                                     color = "rgba(148,163,184,0.95)";
                                     disabled = true;
-                                  } else if (status === "pending_incoming") {
-                                    label = "Accept request";
-                                    bg =
-                                      "linear-gradient(90deg,#22c55e,#16a34a)";
-                                    border = "none";
-                                    color = "#0f172a";
                                   } else if (status === "accepted") {
                                     label = "Entangled ✓";
                                     bg = "transparent";
@@ -1398,9 +1501,9 @@ export default function CommunityPage() {
                                       opacity: loading ? 0.7 : 1,
                                     }}
                                     disabled={disabled || loading}
-                                    onClick={() => handleEntangle(
-                                      featuredProfile.id
-                                    )}
+                                    onClick={() =>
+                                      handleEntangle(featuredProfile.id)
+                                    }
                                   >
                                     {loading ? "…" : label}
                                   </button>
@@ -1862,25 +1965,119 @@ export default function CommunityPage() {
                             </div>
                           </div>
 
-                          {/* Entangle / Follow button */}
-                          <div style={{ marginTop: 12 }}>
-                            {isOrganization ? (
+                                                      ) : isSelf ? (
+                              <button
+                                type="button"
+                                style={{
+                                  width: "100%",
+                                  padding: "7px 0",
+                                  borderRadius: 10,
+                                  border:
+                                    "1px solid rgba(148,163,184,0.7)",
+                                  background: "transparent",
+                                  color: "rgba(148,163,184,0.9)",
+                                  fontSize: 12,
+                                  cursor: "default",
+                                }}
+                                disabled
+                              >
+                                This is you
+                              </button>
+                            ) : (
                               (() => {
-                                const following = isFollowingOrg(item.id);
-                                const loading = isFollowLoading(item.id);
+                                const status = getConnectionStatus(item.id);
+                                const loading = isEntangleLoading(item.id);
 
-                                const label = following
-                                  ? "Following"
-                                  : "Follow";
-                                const bg = following
-                                  ? "transparent"
-                                  : "rgba(59,130,246,0.16)";
-                                const border = following
-                                  ? "1px solid rgba(148,163,184,0.7)"
-                                  : "1px solid rgba(59,130,246,0.6)";
-                                const color = following
-                                  ? "rgba(148,163,184,0.95)"
-                                  : "#bfdbfe";
+                                // Incoming request → show Accept + Decline
+                                if (user && status === "pending_incoming") {
+                                  return (
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                      }}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() =>
+                                          handleEntangle(item.id)
+                                        }
+                                        style={{
+                                          flex: 1,
+                                          minWidth: 120,
+                                          padding: "7px 0",
+                                          borderRadius: 10,
+                                          border: "none",
+                                          background:
+                                            "linear-gradient(90deg,#22c55e,#16a34a)",
+                                          color: "#0f172a",
+                                          fontSize: 12,
+                                          fontWeight: 600,
+                                          cursor: loading
+                                            ? "default"
+                                            : "pointer",
+                                          opacity: loading ? 0.7 : 1,
+                                        }}
+                                      >
+                                        {loading ? "…" : "Accept request"}
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={loading}
+                                        onClick={() =>
+                                          handleDeclineEntangle(item.id)
+                                        }
+                                        style={{
+                                          flex: 1,
+                                          minWidth: 100,
+                                          padding: "7px 0",
+                                          borderRadius: 10,
+                                          border:
+                                            "1px solid rgba(148,163,184,0.7)",
+                                          background: "transparent",
+                                          color:
+                                            "rgba(248,250,252,0.9)",
+                                          fontSize: 12,
+                                          cursor: loading
+                                            ? "default"
+                                            : "pointer",
+                                          opacity: loading ? 0.7 : 1,
+                                        }}
+                                      >
+                                        Decline
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                // Other states → single button
+                                let label = "Entangle +";
+                                let bg =
+                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
+                                let border = "none";
+                                let color = "#0f172a";
+                                let disabled = false;
+
+                                if (user) {
+                                  if (status === "pending_outgoing") {
+                                    label = "Requested";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.7)";
+                                    color = "rgba(148,163,184,0.95)";
+                                    disabled = true;
+                                  } else if (status === "accepted") {
+                                    label = "Entangled ✓";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(74,222,128,0.7)";
+                                    color = "rgba(187,247,208,0.95)";
+                                    disabled = true;
+                                  }
+                                }
 
                                 return (
                                   <button
@@ -1893,22 +2090,20 @@ export default function CommunityPage() {
                                       background: bg,
                                       color,
                                       fontSize: 12,
-                                      cursor: loading
-                                        ? "default"
-                                        : "pointer",
+                                      cursor:
+                                        disabled || loading
+                                          ? "default"
+                                          : "pointer",
                                       display: "inline-flex",
                                       alignItems: "center",
                                       justifyContent: "center",
                                       gap: 6,
                                       opacity: loading ? 0.7 : 1,
                                     }}
-                                    disabled={loading}
-                                    onClick={() => handleFollowOrg(item.id)}
+                                    disabled={disabled || loading}
+                                    onClick={() => handleEntangle(item.id)}
                                   >
                                     {loading ? "…" : label}
-                                    {!following && (
-                                      <span style={{ fontSize: 14 }}>+</span>
-                                    )}
                                   </button>
                                 );
                               })()
