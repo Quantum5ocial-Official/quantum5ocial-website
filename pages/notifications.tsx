@@ -53,8 +53,8 @@ type PendingRequest = {
 type RecentEntanglement = {
   connectionId: string;
   created_at: string | null;
-  status: string;
-  isSender: boolean; // whether *you* are the one who sent the original request
+  status: "accepted" | "declined" | "rejected";
+  isSender: boolean;          // is *current* user the one who sent the request?
   otherUser: UserProfile;
 };
 
@@ -271,13 +271,12 @@ useEffect(() => {
       const { data: connRows, error: connErr } = await supabase
         .from("connections")
         .select("id, user_id, target_user_id, status, created_at")
-        .in("status", ["accepted", "declined"])
+        .in("status", ["accepted", "declined", "rejected"])
         .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(30);
 
       if (connErr) throw connErr;
-
       if (!connRows || connRows.length === 0) {
         setRecentEntanglements([]);
         return;
@@ -285,35 +284,20 @@ useEffect(() => {
 
       const rows = connRows as ConnectionRow[];
 
-      const entanglements: RecentEntanglement[] = rows
-        .map((c) => {
-          const isSender = c.user_id === user.id;
-          const otherId = isSender ? c.target_user_id : c.user_id;
+      // figure out whom to load profiles for
+      const otherIdByConnection: Record<string, string> = {};
+      const isSenderByConnection: Record<string, boolean> = {};
+      const otherIdsSet = new Set<string>();
 
-          return {
-            connectionId: c.id,
-            created_at: c.created_at,
-            status: c.status,
-            isSender,
-            otherUser: {
-              // we'll fill this properly just below
-              id: otherId,
-              full_name: null,
-              avatar_url: null,
-              role: null,
-              short_bio: null,
-              highest_education: null,
-              affiliation: null,
-              country: null,
-              city: null,
-            },
-          };
-        })
-        .filter(Boolean) as RecentEntanglement[];
+      rows.forEach((c) => {
+        const isSender = c.user_id === user.id;
+        const otherId = isSender ? c.target_user_id : c.user_id;
+        isSenderByConnection[c.id] = isSender;
+        otherIdByConnection[c.id] = otherId;
+        otherIdsSet.add(otherId);
+      });
 
-      const otherIds = Array.from(
-        new Set(entanglements.map((e) => e.otherUser.id))
-      );
+      const otherIds = Array.from(otherIdsSet);
 
       const { data: otherProfiles, error: profErr } = await supabase
         .from("profiles")
@@ -329,15 +313,26 @@ useEffect(() => {
         profilesById[p.id] = p as UserProfile;
       });
 
-      const withProfiles = entanglements
-        .map((e) => {
-          const otherUser = profilesById[e.otherUser.id];
+      const entanglements: RecentEntanglement[] = rows
+        .map((c) => {
+          const otherId = otherIdByConnection[c.id];
+          const otherUser = profilesById[otherId];
           if (!otherUser) return null;
-          return { ...e, otherUser };
+
+          const status =
+            (c.status as "accepted" | "declined" | "rejected") || "accepted";
+
+          return {
+            connectionId: c.id,
+            created_at: c.created_at,
+            status,
+            isSender: isSenderByConnection[c.id],
+            otherUser,
+          };
         })
         .filter(Boolean) as RecentEntanglement[];
 
-      setRecentEntanglements(withProfiles);
+      setRecentEntanglements(entanglements);
     } catch (e) {
       console.error("Error loading entanglements", e);
       setRecentEntanglements([]);
@@ -904,12 +899,16 @@ useEffect(() => {
     const when = formatDateTime(created_at);
 
     let message: string;
+
     if (status === "accepted") {
+      // same as before
       message = `You are now entangled with ${name}`;
-    } else if (status === "declined") {
+    } else if (status === "declined" || status === "rejected") {
       if (isSender) {
+        // you sent the request, they declined
         message = `Your entanglement request has been declined by ${name}`;
       } else {
+        // they sent the request, you declined
         message = `You declined the entanglement request from ${name}`;
       }
     } else {
