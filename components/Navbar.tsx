@@ -275,6 +275,15 @@ export default function Navbar() {
             >
               <span className="nav-link-label">Organizations</span>
             </Link>
+            {/* My ecosystem */}
+<Link
+  href="/ecosystem"
+  className={`nav-link ${
+    isActive("/ecosystem") ? "nav-link-active" : ""
+  }`}
+>
+  <span className="nav-link-label">My ecosystem</span>
+</Link>
 
             {/* Dashboard dropdown (desktop only) */}
             {!loading && user && (
@@ -471,6 +480,17 @@ export default function Navbar() {
           >
             Organizations
           </Link>
+
+            {/* My ecosystem in mobile menu */}
+  <Link
+    href="/ecosystem"
+    className={`nav-link ${
+      isActive("/ecosystem") ? "nav-link-active" : ""
+    }`}
+    onClick={closeMobileMenu}
+  >
+    My ecosystem
+  </Link>
 
           {/* Dashboard links as simple items on mobile */}
           {!loading && user && (
