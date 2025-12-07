@@ -282,7 +282,7 @@ export default function Navbar() {
           {/* DESKTOP NAV LINKS */}
           <nav
             className="nav-links nav-links-desktop"
-            style={{ fontSize: 13 }} // 🔹 slightly smaller font for nav items
+            style={{ fontSize: 15 }} // 🔹 slightly smaller font for nav items
           >
             <Link
               href="/jobs"
