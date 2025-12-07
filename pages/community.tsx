@@ -79,58 +79,23 @@ type MyOrgSummary = {
   logo_url: string | null;
 };
 
+// Connections / entanglement
+type ConnectionStatus =
+  | "none"
+  | "pending_outgoing"
+  | "pending_incoming"
+  | "accepted";
+
+type ConnectionRow = {
+  id: string;
+  user_id: string;
+  target_user_id: string;
+  status: "pending" | "accepted" | "declined";
+};
+
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
-
-    const router = useRouter();
-
-  const handleEntangle = async (targetUserId: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/community");
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("connections")
-        .insert({
-          user_id: user.id,
-          target_user_id: targetUserId,
-          status: "accepted", // assuming your table has this column
-        });
-
-      if (error) {
-        console.error("Error creating entanglement", error);
-      }
-    } catch (e) {
-      console.error("Unexpected error creating entanglement", e);
-    }
-  };
-
-  const handleFollowOrg = async (orgId: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/community");
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("org_follows")
-        .upsert(
-          {
-            user_id: user.id,
-            org_id: orgId,
-          },
-          { onConflict: "user_id,org_id" } // avoids duplicates
-        );
-
-      if (error) {
-        console.error("Error following organization", error);
-      }
-    } catch (e) {
-      console.error("Unexpected error following organization", e);
-    }
-  };
+  const router = useRouter();
 
   // --- Sidebar profile + counts (same as homepage) ---
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
@@ -156,6 +121,160 @@ export default function CommunityPage() {
   const [orgsError, setOrgsError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
+
+  // === CONNECTION + FOLLOW STATE ===
+  const [connectionsByOtherId, setConnectionsByOtherId] = useState<
+    Record<string, ConnectionRow>
+  >({});
+  const [entangleLoadingIds, setEntangleLoadingIds] = useState<string[]>([]);
+
+  const [orgFollows, setOrgFollows] = useState<Record<string, boolean>>({});
+  const [followLoadingIds, setFollowLoadingIds] = useState<string[]>([]);
+
+  // --- HELPERS FOR CONNECTION/FOLLOW STATE ---
+  const getConnectionStatus = (otherUserId: string): ConnectionStatus => {
+    if (!user) return "none";
+    const row = connectionsByOtherId[otherUserId];
+    if (!row) return "none";
+
+    if (row.status === "accepted") return "accepted";
+
+    if (row.status === "pending") {
+      if (row.user_id === user.id) return "pending_outgoing";
+      if (row.target_user_id === user.id) return "pending_incoming";
+    }
+
+    return "none";
+  };
+
+  const isEntangleLoading = (otherUserId: string) =>
+    entangleLoadingIds.includes(otherUserId);
+
+  const isFollowingOrg = (orgId: string) => !!orgFollows[orgId];
+  const isFollowLoading = (orgId: string) => followLoadingIds.includes(orgId);
+
+  // --- ENTANGLE HANDLER (send / accept) ---
+  const handleEntangle = async (targetUserId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/community");
+      return;
+    }
+
+    if (targetUserId === user.id) return; // no self-entanglement
+
+    const currentRow = connectionsByOtherId[targetUserId];
+    const currentStatus = getConnectionStatus(targetUserId);
+
+    // Already accepted or outgoing pending → ignore click
+    if (currentStatus === "accepted" || currentStatus === "pending_outgoing") {
+      return;
+    }
+
+    setEntangleLoadingIds((prev) => [...prev, targetUserId]);
+
+    try {
+      // Case 1: there's a pending request *to you* → accept it
+      if (currentStatus === "pending_incoming" && currentRow) {
+        const { error } = await supabase
+          .from("connections")
+          .update({ status: "accepted" })
+          .eq("id", currentRow.id);
+
+        if (error) {
+          console.error("Error accepting entanglement", error);
+        } else {
+          setConnectionsByOtherId((prev) => ({
+            ...prev,
+            [targetUserId]: { ...currentRow, status: "accepted" },
+          }));
+        }
+        return;
+      }
+
+      // Case 2: no connection yet → send request (pending_outgoing)
+      if (currentStatus === "none") {
+        const { data, error } = await supabase
+          .from("connections")
+          .insert({
+            user_id: user.id,
+            target_user_id: targetUserId,
+            status: "pending",
+          })
+          .select("id, user_id, target_user_id, status")
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error creating entanglement request", error);
+        } else if (data) {
+          const newRow = data as ConnectionRow;
+          setConnectionsByOtherId((prev) => ({
+            ...prev,
+            [targetUserId]: newRow,
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Unexpected error creating/accepting entanglement", e);
+    } finally {
+      setEntangleLoadingIds((prev) =>
+        prev.filter((id) => id !== targetUserId)
+      );
+    }
+  };
+
+  // --- FOLLOW / UNFOLLOW ORG HANDLER ---
+  const handleFollowOrg = async (orgId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/community");
+      return;
+    }
+
+    const alreadyFollowing = isFollowingOrg(orgId);
+
+    setFollowLoadingIds((prev) => [...prev, orgId]);
+
+    try:
+      if (alreadyFollowing) {
+        // Unfollow
+        const { error } = await supabase
+          .from("org_follows")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("org_id", orgId);
+
+        if (error) {
+          console.error("Error unfollowing organization", error);
+        } else {
+          setOrgFollows((prev) => {
+            const copy = { ...prev };
+            delete copy[orgId];
+            return copy;
+          });
+        }
+      } else {
+        // Follow
+        const { error } = await supabase
+          .from("org_follows")
+          .upsert(
+            {
+              user_id: user.id,
+              org_id: orgId,
+            },
+            { onConflict: "user_id,org_id" }
+          );
+
+        if (error) {
+          console.error("Error following organization", error);
+        } else {
+          setOrgFollows((prev) => ({ ...prev, [orgId]: true }));
+        }
+      }
+    } catch (e) {
+      console.error("Unexpected error in follow/unfollow", e);
+    } finally {
+      setFollowLoadingIds((prev) => prev.filter((id) => id !== orgId));
+    }
+  };
 
   // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
   useEffect(() => {
@@ -344,6 +463,86 @@ export default function CommunityPage() {
 
     loadOrgs();
   }, []);
+
+  // === LOAD CONNECTIONS (ENTANGLEMENTS) ===
+  useEffect(() => {
+    const loadConnections = async () => {
+      if (!user) {
+        setConnectionsByOtherId({});
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("connections")
+          .select("id, user_id, target_user_id, status")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+        if (error) {
+          console.error("Error loading entanglement connections", error);
+          setConnectionsByOtherId({});
+          return;
+        }
+
+        const rows = (data || []) as ConnectionRow[];
+        const map: Record<string, ConnectionRow> = {};
+
+        rows.forEach((c) => {
+          const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
+          map[otherId] = c;
+        });
+
+        setConnectionsByOtherId(map);
+      } catch (e) {
+        console.error("Unexpected error loading entanglement connections", e);
+        setConnectionsByOtherId({});
+      }
+    };
+
+    if (user) {
+      loadConnections();
+    } else {
+      setConnectionsByOtherId({});
+    }
+  }, [user]);
+
+  // === LOAD ORG_FOLLOWS FOR FOLLOW STATE ===
+  useEffect(() => {
+    const loadOrgFollows = async () => {
+      if (!user) {
+        setOrgFollows({});
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("org_follows")
+          .select("org_id")
+          .eq("user_id", user.id);
+
+        if (error) {
+          console.error("Error loading org follows", error);
+          setOrgFollows({});
+          return;
+        }
+
+        const map: Record<string, boolean> = {};
+        (data || []).forEach((row: any) => {
+          map[row.org_id] = true;
+        });
+        setOrgFollows(map);
+      } catch (e) {
+        console.error("Unexpected error loading org follows", e);
+        setOrgFollows({});
+      }
+    };
+
+    if (user) {
+      loadOrgFollows();
+    } else {
+      setOrgFollows({});
+    }
+  }, [user]);
 
   const communityLoading = loadingProfiles || loadingOrgs;
   const communityError = profilesError || orgsError;
@@ -838,148 +1037,151 @@ export default function CommunityPage() {
           {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
           <section className="layout-main">
             <section className="section">
-  {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
-  <div className="jobs-main-header">
-    <div
-      className="card"
-      style={{
-        padding: 16,
-        background:
-          "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.98))",
-        border: "1px solid rgba(148,163,184,0.35)",
-        boxShadow: "0 18px 45px rgba(15,23,42,0.8)",
-      }}
-    >
-      {/* HERO HEADER */}
-      <div
-        className="section-header"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <div
-            className="section-title"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            Quantum5ocial community
-            {!communityLoading && !communityError && (
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: "2px 10px",
-                  borderRadius: 999,
-                  background: "rgba(15,23,42,0.9)",
-                  border: "1px solid rgba(56,189,248,0.5)",
-                  color: "#7dd3fc",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span style={{ fontSize: 11 }}>🌐</span>
-                <span>
-                  {totalCommunityCount} member
-                  {totalCommunityCount === 1 ? "" : "s"}
-                </span>
-              </span>
-            )}
-          </div>
-          <div
-            className="section-sub"
-            style={{ maxWidth: 520, lineHeight: 1.45 }}
-          >
-            Discover members, labs, and companies in the quantum ecosystem{" "}
-            <span style={{ color: "#7dd3fc" }}>
-              – entangle with people and follow organizations that matter to
-              you.
-            </span>
-          </div>
-        </div>
+              {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
+              <div className="jobs-main-header">
+                <div
+                  className="card"
+                  style={{
+                    padding: 16,
+                    background:
+                      "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.98))",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    boxShadow: "0 18px 45px rgba(15,23,42,0.8)",
+                  }}
+                >
+                  {/* HERO HEADER */}
+                  <div
+                    className="section-header"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 16,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div
+                        className="section-title"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        Quantum5ocial community
+                        {!communityLoading && !communityError && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              padding: "2px 10px",
+                              borderRadius: 999,
+                              background: "rgba(15,23,42,0.9)",
+                              border:
+                                "1px solid rgba(56,189,248,0.5)",
+                              color: "#7dd3fc",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <span style={{ fontSize: 11 }}>🌐</span>
+                            <span>
+                              {totalCommunityCount} member
+                              {totalCommunityCount === 1 ? "" : "s"}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className="section-sub"
+                        style={{ maxWidth: 520, lineHeight: 1.45 }}
+                      >
+                        Discover members, labs, and companies in the quantum
+                        ecosystem{" "}
+                        <span style={{ color: "#7dd3fc" }}>
+                          – entangle with people and follow organizations that
+                          matter to you.
+                        </span>
+                      </div>
+                    </div>
 
-        {/* Small CTA block on the right */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-end",
-            gap: 4,
-            minWidth: 160,
-          }}
-        >
-          <Link
-            href="/ecosystem"
-            className="section-link"
-            style={{ fontSize: 13 }}
-          >
-            View my ecosystem →
-          </Link>
-          <Link
-            href="/orgs"
-            className="section-link"
-            style={{ fontSize: 13 }}
-          >
-            Browse organizations →
-          </Link>
-        </div>
-      </div>
+                    {/* Small CTA block on the right */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: 4,
+                        minWidth: 160,
+                      }}
+                    >
+                      <Link
+                        href="/ecosystem"
+                        className="section-link"
+                        style={{ fontSize: 13 }}
+                      >
+                        View my ecosystem →
+                      </Link>
+                      <Link
+                        href="/orgs"
+                        className="section-link"
+                        style={{ fontSize: 13 }}
+                      >
+                        Browse organizations →
+                      </Link>
+                    </div>
+                  </div>
 
-      {/* Center-column search bar */}
-      <div className="jobs-main-search" style={{ marginTop: 14 }}>
-        <div
-          style={{
-            width: "100%",
-            borderRadius: 999,
-            padding: 2,
-            background:
-              "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
-          }}
-        >
-          <div
-            style={{
-              borderRadius: 999,
-              background: "rgba(15,23,42,0.97)",
-              padding: "7px 13px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 14,
-                opacity: 0.9,
-              }}
-            >
-              🔍
-            </span>
-            <input
-              style={{
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                color: "#e5e7eb",
-                fontSize: 14,
-                width: "100%",
-              }}
-              placeholder="Search by name, role, organization, location…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+                  {/* Center-column search bar */}
+                  <div className="jobs-main-search" style={{ marginTop: 14 }}>
+                    <div
+                      style={{
+                        width: "100%",
+                        borderRadius: 999,
+                        padding: 2,
+                        background:
+                          "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
+                      }}
+                    >
+                      <div
+                        style={{
+                          borderRadius: 999,
+                          background: "rgba(15,23,42,0.97)",
+                          padding: "7px 13px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 14,
+                            opacity: 0.9,
+                          }}
+                        >
+                          🔍
+                        </span>
+                        <input
+                          style={{
+                            border: "none",
+                            outline: "none",
+                            background: "transparent",
+                            color: "#e5e7eb",
+                            fontSize: 14,
+                            width: "100%",
+                          }}
+                          placeholder="Search by name, role, organization, location…"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* BODY STATES */}
               {communityLoading && (
                 <div className="products-status">
@@ -1133,27 +1335,78 @@ export default function CommunityPage() {
                               {featuredProfile.short_bio ||
                                 "Active contributor in the quantum ecosystem on Quantum5ocial."}
                             </div>
-                            <button
-                              type="button"
-                              style={{
-                                marginTop: 10,
-                                padding: "6px 12px",
-                                borderRadius: 999,
-                                border:
-                                  "1px solid rgba(59,130,246,0.6)",
-                                background: "rgba(59,130,246,0.16)",
-                                color: "#bfdbfe",
-                                fontSize: 12,
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                              onClick={() => handleEntangle(featuredProfile.id)}
-                            >
-                              <span>Entangle</span>
-                              <span style={{ fontSize: 14 }}>+</span>
-                            </button>
+
+                            {/* Entangle button with status */}
+                            {(!user || featuredProfile.id !== user.id) && (
+                              (() => {
+                                const status = getConnectionStatus(
+                                  featuredProfile.id
+                                );
+                                const loading = isEntangleLoading(
+                                  featuredProfile.id
+                                );
+
+                                let label = "Entangle +";
+                                let bg = "rgba(59,130,246,0.16)";
+                                let border =
+                                  "1px solid rgba(59,130,246,0.6)";
+                                let color = "#bfdbfe";
+                                let disabled = false;
+
+                                if (user) {
+                                  if (status === "pending_outgoing") {
+                                    label = "Requested";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.7)";
+                                    color = "rgba(148,163,184,0.95)";
+                                    disabled = true;
+                                  } else if (status === "pending_incoming") {
+                                    label = "Accept request";
+                                    bg =
+                                      "linear-gradient(90deg,#22c55e,#16a34a)";
+                                    border = "none";
+                                    color = "#0f172a";
+                                  } else if (status === "accepted") {
+                                    label = "Entangled ✓";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(74,222,128,0.7)";
+                                    color = "rgba(187,247,208,0.95)";
+                                    disabled = true;
+                                  }
+                                }
+
+                                return (
+                                  <button
+                                    type="button"
+                                    style={{
+                                      marginTop: 10,
+                                      padding: "6px 12px",
+                                      borderRadius: 999,
+                                      border,
+                                      background: bg,
+                                      color,
+                                      fontSize: 12,
+                                      cursor:
+                                        disabled || loading
+                                          ? "default"
+                                          : "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 6,
+                                      opacity: loading ? 0.7 : 1,
+                                    }}
+                                    disabled={disabled || loading}
+                                    onClick={() => handleEntangle(
+                                      featuredProfile.id
+                                    )}
+                                  >
+                                    {loading ? "…" : label}
+                                  </button>
+                                );
+                              })()
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1327,27 +1580,56 @@ export default function CommunityPage() {
                                 featuredOrg.focus_areas ||
                                 "Active organization in the quantum ecosystem."}
                             </div>
-                            <button
-                              type="button"
-                              style={{
-                                marginTop: 10,
-                                padding: "6px 12px",
-                                borderRadius: 999,
-                                border:
-                                  "1px solid rgba(59,130,246,0.6)",
-                                background: "rgba(59,130,246,0.16)",
-                                color: "#bfdbfe",
-                                fontSize: 12,
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                              }}
-                                onClick={() => handleFollowOrg(featuredOrg.id)}
-                            >
-                              <span>Follow</span>
-                              <span style={{ fontSize: 14 }}>+</span>
-                            </button>
+
+                            {/* Follow / Following */}
+                            {(() => {
+                              const following = isFollowingOrg(featuredOrg.id);
+                              const loading = isFollowLoading(featuredOrg.id);
+
+                              const label = following
+                                ? "Following"
+                                : "Follow";
+                              const bg = following
+                                ? "transparent"
+                                : "rgba(59,130,246,0.16)";
+                              const border = following
+                                ? "1px solid rgba(148,163,184,0.7)"
+                                : "1px solid rgba(59,130,246,0.6)";
+                              const color = following
+                                ? "rgba(148,163,184,0.95)"
+                                : "#bfdbfe";
+
+                              return (
+                                <button
+                                  type="button"
+                                  style={{
+                                    marginTop: 10,
+                                    padding: "6px 12px",
+                                    borderRadius: 999,
+                                    border,
+                                    background: bg,
+                                    color,
+                                    fontSize: 12,
+                                    cursor: loading
+                                      ? "default"
+                                      : "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    opacity: loading ? 0.7 : 1,
+                                  }}
+                                  disabled={loading}
+                                  onClick={() =>
+                                    handleFollowOrg(featuredOrg.id)
+                                  }
+                                >
+                                  {loading ? "…" : label}
+                                  {!following && (
+                                    <span style={{ fontSize: 14 }}>+</span>
+                                  )}
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -1414,9 +1696,10 @@ export default function CommunityPage() {
                           : undefined;
 
                       const isOrganization = item.kind === "organization";
-                      const actionLabel = isOrganization
-                        ? "Follow"
-                        : "Entangle";
+                      const isSelf =
+                        item.kind === "person" &&
+                        user &&
+                        item.id === user.id;
 
                       return (
                         <div
@@ -1581,33 +1864,137 @@ export default function CommunityPage() {
 
                           {/* Entangle / Follow button */}
                           <div style={{ marginTop: 12 }}>
-                            <button
-  type="button"
-  style={{
-    width: "100%",
-    padding: "7px 0",
-    borderRadius: 10,
-    border: "1px solid rgba(59,130,246,0.6)",
-    background: "rgba(59,130,246,0.16)",
-    color: "#bfdbfe",
-    fontSize: 12,
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  }}
-  onClick={() => {
-    if (isOrganization) {
-      handleFollowOrg(item.id);
-    } else {
-      handleEntangle(item.id);
-    }
-  }}
->
-  <span>{actionLabel}</span>
-  <span style={{ fontSize: 14 }}>+</span>
-</button>
+                            {isOrganization ? (
+                              (() => {
+                                const following = isFollowingOrg(item.id);
+                                const loading = isFollowLoading(item.id);
+
+                                const label = following
+                                  ? "Following"
+                                  : "Follow";
+                                const bg = following
+                                  ? "transparent"
+                                  : "rgba(59,130,246,0.16)";
+                                const border = following
+                                  ? "1px solid rgba(148,163,184,0.7)"
+                                  : "1px solid rgba(59,130,246,0.6)";
+                                const color = following
+                                  ? "rgba(148,163,184,0.95)"
+                                  : "#bfdbfe";
+
+                                return (
+                                  <button
+                                    type="button"
+                                    style={{
+                                      width: "100%",
+                                      padding: "7px 0",
+                                      borderRadius: 10,
+                                      border,
+                                      background: bg,
+                                      color,
+                                      fontSize: 12,
+                                      cursor: loading
+                                        ? "default"
+                                        : "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      gap: 6,
+                                      opacity: loading ? 0.7 : 1,
+                                    }}
+                                    disabled={loading}
+                                    onClick={() => handleFollowOrg(item.id)}
+                                  >
+                                    {loading ? "…" : label}
+                                    {!following && (
+                                      <span style={{ fontSize: 14 }}>+</span>
+                                    )}
+                                  </button>
+                                );
+                              })()
+                            ) : isSelf ? (
+                              <button
+                                type="button"
+                                style={{
+                                  width: "100%",
+                                  padding: "7px 0",
+                                  borderRadius: 10,
+                                  border:
+                                    "1px solid rgba(148,163,184,0.7)",
+                                  background: "transparent",
+                                  color: "rgba(148,163,184,0.9)",
+                                  fontSize: 12,
+                                  cursor: "default",
+                                }}
+                                disabled
+                              >
+                                This is you
+                              </button>
+                            ) : (
+                              (() => {
+                                const status = getConnectionStatus(item.id);
+                                const loading = isEntangleLoading(item.id);
+
+                                let label = "Entangle +";
+                                let bg =
+                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
+                                let border = "none";
+                                let color = "#0f172a";
+                                let disabled = false;
+
+                                if (user) {
+                                  if (status === "pending_outgoing") {
+                                    label = "Requested";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(148,163,184,0.7)";
+                                    color = "rgba(148,163,184,0.95)";
+                                    disabled = true;
+                                  } else if (status === "pending_incoming") {
+                                    label = "Accept request";
+                                    bg =
+                                      "linear-gradient(90deg,#22c55e,#16a34a)";
+                                    border = "none";
+                                    color = "#0f172a";
+                                  } else if (status === "accepted") {
+                                    label = "Entangled ✓";
+                                    bg = "transparent";
+                                    border =
+                                      "1px solid rgba(74,222,128,0.7)";
+                                    color = "rgba(187,247,208,0.95)";
+                                    disabled = true;
+                                  }
+                                }
+
+                                return (
+                                  <button
+                                    type="button"
+                                    style={{
+                                      width: "100%",
+                                      padding: "7px 0",
+                                      borderRadius: 10,
+                                      border,
+                                      background: bg,
+                                      color,
+                                      fontSize: 12,
+                                      cursor:
+                                        disabled || loading
+                                          ? "default"
+                                          : "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      gap: 6,
+                                      opacity: loading ? 0.7 : 1,
+                                    }}
+                                    disabled={disabled || loading}
+                                    onClick={() => handleEntangle(item.id)}
+                                  >
+                                    {loading ? "…" : label}
+                                  </button>
+                                );
+                              })()
+                            )}
                           </div>
                         </div>
                       );
