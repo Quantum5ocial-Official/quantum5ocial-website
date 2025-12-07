@@ -37,20 +37,10 @@ type CommunityProfile = {
   current_org?: string | null;
 };
 
-// 🆕 Simple summary type for "your organizations"
-type OrgSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  kind: "company" | "research_group";
-  logo_url: string | null;
-  tagline: string | null;
-};
-
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
 
-  // --- Sidebar profile + counts (same as homepage) ---
+  // --- Sidebar profile + counts (same logic as homepage) ---
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
     null
   );
@@ -66,11 +56,6 @@ export default function CommunityPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [totalMembers, setTotalMembers] = useState<number | null>(null);
-
-  // 🆕 "Your organizations" state
-  const [myOrgs, setMyOrgs] = useState<OrgSummary[]>([]);
-  const [loadingMyOrgs, setLoadingMyOrgs] = useState(false);
-  const [myOrgsError, setMyOrgsError] = useState<string | null>(null);
 
   // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
   useEffect(() => {
@@ -195,41 +180,6 @@ export default function CommunityPage() {
 
     loadProfiles();
   }, []);
-
-  // 🆕 LOAD "YOUR ORGANIZATIONS"
-  useEffect(() => {
-    const loadMyOrgs = async () => {
-      if (!user) {
-        setMyOrgs([]);
-        setMyOrgsError(null);
-        return;
-      }
-
-      setLoadingMyOrgs(true);
-      setMyOrgsError(null);
-
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug, kind, logo_url, tagline")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error loading your organizations", error);
-        setMyOrgs([]);
-        setMyOrgsError("Could not load your organizations.");
-      } else if (data) {
-        setMyOrgs(data as OrgSummary[]);
-      } else {
-        setMyOrgs([]);
-      }
-
-      setLoadingMyOrgs(false);
-    };
-
-    loadMyOrgs();
-  }, [user]);
 
   // === FILTERED LIST BASED ON SEARCH ===
   const filteredProfiles = useMemo(() => {
@@ -507,88 +457,86 @@ export default function CommunityPage() {
           {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
           <section className="layout-main">
             <section className="section">
-              {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
-              <div className="jobs-main-header">
-                <div className="section-header">
-                  <div>
-                    <div
-                      className="section-title"
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      Quantum5ocial community
-                      {!loadingProfiles && !error && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            background: "rgba(56,189,248,0.15)",
-                            border: "1px solid rgba(56,189,248,0.35)",
-                            color: "#7dd3fc",
-                          }}
-                        >
-                          {profiles.length} member
-                          {profiles.length === 1 ? "" : "s"}
-                        </span>
-                      )}
-                    </div>
-                    <div
-                      className="section-sub"
-                      style={{ maxWidth: 480, lineHeight: 1.45 }}
-                    >
-                      Discover members of the quantum ecosystem and{" "}
-                      <span style={{ color: "#7dd3fc" }}>entangle</span> with
-                      them.
-                    </div>
-                  </div>
-                </div>
+                  {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
+    <div className="jobs-main-header">
+      <div className="section-header">
+        <div>
+          <div
+            className="section-title"
+            style={{ display: "flex", alignItems: "center", gap: 10 }}
+          >
+            Quantum5ocial community
+            {!loadingProfiles && !error && (
+              <span
+                style={{
+                  fontSize: 12,
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: "rgba(56,189,248,0.15)",
+                  border: "1px solid rgba(56,189,248,0.35)",
+                  color: "#7dd3fc",
+                }}
+              >
+                {profiles.length} member{profiles.length === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+          <div
+            className="section-sub"
+            style={{ maxWidth: 480, lineHeight: 1.45 }}
+          >
+            Discover members of the quantum ecosystem and{" "}
+            <span style={{ color: "#7dd3fc" }}>entangle</span> with them.
+          </div>
+        </div>
+      </div>
 
-                {/* Center-column search bar */}
-                <div className="jobs-main-search">
-                  <div
-                    style={{
-                      width: "100%",
-                      borderRadius: 999,
-                      padding: 2,
-                      background:
-                        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
-                    }}
-                  >
-                    <div
-                      style={{
-                        borderRadius: 999,
-                        background: "rgba(15,23,42,0.97)",
-                        padding: "6px 12px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 14,
-                          opacity: 0.85,
-                        }}
-                      >
-                        🔍
-                      </span>
-                      <input
-                        style={{
-                          border: "none",
-                          outline: "none",
-                          background: "transparent",
-                          color: "#e5e7eb",
-                          fontSize: 14,
-                          width: "100%",
-                        }}
-                        placeholder="Search by name, role, affiliation, location…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {/* Center-column search bar */}
+      <div className="jobs-main-search">
+        <div
+          style={{
+            width: "100%",
+            borderRadius: 999,
+            padding: 2,
+            background:
+              "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.97)",
+              padding: "6px 12px",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 14,
+                opacity: 0.85,
+              }}
+            >
+              🔍
+            </span>
+            <input
+              style={{
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                color: "#e5e7eb",
+                fontSize: 14,
+                width: "100%",
+              }}
+              placeholder="Search by name, role, affiliation, location…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
 
               {/* BODY */}
               {loadingProfiles && (
@@ -598,7 +546,10 @@ export default function CommunityPage() {
               )}
 
               {error && !loadingProfiles && (
-                <div className="products-status" style={{ color: "#f87171" }}>
+                <div
+                  className="products-status"
+                  style={{ color: "#f87171" }}
+                >
                   {error}
                 </div>
               )}
@@ -718,7 +669,8 @@ export default function CommunityPage() {
                               className="card-title"
                               style={{ marginBottom: 2 }}
                             >
-                              {featuredProfile.full_name || "Quantum member"}
+                              {featuredProfile.full_name ||
+                                "Quantum member"}
                             </div>
                             <div
                               className="card-meta"
@@ -757,10 +709,7 @@ export default function CommunityPage() {
                                 gap: 6,
                               }}
                               onClick={() => {
-                                console.log(
-                                  "Entangle with",
-                                  featuredProfile.id
-                                );
+                                console.log("Entangle with", featuredProfile.id);
                               }}
                             >
                               <span>Entangle</span>
@@ -956,7 +905,9 @@ export default function CommunityPage() {
                                   <span>{affiliationLine}</span>
                                 </div>
                                 <div>
-                                  <span style={{ opacity: 0.7 }}>Role: </span>
+                                  <span style={{ opacity: 0.7 }}>
+                                    Role:{" "}
+                                  </span>
                                   <span>{role}</span>
                                 </div>
                                 <div
@@ -1010,203 +961,11 @@ export default function CommunityPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT SIDEBAR – ORGS + HIGHLIGHTED TILES + COPYRIGHT ========== */}
+          {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES + COPYRIGHT ========== */}
           <aside
             className="layout-right sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
           >
-            {/* 🆕 Your organizations card */}
-            {user && (
-              <section
-                style={{
-                  borderRadius: 18,
-                  padding: 16,
-                  border: "1px solid rgba(148,163,184,0.28)",
-                  background:
-                    "linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.98))",
-                  boxShadow: "0 18px 40px rgba(15,23,42,0.6)",
-                  marginBottom: 16,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 8,
-                  }}
-                >
-                  <h2
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      margin: 0,
-                    }}
-                  >
-                    Your organizations
-                  </h2>
-                  <Link
-                    href="/orgs/create"
-                    style={{
-                      fontSize: 12,
-                      color: "#7dd3fc",
-                      textDecoration: "none",
-                    }}
-                  >
-                    + Create
-                  </Link>
-                </div>
-
-                {loadingMyOrgs ? (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "rgba(209,213,219,0.9)",
-                    }}
-                  >
-                    Loading…
-                  </div>
-                ) : myOrgsError ? (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "#fecaca",
-                    }}
-                  >
-                    {myOrgsError}
-                  </div>
-                ) : myOrgs.length === 0 ? (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "rgba(148,163,184,0.95)",
-                    }}
-                  >
-                    You haven&apos;t created any organization pages yet. Create
-                    your company or research group so others can find you.
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                    }}
-                  >
-                    {myOrgs.map((org) => {
-                      const firstLetter = org.name.charAt(0).toUpperCase();
-                      const editHref =
-                        org.kind === "company"
-                          ? `/orgs/edit/company?slug=${encodeURIComponent(
-                              org.slug
-                            )}`
-                          : `/orgs/edit/research-group?slug=${encodeURIComponent(
-                              org.slug
-                            )}`;
-
-                      return (
-                        <div
-                          key={org.id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 10,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              border:
-                                "1px solid rgba(148,163,184,0.45)",
-                              background:
-                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#0f172a",
-                              fontWeight: 700,
-                              fontSize: 16,
-                            }}
-                          >
-                            {org.logo_url ? (
-                              <img
-                                src={org.logo_url}
-                                alt={org.name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              firstLetter
-                            )}
-                          </div>
-
-                          <div
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            <Link
-                              href={`/orgs/${org.slug}`}
-                              style={{
-                                display: "block",
-                                fontSize: 13,
-                                fontWeight: 500,
-                                color: "#e5e7eb",
-                                textDecoration: "none",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {org.name}
-                            </Link>
-                            {org.tagline && (
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  color: "rgba(156,163,175,0.95)",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {org.tagline}
-                              </div>
-                            )}
-                          </div>
-
-                          <Link
-                            href={editHref}
-                            style={{
-                              fontSize: 11,
-                              padding: "4px 8px",
-                              borderRadius: 999,
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              textDecoration: "none",
-                              color: "rgba(226,232,240,0.95)",
-                              whiteSpace: "nowrap",
-                              flexShrink: 0,
-                            }}
-                          >
-                            Edit
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            )}
-
             <div className="hero-tiles hero-tiles-vertical">
               {/* Highlighted jobs */}
               <div className="hero-tile">
@@ -1254,7 +1013,7 @@ export default function CommunityPage() {
                 </div>
               </div>
 
-              {/* Highlighted talent */}
+                            {/* Highlighted talent */}
               <div className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
