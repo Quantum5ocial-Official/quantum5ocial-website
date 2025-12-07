@@ -50,6 +50,18 @@ type Org = {
   department: string | null;
 };
 
+// Followers of the organization
+type FollowerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+  highest_education: string | null;
+  affiliation: string | null;
+  country: string | null;
+  city: string | null;
+};
+
 export default function OrganizationDetailPage() {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -71,6 +83,12 @@ export default function OrganizationDetailPage() {
 
   const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
   const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
+
+  // Followers state
+  const [followers, setFollowers] = useState<FollowerProfile[]>([]);
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
+  const [loadingFollowers, setLoadingFollowers] = useState<boolean>(true);
+  const [followersError, setFollowersError] = useState<string | null>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -135,6 +153,72 @@ export default function OrganizationDetailPage() {
     return org.kind === "company"
       ? `/orgs/edit/company/${org.slug}`
       : `/orgs/edit/research-group/${org.slug}`;
+  }, [org]);
+
+  // === LOAD FOLLOWERS FOR THIS ORG ===
+  useEffect(() => {
+    const loadFollowers = async () => {
+      if (!org) {
+        setFollowers([]);
+        setFollowersCount(null);
+        setLoadingFollowers(false);
+        setFollowersError(null);
+        return;
+      }
+
+      setLoadingFollowers(true);
+      setFollowersError(null);
+
+      try {
+        // 1) Get follower user_ids from org_follows
+        const { data: followRows, error: followErr } = await supabase
+          .from("org_follows")
+          .select("user_id")
+          .eq("org_id", org.id);
+
+        if (followErr) {
+          console.error("Error loading org followers", followErr);
+          setFollowers([]);
+          setFollowersCount(0);
+          setFollowersError("Could not load followers.");
+          return;
+        }
+
+        const userIds = (followRows || []).map((r: any) => r.user_id);
+        setFollowersCount(userIds.length);
+
+        if (userIds.length === 0) {
+          setFollowers([]);
+          return;
+        }
+
+        // 2) Fetch profiles of the followers
+        const { data: profileRows, error: profErr } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, avatar_url, role, highest_education, affiliation, country, city"
+          )
+          .in("id", userIds);
+
+        if (profErr) {
+          console.error("Error loading follower profiles", profErr);
+          setFollowersError("Could not load follower profiles.");
+          setFollowers([]);
+          return;
+        }
+
+        setFollowers((profileRows || []) as FollowerProfile[]);
+      } catch (e) {
+        console.error("Unexpected error loading followers", e);
+        setFollowersError("Could not load followers.");
+        setFollowers([]);
+        setFollowersCount(0);
+      } finally {
+        setLoadingFollowers(false);
+      }
+    };
+
+    loadFollowers();
   }, [org]);
 
   // === SIDEBAR: LOAD CURRENT USER PROFILE ===
@@ -461,6 +545,7 @@ export default function OrganizationDetailPage() {
                     </div>
                   </Link>
 
+                  {/* Still placeholder stats in sidebar – main page shows real followers */}
                   <div
                     style={{
                       fontSize: 13,
@@ -760,6 +845,22 @@ export default function OrganizationDetailPage() {
                                 {org.size_label}
                               </span>
                             )}
+                            {followersCount !== null && (
+                              <span
+                                style={{
+                                  fontSize: 12,
+                                  borderRadius: 999,
+                                  padding: "3px 9px",
+                                  border:
+                                    "1px solid rgba(148,163,184,0.5)",
+                                  color: "rgba(226,232,240,0.9)",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Followers:{" "}
+                                {followersCount}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -910,6 +1011,162 @@ export default function OrganizationDetailPage() {
                         </div>
                       </div>
                     )}
+
+                    {/* Followers section */}
+                    <div
+                      style={{
+                        marginTop: 24,
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 13,
+                          textTransform: "uppercase",
+                          letterSpacing: 0.08,
+                          color: "rgba(148,163,184,0.9)",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Followers
+                      </div>
+
+                      {loadingFollowers && (
+                        <p className="profile-muted">
+                          Loading followers…
+                        </p>
+                      )}
+
+                      {followersError && !loadingFollowers && (
+                        <p
+                          className="profile-muted"
+                          style={{ color: "#f97373", marginTop: 4 }}
+                        >
+                          {followersError}
+                        </p>
+                      )}
+
+                      {!loadingFollowers &&
+                        !followersError &&
+                        followersCount === 0 && (
+                          <div className="products-empty">
+                            No followers yet. Once people follow this
+                            organization, they will appear here.
+                          </div>
+                        )}
+
+                      {!loadingFollowers &&
+                        !followersError &&
+                        followers.length > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 10,
+                              marginTop: 6,
+                            }}
+                          >
+                            {followers.map((f) => {
+                              const name =
+                                f.full_name || "Quantum5ocial member";
+                              const initials = name
+                                .split(" ")
+                                .map((p) => p[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase();
+                              const location = [f.city, f.country]
+                                .filter(Boolean)
+                                .join(", ");
+                              const metaParts: string[] = [];
+                              if (f.role) metaParts.push(f.role);
+                              if (f.affiliation)
+                                metaParts.push(f.affiliation);
+                              if (location) metaParts.push(location);
+                              const meta = metaParts.join(" · ");
+
+                              return (
+                                <div
+                                  key={f.id}
+                                  className="card"
+                                  style={{
+                                    padding: 10,
+                                    borderRadius: 12,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 10,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 10,
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: "999px",
+                                        overflow: "hidden",
+                                        flexShrink: 0,
+                                        background:
+                                          "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        border:
+                                          "1px solid rgba(148,163,184,0.6)",
+                                        color: "#e5e7eb",
+                                        fontWeight: 600,
+                                        fontSize: 13,
+                                      }}
+                                    >
+                                      {f.avatar_url ? (
+                                        <img
+                                          src={f.avatar_url}
+                                          alt={name}
+                                          style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                            display: "block",
+                                          }}
+                                        />
+                                      ) : (
+                                        initials
+                                      )}
+                                    </div>
+
+                                    <div style={{ fontSize: 13 }}>
+                                      <div
+                                        style={{
+                                          fontWeight: 500,
+                                          marginBottom: 2,
+                                        }}
+                                      >
+                                        {name}
+                                      </div>
+                                      {meta && (
+                                        <div
+                                          style={{
+                                            fontSize: 11,
+                                            color:
+                                              "rgba(148,163,184,0.95)",
+                                          }}
+                                        >
+                                          {meta}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                    </div>
                   </section>
                 </>
               )}
