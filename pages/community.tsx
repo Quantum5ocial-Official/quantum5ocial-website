@@ -70,7 +70,7 @@ type CommunityItem = {
   created_at: string | null;
 };
 
-// NEW: minimal org summary for sidebar "My organization" tile
+// Minimal org summary for sidebar tile
 type MyOrgSummary = {
   id: string;
   name: string;
@@ -284,7 +284,7 @@ export default function CommunityPage() {
         }
       } catch (e) {
         console.error("Organization load crashed:", e);
-        setOrgsError("Something went wrong while loading organizations.");
+        setOrgsError("Could not load organizations.");
         setOrgs([]);
       } finally {
         setLoadingOrgs(false);
@@ -558,7 +558,7 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            {/* NEW: My organization tile (only if user has an org) */}
+            {/* My organization tile */}
             {user && !loadingMyOrg && myOrg && (
               <div
                 className="sidebar-card dashboard-sidebar-card"
@@ -631,7 +631,7 @@ export default function CommunityPage() {
                     </div>
                   </Link>
 
-                  {/* Simple stats (placeholder for now) */}
+                  {/* Simple stats (placeholder) */}
                   <div
                     style={{
                       fontSize: 13,
@@ -644,15 +644,11 @@ export default function CommunityPage() {
                   >
                     <div>
                       Followers:{" "}
-                      <span style={{ color: "#e5e7eb" }}>
-                        0{/* replace with real count later */}
-                      </span>
+                      <span style={{ color: "#e5e7eb" }}>0</span>
                     </div>
                     <div>
                       Views:{" "}
-                      <span style={{ color: "#e5e7eb" }}>
-                        0{/* replace with real count later */}
-                      </span>
+                      <span style={{ color: "#e5e7eb" }}>0</span>
                     </div>
                     <div style={{ marginTop: 4 }}>
                       <Link
@@ -715,7 +711,7 @@ export default function CommunityPage() {
 
                 {/* X icon */}
                 <a
-                  href="#" // TODO: replace with real link
+                  href="#"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Quantum5ocial on X"
@@ -821,8 +817,11 @@ export default function CommunityPage() {
                       style={{ maxWidth: 480, lineHeight: 1.45 }}
                     >
                       Discover members, labs, and companies in the quantum
-                      ecosystem and{" "}
-                      <span style={{ color: "#7dd3fc" }}>follow</span> them.
+                      ecosystem –{" "}
+                      <span style={{ color: "#7dd3fc" }}>
+                        entangle with people and follow organizations
+                      </span>
+                      .
                     </div>
                   </div>
                 </div>
@@ -1045,12 +1044,12 @@ export default function CommunityPage() {
                               }}
                               onClick={() => {
                                 console.log(
-                                  "Follow member",
+                                  "Entangle with member",
                                   featuredProfile.id
                                 );
                               }}
                             >
-                              <span>Follow</span>
+                              <span>Entangle</span>
                               <span style={{ fontSize: 14 }}>+</span>
                             </button>
                           </div>
@@ -1282,7 +1281,7 @@ export default function CommunityPage() {
                           fontWeight: 600,
                         }}
                       >
-                        Members & organizations
+                        Members &amp; organizations
                       </div>
                     </div>
                     <div
@@ -1313,6 +1312,11 @@ export default function CommunityPage() {
                         item.kind === "person"
                           ? item.highest_education || "—"
                           : undefined;
+
+                      const isOrganization = item.kind === "organization";
+                      const actionLabel = isOrganization
+                        ? "Follow"
+                        : "Entangle";
 
                       return (
                         <div
@@ -1440,9 +1444,7 @@ export default function CommunityPage() {
                                   <span style={{ opacity: 0.7 }}>
                                     Education:{" "}
                                   </span>
-                                  <span>
-                                    {highestEducation || "—"}
-                                  </span>
+                                  <span>{highestEducation || "—"}</span>
                                 </div>
                               )}
                               <div>
@@ -1452,9 +1454,7 @@ export default function CommunityPage() {
                                     : "Location / meta: "}
                                 </span>
                                 <span>
-                                  {item.affiliationLine ||
-                                    location ||
-                                    "—"}
+                                  {item.affiliationLine || location || "—"}
                                 </span>
                               </div>
                               {location && (
@@ -1479,7 +1479,7 @@ export default function CommunityPage() {
                             </div>
                           </div>
 
-                          {/* Follow button */}
+                          {/* Entangle / Follow button */}
                           <div style={{ marginTop: 12 }}>
                             <button
                               type="button"
@@ -1499,14 +1499,17 @@ export default function CommunityPage() {
                                 gap: 6,
                               }}
                               onClick={() => {
-                                console.log(
-                                  "Follow",
-                                  item.kind,
-                                  item.id
-                                );
+                                if (isOrganization) {
+                                  console.log("Follow organization", item.id);
+                                } else {
+                                  console.log(
+                                    "Entangle with member",
+                                    item.id
+                                  );
+                                }
                               }}
                             >
-                              <span>Follow</span>
+                              <span>{actionLabel}</span>
                               <span style={{ fontSize: 14 }}>+</span>
                             </button>
                           </div>
