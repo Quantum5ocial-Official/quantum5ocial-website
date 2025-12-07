@@ -116,7 +116,7 @@ export default function CreateResearchGroupPage() {
       const { data, error } = await supabase
         .from("organizations")
         .insert({
-          created_by: user.id,          // 🔹 link to creator
+          created_by: user.id,
           kind: "research_group",
           name: groupName,
           slug: effectiveSlug,
@@ -543,8 +543,7 @@ export default function CreateResearchGroupPage() {
                     color: "rgba(148,163,184,0.95)",
                   }}
                 >
-                  Selected: {logoFile.name} (logo upload wiring will come
-                  later)
+                  Selected: {logoFile.name} (logo upload wiring will come later)
                 </div>
               )}
             </div>
