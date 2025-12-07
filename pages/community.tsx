@@ -221,7 +221,8 @@ export default function CommunityPage() {
       );
     }
   };
-    // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
+
+  // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
   const handleDeclineEntangle = async (targetUserId: string) => {
     if (!user) {
       router.push("/auth?redirect=/community");
@@ -273,7 +274,7 @@ export default function CommunityPage() {
 
     setFollowLoadingIds((prev) => [...prev, orgId]);
 
-    try{
+    try {
       if (alreadyFollowing) {
         // Unfollow
         const { error } = await supabase
@@ -1376,8 +1377,7 @@ export default function CommunityPage() {
                                 "Active contributor in the quantum ecosystem on Quantum5ocial."}
                             </div>
 
-
-                                                        {/* Entangle button with status */}
+                            {/* Entangle button with status */}
                             {(!user || featuredProfile.id !== user.id) && (
                               (() => {
                                 const status = getConnectionStatus(
@@ -1965,7 +1965,59 @@ export default function CommunityPage() {
                             </div>
                           </div>
 
-                                                      ) : isSelf ? (
+                          {/* Footer actions */}
+                          <div style={{ marginTop: 10 }}>
+                            {isOrganization ? (
+                              // Follow / Following for org cards
+                              (() => {
+                                const following = isFollowingOrg(item.id);
+                                const loading = isFollowLoading(item.id);
+
+                                const label = following
+                                  ? "Following"
+                                  : "Follow";
+                                const bg = following
+                                  ? "transparent"
+                                  : "rgba(59,130,246,0.16)";
+                                const border = following
+                                  ? "1px solid rgba(148,163,184,0.7)"
+                                  : "1px solid rgba(59,130,246,0.6)";
+                                const color = following
+                                  ? "rgba(148,163,184,0.95)"
+                                  : "#bfdbfe";
+
+                                return (
+                                  <button
+                                    type="button"
+                                    style={{
+                                      width: "100%",
+                                      padding: "7px 0",
+                                      borderRadius: 10,
+                                      border,
+                                      background: bg,
+                                      color,
+                                      fontSize: 12,
+                                      cursor: loading
+                                        ? "default"
+                                        : "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      gap: 6,
+                                      opacity: loading ? 0.7 : 1,
+                                    }}
+                                    disabled={loading}
+                                    onClick={() => handleFollowOrg(item.id)}
+                                  >
+                                    {loading ? "…" : label}
+                                    {!following && (
+                                      <span style={{ fontSize: 14 }}>+</span>
+                                    )}
+                                  </button>
+                                );
+                              })()
+                            ) : isSelf ? (
+                              // Self profile
                               <button
                                 type="button"
                                 style={{
@@ -1984,11 +2036,12 @@ export default function CommunityPage() {
                                 This is you
                               </button>
                             ) : (
+                              // Entangle button(s) for other people
                               (() => {
                                 const status = getConnectionStatus(item.id);
                                 const loading = isEntangleLoading(item.id);
 
-                                // Incoming request → show Accept + Decline
+                                // Incoming request → Accept + Decline
                                 if (user && status === "pending_incoming") {
                                   return (
                                     <div
@@ -2069,88 +2122,6 @@ export default function CommunityPage() {
                                       "1px solid rgba(148,163,184,0.7)";
                                     color = "rgba(148,163,184,0.95)";
                                     disabled = true;
-                                  } else if (status === "accepted") {
-                                    label = "Entangled ✓";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(74,222,128,0.7)";
-                                    color = "rgba(187,247,208,0.95)";
-                                    disabled = true;
-                                  }
-                                }
-
-                                return (
-                                  <button
-                                    type="button"
-                                    style={{
-                                      width: "100%",
-                                      padding: "7px 0",
-                                      borderRadius: 10,
-                                      border,
-                                      background: bg,
-                                      color,
-                                      fontSize: 12,
-                                      cursor:
-                                        disabled || loading
-                                          ? "default"
-                                          : "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      gap: 6,
-                                      opacity: loading ? 0.7 : 1,
-                                    }}
-                                    disabled={disabled || loading}
-                                    onClick={() => handleEntangle(item.id)}
-                                  >
-                                    {loading ? "…" : label}
-                                  </button>
-                                );
-                              })()
-                            ) : isSelf ? (
-                              <button
-                                type="button"
-                                style={{
-                                  width: "100%",
-                                  padding: "7px 0",
-                                  borderRadius: 10,
-                                  border:
-                                    "1px solid rgba(148,163,184,0.7)",
-                                  background: "transparent",
-                                  color: "rgba(148,163,184,0.9)",
-                                  fontSize: 12,
-                                  cursor: "default",
-                                }}
-                                disabled
-                              >
-                                This is you
-                              </button>
-                            ) : (
-                              (() => {
-                                const status = getConnectionStatus(item.id);
-                                const loading = isEntangleLoading(item.id);
-
-                                let label = "Entangle +";
-                                let bg =
-                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
-                                let border = "none";
-                                let color = "#0f172a";
-                                let disabled = false;
-
-                                if (user) {
-                                  if (status === "pending_outgoing") {
-                                    label = "Requested";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(148,163,184,0.7)";
-                                    color = "rgba(148,163,184,0.95)";
-                                    disabled = true;
-                                  } else if (status === "pending_incoming") {
-                                    label = "Accept request";
-                                    bg =
-                                      "linear-gradient(90deg,#22c55e,#16a34a)";
-                                    border = "none";
-                                    color = "#0f172a";
                                   } else if (status === "accepted") {
                                     label = "Entangled ✓";
                                     bg = "transparent";
