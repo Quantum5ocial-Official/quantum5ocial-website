@@ -233,7 +233,7 @@ export default function CommunityPage() {
 
     setFollowLoadingIds((prev) => [...prev, orgId]);
 
-    try:
+    try{
       if (alreadyFollowing) {
         // Unfollow
         const { error } = await supabase
