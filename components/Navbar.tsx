@@ -31,6 +31,9 @@ export default function Navbar() {
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
+  // NEW: notifications count (pending incoming entanglement requests)
+  const [notificationsCount, setNotificationsCount] = useState(0);
+
   // ----- THEME HANDLING -----
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -105,13 +108,13 @@ export default function Navbar() {
       }
 
       const { data, error } = await supabase
-  .from("organizations")
-  .select("id")
-  .eq("created_by", user.id)   // ✅ use created_by
-  .eq("is_active", true)
-  .limit(1)
-  .maybeSingle();
-      
+        .from("organizations")
+        .select("id")
+        .eq("created_by", user.id) // ✅ use created_by
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+
       if (cancelled) return;
 
       if (!error && data) {
@@ -127,6 +130,45 @@ export default function Navbar() {
       cancelled = true;
     };
   }, [user, router.pathname]); // 👈 re-run when route changes
+
+  // ----- NOTIFICATIONS (incoming pending entanglement requests) -----
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNotifications = async () => {
+      if (!user) {
+        setNotificationsCount(0);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from("connections")
+          .select("id", { count: "exact", head: true })
+          .eq("target_user_id", user.id)
+          .eq("status", "pending");
+
+        if (cancelled) return;
+
+        if (!error && typeof count === "number") {
+          setNotificationsCount(count);
+        } else {
+          setNotificationsCount(0);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          console.error("Error loading notifications", e);
+          setNotificationsCount(0);
+        }
+      }
+    };
+
+    loadNotifications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, router.pathname]);
 
   // Close dropdowns on outside click (desktop)
   useEffect(() => {
@@ -238,7 +280,10 @@ export default function Navbar() {
           }}
         >
           {/* DESKTOP NAV LINKS */}
-          <nav className="nav-links nav-links-desktop">
+          <nav
+            className="nav-links nav-links-desktop"
+            style={{ fontSize: 13 }} // 🔹 slightly smaller font for nav items
+          >
             <Link
               href="/jobs"
               className={`nav-link ${
@@ -267,14 +312,14 @@ export default function Navbar() {
             </Link>
 
             {/* My Ecosystem */}
-<Link
-  href="/ecosystem"
-  className={`nav-link ${
-    isActive("/ecosystem") ? "nav-link-active" : ""
-  }`}
->
-  <span className="nav-link-label">My Ecosystem</span>
-</Link>
+            <Link
+              href="/ecosystem"
+              className={`nav-link ${
+                isActive("/ecosystem") ? "nav-link-active" : ""
+              }`}
+            >
+              <span className="nav-link-label">My Ecosystem</span>
+            </Link>
 
             {/* Organizations tab */}
             <Link
@@ -285,7 +330,6 @@ export default function Navbar() {
             >
               <span className="nav-link-label">Organizations</span>
             </Link>
-            
 
             {/* Dashboard dropdown (desktop only) */}
             {!loading && user && (
@@ -357,6 +401,46 @@ export default function Navbar() {
             >
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
+
+            {/* Notifications (desktop) – only when logged in */}
+            {!loading && user && (
+              <Link
+                href="/notifications"
+                className={`nav-link ${
+                  isActive("/notifications") ? "nav-link-active" : ""
+                }`}
+                aria-label="Notifications"
+              >
+                <span
+                  className="nav-link-label"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <span>Notifications</span>
+                  {notificationsCount > 0 && (
+                    <span
+                      style={{
+                        minWidth: 18,
+                        height: 18,
+                        borderRadius: 999,
+                        background: "#ef4444",
+                        color: "white",
+                        fontSize: 11,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 6px",
+                      }}
+                    >
+                      {notificationsCount > 9 ? "9+" : notificationsCount}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            )}
 
             {/* Logged-out CTA */}
             {!loading && !user && (
@@ -473,15 +557,15 @@ export default function Navbar() {
           </Link>
 
           {/* My ecosystem in mobile menu */}
-  <Link
-    href="/ecosystem"
-    className={`nav-link ${
-      isActive("/ecosystem") ? "nav-link-active" : ""
-    }`}
-    onClick={closeMobileMenu}
-  >
-    My Ecosystem
-  </Link>
+          <Link
+            href="/ecosystem"
+            className={`nav-link ${
+              isActive("/ecosystem") ? "nav-link-active" : ""
+            }`}
+            onClick={closeMobileMenu}
+          >
+            My Ecosystem
+          </Link>
 
           {/* Organizations in mobile menu */}
           <Link
@@ -493,8 +577,6 @@ export default function Navbar() {
           >
             Organizations
           </Link>
-
-            
 
           {/* Dashboard links as simple items on mobile */}
           {!loading && user && (
@@ -543,6 +625,39 @@ export default function Navbar() {
                   My organizations
                 </Link>
               )}
+
+              {/* Notifications on mobile */}
+              <div className="nav-mobile-section-label">
+                Notifications
+              </div>
+              <Link
+                href="/notifications"
+                className={`nav-link ${
+                  isActive("/notifications") ? "nav-link-active" : ""
+                }`}
+                onClick={closeMobileMenu}
+              >
+                Notifications
+                {notificationsCount > 0 && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      minWidth: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      background: "#ef4444",
+                      color: "white",
+                      fontSize: 11,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 6px",
+                    }}
+                  >
+                    {notificationsCount > 9 ? "9+" : notificationsCount}
+                  </span>
+                )}
+              </Link>
             </>
           )}
 
