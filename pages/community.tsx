@@ -223,8 +223,7 @@ export default function CommunityPage() {
     );
     }
   };
-
-  // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
+    // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
   const handleDeclineEntangle = async (targetUserId: string) => {
     if (!user) {
       router.push("/auth?redirect=/community");
@@ -242,20 +241,32 @@ export default function CommunityPage() {
     setEntangleLoadingIds((prev) => [...prev, targetUserId]);
 
     try {
+      // 1) Try to set status = 'declined'
       const { error } = await supabase
         .from("connections")
         .update({ status: "declined" })
         .eq("id", currentRow.id);
 
       if (error) {
-        console.error("Error declining entanglement", error);
-      } else {
-        // Mark as declined
-        setConnectionsByOtherId((prev) => ({
-          ...prev,
-          [targetUserId]: { ...currentRow, status: "declined" },
-        }));
+        console.error("Error declining entanglement, falling back to delete", error);
+
+        // 2) Fallback: delete the row if update fails (e.g. enum doesn't allow 'declined')
+        const { error: deleteError } = await supabase
+          .from("connections")
+          .delete()
+          .eq("id", currentRow.id);
+
+        if (deleteError) {
+          console.error("Error deleting entanglement on decline", deleteError);
+        }
       }
+
+      // 3) In any case: remove it from local state so UI updates
+      setConnectionsByOtherId((prev) => {
+        const copy = { ...prev };
+        delete copy[targetUserId];
+        return copy;
+      });
     } catch (e) {
       console.error("Unexpected error declining entanglement", e);
     } finally {
