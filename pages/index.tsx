@@ -49,6 +49,14 @@ type CommunityProfile = {
   short_bio?: string | null;
 };
 
+// NEW: minimal org summary for sidebar tile
+type MyOrgSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+};
+
 export default function Home() {
   const { user } = useSupabaseUser();
 
@@ -72,6 +80,10 @@ export default function Home() {
     null
   );
   const [entangledCount, setEntangledCount] = useState<number | null>(null);
+
+  // NEW: first organization created by this user (for sidebar tile)
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
+  const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
 
   // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
@@ -223,6 +235,39 @@ export default function Home() {
     };
 
     loadCounts();
+  }, [user]);
+
+  // === LOAD FIRST ORGANIZATION OWNED BY THIS USER FOR SIDEBAR TILE ===
+  useEffect(() => {
+    const loadMyOrg = async () => {
+      if (!user) {
+        setMyOrg(null);
+        setLoadingMyOrg(false);
+        return;
+      }
+
+      setLoadingMyOrg(true);
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .eq("owner_id", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMyOrg(data as MyOrgSummary);
+      } else {
+        setMyOrg(null);
+        if (error) {
+          console.error("Error loading my organization for sidebar", error);
+        }
+      }
+      setLoadingMyOrg(false);
+    };
+
+    loadMyOrg();
   }, [user]);
 
   // === HELPERS ===
@@ -396,6 +441,118 @@ export default function Home() {
                 </Link>
               </div>
             </div>
+
+            {/* NEW: My organization tile (only if user has an org) */}
+            {user && !loadingMyOrg && myOrg && (
+              <div
+                className="sidebar-card dashboard-sidebar-card"
+                style={{ marginTop: 16 }}
+              >
+                <div className="dashboard-sidebar-title">My organization</div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {/* Logo + name row */}
+                  <Link
+                    href={`/orgs/${myOrg.slug}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        border: "1px solid rgba(148,163,184,0.45)",
+                        background:
+                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        fontSize: 18,
+                      }}
+                    >
+                      {myOrg.logo_url ? (
+                        <img
+                          src={myOrg.logo_url}
+                          alt={myOrg.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        myOrg.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {myOrg.name}
+                    </div>
+                  </Link>
+
+                  {/* Simple stats */}
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "rgba(148,163,184,0.95)",
+                      marginTop: 4,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                  >
+                    <div>
+                      Followers:{" "}
+                      <span style={{ color: "#e5e7eb" }}>
+                        0{/* replace with real count later */}
+                      </span>
+                    </div>
+                    <div>
+                      Views:{" "}
+                      <span style={{ color: "#e5e7eb" }}>
+                        0{/* replace with real count later */}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <Link
+                        href="/dashboard/my-organizations"
+                        style={{
+                          color: "#7dd3fc",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Analytics →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Social icons + brand logo/name at bottom of left column */}
             <div
@@ -1004,7 +1161,6 @@ export default function Home() {
             </section>
           </section>
 
-          
           {/* RIGHT SIDEBAR – STACKED HERO TILES + COPYRIGHT */}
           <aside
             className="layout-right sticky-col"
