@@ -22,7 +22,7 @@ type ProfileSummary = {
   city: string | null;
 };
 
-// Connection row (pending / accepted)
+// Connection row (pending / accepted / declined)
 type ConnectionRow = {
   id: string;
   user_id: string;
@@ -53,6 +53,8 @@ type PendingRequest = {
 type RecentEntanglement = {
   connectionId: string;
   created_at: string | null;
+  status: string;
+  isSender: boolean; // whether *you* are the one who sent the original request
   otherUser: UserProfile;
 };
 
@@ -254,7 +256,7 @@ export default function NotificationsPage() {
     loadPendingRequests();
   }, [user]);
 
-  // Load recent entanglements (status=accepted where current user is either side)
+  // Load recent entanglements (accepted + declined where current user is either side)
   useEffect(() => {
     const loadEntanglements = async () => {
       if (!user) {
@@ -269,7 +271,7 @@ export default function NotificationsPage() {
         const { data: connRows, error: connErr } = await supabase
           .from("connections")
           .select("id, user_id, target_user_id, status, created_at")
-          .eq("status", "accepted")
+          .in("status", ["accepted", "declined"])
           .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
           .order("created_at", { ascending: false })
           .limit(30);
@@ -284,11 +286,14 @@ export default function NotificationsPage() {
         const rows = connRows as ConnectionRow[];
 
         const otherIdByConnection: Record<string, string> = {};
+        const isSenderByConnection: Record<string, boolean> = {};
         const otherIdsSet = new Set<string>();
 
         rows.forEach((c) => {
-          const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
+          const isSender = c.user_id === user.id;
+          const otherId = isSender ? c.target_user_id : c.user_id;
           otherIdByConnection[c.id] = otherId;
+          isSenderByConnection[c.id] = isSender;
           otherIdsSet.add(otherId);
         });
 
@@ -315,6 +320,8 @@ export default function NotificationsPage() {
             return {
               connectionId: c.id,
               created_at: c.created_at,
+              status: c.status,
+              isSender: isSenderByConnection[c.id],
               otherUser,
             };
           })
@@ -348,25 +355,75 @@ export default function NotificationsPage() {
     setActionLoadingIds((prev) => [...prev, connectionId]);
 
     try {
-      const { error } = await supabase
-        .from("connections")
-        .update({ status: accept ? "accepted" : "rejected" })
-        .eq("id", connectionId);
+      if (accept) {
+        // Simple accept: set status = 'accepted'
+        const { error } = await supabase
+          .from("connections")
+          .update({ status: "accepted" })
+          .eq("id", connectionId);
 
-      if (error) {
-        console.error("Error updating connection", error);
+        if (error) {
+          console.error("Error accepting connection", error);
+        } else {
+          // Remove from pending list
+          setPendingRequests((prev) =>
+            prev.filter((r) => r.connectionId !== connectionId)
+          );
+
+          // Add to recent entanglements immediately (you are target here)
+          if (sender) {
+            setRecentEntanglements((prev) => [
+              {
+                connectionId,
+                created_at: new Date().toISOString(),
+                status: "accepted",
+                isSender: false,
+                otherUser: sender,
+              },
+              ...prev,
+            ]);
+          }
+        }
       } else {
-        // Remove from pending list
+        // Decline: try status = 'declined', fallback to delete
+        const { error } = await supabase
+          .from("connections")
+          .update({ status: "declined" })
+          .eq("id", connectionId);
+
+        if (error) {
+          console.error(
+            "Error declining connection, falling back to delete",
+            error
+          );
+          const { error: deleteError } = await supabase
+            .from("connections")
+            .delete()
+            .eq("id", connectionId);
+
+          if (deleteError) {
+            console.error(
+              "Error deleting connection on decline fallback",
+              deleteError
+            );
+          }
+        }
+
+        // Remove from pending list locally
         setPendingRequests((prev) =>
           prev.filter((r) => r.connectionId !== connectionId)
         );
 
-        // If accepted, add to recent entanglements immediately
-        if (accept && sender) {
+        // If the status='declined' update succeeded, the sender will later
+        // see: "Your entanglement request has been declined by X".
+        // For you (decliner), show in your recent list right away:
+        if (sender) {
           setRecentEntanglements((prev) => [
             {
               connectionId,
               created_at: new Date().toISOString(),
+              status: "declined",
+              isSender: false,
               otherUser: sender,
             },
             ...prev,
@@ -766,7 +823,7 @@ export default function NotificationsPage() {
                                   type="button"
                                   disabled={isActionLoading(connectionId)}
                                   onClick={() =>
-                                    handleRespond(connectionId, false)
+                                    handleRespond(connectionId, false, sender)
                                   }
                                   style={{
                                     flex: 1,
@@ -811,8 +868,8 @@ export default function NotificationsPage() {
               {!loadingEntanglements &&
                 recentEntanglements.length === 0 && (
                   <div className="products-empty">
-                    No entangled states yet. Once you accept (or send) requests,
-                    you&apos;ll see a history of entanglements here.
+                    No entangled activity yet. Once you accept, send, or decline
+                    requests, you&apos;ll see a history of entanglements here.
                   </div>
                 )}
 
@@ -826,7 +883,7 @@ export default function NotificationsPage() {
                     }}
                   >
                     {recentEntanglements.map(
-                      ({ connectionId, otherUser, created_at }) => {
+                      ({ connectionId, otherUser, created_at, status, isSender }) => {
                         const name =
                           otherUser.full_name || "Quantum5ocial member";
                         const initials = name
@@ -836,6 +893,20 @@ export default function NotificationsPage() {
                           .slice(0, 2)
                           .toUpperCase();
                         const when = formatDateTime(created_at);
+
+                        let message: string;
+                        if (status === "accepted") {
+                          message = `You are now entangled with ${name}`;
+                        } else if (status === "declined") {
+                          if (isSender) {
+                            message = `Your entanglement request has been declined by ${name}`;
+                          } else {
+                            message = `You declined the entanglement request from ${name}`;
+                          }
+                        } else {
+                          // Fallback (should not happen)
+                          message = `Entanglement activity with ${name}`;
+                        }
 
                         return (
                           <div
@@ -891,8 +962,7 @@ export default function NotificationsPage() {
                               </div>
                               <div style={{ fontSize: 13 }}>
                                 <span style={{ opacity: 0.9 }}>
-                                  You are now entangled with{" "}
-                                  <strong>{name}</strong>
+                                  {message}
                                 </span>
                               </div>
                             </div>
