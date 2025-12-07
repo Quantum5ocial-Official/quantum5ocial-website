@@ -18,7 +18,7 @@ type ProfileSummary = {
   current_org?: string | null;
 };
 
-// Community member type
+// Community member type (person)
 type CommunityProfile = {
   id: string;
   full_name: string | null;
@@ -37,10 +37,43 @@ type CommunityProfile = {
   current_org?: string | null;
 };
 
+// Organization type for community view
+type CommunityOrg = {
+  id: string;
+  name: string;
+  slug: string;
+  kind: "company" | "research_group";
+  logo_url: string | null;
+  tagline: string | null;
+  industry: string | null;
+  focus_areas: string | null;
+  institution: string | null;
+  department: string | null;
+  city: string | null;
+  country: string | null;
+  created_at?: string | null;
+};
+
+// Unified item in the grid
+type CommunityItem = {
+  kind: "person" | "organization";
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  typeLabel: string; // e.g. "Member", "Company", "Research group"
+  roleLabel: string; // for person: role, for org: industry or institution
+  affiliationLine: string;
+  short_bio: string;
+  highest_education?: string | null;
+  city?: string | null;
+  country?: string | null;
+  created_at: string | null;
+};
+
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
 
-  // --- Sidebar profile + counts (same logic as homepage) ---
+  // --- Sidebar profile + counts (same as homepage) ---
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
     null
   );
@@ -50,12 +83,16 @@ export default function CommunityPage() {
   );
   const [entangledCount, setEntangledCount] = useState<number | null>(null);
 
-  // --- Community data ---
+  // --- Community data: people + orgs ---
   const [profiles, setProfiles] = useState<CommunityProfile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [profilesError, setProfilesError] = useState<string | null>(null);
+
+  const [orgs, setOrgs] = useState<CommunityOrg[]>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
+  const [orgsError, setOrgsError] = useState<string | null>(null);
+
   const [search, setSearch] = useState("");
-  const [totalMembers, setTotalMembers] = useState<number | null>(null);
 
   // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
   useEffect(() => {
@@ -146,11 +183,11 @@ export default function CommunityPage() {
     loadCounts();
   }, [user]);
 
-  // === LOAD COMMUNITY PROFILES ===
+  // === LOAD COMMUNITY PROFILES (PEOPLE) ===
   useEffect(() => {
     const loadProfiles = async () => {
       setLoadingProfiles(true);
-      setError(null);
+      setProfilesError(null);
 
       try {
         const { data, error } = await supabase
@@ -160,19 +197,16 @@ export default function CommunityPage() {
 
         if (error) {
           console.error("Error loading community profiles", error);
-          setError("Could not load community members.");
+          setProfilesError("Could not load community members.");
           setProfiles([]);
-          setTotalMembers(null);
         } else {
           const list = (data || []) as CommunityProfile[];
           setProfiles(list);
-          setTotalMembers(list.length || 0);
         }
       } catch (e) {
         console.error("Community load crashed:", e);
-        setError("Something went wrong while loading the community.");
+        setProfilesError("Something went wrong while loading the community.");
         setProfiles([]);
-        setTotalMembers(null);
       } finally {
         setLoadingProfiles(false);
       }
@@ -181,7 +215,46 @@ export default function CommunityPage() {
     loadProfiles();
   }, []);
 
-  // === FILTERED LIST BASED ON SEARCH ===
+  // === LOAD COMMUNITY ORGANIZATIONS ===
+  useEffect(() => {
+    const loadOrgs = async () => {
+      setLoadingOrgs(true);
+      setOrgsError(null);
+
+      try {
+        const { data, error } = await supabase
+          .from("organizations")
+          .select(
+            "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at"
+          )
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error loading organizations for community", error);
+          setOrgsError("Could not load organizations.");
+          setOrgs([]);
+        } else {
+          setOrgs((data || []) as CommunityOrg[]);
+        }
+      } catch (e) {
+        console.error("Organization load crashed:", e);
+        setOrgsError("Something went wrong while loading organizations.");
+        setOrgs([]);
+      } finally {
+        setLoadingOrgs(false);
+      }
+    };
+
+    loadOrgs();
+  }, []);
+
+  const communityLoading = loadingProfiles || loadingOrgs;
+  const communityError = profilesError || orgsError;
+
+  const totalCommunityCount = (profiles?.length || 0) + (orgs?.length || 0);
+
+  // === FILTER PEOPLE + ORGS BY SEARCH ===
   const filteredProfiles = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return profiles;
@@ -197,12 +270,116 @@ export default function CommunityPage() {
     });
   }, [profiles, search]);
 
+  const filteredOrgs = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return orgs;
+
+    return orgs.filter((o) => {
+      const location = [o.city, o.country].filter(Boolean).join(" ");
+      const meta =
+        o.kind === "company"
+          ? `${o.industry || ""} ${o.focus_areas || ""}`
+          : `${o.institution || ""} ${o.department || ""} ${
+              o.focus_areas || ""
+            }`;
+
+      const haystack = (
+        `${o.name || ""} ${meta} ${o.tagline || ""} ${location}`
+      ).toLowerCase();
+
+      return haystack.includes(q);
+    });
+  }, [orgs, search]);
+
+  // === FEATURED PROFILE + ORGANIZATION OF THE WEEK ===
   const featuredProfile =
     filteredProfiles.length > 0 ? filteredProfiles[0] : null;
-  const remainingProfiles =
-    filteredProfiles.length > 1
-      ? filteredProfiles.slice(1, 11)
-      : filteredProfiles.slice(0, 10);
+
+  const featuredOrg = filteredOrgs.length > 0 ? filteredOrgs[0] : null;
+
+  // === UNIFIED COMMUNITY ITEM LIST (MIXED PEOPLE + ORGS) ===
+  const communityItems: CommunityItem[] = useMemo(() => {
+    const personItems: CommunityItem[] = filteredProfiles.map((p) => {
+      const name = p.full_name || "Quantum5ocial member";
+      const highestEducation = p.highest_education || null;
+      const location = [p.city, p.country].filter(Boolean).join(", ");
+      const affiliationLine = p.affiliation || location || "—";
+      const short_bio =
+        p.short_bio ||
+        (p.affiliation
+          ? `Member of the quantum ecosystem at ${p.affiliation}.`
+          : "Quantum5ocial community member exploring the quantum ecosystem.");
+
+      return {
+        kind: "person",
+        id: p.id,
+        name,
+        avatar_url: p.avatar_url || null,
+        typeLabel: "Member",
+        roleLabel: p.role || "Quantum5ocial member",
+        affiliationLine,
+        short_bio,
+        highest_education: highestEducation,
+        city: p.city || null,
+        country: p.country || null,
+        created_at: p.created_at || null,
+      };
+    });
+
+    const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
+      const typeLabel =
+        o.kind === "company" ? "Company" : "Research group";
+
+      let roleLabel: string;
+      let affiliationLine: string;
+
+      if (o.kind === "company") {
+        roleLabel = o.industry || "Quantum company";
+        const location = [o.city, o.country].filter(Boolean).join(", ");
+        affiliationLine = location || (o.industry || "—");
+      } else {
+        roleLabel = o.institution || "Research group";
+        const dept = o.department || "";
+        const inst = o.institution || "";
+        const base = [dept, inst].filter(Boolean).join(", ");
+        const location = [o.city, o.country].filter(Boolean).join(", ");
+        affiliationLine = base || location || "—";
+      }
+
+      const short_bio =
+        o.tagline ||
+        o.focus_areas ||
+        (o.kind === "company"
+          ? "Quantum company active in the quantum ecosystem."
+          : "Research group active in the quantum ecosystem.");
+
+      return {
+        kind: "organization",
+        id: o.id,
+        name: o.name,
+        avatar_url: o.logo_url || null,
+        typeLabel,
+        roleLabel,
+        affiliationLine,
+        short_bio,
+        highest_education: undefined,
+        city: o.city || null,
+        country: o.country || null,
+        created_at: o.created_at || null,
+      };
+    });
+
+    const merged = [...personItems, ...orgItems];
+
+    // Sort by created_at descending so people + orgs are mixed chronologically
+    return merged.sort((a, b) => {
+      const ta = a.created_at ? Date.parse(a.created_at) : 0;
+      const tb = b.created_at ? Date.parse(b.created_at) : 0;
+      return tb - ta;
+    });
+  }, [filteredProfiles, filteredOrgs]);
+
+  const hasAnyCommunity = communityItems.length > 0;
 
   // === SIDEBAR HELPERS ===
   const fallbackName =
@@ -381,7 +558,7 @@ export default function CommunityPage() {
 
                 {/* X icon */}
                 <a
-                  href="#"
+                  href="#" // TODO: replace with real link
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Quantum5ocial on X"
@@ -457,117 +634,119 @@ export default function CommunityPage() {
           {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
           <section className="layout-main">
             <section className="section">
-                  {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
-    <div className="jobs-main-header">
-      <div className="section-header">
-        <div>
-          <div
-            className="section-title"
-            style={{ display: "flex", alignItems: "center", gap: 10 }}
-          >
-            Quantum5ocial community
-            {!loadingProfiles && !error && (
-              <span
-                style={{
-                  fontSize: 12,
-                  padding: "2px 8px",
-                  borderRadius: 999,
-                  background: "rgba(56,189,248,0.15)",
-                  border: "1px solid rgba(56,189,248,0.35)",
-                  color: "#7dd3fc",
-                }}
-              >
-                {profiles.length} member{profiles.length === 1 ? "" : "s"}
-              </span>
-            )}
-          </div>
-          <div
-            className="section-sub"
-            style={{ maxWidth: 480, lineHeight: 1.45 }}
-          >
-            Discover members of the quantum ecosystem and{" "}
-            <span style={{ color: "#7dd3fc" }}>entangle</span> with them.
-          </div>
-        </div>
-      </div>
+              {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
+              <div className="jobs-main-header">
+                <div className="section-header">
+                  <div>
+                    <div
+                      className="section-title"
+                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    >
+                      Quantum5ocial community
+                      {!communityLoading && !communityError && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "rgba(56,189,248,0.15)",
+                            border: "1px solid rgba(56,189,248,0.35)",
+                            color: "#7dd3fc",
+                          }}
+                        >
+                          {totalCommunityCount} member
+                          {totalCommunityCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="section-sub"
+                      style={{ maxWidth: 480, lineHeight: 1.45 }}
+                    >
+                      Discover members, labs, and companies in the quantum
+                      ecosystem and{" "}
+                      <span style={{ color: "#7dd3fc" }}>follow</span> them.
+                    </div>
+                  </div>
+                </div>
 
-      {/* Center-column search bar */}
-      <div className="jobs-main-search">
-        <div
-          style={{
-            width: "100%",
-            borderRadius: 999,
-            padding: 2,
-            background:
-              "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
-          }}
-        >
-          <div
-            style={{
-              borderRadius: 999,
-              background: "rgba(15,23,42,0.97)",
-              padding: "6px 12px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 14,
-                opacity: 0.85,
-              }}
-            >
-              🔍
-            </span>
-            <input
-              style={{
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                color: "#e5e7eb",
-                fontSize: 14,
-                width: "100%",
-              }}
-              placeholder="Search by name, role, affiliation, location…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+                {/* Center-column search bar */}
+                <div className="jobs-main-search">
+                  <div
+                    style={{
+                      width: "100%",
+                      borderRadius: 999,
+                      padding: 2,
+                      background:
+                        "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+                    }}
+                  >
+                    <div
+                      style={{
+                        borderRadius: 999,
+                        background: "rgba(15,23,42,0.97)",
+                        padding: "6px 12px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 14,
+                          opacity: 0.85,
+                        }}
+                      >
+                        🔍
+                      </span>
+                      <input
+                        style={{
+                          border: "none",
+                          outline: "none",
+                          background: "transparent",
+                          color: "#e5e7eb",
+                          fontSize: 14,
+                          width: "100%",
+                        }}
+                        placeholder="Search by name, role, organization, location…"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-              {/* BODY */}
-              {loadingProfiles && (
+              {/* BODY STATES */}
+              {communityLoading && (
                 <div className="products-status">
                   Loading community members…
                 </div>
               )}
 
-              {error && !loadingProfiles && (
-                <div
-                  className="products-status"
-                  style={{ color: "#f87171" }}
-                >
-                  {error}
+              {communityError && !communityLoading && (
+                <div className="products-status" style={{ color: "#f87171" }}>
+                  {communityError}
                 </div>
               )}
 
-              {!loadingProfiles && !error && profiles.length === 0 && (
-                <div className="products-empty">
-                  No members visible yet. As more users join Quantum5ocial, they
-                  will appear here.
-                </div>
-              )}
+              {!communityLoading &&
+                !communityError &&
+                !hasAnyCommunity && (
+                  <div className="products-empty">
+                    No members or organizations visible yet. As more users and
+                    orgs join Quantum5ocial, they will appear here.
+                  </div>
+                )}
 
-              {!loadingProfiles && !error && filteredProfiles.length > 0 && (
+              {/* MAIN CONTENT WHEN WE HAVE ITEMS */}
+              {!communityLoading && !communityError && hasAnyCommunity && (
                 <>
                   {/* PROFILE OF THE WEEK */}
                   {featuredProfile && (
                     <div
                       style={{
-                        marginBottom: 24,
+                        marginBottom: 16,
                         padding: 16,
                         borderRadius: 16,
                         border: "1px solid rgba(56,189,248,0.35)",
@@ -669,8 +848,7 @@ export default function CommunityPage() {
                               className="card-title"
                               style={{ marginBottom: 2 }}
                             >
-                              {featuredProfile.full_name ||
-                                "Quantum member"}
+                              {featuredProfile.full_name || "Quantum member"}
                             </div>
                             <div
                               className="card-meta"
@@ -709,10 +887,13 @@ export default function CommunityPage() {
                                 gap: 6,
                               }}
                               onClick={() => {
-                                console.log("Entangle with", featuredProfile.id);
+                                console.log(
+                                  "Follow member",
+                                  featuredProfile.id
+                                );
                               }}
                             >
-                              <span>Entangle</span>
+                              <span>Follow</span>
                               <span style={{ fontSize: 14 }}>+</span>
                             </button>
                           </div>
@@ -721,241 +902,461 @@ export default function CommunityPage() {
                     </div>
                   )}
 
-                  {/* Divider */}
-                  {remainingProfiles.length > 0 && (
+                  {/* ORGANIZATION OF THE WEEK */}
+                  {featuredOrg && (
                     <div
                       style={{
-                        height: 1,
-                        margin: "4px 0 16px",
+                        marginBottom: 24,
+                        padding: 16,
+                        borderRadius: 16,
+                        border: "1px solid rgba(59,130,246,0.45)",
                         background:
-                          "linear-gradient(90deg, rgba(148,163,184,0), rgba(148,163,184,0.6), rgba(148,163,184,0))",
-                      }}
-                    />
-                  )}
-
-                  {/* Browse members header */}
-                  {remainingProfiles.length > 0 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "baseline",
-                        marginBottom: 10,
+                          "radial-gradient(circle at top left, rgba(59,130,246,0.12), rgba(15,23,42,1))",
                       }}
                     >
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            letterSpacing: "0.08em",
-                            textTransform: "uppercase",
-                            color: "rgba(148,163,184,0.9)",
-                            marginBottom: 3,
-                          }}
-                        >
-                          Browse community
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.95rem",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Members
-                        </div>
-                      </div>
                       <div
                         style={{
-                          fontSize: 12,
-                          color: "var(--text-muted)",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: 16,
+                          marginBottom: 10,
                         }}
                       >
-                        Showing {remainingProfiles.length} of{" "}
-                        {filteredProfiles.length} match
-                        {filteredProfiles.length === 1 ? "" : "es"}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              letterSpacing: "0.08em",
+                              textTransform: "uppercase",
+                              color: "#93c5fd",
+                              marginBottom: 4,
+                            }}
+                          >
+                            Organization of the week
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.95rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Featured company / lab in the ecosystem
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        className="card"
+                        style={{
+                          borderRadius: 14,
+                          padding: 14,
+                          background: "rgba(15,23,42,0.95)",
+                        }}
+                      >
+                        <div
+                          className="card-inner"
+                          style={{
+                            display: "flex",
+                            gap: 14,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          {/* Logo / initial */}
+                          <div
+                            style={{
+                              width: 56,
+                              height: 56,
+                              borderRadius: 18,
+                              overflow: "hidden",
+                              border:
+                                "1px solid rgba(148,163,184,0.5)",
+                              flexShrink: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background:
+                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                              color: "#0f172a",
+                              fontWeight: 700,
+                              fontSize: 18,
+                            }}
+                          >
+                            {featuredOrg.logo_url ? (
+                              <img
+                                src={featuredOrg.logo_url}
+                                alt={featuredOrg.name}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                            ) : (
+                              featuredOrg.name.charAt(0).toUpperCase()
+                            )}
+                          </div>
+
+                          {/* Text */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                marginBottom: 2,
+                              }}
+                            >
+                              <div
+                                className="card-title"
+                                style={{
+                                  marginBottom: 0,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {featuredOrg.name}
+                              </div>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  borderRadius: 999,
+                                  padding: "2px 8px",
+                                  border:
+                                    "1px solid rgba(148,163,184,0.7)",
+                                  color: "rgba(226,232,240,0.95)",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {featuredOrg.kind === "company"
+                                  ? "Company"
+                                  : "Research group"}
+                              </span>
+                            </div>
+
+                            <div
+                              className="card-meta"
+                              style={{
+                                fontSize: 12,
+                                lineHeight: 1.4,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {featuredOrg.kind === "company"
+                                ? featuredOrg.industry || "Quantum company"
+                                : featuredOrg.institution ||
+                                  "Research group"}
+                              {featuredOrg.city || featuredOrg.country
+                                ? ` · ${[
+                                    featuredOrg.city,
+                                    featuredOrg.country,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(", ")}`
+                                : ""}
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 4,
+                                fontSize: 12,
+                                color: "var(--text-muted)",
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              {featuredOrg.tagline ||
+                                featuredOrg.focus_areas ||
+                                "Active organization in the quantum ecosystem."}
+                            </div>
+                            <button
+                              type="button"
+                              style={{
+                                marginTop: 10,
+                                padding: "6px 12px",
+                                borderRadius: 999,
+                                border:
+                                  "1px solid rgba(59,130,246,0.6)",
+                                background: "rgba(59,130,246,0.16)",
+                                color: "#bfdbfe",
+                                fontSize: 12,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                              onClick={() => {
+                                console.log("Follow organization", featuredOrg.id);
+                              }}
+                            >
+                              <span>Follow</span>
+                              <span style={{ fontSize: 14 }}>+</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Members grid */}
-                  {remainingProfiles.length > 0 && (
+                  {/* Browse header */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: "rgba(148,163,184,0.9)",
+                          marginBottom: 3,
+                        }}
+                      >
+                        Browse community
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.95rem",
+                          fontWeight: 600,
+                        }}
+                      >
+                        Members & organizations
+                      </div>
+                    </div>
                     <div
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-                        gap: 16,
+                        fontSize: 12,
+                        color: "var(--text-muted)",
                       }}
                     >
-                      {remainingProfiles.map((p) => {
-                        const name = p.full_name || "Quantum5ocial member";
-                        const initial = name.charAt(0).toUpperCase();
-                        const highestEducation =
-                          p.highest_education || "—";
-                        const role = p.role || "Quantum5ocial member";
-                        const location = [p.city, p.country]
-                          .filter(Boolean)
-                          .join(", ");
-                        const affiliationLine =
-                          p.affiliation || location || "—";
-                        const shortBio =
-                          p.short_bio ||
-                          (p.affiliation
-                            ? `Member of the quantum ecosystem at ${p.affiliation}.`
-                            : "Quantum5ocial community member exploring the quantum ecosystem.");
+                      Showing {communityItems.length} match
+                      {communityItems.length === 1 ? "" : "es"}
+                    </div>
+                  </div>
 
-                        return (
-                          <div
-                            key={p.id}
-                            className="card"
-                            style={{
-                              textDecoration: "none",
-                              padding: 14,
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "space-between",
-                              minHeight: 230,
-                            }}
-                          >
-                            <div className="card-inner">
-                              {/* Top row */}
+                  {/* Mixed grid: people + orgs */}
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+                      gap: 16,
+                    }}
+                  >
+                    {communityItems.map((item) => {
+                      const initial = item.name.charAt(0).toUpperCase();
+                      const location = [item.city, item.country]
+                        .filter(Boolean)
+                        .join(", ");
+                      const highestEducation =
+                        item.kind === "person"
+                          ? item.highest_education || "—"
+                          : undefined;
+
+                      return (
+                        <div
+                          key={`${item.kind}-${item.id}`}
+                          className="card"
+                          style={{
+                            textDecoration: "none",
+                            padding: 14,
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            minHeight: 230,
+                          }}
+                        >
+                          <div className="card-inner">
+                            {/* Top row */}
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 12,
+                                alignItems: "center",
+                                marginBottom: 8,
+                              }}
+                            >
                               <div
                                 style={{
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius:
+                                    item.kind === "organization"
+                                      ? 14
+                                      : "999px",
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  border:
+                                    "1px solid rgba(148,163,184,0.4)",
+                                  background:
+                                    item.kind === "organization"
+                                      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                                      : "rgba(15,23,42,0.9)",
                                   display: "flex",
-                                  gap: 12,
                                   alignItems: "center",
-                                  marginBottom: 8,
+                                  justifyContent: "center",
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color:
+                                    item.kind === "organization"
+                                      ? "#0f172a"
+                                      : "#e5e7eb",
                                 }}
                               >
+                                {item.avatar_url ? (
+                                  <img
+                                    src={item.avatar_url}
+                                    alt={item.name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block",
+                                    }}
+                                  />
+                                ) : (
+                                  <span>{initial}</span>
+                                )}
+                              </div>
+
+                              <div style={{ minWidth: 0 }}>
                                 <div
                                   style={{
-                                    width: 52,
-                                    height: 52,
-                                    borderRadius: "999px",
-                                    overflow: "hidden",
-                                    flexShrink: 0,
-                                    border:
-                                      "1px solid rgba(148,163,184,0.4)",
-                                    background: "rgba(15,23,42,0.9)",
                                     display: "flex",
                                     alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 18,
-                                    fontWeight: 600,
-                                    color: "#e5e7eb",
+                                    gap: 6,
+                                    marginBottom: 2,
                                   }}
                                 >
-                                  {p.avatar_url ? (
-                                    <img
-                                      src={p.avatar_url}
-                                      alt={name}
-                                      style={{
-                                        width: "100%",
-                                        height: "100%",
-                                        objectFit: "cover",
-                                        display: "block",
-                                      }}
-                                    />
-                                  ) : (
-                                    <span>{initial}</span>
-                                  )}
-                                </div>
-
-                                <div style={{ minWidth: 0 }}>
                                   <div
                                     className="card-title"
                                     style={{
-                                      marginBottom: 2,
                                       whiteSpace: "nowrap",
                                       overflow: "hidden",
                                       textOverflow: "ellipsis",
                                     }}
                                   >
-                                    {name}
+                                    {item.name}
                                   </div>
-                                  <div
-                                    className="card-meta"
-                                    style={{ fontSize: 12, lineHeight: 1.4 }}
+                                  <span
+                                    style={{
+                                      fontSize: 10.5,
+                                      borderRadius: 999,
+                                      padding: "2px 7px",
+                                      border:
+                                        "1px solid rgba(148,163,184,0.7)",
+                                      color: "rgba(226,232,240,0.95)",
+                                      whiteSpace: "nowrap",
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.08em",
+                                    }}
                                   >
-                                    {role}
-                                  </div>
+                                    {item.typeLabel}
+                                  </span>
+                                </div>
+                                <div
+                                  className="card-meta"
+                                  style={{ fontSize: 12, lineHeight: 1.4 }}
+                                >
+                                  {item.roleLabel}
                                 </div>
                               </div>
+                            </div>
 
-                              {/* Info */}
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  color: "var(--text-muted)",
-                                  display: "flex",
-                                  flexDirection: "column",
-                                  gap: 4,
-                                  marginTop: 6,
-                                }}
-                              >
+                            {/* Info */}
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "var(--text-muted)",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 4,
+                                marginTop: 6,
+                              }}
+                            >
+                              {item.kind === "person" && (
                                 <div>
                                   <span style={{ opacity: 0.7 }}>
                                     Education:{" "}
                                   </span>
-                                  <span>{highestEducation}</span>
-                                </div>
-                                <div>
-                                  <span style={{ opacity: 0.7 }}>
-                                    Affiliation:{" "}
+                                  <span>
+                                    {highestEducation || "—"}
                                   </span>
-                                  <span>{affiliationLine}</span>
                                 </div>
-                                <div>
-                                  <span style={{ opacity: 0.7 }}>
-                                    Role:{" "}
-                                  </span>
-                                  <span>{role}</span>
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 6,
-                                    fontSize: 12,
-                                    lineHeight: 1.4,
-                                    maxHeight: 60,
-                                    overflow: "hidden",
-                                  }}
-                                >
-                                  {shortBio}
-                                </div>
+                              )}
+                              <div>
+                                <span style={{ opacity: 0.7 }}>
+                                  {item.kind === "person"
+                                    ? "Affiliation: "
+                                    : "Location / meta: "}
+                                </span>
+                                <span>
+                                  {item.affiliationLine ||
+                                    location ||
+                                    "—"}
+                                </span>
                               </div>
-                            </div>
-
-                            {/* Entangle button */}
-                            <div style={{ marginTop: 12 }}>
-                              <button
-                                type="button"
+                              {location && (
+                                <div>
+                                  <span style={{ opacity: 0.7 }}>
+                                    Location:{" "}
+                                  </span>
+                                  <span>{location}</span>
+                                </div>
+                              )}
+                              <div
                                 style={{
-                                  width: "100%",
-                                  padding: "7px 0",
-                                  borderRadius: 10,
-                                  border:
-                                    "1px solid rgba(59,130,246,0.6)",
-                                  background: "rgba(59,130,246,0.16)",
-                                  color: "#bfdbfe",
+                                  marginTop: 6,
                                   fontSize: 12,
-                                  cursor: "pointer",
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  gap: 6,
-                                }}
-                                onClick={() => {
-                                  console.log("Entangle with", p.id);
+                                  lineHeight: 1.4,
+                                  maxHeight: 60,
+                                  overflow: "hidden",
                                 }}
                               >
-                                <span>Entangle</span>
-                                <span style={{ fontSize: 14 }}>+</span>
-                              </button>
+                                {item.short_bio}
+                              </div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+
+                          {/* Follow button */}
+                          <div style={{ marginTop: 12 }}>
+                            <button
+                              type="button"
+                              style={{
+                                width: "100%",
+                                padding: "7px 0",
+                                borderRadius: 10,
+                                border:
+                                  "1px solid rgba(59,130,246,0.6)",
+                                background: "rgba(59,130,246,0.16)",
+                                color: "#bfdbfe",
+                                fontSize: 12,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                              }}
+                              onClick={() => {
+                                console.log(
+                                  "Follow",
+                                  item.kind,
+                                  item.id
+                                );
+                              }}
+                            >
+                              <span>Follow</span>
+                              <span style={{ fontSize: 14 }}>+</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </>
               )}
             </section>
@@ -1013,7 +1414,7 @@ export default function CommunityPage() {
                 </div>
               </div>
 
-                            {/* Highlighted talent */}
+              {/* Highlighted talent */}
               <div className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
