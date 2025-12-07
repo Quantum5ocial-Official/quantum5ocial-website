@@ -1,7 +1,8 @@
 // pages/index.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
@@ -59,6 +60,10 @@ type MyOrgSummary = {
 
 export default function Home() {
   const { user } = useSupabaseUser();
+  const router = useRouter();
+
+  // 🔍 global search input (hero)
+  const [globalSearch, setGlobalSearch] = useState("");
 
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
@@ -84,6 +89,14 @@ export default function Home() {
   // NEW: first organization created by this user (for sidebar tile)
   const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
   const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
+
+  // === GLOBAL SEARCH HANDLER ===
+  const handleGlobalSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const term = globalSearch.trim();
+    if (!term) return;
+    router.push(`/search?q=${encodeURIComponent(term)}`);
+  };
 
   // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
@@ -705,6 +718,52 @@ export default function Home() {
                   Starting with marketplace features now, and evolving into a
                   full social platform as the community grows.
                 </p>
+
+                {/* 🔍 GLOBAL SEARCH BAR */}
+                <form
+                  onSubmit={handleGlobalSearchSubmit}
+                  className="hero-search"
+                  style={{
+                    marginTop: 24,
+                    maxWidth: 580,
+                    display: "flex",
+                    gap: 10,
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={globalSearch}
+                    onChange={(e) => setGlobalSearch(e.target.value)}
+                    placeholder="Search jobs, products, people, and organizations…"
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.5)",
+                      background: "rgba(15,23,42,0.95)",
+                      color: "#e5e7eb",
+                      fontSize: 14,
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{
+                      padding: "10px 18px",
+                      borderRadius: 999,
+                      border: "none",
+                      background:
+                        "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                      color: "#0f172a",
+                      fontWeight: 600,
+                      fontSize: 14,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Search
+                  </button>
+                </form>
               </div>
             </section>
 
