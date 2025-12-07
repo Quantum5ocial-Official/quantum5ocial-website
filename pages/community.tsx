@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
@@ -80,6 +81,56 @@ type MyOrgSummary = {
 
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
+
+    const router = useRouter();
+
+  const handleEntangle = async (targetUserId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/community");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("connections")
+        .insert({
+          user_id: user.id,
+          target_user_id: targetUserId,
+          status: "accepted", // assuming your table has this column
+        });
+
+      if (error) {
+        console.error("Error creating entanglement", error);
+      }
+    } catch (e) {
+      console.error("Unexpected error creating entanglement", e);
+    }
+  };
+
+  const handleFollowOrg = async (orgId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/community");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("org_follows")
+        .upsert(
+          {
+            user_id: user.id,
+            org_id: orgId,
+          },
+          { onConflict: "user_id,org_id" } // avoids duplicates
+        );
+
+      if (error) {
+        console.error("Error following organization", error);
+      }
+    } catch (e) {
+      console.error("Unexpected error following organization", e);
+    }
+  };
 
   // --- Sidebar profile + counts (same as homepage) ---
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
@@ -1042,12 +1093,7 @@ export default function CommunityPage() {
                                 alignItems: "center",
                                 gap: 6,
                               }}
-                              onClick={() => {
-                                console.log(
-                                  "Entangle with member",
-                                  featuredProfile.id
-                                );
-                              }}
+                              onClick={() => handleEntangle(featuredProfile.id)}
                             >
                               <span>Entangle</span>
                               <span style={{ fontSize: 14 }}>+</span>
@@ -1241,9 +1287,7 @@ export default function CommunityPage() {
                                 alignItems: "center",
                                 gap: 6,
                               }}
-                              onClick={() => {
-                                console.log("Follow organization", featuredOrg.id);
-                              }}
+                                onClick={() => handleFollowOrg(featuredOrg.id)}
                             >
                               <span>Follow</span>
                               <span style={{ fontSize: 14 }}>+</span>
@@ -1482,36 +1526,32 @@ export default function CommunityPage() {
                           {/* Entangle / Follow button */}
                           <div style={{ marginTop: 12 }}>
                             <button
-                              type="button"
-                              style={{
-                                width: "100%",
-                                padding: "7px 0",
-                                borderRadius: 10,
-                                border:
-                                  "1px solid rgba(59,130,246,0.6)",
-                                background: "rgba(59,130,246,0.16)",
-                                color: "#bfdbfe",
-                                fontSize: 12,
-                                cursor: "pointer",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 6,
-                              }}
-                              onClick={() => {
-                                if (isOrganization) {
-                                  console.log("Follow organization", item.id);
-                                } else {
-                                  console.log(
-                                    "Entangle with member",
-                                    item.id
-                                  );
-                                }
-                              }}
-                            >
-                              <span>{actionLabel}</span>
-                              <span style={{ fontSize: 14 }}>+</span>
-                            </button>
+  type="button"
+  style={{
+    width: "100%",
+    padding: "7px 0",
+    borderRadius: 10,
+    border: "1px solid rgba(59,130,246,0.6)",
+    background: "rgba(59,130,246,0.16)",
+    color: "#bfdbfe",
+    fontSize: 12,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  }}
+  onClick={() => {
+    if (isOrganization) {
+      handleFollowOrg(item.id);
+    } else {
+      handleEntangle(item.id);
+    }
+  }}
+>
+  <span>{actionLabel}</span>
+  <span style={{ fontSize: 14 }}>+</span>
+</button>
                           </div>
                         </div>
                       );
