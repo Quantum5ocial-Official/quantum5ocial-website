@@ -330,52 +330,54 @@ export default function Navbar() {
             </Link>
 
             {/* Notifications (desktop) */}
-{!loading && user && (
-  <Link
-    href="/notifications"
-    className={`nav-link ${isActive("/notifications") ? "nav-link-active" : ""}`}
-    aria-label="Notifications"
-  >
-    <span
-      className="nav-link-label"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-      }}
-    >
-      <span>Notifications</span>
-      {notificationsCount > 0 && (
-        <span
-          style={{
-            minWidth: 18,
-            height: 18,
-            borderRadius: 999,
-            background: "#ef4444",
-            color: "white",
-            fontSize: 11,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "0 6px",
-          }}
-        >
-          {notificationsCount > 9 ? "9+" : notificationsCount}
-        </span>
-      )}
-    </span>
-  </Link>
-)}
+            {!loading && user && (
+              <Link
+                href="/notifications"
+                className={`nav-link ${
+                  isActive("/notifications") ? "nav-link-active" : ""
+                }`}
+                aria-label="Notifications"
+              >
+                <span
+                  className="nav-link-label"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <span>Notifications</span>
+                  {notificationsCount > 0 && (
+                    <span
+                      style={{
+                        minWidth: 18,
+                        height: 18,
+                        borderRadius: 999,
+                        background: "#ef4444",
+                        color: "white",
+                        fontSize: 11,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 6px",
+                      }}
+                    >
+                      {notificationsCount > 9 ? "9+" : notificationsCount}
+                    </span>
+                  )}
+                </span>
+              </Link>
+            )}
 
-{/* Theme toggle — moved AFTER notifications */}
-<button
-  type="button"
-  className="nav-link nav-link-button theme-toggle"
-  onClick={toggleTheme}
-  aria-label="Toggle theme"
->
-  {theme === "dark" ? "☀️" : "🌙"}
-</button>
+            {/* Theme toggle — after notifications */}
+            <button
+              type="button"
+              className="nav-link nav-link-button theme-toggle"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
 
             {/* Logged-out CTA */}
             {!loading && !user && (
@@ -386,10 +388,7 @@ export default function Navbar() {
 
             {/* USER MENU (DESKTOP) */}
             {!loading && user && (
-              <div
-                className="nav-user-wrapper"
-                ref={userMenuRef}
-              >
+              <div className="nav-user-wrapper" ref={userMenuRef}>
                 <button
                   type="button"
                   className={`nav-user-button nav-link-button ${
@@ -397,7 +396,7 @@ export default function Navbar() {
                   }`}
                   onClick={() => {
                     setIsUserMenuOpen((o) => !o);
-                    setIsDashboardOpen(false); // close nested dashboard when toggling menu
+                    setIsDashboardOpen(false);
                   }}
                 >
                   <div className="nav-user-avatar">
@@ -424,6 +423,18 @@ export default function Navbar() {
                       }}
                     >
                       My profile
+                    </Link>
+
+                    {/* NEW: My ecosystem inside user dropdown */}
+                    <Link
+                      href="/ecosystem"
+                      className="nav-dropdown-item"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsDashboardOpen(false);
+                      }}
+                    >
+                      My ecosystem
                     </Link>
 
                     {/* Nested Dashboard dropdown inside user menu */}
@@ -722,6 +733,14 @@ export default function Navbar() {
                 onClick={closeMobileMenu}
               >
                 My profile
+              </Link>
+              {/* NEW: My ecosystem also under Account in mobile */}
+              <Link
+                href="/ecosystem"
+                className="nav-link"
+                onClick={closeMobileMenu}
+              >
+                My ecosystem
               </Link>
               <Link
                 href="/orgs/create"
