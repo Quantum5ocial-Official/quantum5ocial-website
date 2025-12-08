@@ -19,19 +19,16 @@ export default function Navbar() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-
   const [theme, setTheme] = useState<Theme>("dark");
   const [hasOrganizations, setHasOrganizations] = useState(false);
 
-  // NEW: mobile drawer state
+  // Mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // NEW: notifications count (pending incoming entanglement requests)
+  // Notifications count (pending incoming entanglement requests)
   const [notificationsCount, setNotificationsCount] = useState(0);
 
   // ----- THEME HANDLING -----
@@ -110,7 +107,7 @@ export default function Navbar() {
       const { data, error } = await supabase
         .from("organizations")
         .select("id")
-        .eq("created_by", user.id) // ✅ use created_by
+        .eq("created_by", user.id)
         .eq("is_active", true)
         .limit(1)
         .maybeSingle();
@@ -129,7 +126,7 @@ export default function Navbar() {
     return () => {
       cancelled = true;
     };
-  }, [user, router.pathname]); // 👈 re-run when route changes
+  }, [user, router.pathname]);
 
   // ----- NOTIFICATIONS (incoming pending entanglement requests) -----
   useEffect(() => {
@@ -170,15 +167,9 @@ export default function Navbar() {
     };
   }, [user, router.pathname]);
 
-  // Close dropdowns on outside click (desktop)
+  // Close user dropdown on outside click (desktop)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        dashboardRef.current &&
-        !dashboardRef.current.contains(e.target as Node)
-      ) {
-        setIsDashboardOpen(false);
-      }
       if (
         userMenuRef.current &&
         !userMenuRef.current.contains(e.target as Node)
@@ -228,13 +219,6 @@ export default function Navbar() {
       ? fullName.split(" ")[0] || fullName
       : "User";
 
-  const toggleDashboardFromKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setIsDashboardOpen((o) => !o);
-    }
-  };
-
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
@@ -282,7 +266,7 @@ export default function Navbar() {
           {/* DESKTOP NAV LINKS */}
           <nav
             className="nav-links nav-links-desktop"
-            style={{ fontSize: 16 }} // 🔹 slightly smaller font for nav items
+            style={{ fontSize: 16 }}
           >
             <Link
               href="/jobs"
@@ -330,67 +314,6 @@ export default function Navbar() {
             >
               <span className="nav-link-label">Organizations</span>
             </Link>
-
-            {/* Dashboard dropdown (desktop only) */}
-            {!loading && user && (
-              <div className="nav-dashboard-wrapper" ref={dashboardRef}>
-                <div
-                  className={`nav-link dashboard-trigger ${
-                    isActive("/dashboard") ? "nav-link-active" : ""
-                  }`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setIsDashboardOpen((o) => !o)}
-                  onKeyDown={toggleDashboardFromKey}
-                >
-                  <span className="nav-link-label">Dashboard</span>
-                </div>
-
-                {isDashboardOpen && (
-                  <div className="nav-dashboard-menu right-align">
-                    <Link
-                      href="/dashboard"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsDashboardOpen(false)}
-                    >
-                      Overview
-                    </Link>
-                    <Link
-                      href="/dashboard/entangled-states"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsDashboardOpen(false)}
-                    >
-                      Entangled states
-                    </Link>
-                    <Link
-                      href="/dashboard/saved-jobs"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsDashboardOpen(false)}
-                    >
-                      Saved jobs
-                    </Link>
-                    <Link
-                      href="/dashboard/saved-products"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsDashboardOpen(false)}
-                    >
-                      Saved products
-                    </Link>
-
-                    {/* My organizations – only if user owns any */}
-                    {hasOrganizations && (
-                      <Link
-                        href="/dashboard/my-organizations"
-                        className="nav-dropdown-item"
-                        onClick={() => setIsDashboardOpen(false)}
-                      >
-                        My organizations
-                      </Link>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Theme toggle */}
             <button
@@ -449,7 +372,7 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Avatar + first name dropdown */}
+            {/* Avatar + first name dropdown (now also holds Dashboard links) */}
             {!loading && user && (
               <div className="nav-dashboard-wrapper" ref={userMenuRef}>
                 <button
@@ -482,7 +405,57 @@ export default function Navbar() {
                       My profile
                     </Link>
 
-                    {/* Create organization BELOW profile */}
+                    {/* Dashboard group INSIDE user menu */}
+                    <div
+                      style={{
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        color: "rgba(148,163,184,0.85)",
+                        padding: "6px 12px 2px",
+                      }}
+                    >
+                      Dashboard
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Overview
+                    </Link>
+                    <Link
+                      href="/dashboard/entangled-states"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Entangled states
+                    </Link>
+                    <Link
+                      href="/dashboard/saved-jobs"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Saved jobs
+                    </Link>
+                    <Link
+                      href="/dashboard/saved-products"
+                      className="nav-dropdown-item"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Saved products
+                    </Link>
+                    {hasOrganizations && (
+                      <Link
+                        href="/dashboard/my-organizations"
+                        className="nav-dropdown-item"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        My organizations
+                      </Link>
+                    )}
+
+                    {/* Create organization BELOW dashboard group */}
                     <Link
                       href="/orgs/create"
                       className="nav-dropdown-item"
