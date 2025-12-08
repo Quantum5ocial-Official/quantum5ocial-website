@@ -311,14 +311,7 @@ export default function Navbar() {
               <span className="nav-link-label">Community</span>
             </Link>
 
-            <Link
-              href="/ecosystem"
-              className={`nav-link ${
-                isActive("/ecosystem") ? "nav-link-active" : ""
-              }`}
-            >
-              <span className="nav-link-label">My Ecosystem</span>
-            </Link>
+            {/* My Ecosystem REMOVED from here */}
 
             <Link
               href="/orgs"
@@ -425,7 +418,7 @@ export default function Navbar() {
                       My profile
                     </Link>
 
-                    {/* NEW: My ecosystem inside user dropdown */}
+                    {/* My ecosystem ONLY here */}
                     <Link
                       href="/ecosystem"
                       className="nav-dropdown-item"
@@ -605,15 +598,7 @@ export default function Navbar() {
             Community
           </Link>
 
-          <Link
-            href="/ecosystem"
-            className={`nav-link ${
-              isActive("/ecosystem") ? "nav-link-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            My Ecosystem
-          </Link>
+          {/* My Ecosystem REMOVED from top-level mobile links */}
 
           <Link
             href="/orgs"
@@ -734,7 +719,7 @@ export default function Navbar() {
               >
                 My profile
               </Link>
-              {/* NEW: My ecosystem also under Account in mobile */}
+              {/* My ecosystem under Account in mobile */}
               <Link
                 href="/ecosystem"
                 className="nav-link"
