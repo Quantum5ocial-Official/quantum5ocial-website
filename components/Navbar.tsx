@@ -329,55 +329,53 @@ export default function Navbar() {
               <span className="nav-link-label">Organizations</span>
             </Link>
 
-            {/* Theme toggle */}
-            <button
-              type="button"
-              className="nav-link nav-link-button theme-toggle"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
+            {/* Notifications (desktop) */}
+{!loading && user && (
+  <Link
+    href="/notifications"
+    className={`nav-link ${isActive("/notifications") ? "nav-link-active" : ""}`}
+    aria-label="Notifications"
+  >
+    <span
+      className="nav-link-label"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      <span>Notifications</span>
+      {notificationsCount > 0 && (
+        <span
+          style={{
+            minWidth: 18,
+            height: 18,
+            borderRadius: 999,
+            background: "#ef4444",
+            color: "white",
+            fontSize: 11,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 6px",
+          }}
+        >
+          {notificationsCount > 9 ? "9+" : notificationsCount}
+        </span>
+      )}
+    </span>
+  </Link>
+)}
 
-            {/* Notifications */}
-            {!loading && user && (
-              <Link
-                href="/notifications"
-                className={`nav-link ${
-                  isActive("/notifications") ? "nav-link-active" : ""
-                }`}
-                aria-label="Notifications"
-              >
-                <span
-                  className="nav-link-label"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <span>Notifications</span>
-                  {notificationsCount > 0 && (
-                    <span
-                      style={{
-                        minWidth: 18,
-                        height: 18,
-                        borderRadius: 999,
-                        background: "#ef4444",
-                        color: "white",
-                        fontSize: 11,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0 6px",
-                      }}
-                    >
-                      {notificationsCount > 9 ? "9+" : notificationsCount}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            )}
+{/* Theme toggle — moved AFTER notifications */}
+<button
+  type="button"
+  className="nav-link nav-link-button theme-toggle"
+  onClick={toggleTheme}
+  aria-label="Toggle theme"
+>
+  {theme === "dark" ? "☀️" : "🌙"}
+</button>
 
             {/* Logged-out CTA */}
             {!loading && !user && (
