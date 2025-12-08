@@ -372,319 +372,350 @@ export default function Home() {
         {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
           {/* LEFT SIDEBAR */}
-          <aside
-            className="layout-left sticky-col"
-            style={{ display: "flex", flexDirection: "column" }}
+<aside
+  className="layout-left sticky-col"
+  style={{ display: "flex", flexDirection: "column" }}
+>
+  {/* PROFILE CARD – clickable → profile page */}
+  <Link
+    href="/profile"
+    className="sidebar-card profile-sidebar-card"
+    style={{
+      textDecoration: "none",
+      color: "inherit",
+      cursor: "pointer",
+    }}
+  >
+    <div className="profile-sidebar-header">
+      <div className="profile-sidebar-avatar-wrapper">
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt={sidebarFullName}
+            className="profile-sidebar-avatar"
+          />
+        ) : (
+          <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+            {sidebarFullName.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="profile-sidebar-name">{sidebarFullName}</div>
+    </div>
+
+    {/* Education / Role / Affiliation / Location */}
+    {hasProfileExtraInfo ||
+    (profileSummary as any)?.city ||
+    (profileSummary as any)?.country ? (
+      <div className="profile-sidebar-info-block">
+        {educationLevel && (
+          <div className="profile-sidebar-info-value">
+            {educationLevel}
+          </div>
+        )}
+        {describesYou && (
+          <div
+            className="profile-sidebar-info-value"
+            style={{ marginTop: 4 }}
           >
-            {/* Profile card – clickable, goes to My profile */}
-            <Link
-              href="/profile"
-              className="sidebar-card profile-sidebar-card"
+            {describesYou}
+          </div>
+        )}
+        {affiliation && (
+          <div
+            className="profile-sidebar-info-value"
+            style={{ marginTop: 4 }}
+          >
+            {affiliation}
+          </div>
+        )}
+
+        {/* NEW: location (city, country) if available */}
+        {(profileSummary as any)?.city ||
+        (profileSummary as any)?.country ? (
+          <div
+            className="profile-sidebar-info-value"
+            style={{ marginTop: 4, opacity: 0.9 }}
+          >
+            {[
+              (profileSummary as any)?.city,
+              (profileSummary as any)?.country,
+            ]
+              .filter(Boolean)
+              .join(", ")}
+          </div>
+        ) : null}
+      </div>
+    ) : null}
+  </Link>
+
+  {/* QUICK DASHBOARD CARD – whole tile clickable → /dashboard */}
+  <Link
+    href="/dashboard"
+    className="sidebar-card dashboard-sidebar-card"
+    style={{
+      marginTop: 16,
+      textDecoration: "none",
+      color: "inherit",
+      cursor: "pointer",
+      display: "block",
+    }}
+  >
+    <div className="dashboard-sidebar-title">Quick dashboard</div>
+
+    <div className="dashboard-sidebar-links">
+      <div className="dashboard-sidebar-link">
+        <span>Entanglements</span>
+        <span style={{ marginLeft: "auto", opacity: 0.9 }}>
+          {entangledCount === null ? "…" : entangledCount}
+        </span>
+      </div>
+
+      <div className="dashboard-sidebar-link">
+        <span>Saved jobs</span>
+        <span style={{ marginLeft: "auto", opacity: 0.9 }}>
+          {savedJobsCount === null ? "…" : savedJobsCount}
+        </span>
+      </div>
+
+      <div className="dashboard-sidebar-link">
+        <span>Saved products</span>
+        <span style={{ marginLeft: "auto", opacity: 0.9 }}>
+          {savedProductsCount === null ? "…" : savedProductsCount}
+        </span>
+      </div>
+
+      <div className="dashboard-sidebar-link">
+        <span>My Ecosystem</span>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: 11,
+            opacity: 0.7,
+          }}
+        >
+          Overview →
+        </span>
+      </div>
+    </div>
+  </Link>
+
+  {/* MY ORGANIZATION TILE – whole tile clickable → org page */}
+  {user && !loadingMyOrg && myOrg && (
+    <Link
+      href={`/orgs/${myOrg.slug}`}
+      className="sidebar-card dashboard-sidebar-card"
+      style={{
+        marginTop: 16,
+        textDecoration: "none",
+        color: "inherit",
+        cursor: "pointer",
+        display: "block",
+      }}
+    >
+      <div className="dashboard-sidebar-title">My organization</div>
+
+      <div
+        style={{
+          marginTop: 10,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        {/* Logo */}
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            overflow: "hidden",
+            flexShrink: 0,
+            border: "1px solid rgba(148,163,184,0.45)",
+            background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#0f172a",
+            fontWeight: 700,
+            fontSize: 18,
+          }}
+        >
+          {myOrg.logo_url ? (
+            <img
+              src={myOrg.logo_url}
+              alt={myOrg.name}
               style={{
-                textDecoration: "none",
-                color: "inherit",
-                cursor: "pointer",
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
               }}
-            >
-              <div className="profile-sidebar-header">
-                <div className="profile-sidebar-avatar-wrapper">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={sidebarFullName}
-                      className="profile-sidebar-avatar"
-                    />
-                  ) : (
-                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarFullName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="profile-sidebar-name">{sidebarFullName}</div>
-              </div>
+            />
+          ) : (
+            myOrg.name.charAt(0).toUpperCase()
+          )}
+        </div>
 
-              {hasProfileExtraInfo && (
-                <div className="profile-sidebar-info-block">
-                  {educationLevel && (
-                    <div className="profile-sidebar-info-value">
-                      {educationLevel}
-                    </div>
-                  )}
-                  {describesYou && (
-                    <div
-                      className="profile-sidebar-info-value"
-                      style={{ marginTop: 4 }}
-                    >
-                      {describesYou}
-                    </div>
-                  )}
-                  {affiliation && (
-                    <div
-                      className="profile-sidebar-info-value"
-                      style={{ marginTop: 4 }}
-                    >
-                      {affiliation}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Link>
+        {/* Text / stats */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {myOrg.name}
+          </div>
 
-            {/* Quick dashboard card */}
-            <div className="sidebar-card dashboard-sidebar-card">
-              <div className="dashboard-sidebar-title">Quick dashboard</div>
-              <div className="dashboard-sidebar-links">
-                <Link
-                  href="/dashboard/entangled-states"
-                  className="dashboard-sidebar-link"
-                >
-                  {entangledLabel}
-                </Link>
-                <Link
-                  href="/dashboard/saved-jobs"
-                  className="dashboard-sidebar-link"
-                >
-                  {savedJobsLabel}
-                </Link>
-                <Link
-                  href="/dashboard/saved-products"
-                  className="dashboard-sidebar-link"
-                >
-                  {savedProductsLabel}
-                </Link>
-              </div>
+          <div
+            style={{
+              fontSize: 13,
+              color: "rgba(148,163,184,0.95)",
+              marginTop: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <div>
+              Followers:{" "}
+              <span style={{ color: "#e5e7eb" }}>
+                0{/* TODO: replace with real count */}
+              </span>
             </div>
-
-            {/* NEW: My organization tile (only if user has an org) */}
-            {user && !loadingMyOrg && myOrg && (
-              <div
-                className="sidebar-card dashboard-sidebar-card"
-                style={{ marginTop: 16 }}
-              >
-                <div className="dashboard-sidebar-title">My organization</div>
-
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}
-                >
-                  {/* Logo + name row */}
-                  <Link
-                    href={`/orgs/${myOrg.slug}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      textDecoration: "none",
-                      color: "inherit",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 14,
-                        overflow: "hidden",
-                        flexShrink: 0,
-                        border: "1px solid rgba(148,163,184,0.45)",
-                        background:
-                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#0f172a",
-                        fontWeight: 700,
-                        fontSize: 18,
-                      }}
-                    >
-                      {myOrg.logo_url ? (
-                        <img
-                          src={myOrg.logo_url}
-                          alt={myOrg.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                      ) : (
-                        myOrg.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 500,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {myOrg.name}
-                    </div>
-                  </Link>
-
-                  {/* Simple stats */}
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "rgba(148,163,184,0.95)",
-                      marginTop: 4,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    <div>
-                      Followers:{" "}
-                      <span style={{ color: "#e5e7eb" }}>
-                        0{/* replace with real count later */}
-                      </span>
-                    </div>
-                    <div>
-                      Views:{" "}
-                      <span style={{ color: "#e5e7eb" }}>
-                        0{/* replace with real count later */}
-                      </span>
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                      <Link
-                        href="/dashboard/my-organizations"
-                        style={{
-                          color: "#7dd3fc",
-                          textDecoration: "none",
-                        }}
-                      >
-                        Analytics →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Social icons + brand logo/name at bottom of left column */}
-            <div
-              style={{
-                marginTop: "auto",
-                paddingTop: 16,
-                borderTop: "1px solid rgba(148,163,184,0.18)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              {/* Icons row */}
-              <div
+            <div>
+              Views:{" "}
+              <span style={{ color: "#e5e7eb" }}>
+                0{/* TODO: replace with real count */}
+              </span>
+            </div>
+            <div style={{ marginTop: 4 }}>
+              <span
                 style={{
-                  display: "flex",
-                  gap: 12,
-                  fontSize: 18,
-                  alignItems: "center",
+                  color: "#7dd3fc",
+                  textDecoration: "none",
                 }}
               >
-                {/* Email */}
-                <a
-                  href="mailto:info@quantum5ocial.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Email Quantum5ocial"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
-                    <polyline points="3 7 12 13 21 7" />
-                  </svg>
-                </a>
-
-                {/* X */}
-                <a
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Quantum5ocial on X"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 4l8 9.5L20 4" />
-                    <path d="M4 20l6.5-7.5L20 20" />
-                  </svg>
-                </a>
-
-                {/* GitHub */}
-                <a
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Quantum5ocial on GitHub"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
-                  </svg>
-                </a>
-              </div>
-
-              {/* Brand row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <img
-                  src="/Q5_white_bg.png"
-                  alt="Quantum5ocial logo"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 4,
-                    objectFit: "contain",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  Quantum5ocial
-                </span>
-              </div>
+                Analytics →
+              </span>
             </div>
-          </aside>
+          </div>
+        </div>
+      </div>
+    </Link>
+  )}
 
+  {/* DIVIDER */}
+  <div
+    style={{
+      width: "100%",
+      height: 1,
+      background: "rgba(148,163,184,0.18)",
+      marginTop: 20,
+      marginBottom: 12,
+    }}
+  />
+
+  {/* BOTTOM: SOCIAL + BRAND + COPYRIGHT */}
+  <div
+    style={{
+      marginTop: "auto",
+      paddingTop: 8,
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    }}
+  >
+    {/* Icons row */}
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        fontSize: 18,
+        alignItems: "center",
+      }}
+    >
+      {/* Email */}
+      <a
+        href="mailto:info@quantum5ocial.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Email Quantum5ocial"
+        style={{ color: "rgba(148,163,184,0.9)" }}
+      >
+        ✉️
+      </a>
+
+      {/* X (placeholder, link later) */}
+      <a
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Quantum5ocial on X"
+        style={{ color: "rgba(148,163,184,0.9)" }}
+      >
+        𝕏
+      </a>
+
+      {/* LinkedIn (placeholder, link later) */}
+      <a
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Quantum5ocial on LinkedIn"
+        style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}
+      >
+        in
+      </a>
+    </div>
+
+    {/* Brand row */}
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      <img
+        src="/Q5_white_bg.png"
+        alt="Quantum5ocial logo"
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 4,
+          objectFit: "contain",
+        }}
+      />
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
+        Quantum5ocial
+      </span>
+    </div>
+
+    <div
+      style={{
+        fontSize: 12,
+        color: "rgba(148,163,184,0.9)",
+      }}
+    >
+      © 2025 Quantum5ocial
+    </div>
+  </div>
+</aside>
+
+          
           {/* MIDDLE MAIN COLUMN */}
           <section className="layout-main">
             {/* HERO */}
