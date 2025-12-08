@@ -19,16 +19,19 @@ export default function Navbar() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false); // nested dashboard inside user menu
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
   const [theme, setTheme] = useState<Theme>("dark");
   const [hasOrganizations, setHasOrganizations] = useState(false);
 
-  // Mobile drawer state
+  // mobile drawer
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // Notifications count (pending incoming entanglement requests)
+  // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
 
   // ----- THEME HANDLING -----
@@ -167,7 +170,7 @@ export default function Navbar() {
     };
   }, [user, router.pathname]);
 
-  // Close user dropdown on outside click (desktop)
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -175,6 +178,13 @@ export default function Navbar() {
         !userMenuRef.current.contains(e.target as Node)
       ) {
         setIsUserMenuOpen(false);
+        setIsDashboardOpen(false);
+      }
+      if (
+        dashboardRef.current &&
+        !dashboardRef.current.contains(e.target as Node)
+      ) {
+        setIsDashboardOpen(false);
       }
     }
 
@@ -203,10 +213,9 @@ export default function Navbar() {
     );
   };
 
-  // Top-level Organizations tab: only active on /orgs (not /orgs/create etc.)
   const isOrganizationsNavActive = () => router.pathname === "/orgs";
 
-  // Fallback name from auth if profile.full_name is missing
+  // Fallback name
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -218,6 +227,13 @@ export default function Navbar() {
     fullName && typeof fullName === "string"
       ? fullName.split(" ")[0] || fullName
       : "User";
+
+  const toggleDashboardFromKey = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setIsDashboardOpen((o) => !o);
+    }
+  };
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
@@ -236,7 +252,7 @@ export default function Navbar() {
           height: 72,
         }}
       >
-        {/* Brand – clickable to home */}
+        {/* Brand */}
         <Link href="/" className="brand-clickable">
           <div className="brand">
             <img
@@ -255,7 +271,7 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* RIGHT SIDE: desktop nav + mobile hamburger */}
+        {/* RIGHT SIDE */}
         <div
           style={{
             display: "flex",
@@ -263,7 +279,7 @@ export default function Navbar() {
             gap: 16,
           }}
         >
-          {/* DESKTOP NAV LINKS */}
+          {/* DESKTOP NAV */}
           <nav
             className="nav-links nav-links-desktop"
             style={{ fontSize: 16 }}
@@ -295,7 +311,6 @@ export default function Navbar() {
               <span className="nav-link-label">Community</span>
             </Link>
 
-            {/* My Ecosystem */}
             <Link
               href="/ecosystem"
               className={`nav-link ${
@@ -305,7 +320,6 @@ export default function Navbar() {
               <span className="nav-link-label">My Ecosystem</span>
             </Link>
 
-            {/* Organizations tab */}
             <Link
               href="/orgs"
               className={`nav-link ${
@@ -325,7 +339,7 @@ export default function Navbar() {
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
 
-            {/* Notifications (desktop) – only when logged in */}
+            {/* Notifications */}
             {!loading && user && (
               <Link
                 href="/notifications"
@@ -372,15 +386,21 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Avatar + first name dropdown (now also holds Dashboard links) */}
+            {/* USER MENU (DESKTOP) */}
             {!loading && user && (
-              <div className="nav-dashboard-wrapper" ref={userMenuRef}>
+              <div
+                className="nav-user-wrapper"
+                ref={userMenuRef}
+              >
                 <button
                   type="button"
                   className={`nav-user-button nav-link-button ${
                     isActive("/profile") ? "nav-link-active" : ""
                   }`}
-                  onClick={() => setIsUserMenuOpen((o) => !o)}
+                  onClick={() => {
+                    setIsUserMenuOpen((o) => !o);
+                    setIsDashboardOpen(false); // close nested dashboard when toggling menu
+                  }}
                 >
                   <div className="nav-user-avatar">
                     {avatarUrl ? (
@@ -396,78 +416,125 @@ export default function Navbar() {
 
                 {isUserMenuOpen && (
                   <div className="nav-dashboard-menu right-align">
-                    {/* My profile FIRST */}
+                    {/* My profile */}
                     <Link
                       href="/profile"
                       className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsDashboardOpen(false);
+                      }}
                     >
                       My profile
                     </Link>
 
-                    {/* Dashboard group INSIDE user menu */}
+                    {/* Nested Dashboard dropdown inside user menu */}
                     <div
+                      ref={dashboardRef}
                       style={{
-                        fontSize: 11,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                        color: "rgba(148,163,184,0.85)",
-                        padding: "6px 12px 2px",
+                        marginTop: 4,
+                        marginBottom: 4,
                       }}
                     >
-                      Dashboard
-                    </div>
-                    <Link
-                      href="/dashboard"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      Overview
-                    </Link>
-                    <Link
-                      href="/dashboard/entangled-states"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      Entangled states
-                    </Link>
-                    <Link
-                      href="/dashboard/saved-jobs"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      Saved jobs
-                    </Link>
-                    <Link
-                      href="/dashboard/saved-products"
-                      className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      Saved products
-                    </Link>
-                    {hasOrganizations && (
-                      <Link
-                        href="/dashboard/my-organizations"
+                      <button
+                        type="button"
                         className="nav-dropdown-item"
-                        onClick={() => setIsUserMenuOpen(false)}
+                        onClick={() =>
+                          setIsDashboardOpen((o) => !o)
+                        }
+                        onKeyDown={toggleDashboardFromKey}
                       >
-                        My organizations
-                      </Link>
-                    )}
+                        <span>Dashboard</span>
+                        <span
+                          style={{
+                            marginLeft: "auto",
+                            fontSize: 10,
+                            opacity: 0.8,
+                          }}
+                        >
+                          {isDashboardOpen ? "▲" : "▼"}
+                        </span>
+                      </button>
 
-                    {/* Create organization BELOW dashboard group */}
+                      {isDashboardOpen && (
+                        <>
+                          <Link
+                            href="/dashboard"
+                            className="nav-dropdown-item nav-dropdown-subitem"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsDashboardOpen(false);
+                            }}
+                          >
+                            Overview
+                          </Link>
+                          <Link
+                            href="/dashboard/entangled-states"
+                            className="nav-dropdown-item nav-dropdown-subitem"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsDashboardOpen(false);
+                            }}
+                          >
+                            Entangled states
+                          </Link>
+                          <Link
+                            href="/dashboard/saved-jobs"
+                            className="nav-dropdown-item nav-dropdown-subitem"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsDashboardOpen(false);
+                            }}
+                          >
+                            Saved jobs
+                          </Link>
+                          <Link
+                            href="/dashboard/saved-products"
+                            className="nav-dropdown-item nav-dropdown-subitem"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsDashboardOpen(false);
+                            }}
+                          >
+                            Saved products
+                          </Link>
+                          {hasOrganizations && (
+                            <Link
+                              href="/dashboard/my-organizations"
+                              className="nav-dropdown-item nav-dropdown-subitem"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsDashboardOpen(false);
+                              }}
+                            >
+                              My organizations
+                            </Link>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Create organization */}
                     <Link
                       href="/orgs/create"
                       className="nav-dropdown-item"
-                      onClick={() => setIsUserMenuOpen(false)}
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsDashboardOpen(false);
+                      }}
                     >
                       Create my organization page
                     </Link>
 
+                    {/* Logout */}
                     <button
                       type="button"
                       className="nav-dropdown-item nav-dropdown-danger"
-                      onClick={handleLogout}
+                      onClick={async () => {
+                        await handleLogout();
+                        setIsUserMenuOpen(false);
+                        setIsDashboardOpen(false);
+                      }}
                     >
                       Logout
                     </button>
@@ -492,7 +559,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MOBILE DRAWER – slides in from the right */}
+      {/* MOBILE DRAWER */}
       <div
         className={`nav-drawer ${
           isMobileMenuOpen ? "nav-drawer-open" : ""
@@ -529,7 +596,6 @@ export default function Navbar() {
             Community
           </Link>
 
-          {/* My ecosystem in mobile menu */}
           <Link
             href="/ecosystem"
             className={`nav-link ${
@@ -540,7 +606,6 @@ export default function Navbar() {
             My Ecosystem
           </Link>
 
-          {/* Organizations in mobile menu */}
           <Link
             href="/orgs"
             className={`nav-link ${
@@ -551,7 +616,7 @@ export default function Navbar() {
             Organizations
           </Link>
 
-          {/* Dashboard links as simple items on mobile */}
+          {/* Dashboard section in MOBILE remains simple links */}
           {!loading && user && (
             <>
               <div className="nav-mobile-section-label">
@@ -587,8 +652,6 @@ export default function Navbar() {
               >
                 Saved products
               </Link>
-
-              {/* My organizations – only if user owns any */}
               {hasOrganizations && (
                 <Link
                   href="/dashboard/my-organizations"
@@ -655,8 +718,6 @@ export default function Navbar() {
           {!loading && user && (
             <>
               <div className="nav-mobile-section-label">Account</div>
-
-              {/* My profile FIRST */}
               <Link
                 href="/profile"
                 className="nav-link"
@@ -664,8 +725,6 @@ export default function Navbar() {
               >
                 My profile
               </Link>
-
-              {/* Create organization BELOW profile */}
               <Link
                 href="/orgs/create"
                 className="nav-link"
@@ -673,7 +732,6 @@ export default function Navbar() {
               >
                 Create my organization page
               </Link>
-
               <button
                 type="button"
                 className="nav-link nav-dropdown-danger"
