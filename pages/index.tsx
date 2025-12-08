@@ -449,56 +449,96 @@ export default function Home() {
     ) : null}
   </Link>
 
-  {/* QUICK DASHBOARD CARD – whole tile clickable → /dashboard */}
-  <Link
-    href="/dashboard"
-    className="sidebar-card dashboard-sidebar-card"
+  {/* Quick dashboard card – rows individually clickable */}
+<div className="sidebar-card dashboard-sidebar-card">
+  <div className="dashboard-sidebar-title">Quick dashboard</div>
+
+  <div
+    className="dashboard-sidebar-links"
     style={{
-      marginTop: 16,
-      textDecoration: "none",
-      color: "inherit",
-      cursor: "pointer",
-      display: "block",
+      marginTop: 8,
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
     }}
   >
-    <div className="dashboard-sidebar-title">Quick dashboard</div>
+    {/* Entanglements → entangled states page */}
+    <Link
+      href="/dashboard/entangled-states"
+      className="dashboard-sidebar-link"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <span>Entanglements</span>
+      <span style={{ opacity: 0.9 }}>
+        {entangledCount === null ? "…" : entangledCount}
+      </span>
+    </Link>
 
-    <div className="dashboard-sidebar-links">
-      <div className="dashboard-sidebar-link">
-        <span>Entanglements</span>
-        <span style={{ marginLeft: "auto", opacity: 0.9 }}>
-          {entangledCount === null ? "…" : entangledCount}
-        </span>
-      </div>
+    {/* Saved jobs */}
+    <Link
+      href="/dashboard/saved-jobs"
+      className="dashboard-sidebar-link"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <span>Saved jobs</span>
+      <span style={{ opacity: 0.9 }}>
+        {savedJobsCount === null ? "…" : savedJobsCount}
+      </span>
+    </Link>
 
-      <div className="dashboard-sidebar-link">
-        <span>Saved jobs</span>
-        <span style={{ marginLeft: "auto", opacity: 0.9 }}>
-          {savedJobsCount === null ? "…" : savedJobsCount}
-        </span>
-      </div>
+    {/* Saved products */}
+    <Link
+      href="/dashboard/saved-products"
+      className="dashboard-sidebar-link"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <span>Saved products</span>
+      <span style={{ opacity: 0.9 }}>
+        {savedProductsCount === null ? "…" : savedProductsCount}
+      </span>
+    </Link>
 
-      <div className="dashboard-sidebar-link">
-        <span>Saved products</span>
-        <span style={{ marginLeft: "auto", opacity: 0.9 }}>
-          {savedProductsCount === null ? "…" : savedProductsCount}
-        </span>
-      </div>
-
-      <div className="dashboard-sidebar-link">
-        <span>My Ecosystem</span>
-        <span
-          style={{
-            marginLeft: "auto",
-            fontSize: 11,
-            opacity: 0.7,
-          }}
-        >
-          Overview →
-        </span>
-      </div>
-    </div>
-  </Link>
+    {/* My Ecosystem → /ecosystem */}
+    <Link
+      href="/ecosystem"
+      className="dashboard-sidebar-link"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        textDecoration: "none",
+        color: "inherit",
+      }}
+    >
+      <span>My Ecosystem</span>
+      <span
+        style={{
+          fontSize: 11,
+          opacity: 0.8,
+        }}
+      >
+      </span>
+    </Link>
+  </div>
+</div>
 
   {/* MY ORGANIZATION TILE – whole tile clickable → org page */}
   {user && !loadingMyOrg && myOrg && (
