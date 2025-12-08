@@ -413,6 +413,7 @@ export default function Home() {
             {educationLevel}
           </div>
         )}
+
         {describesYou && (
           <div
             className="profile-sidebar-info-value"
@@ -421,6 +422,7 @@ export default function Home() {
             {describesYou}
           </div>
         )}
+
         {affiliation && (
           <div
             className="profile-sidebar-info-value"
@@ -449,11 +451,8 @@ export default function Home() {
     ) : null}
   </Link>
 
-  {/* Quick dashboard card – rows individually clickable */}
-  <div
-    className="sidebar-card dashboard-sidebar-card"
-    style={{ marginTop: 8 }} // equal gap to profile + my org
-  >
+  {/* Quick dashboard – rows individually clickable */}
+  <div className="sidebar-card dashboard-sidebar-card">
     <div className="dashboard-sidebar-title">Quick dashboard</div>
 
     <div
@@ -537,20 +536,17 @@ export default function Home() {
             fontSize: 11,
             opacity: 0.8,
           }}
-        >
-          {/* optional mini hint later */}
-        </span>
+        />
       </Link>
     </div>
   </div>
 
-  {/* MY ORGANIZATION TILE – whole tile clickable → org page */}
+  {/* MY ORGANIZATION – whole tile clickable → org page */}
   {user && !loadingMyOrg && myOrg && (
     <Link
       href={`/orgs/${myOrg.slug}`}
       className="sidebar-card dashboard-sidebar-card"
       style={{
-        marginTop: 8,
         textDecoration: "none",
         color: "inherit",
         cursor: "pointer",
@@ -657,7 +653,6 @@ export default function Home() {
   <div
     className="sidebar-card premium-sidebar-card"
     style={{
-      marginTop: 8,
       padding: "14px 16px",
       borderRadius: 20,
       background:
@@ -674,13 +669,7 @@ export default function Home() {
         marginBottom: 6,
       }}
     >
-      <span
-        style={{
-          fontSize: 18,
-        }}
-      >
-        👑
-      </span>
+      <span style={{ fontSize: 18 }}>👑</span>
       <span
         style={{
           fontSize: 14,
@@ -690,6 +679,7 @@ export default function Home() {
         Go Premium
       </span>
     </div>
+
     <div
       style={{
         fontSize: 12,
@@ -701,6 +691,7 @@ export default function Home() {
       Unlock advanced analytics, boosted visibility, and premium perks for
       your profile and organization.
     </div>
+
     <div
       style={{
         fontSize: 11,
@@ -727,7 +718,7 @@ export default function Home() {
     }}
   />
 
-  {/* BOTTOM: SOCIAL + BRAND + COPYRIGHT */}
+  {/* BOTTOM: SOCIAL + LOGO + COPYRIGHT */}
   <div
     style={{
       marginTop: "auto",
@@ -737,7 +728,7 @@ export default function Home() {
       gap: 8,
     }}
   >
-    {/* Icons row */}
+    {/* Social icons */}
     <div
       style={{
         display: "flex",
@@ -746,7 +737,6 @@ export default function Home() {
         alignItems: "center",
       }}
     >
-      {/* Email */}
       <a
         href="mailto:info@quantum5ocial.com"
         target="_blank"
@@ -757,7 +747,6 @@ export default function Home() {
         ✉️
       </a>
 
-      {/* X (placeholder, link later) */}
       <a
         href="#"
         target="_blank"
@@ -768,7 +757,6 @@ export default function Home() {
         𝕏
       </a>
 
-      {/* LinkedIn (placeholder, link later) */}
       <a
         href="#"
         target="_blank"
