@@ -430,7 +430,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* NEW: location (city, country) if available */}
+        {/* Location (city, country) if available */}
         {(profileSummary as any)?.city ||
         (profileSummary as any)?.country ? (
           <div
@@ -450,95 +450,99 @@ export default function Home() {
   </Link>
 
   {/* Quick dashboard card – rows individually clickable */}
-<div className="sidebar-card dashboard-sidebar-card">
-  <div className="dashboard-sidebar-title">Quick dashboard</div>
-
   <div
-    className="dashboard-sidebar-links"
-    style={{
-      marginTop: 8,
-      display: "flex",
-      flexDirection: "column",
-      gap: 6,
-    }}
+    className="sidebar-card dashboard-sidebar-card"
+    style={{ marginTop: 16 }} // equal gap to profile + my org
   >
-    {/* Entanglements → entangled states page */}
-    <Link
-      href="/dashboard/entangled-states"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        textDecoration: "none",
-        color: "inherit",
-      }}
-    >
-      <span>Entanglements</span>
-      <span style={{ opacity: 0.9 }}>
-        {entangledCount === null ? "…" : entangledCount}
-      </span>
-    </Link>
+    <div className="dashboard-sidebar-title">Quick dashboard</div>
 
-    {/* Saved jobs */}
-    <Link
-      href="/dashboard/saved-jobs"
-      className="dashboard-sidebar-link"
+    <div
+      className="dashboard-sidebar-links"
       style={{
+        marginTop: 8,
         display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        textDecoration: "none",
-        color: "inherit",
+        flexDirection: "column",
+        gap: 6,
       }}
     >
-      <span>Saved jobs</span>
-      <span style={{ opacity: 0.9 }}>
-        {savedJobsCount === null ? "…" : savedJobsCount}
-      </span>
-    </Link>
-
-    {/* Saved products */}
-    <Link
-      href="/dashboard/saved-products"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        textDecoration: "none",
-        color: "inherit",
-      }}
-    >
-      <span>Saved products</span>
-      <span style={{ opacity: 0.9 }}>
-        {savedProductsCount === null ? "…" : savedProductsCount}
-      </span>
-    </Link>
-
-    {/* My Ecosystem → /ecosystem */}
-    <Link
-      href="/ecosystem"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        textDecoration: "none",
-        color: "inherit",
-      }}
-    >
-      <span>My Ecosystem</span>
-      <span
+      {/* Entanglements → entangled states page */}
+      <Link
+        href="/dashboard/entangled-states"
+        className="dashboard-sidebar-link"
         style={{
-          fontSize: 11,
-          opacity: 0.8,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          textDecoration: "none",
+          color: "inherit",
         }}
       >
-      </span>
-    </Link>
+        <span>Entanglements</span>
+        <span style={{ opacity: 0.9 }}>
+          {entangledCount === null ? "…" : entangledCount}
+        </span>
+      </Link>
+
+      {/* Saved jobs */}
+      <Link
+        href="/dashboard/saved-jobs"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          textDecoration: "none",
+          color: "inherit",
+        }}
+      >
+        <span>Saved jobs</span>
+        <span style={{ opacity: 0.9 }}>
+          {savedJobsCount === null ? "…" : savedJobsCount}
+        </span>
+      </Link>
+
+      {/* Saved products */}
+      <Link
+        href="/dashboard/saved-products"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          textDecoration: "none",
+          color: "inherit",
+        }}
+      >
+        <span>Saved products</span>
+        <span style={{ opacity: 0.9 }}>
+          {savedProductsCount === null ? "…" : savedProductsCount}
+        </span>
+      </Link>
+
+      {/* My Ecosystem → /ecosystem */}
+      <Link
+        href="/ecosystem"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          textDecoration: "none",
+          color: "inherit",
+        }}
+      >
+        <span>My Ecosystem</span>
+        <span
+          style={{
+            fontSize: 11,
+            opacity: 0.8,
+          }}
+        >
+          {/* optional mini hint later */}
+        </span>
+      </Link>
+    </div>
   </div>
-</div>
 
   {/* MY ORGANIZATION TILE – whole tile clickable → org page */}
   {user && !loadingMyOrg && myOrg && (
@@ -649,6 +653,69 @@ export default function Home() {
     </Link>
   )}
 
+  {/* GO PREMIUM CARD */}
+  <div
+    className="sidebar-card premium-sidebar-card"
+    style={{
+      marginTop: 16,
+      padding: "14px 16px",
+      borderRadius: 20,
+      background:
+        "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+      border: "1px solid rgba(251,191,36,0.5)",
+      boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        marginBottom: 6,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 18,
+        }}
+      >
+        👑
+      </span>
+      <span
+        style={{
+          fontSize: 14,
+          fontWeight: 600,
+        }}
+      >
+        Go Premium
+      </span>
+    </div>
+    <div
+      style={{
+        fontSize: 12,
+        color: "rgba(248,250,252,0.9)",
+        lineHeight: 1.5,
+        marginBottom: 10,
+      }}
+    >
+      Unlock advanced analytics, boosted visibility, and premium perks for
+      your profile and organization.
+    </div>
+    <div
+      style={{
+        fontSize: 11,
+        padding: "4px 10px",
+        borderRadius: 999,
+        background: "rgba(15,23,42,0.75)",
+        width: "fit-content",
+        border: "1px solid rgba(251,191,36,0.6)",
+        color: "rgba(251,191,36,0.9)",
+      }}
+    >
+      Coming soon
+    </div>
+  </div>
+
   {/* DIVIDER */}
   <div
     style={{
@@ -713,48 +780,30 @@ export default function Home() {
       </a>
     </div>
 
-    {/* Brand row */}
+    {/* Logo + copyright on same line */}
     <div
       style={{
         display: "flex",
         alignItems: "center",
         gap: 8,
+        fontSize: 12,
+        color: "rgba(148,163,184,0.9)",
       }}
     >
       <img
         src="/Q5_white_bg.png"
         alt="Quantum5ocial logo"
         style={{
-          width: 32,
-          height: 32,
+          width: 24,
+          height: 24,
           borderRadius: 4,
           objectFit: "contain",
         }}
       />
-      <span
-        style={{
-          fontSize: 14,
-          fontWeight: 500,
-          background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-        }}
-      >
-        Quantum5ocial
-      </span>
-    </div>
-
-    <div
-      style={{
-        fontSize: 12,
-        color: "rgba(148,163,184,0.9)",
-      }}
-    >
-      © 2025 Quantum5ocial
+      <span>© 2025 Quantum5ocial</span>
     </div>
   </div>
 </aside>
-
           
           {/* MIDDLE MAIN COLUMN */}
           <section className="layout-main">
