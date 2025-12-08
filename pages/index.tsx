@@ -452,7 +452,7 @@ export default function Home() {
   {/* Quick dashboard card – rows individually clickable */}
   <div
     className="sidebar-card dashboard-sidebar-card"
-    style={{ marginTop: 16 }} // equal gap to profile + my org
+    style={{ marginTop: 8 }} // equal gap to profile + my org
   >
     <div className="dashboard-sidebar-title">Quick dashboard</div>
 
@@ -550,7 +550,7 @@ export default function Home() {
       href={`/orgs/${myOrg.slug}`}
       className="sidebar-card dashboard-sidebar-card"
       style={{
-        marginTop: 16,
+        marginTop: 8,
         textDecoration: "none",
         color: "inherit",
         cursor: "pointer",
@@ -657,7 +657,7 @@ export default function Home() {
   <div
     className="sidebar-card premium-sidebar-card"
     style={{
-      marginTop: 16,
+      marginTop: 8,
       padding: "14px 16px",
       borderRadius: 20,
       background:
