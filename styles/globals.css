@@ -2724,15 +2724,31 @@ html.theme-light footer {
    3-COLUMN LAYOUT (ALREADY USED)
    =========================== */
 
+/* 3-column layout with a slim divider between left + middle */
 .layout-3col {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 260px;
-  gap: 24px;
+  grid-template-columns:
+    260px          /* left sidebar */
+    1px            /* vertical divider */
+    minmax(0, 1fr) /* middle content */
+    260px;         /* right sidebar */
+  column-gap: 24px;
+  align-items: flex-start;
+}
+
+/* the vertical line itself */
+.layout-divider {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
 }
 
 @media (max-width: 900px) {
   .layout-3col {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .layout-divider {
+    display: none;
   }
 
   .layout-left,
@@ -2759,6 +2775,7 @@ html.theme-light footer {
     margin-top: 24px;
   }
 }
+
 .hover-tile:hover {
   transform: translateY(-3px);
   border-color: rgba(148,163,184,0.45);
