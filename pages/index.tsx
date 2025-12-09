@@ -1181,19 +1181,7 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Copyright pinned at bottom of right column */}
-            <div
-              style={{
-                marginTop: "auto",
-                paddingTop: 12,
-                borderTop: "1px solid rgba(148,163,184,0.18)",
-                fontSize: 12,
-                color: "rgba(148,163,184,0.9)",
-                textAlign: "right",
-              }}
-            >
-              © 2025 Quantum5ocial
-            </div>
+        
           </aside>
         </main>
       </div>
