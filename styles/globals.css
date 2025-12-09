@@ -2743,42 +2743,46 @@ html.theme-light footer {
   position: sticky;
   top: 80px; /* just under navbar */
 }
-/* Vertical divider between left sidebar and middle column */
-.layout-main {
-  position: relative;
-}
-
-/* line sits halfway in the 24px gap (12px from the middle column) */
-.layout-main::before {
-  content: "";
-  position: absolute;
-  left: -12px;              /* half of the column gap */
-  top: 0;
+/* LEFT divider (keep your existing one) */
+.divider-left {
+  position: fixed;
+  top: 80px;              /* just below navbar */
   bottom: 0;
   width: 1px;
-  background: rgba(148, 163, 184, 0.28);
-  border-radius: 999px;
-  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.2),
+    rgba(148, 163, 184, 0.05)
+  );
+  /* midway in the gap between left column (260px) and middle column */
+  left: calc((100vw - 1320px) / 2 + 260px + 12px);
+  z-index: 0;
 }
-/* === Vertical Divider Between Middle & Right Column === */
+
+/* RIGHT divider – NEW */
 .divider-right {
   position: fixed;
-  top: 80px; /* same as sticky offset under navbar */
+  top: 80px;              /* same as left, runs full screen height */
   bottom: 0;
   width: 1px;
-  background: rgba(148, 163, 184, 0.28);
-  border-radius: 999px;
-  pointer-events: none;
-
-  /* place it halfway of the 24px gap: 12px to the left of right column */
-  left: calc(
-    (100vw - 1320px) / 2 +   /* center the layout */
-    260px +                 /* left column width */
-    24px +                  /* gap */
-    (100% - 260px - 280px - 24px - 260px) / 2 + /* middle column offset */
-    280px +                 /* middle column width */
-    12px                    /* mid-gap */
+  background: linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.2),
+    rgba(148, 163, 184, 0.05)
   );
+  /* midway in the gap between middle column and right column
+     260 (left) + 24 (gap) + 752 (middle) + 12 (half gap) = 1048
+  */
+  left: calc((100vw - 1320px) / 2 + 1048px);
+  z-index: 0;
+}
+
+/* Hide both dividers on smaller screens */
+@media (max-width: 900px) {
+  .divider-left,
+  .divider-right {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
