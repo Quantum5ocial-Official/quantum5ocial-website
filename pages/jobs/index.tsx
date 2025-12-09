@@ -7,6 +7,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
+import LeftSidebar from "../../components/LeftSidebar";
 
 type Job = {
   id: string;
@@ -27,6 +28,24 @@ type Job = {
   quantum_domain: string | null;
   role_track: string | null;
   seniority_level: string | null;
+};
+
+type ProfileSummary = {
+  full_name: string | null;
+  avatar_url: string | null;
+  education_level?: string | null;
+  describes_you?: string | null;
+  affiliation?: string | null;
+  highest_education?: string | null;
+  current_org?: string | null;
+};
+
+// Minimal org summary for sidebar tile
+type MyOrgSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
 };
 
 const EMPLOYMENT_FILTERS = [
@@ -110,6 +129,17 @@ export default function JobsIndexPage() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
 
+  // ==== LEFT SIDEBAR STATE (profile + counts + org) ====
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
+    null
+  );
+  const [entangledCount, setEntangledCount] = useState<number | null>(null);
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
+
   // ---- Load jobs ----
   useEffect(() => {
     const loadJobs = async () => {
@@ -135,11 +165,12 @@ export default function JobsIndexPage() {
     loadJobs();
   }, []);
 
-  // ---- Load saved jobs for current user ----
+  // ---- Load saved jobs for current user (ids + count) ----
   useEffect(() => {
     const loadSaved = async () => {
       if (!user) {
         setSavedJobIds([]);
+        setSavedJobsCount(null);
         return;
       }
 
@@ -153,10 +184,114 @@ export default function JobsIndexPage() {
         return;
       }
 
-      setSavedJobIds((data || []).map((row: any) => row.job_id as string));
+      const ids = (data || []).map((row: any) => row.job_id as string);
+      setSavedJobIds(ids);
+      setSavedJobsCount(ids.length);
     };
 
     loadSaved();
+  }, [user]);
+
+  // ---- Load saved products count + entangled count for sidebar ----
+  useEffect(() => {
+    const loadSidebarCounts = async () => {
+      if (!user) {
+        setSavedProductsCount(null);
+        setEntangledCount(null);
+        return;
+      }
+
+      try {
+        // Saved products
+        const { data: savedProdRows, error: savedProdErr } = await supabase
+          .from("saved_products")
+          .select("product_id")
+          .eq("user_id", user.id);
+
+        if (!savedProdErr && savedProdRows) {
+          setSavedProductsCount(savedProdRows.length);
+        } else {
+          setSavedProductsCount(0);
+        }
+
+        // Entangled states – unique "other" user ids
+        const { data: connRows, error: connErr } = await supabase
+          .from("connections")
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+        if (!connErr && connRows && connRows.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connRows.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
+          );
+          setEntangledCount(otherIds.length);
+        } else {
+          setEntangledCount(0);
+        }
+      } catch (e) {
+        console.error("Error loading sidebar counts", e);
+        setSavedProductsCount(0);
+        setEntangledCount(0);
+      }
+    };
+
+    loadSidebarCounts();
+  }, [user]);
+
+  // ---- Load current user profile for LeftSidebar ----
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  // ---- Load user's first organization for LeftSidebar ----
+  useEffect(() => {
+    const loadMyOrg = async () => {
+      if (!user) {
+        setMyOrg(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .eq("created_by", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMyOrg(data as MyOrgSummary);
+      } else {
+        setMyOrg(null);
+      }
+    };
+
+    loadMyOrg();
   }, [user]);
 
   const isSaved = (id: string) => savedJobIds.includes(id);
@@ -182,6 +317,7 @@ export default function JobsIndexPage() {
           console.error("Error unsaving job", error);
         } else {
           setSavedJobIds((prev) => prev.filter((id) => id !== jobId));
+          setSavedJobsCount((prev) => (prev !== null ? prev - 1 : prev));
         }
       } else {
         const { error } = await supabase.from("saved_jobs").insert({
@@ -193,6 +329,7 @@ export default function JobsIndexPage() {
           console.error("Error saving job", error);
         } else {
           setSavedJobIds((prev) => [...prev, jobId]);
+          setSavedJobsCount((prev) => (prev !== null ? prev + 1 : prev));
         }
       }
     } finally {
@@ -269,131 +406,15 @@ export default function JobsIndexPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT COLUMN – FILTERS ========== */}
-          <aside className="layout-left sticky-col">
-            <div className="sidebar-card">
-              {/* Employment type */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Employment type</div>
-                <select
-                  className="products-filters-input"
-                  value={employmentFilter}
-                  onChange={(e) => setEmploymentFilter(e.target.value)}
-                >
-                  {EMPLOYMENT_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Work mode */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Work mode</div>
-                <select
-                  className="products-filters-input"
-                  value={remoteFilter}
-                  onChange={(e) => setRemoteFilter(e.target.value)}
-                >
-                  {REMOTE_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Technology */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Technology type</div>
-                <select
-                  className="products-filters-input"
-                  value={technologyFilter}
-                  onChange={(e) => setTechnologyFilter(e.target.value)}
-                >
-                  {TECHNOLOGY_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Organisation */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Organisation</div>
-                <select
-                  className="products-filters-input"
-                  value={orgTypeFilter}
-                  onChange={(e) => setOrgTypeFilter(e.target.value)}
-                >
-                  {ORG_TYPE_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Domain */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Quantum domain</div>
-                <select
-                  className="products-filters-input"
-                  value={domainFilter}
-                  onChange={(e) => setDomainFilter(e.target.value)}
-                >
-                  {DOMAIN_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Role focus */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Role focus</div>
-                <select
-                  className="products-filters-input"
-                  value={roleTrackFilter}
-                  onChange={(e) => setRoleTrackFilter(e.target.value)}
-                >
-                  {ROLE_TRACK_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Seniority */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Seniority</div>
-                <select
-                  className="products-filters-input"
-                  value={seniorityFilter}
-                  onChange={(e) => setSeniorityFilter(e.target.value)}
-                >
-                  {SENIORITY_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="button"
-                className="nav-ghost-btn"
-                style={{ width: "100%", marginTop: 8 }}
-                onClick={resetFilters}
-              >
-                Reset filters
-              </button>
-            </div>
-          </aside>
+          {/* ========== LEFT COLUMN – PROFILE SIDEBAR (same component as homepage) ========== */}
+          <LeftSidebar
+            user={user}
+            profileSummary={profileSummary}
+            myOrg={myOrg}
+            entangledCount={entangledCount}
+            savedJobsCount={savedJobsCount}
+            savedProductsCount={savedProductsCount}
+          />
 
           {/* ========== MIDDLE COLUMN – JOBS LIST ========== */}
           <section className="layout-main">
@@ -729,8 +750,133 @@ export default function JobsIndexPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT COLUMN – HIGHLIGHTED TILES ========== */}
+          {/* ========== RIGHT COLUMN – FILTERS + HIGHLIGHTED TILES ========== */}
           <aside className="layout-right sticky-col">
+            {/* Filters moved here from left column */}
+            <div className="sidebar-card" style={{ marginBottom: 20 }}>
+              {/* Employment type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Employment type</div>
+                <select
+                  className="products-filters-input"
+                  value={employmentFilter}
+                  onChange={(e) => setEmploymentFilter(e.target.value)}
+                >
+                  {EMPLOYMENT_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Work mode */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Work mode</div>
+                <select
+                  className="products-filters-input"
+                  value={remoteFilter}
+                  onChange={(e) => setRemoteFilter(e.target.value)}
+                >
+                  {REMOTE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Technology */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Technology type</div>
+                <select
+                  className="products-filters-input"
+                  value={technologyFilter}
+                  onChange={(e) => setTechnologyFilter(e.target.value)}
+                >
+                  {TECHNOLOGY_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Organisation */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Organisation</div>
+                <select
+                  className="products-filters-input"
+                  value={orgTypeFilter}
+                  onChange={(e) => setOrgTypeFilter(e.target.value)}
+                >
+                  {ORG_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Domain */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Quantum domain</div>
+                <select
+                  className="products-filters-input"
+                  value={domainFilter}
+                  onChange={(e) => setDomainFilter(e.target.value)}
+                >
+                  {DOMAIN_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Role focus */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Role focus</div>
+                <select
+                  className="products-filters-input"
+                  value={roleTrackFilter}
+                  onChange={(e) => setRoleTrackFilter(e.target.value)}
+                >
+                  {ROLE_TRACK_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Seniority */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Seniority</div>
+                <select
+                  className="products-filters-input"
+                  value={seniorityFilter}
+                  onChange={(e) => setSeniorityFilter(e.target.value)}
+                >
+                  {SENIORITY_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                style={{ width: "100%", marginTop: 8 }}
+                onClick={resetFilters}
+              >
+                Reset filters
+              </button>
+            </div>
+
+            {/* Highlight tiles (same as before, now under filters) */}
             <div className="hero-tiles hero-tiles-vertical">
               {/* Quantum roles spotlight */}
               <div className="hero-tile">
