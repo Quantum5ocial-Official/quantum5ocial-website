@@ -2760,22 +2760,27 @@ html.theme-light footer {
   border-radius: 999px;
   pointer-events: none;
 }
-/* Vertical divider between middle column and right sidebar */
-.layout-right {
-  position: relative;
-}
-
-.layout-right::before {
-  content: "";
-  position: absolute;
-  left: -12px;              /* half of the 24px column gap */
-  top: 0;
+/* === Vertical Divider Between Middle & Right Column === */
+.divider-right {
+  position: fixed;
+  top: 80px; /* same as sticky offset under navbar */
   bottom: 0;
   width: 1px;
   background: rgba(148, 163, 184, 0.28);
   border-radius: 999px;
   pointer-events: none;
+
+  /* place it halfway of the 24px gap: 12px to the left of right column */
+  left: calc(
+    (100vw - 1320px) / 2 +   /* center the layout */
+    260px +                 /* left column width */
+    24px +                  /* gap */
+    (100% - 260px - 280px - 24px - 260px) / 2 + /* middle column offset */
+    280px +                 /* middle column width */
+    12px                    /* mid-gap */
+  );
 }
+
 @media (max-width: 900px) {
   .layout-3col {
     display: block;
