@@ -376,24 +376,17 @@ export default function Home() {
   className="layout-left sticky-col"
   style={{ display: "flex", flexDirection: "column" }}
 >
-  {/* PROFILE CARD – clickable → profile page */}
+
+  {/* PROFILE CARD → /profile */}
   <Link
     href="/profile"
     className="sidebar-card profile-sidebar-card"
-    style={{
-      textDecoration: "none",
-      color: "inherit",
-      cursor: "pointer",
-    }}
+    style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
   >
     <div className="profile-sidebar-header">
       <div className="profile-sidebar-avatar-wrapper">
         {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={sidebarFullName}
-            className="profile-sidebar-avatar"
-          />
+          <img src={avatarUrl} alt={sidebarFullName} className="profile-sidebar-avatar" />
         ) : (
           <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
             {sidebarFullName.charAt(0).toUpperCase()}
@@ -403,166 +396,70 @@ export default function Home() {
       <div className="profile-sidebar-name">{sidebarFullName}</div>
     </div>
 
-    {/* Education / Role / Affiliation / Location */}
-    {hasProfileExtraInfo ||
-    (profileSummary as any)?.city ||
-    (profileSummary as any)?.country ? (
+    {(hasProfileExtraInfo || (profileSummary as any)?.city || (profileSummary as any)?.country) && (
       <div className="profile-sidebar-info-block">
-        {educationLevel && (
-          <div className="profile-sidebar-info-value">
-            {educationLevel}
-          </div>
-        )}
-
+        {educationLevel && <div className="profile-sidebar-info-value">{educationLevel}</div>}
         {describesYou && (
-          <div
-            className="profile-sidebar-info-value"
-            style={{ marginTop: 4 }}
-          >
+          <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
             {describesYou}
           </div>
         )}
-
         {affiliation && (
-          <div
-            className="profile-sidebar-info-value"
-            style={{ marginTop: 4 }}
-          >
+          <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
             {affiliation}
           </div>
         )}
-
-        {/* Location (city, country) if available */}
-        {(profileSummary as any)?.city ||
-        (profileSummary as any)?.country ? (
-          <div
-            className="profile-sidebar-info-value"
-            style={{ marginTop: 4, opacity: 0.9 }}
-          >
-            {[
-              (profileSummary as any)?.city,
-              (profileSummary as any)?.country,
-            ]
+        {(profileSummary as any)?.city || (profileSummary as any)?.country ? (
+          <div className="profile-sidebar-info-value" style={{ marginTop: 4, opacity: 0.9 }}>
+            {[(profileSummary as any)?.city, (profileSummary as any)?.country]
               .filter(Boolean)
               .join(", ")}
           </div>
         ) : null}
       </div>
-    ) : null}
+    )}
   </Link>
 
-  {/* Quick dashboard – rows individually clickable */}
-  <div className="sidebar-card dashboard-sidebar-card">
+  {/* QUICK DASHBOARD CARD */}
+  <div className="sidebar-card dashboard-sidebar-card" style={{ marginTop: 8 }}>
     <div className="dashboard-sidebar-title">Quick dashboard</div>
 
-    <div
-      className="dashboard-sidebar-links"
-      style={{
-        marginTop: 8,
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
-    >
-      {/* Entanglements → entangled states page */}
-      <Link
-        href="/dashboard/entangled-states"
-        className="dashboard-sidebar-link"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
+    <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
+      <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
+        style={{ display: "flex", justifyContent: "space-between" }}>
         <span>Entanglements</span>
-        <span style={{ opacity: 0.9 }}>
-          {entangledCount === null ? "…" : entangledCount}
-        </span>
+        <span style={{ opacity: 0.9 }}>{entangledCount ?? "…"}</span>
       </Link>
 
-      {/* Saved jobs */}
-      <Link
-        href="/dashboard/saved-jobs"
-        className="dashboard-sidebar-link"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
+      <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
+        style={{ display: "flex", justifyContent: "space-between" }}>
         <span>Saved jobs</span>
-        <span style={{ opacity: 0.9 }}>
-          {savedJobsCount === null ? "…" : savedJobsCount}
-        </span>
+        <span style={{ opacity: 0.9 }}>{savedJobsCount ?? "…"}</span>
       </Link>
 
-      {/* Saved products */}
-      <Link
-        href="/dashboard/saved-products"
-        className="dashboard-sidebar-link"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
+      <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
+        style={{ display: "flex", justifyContent: "space-between" }}>
         <span>Saved products</span>
-        <span style={{ opacity: 0.9 }}>
-          {savedProductsCount === null ? "…" : savedProductsCount}
-        </span>
+        <span style={{ opacity: 0.9 }}>{savedProductsCount ?? "…"}</span>
       </Link>
 
-      {/* My Ecosystem → /ecosystem */}
-      <Link
-        href="/ecosystem"
-        className="dashboard-sidebar-link"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          textDecoration: "none",
-          color: "inherit",
-        }}
-      >
+      <Link href="/ecosystem" className="dashboard-sidebar-link"
+        style={{ display: "flex", justifyContent: "space-between" }}>
         <span>My Ecosystem</span>
-        <span
-          style={{
-            fontSize: 11,
-            opacity: 0.8,
-          }}
-        />
       </Link>
     </div>
   </div>
 
-  {/* MY ORGANIZATION – whole tile clickable → org page */}
+  {/* MY ORGANIZATION CARD */}
   {user && !loadingMyOrg && myOrg && (
     <Link
       href={`/orgs/${myOrg.slug}`}
       className="sidebar-card dashboard-sidebar-card"
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-        cursor: "pointer",
-        display: "block",
-      }}
+      style={{ marginTop: 8, textDecoration: "none", color: "inherit" }}
     >
       <div className="dashboard-sidebar-title">My organization</div>
 
-      <div
-        style={{
-          marginTop: 10,
-          display: "flex",
-          gap: 12,
-          alignItems: "center",
-        }}
-      >
+      <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
         {/* Logo */}
         <div
           style={{
@@ -570,126 +467,59 @@ export default function Home() {
             height: 48,
             borderRadius: 14,
             overflow: "hidden",
-            flexShrink: 0,
             border: "1px solid rgba(148,163,184,0.45)",
             background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#0f172a",
-            fontWeight: 700,
-            fontSize: 18,
           }}
         >
           {myOrg.logo_url ? (
             <img
               src={myOrg.logo_url}
               alt={myOrg.name}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
             myOrg.name.charAt(0).toUpperCase()
           )}
         </div>
 
-        {/* Text / stats */}
+        {/* Name + stats */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 15,
-              fontWeight: 500,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden" }}>
             {myOrg.name}
           </div>
 
-          <div
-            style={{
-              fontSize: 13,
-              color: "rgba(148,163,184,0.95)",
-              marginTop: 4,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            <div>
-              Followers:{" "}
-              <span style={{ color: "#e5e7eb" }}>
-                0{/* TODO: replace with real count */}
-              </span>
-            </div>
-            <div>
-              Views:{" "}
-              <span style={{ color: "#e5e7eb" }}>
-                0{/* TODO: replace with real count */}
-              </span>
-            </div>
-            <div style={{ marginTop: 4 }}>
-              <span
-                style={{
-                  color: "#7dd3fc",
-                  textDecoration: "none",
-                }}
-              >
-                Analytics →
-              </span>
-            </div>
+          <div style={{ marginTop: 4, fontSize: 13, color: "rgba(148,163,184,0.95)" }}>
+            <div>Followers: <span style={{ color: "#e5e7eb" }}>0</span></div>
+            <div>Views: <span style={{ color: "#e5e7eb" }}>0</span></div>
+            <div style={{ marginTop: 4, color: "#7dd3fc" }}>Analytics →</div>
           </div>
         </div>
       </div>
     </Link>
   )}
 
-  {/* GO PREMIUM CARD */}
+  {/* PREMIUM CARD */}
   <div
     className="sidebar-card premium-sidebar-card"
     style={{
+      marginTop: 8,
       padding: "14px 16px",
       borderRadius: 20,
-      background:
-        "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+      background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
       border: "1px solid rgba(251,191,36,0.5)",
       boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
     }}
   >
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        marginBottom: 6,
-      }}
-    >
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
       <span style={{ fontSize: 18 }}>👑</span>
-      <span
-        style={{
-          fontSize: 14,
-          fontWeight: 600,
-        }}
-      >
-        Go Premium
-      </span>
+      <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
     </div>
 
-    <div
-      style={{
-        fontSize: 12,
-        color: "rgba(248,250,252,0.9)",
-        lineHeight: 1.5,
-        marginBottom: 6,
-      }}
-    >
-      Unlock advanced analytics, boosted visibility, and premium perks for
-      your profile and organization.
+    <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.5, marginBottom: 10 }}>
+      Unlock advanced analytics, visibility boosts, and premium perks.
     </div>
 
     <div
@@ -713,83 +543,28 @@ export default function Home() {
       width: "100%",
       height: 1,
       background: "rgba(148,163,184,0.18)",
-      marginTop: 10,
+      marginTop: 8,       // reduced spacing
       marginBottom: 6,
     }}
   />
 
-  {/* BOTTOM: SOCIAL + LOGO + COPYRIGHT */}
-  <div
-    style={{
-      marginTop: "auto",
-      paddingTop: 8,
-      display: "flex",
-      flexDirection: "column",
-      gap: 8,
-    }}
-  >
+  {/* BOTTOM ICONS + LOGO + COPYRIGHT */}
+  <div style={{ marginTop: "auto", paddingTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+
     {/* Social icons */}
-    <div
-      style={{
-        display: "flex",
-        gap: 12,
-        fontSize: 18,
-        alignItems: "center",
-      }}
-    >
-      <a
-        href="mailto:info@quantum5ocial.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Email Quantum5ocial"
-        style={{ color: "rgba(148,163,184,0.9)" }}
-      >
-        ✉️
-      </a>
-
-      <a
-        href="#"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Quantum5ocial on X"
-        style={{ color: "rgba(148,163,184,0.9)" }}
-      >
-        𝕏
-      </a>
-
-      <a
-        href="#"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Quantum5ocial on LinkedIn"
-        style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}
-      >
-        in
-      </a>
+    <div style={{ display: "flex", gap: 12, fontSize: 18, alignItems: "center" }}>
+      <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
+      <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
+      <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
     </div>
 
-    {/* Logo + copyright on same line */}
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        fontSize: 12,
-        color: "rgba(148,163,184,0.9)",
-      }}
-    >
-      <img
-        src="/Q5_white_bg.png"
-        alt="Quantum5ocial logo"
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: 4,
-          objectFit: "contain",
-        }}
-      />
+    {/* Logo + © */}
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
+      <img src="/Q5_white_bg.png" alt="Quantum5ocial logo"
+        style={{ width: 24, height: 24, borderRadius: 4, objectFit: "contain" }} />
       <span>© 2025 Quantum5ocial</span>
     </div>
+
   </div>
 </aside>
           
