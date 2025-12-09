@@ -2764,4 +2764,7 @@ html.theme-light footer {
   border-color: rgba(148,163,184,0.45);
   box-shadow: 0 20px 50px rgba(0,0,0,0.55);
 }
-
+.layout-left {
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(1px);
+}
