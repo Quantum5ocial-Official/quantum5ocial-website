@@ -8,7 +8,7 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
-// Sidebar profile summary
+// Sidebar profile summary (aligned with homepage/community)
 type ProfileSummary = {
   id: string;
   full_name: string | null;
@@ -20,6 +20,14 @@ type ProfileSummary = {
   current_org: string | null;
   country: string | null;
   city: string | null;
+};
+
+// Minimal org summary for sidebar tile
+type MyOrgSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
 };
 
 // Connection row (pending / accepted / declined)
@@ -54,7 +62,7 @@ type RecentEntanglement = {
   connectionId: string;
   created_at: string | null;
   status: "accepted" | "declined" | "rejected";
-  isSender: boolean;          // is *current* user the one who sent the request?
+  isSender: boolean; // is *current* user the one who sent the request?
   otherUser: UserProfile;
 };
 
@@ -62,6 +70,7 @@ export default function NotificationsPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
+  // Sidebar state
   const [sidebarProfile, setSidebarProfile] = useState<ProfileSummary | null>(
     null
   );
@@ -71,6 +80,11 @@ export default function NotificationsPage() {
   );
   const [entangledCount, setEntangledCount] = useState<number | null>(null);
 
+  // My organization for sidebar tile
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
+  const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
+
+  // Notifications data
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState<string | null>(null);
@@ -184,6 +198,39 @@ export default function NotificationsPage() {
     loadSidebar();
   }, [user]);
 
+  // Load FIRST organization created by this user for sidebar tile
+  useEffect(() => {
+    const loadMyOrg = async () => {
+      if (!user) {
+        setMyOrg(null);
+        setLoadingMyOrg(false);
+        return;
+      }
+
+      setLoadingMyOrg(true);
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .eq("created_by", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMyOrg(data as MyOrgSummary);
+      } else {
+        setMyOrg(null);
+        if (error) {
+          console.error("Error loading my organization for sidebar", error);
+        }
+      }
+      setLoadingMyOrg(false);
+    };
+
+    loadMyOrg();
+  }, [user]);
+
   // Load pending requests (status=pending where current user is target)
   useEffect(() => {
     const loadPendingRequests = async () => {
@@ -257,93 +304,93 @@ export default function NotificationsPage() {
   }, [user]);
 
   // Load recent entanglements (accepted + declined where current user is either side)
-useEffect(() => {
-  const loadEntanglements = async () => {
-    if (!user) {
-      setRecentEntanglements([]);
-      setLoadingEntanglements(false);
-      return;
-    }
-
-    setLoadingEntanglements(true);
-
-    try {
-      const { data: connRows, error: connErr } = await supabase
-        .from("connections")
-        .select("id, user_id, target_user_id, status, created_at")
-        .in("status", ["accepted", "declined", "rejected"])
-        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      if (connErr) throw connErr;
-      if (!connRows || connRows.length === 0) {
+  useEffect(() => {
+    const loadEntanglements = async () => {
+      if (!user) {
         setRecentEntanglements([]);
+        setLoadingEntanglements(false);
         return;
       }
 
-      const rows = connRows as ConnectionRow[];
+      setLoadingEntanglements(true);
 
-      // figure out whom to load profiles for
-      const otherIdByConnection: Record<string, string> = {};
-      const isSenderByConnection: Record<string, boolean> = {};
-      const otherIdsSet = new Set<string>();
+      try {
+        const { data: connRows, error: connErr } = await supabase
+          .from("connections")
+          .select("id, user_id, target_user_id, status, created_at")
+          .in("status", ["accepted", "declined", "rejected"])
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
+          .order("created_at", { ascending: false })
+          .limit(30);
 
-      rows.forEach((c) => {
-        const isSender = c.user_id === user.id;
-        const otherId = isSender ? c.target_user_id : c.user_id;
-        isSenderByConnection[c.id] = isSender;
-        otherIdByConnection[c.id] = otherId;
-        otherIdsSet.add(otherId);
-      });
+        if (connErr) throw connErr;
+        if (!connRows || connRows.length === 0) {
+          setRecentEntanglements([]);
+          return;
+        }
 
-      const otherIds = Array.from(otherIdsSet);
+        const rows = connRows as ConnectionRow[];
 
-      const { data: otherProfiles, error: profErr } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, country, city"
-        )
-        .in("id", otherIds);
+        // figure out whom to load profiles for
+        const otherIdByConnection: Record<string, string> = {};
+        const isSenderByConnection: Record<string, boolean> = {};
+        const otherIdsSet = new Set<string>();
 
-      if (profErr) throw profErr;
+        rows.forEach((c) => {
+          const isSender = c.user_id === user.id;
+          const otherId = isSender ? c.target_user_id : c.user_id;
+          isSenderByConnection[c.id] = isSender;
+          otherIdByConnection[c.id] = otherId;
+          otherIdsSet.add(otherId);
+        });
 
-      const profilesById: Record<string, UserProfile> = {};
-      (otherProfiles || []).forEach((p: any) => {
-        profilesById[p.id] = p as UserProfile;
-      });
+        const otherIds = Array.from(otherIdsSet);
 
-      const entanglements: RecentEntanglement[] = rows
-        .map((c) => {
-          const otherId = otherIdByConnection[c.id];
-          const otherUser = profilesById[otherId];
-          if (!otherUser) return null;
+        const { data: otherProfiles, error: profErr } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, country, city"
+          )
+          .in("id", otherIds);
 
-          const status =
-            (c.status as "accepted" | "declined" | "rejected") || "accepted";
+        if (profErr) throw profErr;
 
-          return {
-            connectionId: c.id,
-            created_at: c.created_at,
-            status,
-            isSender: isSenderByConnection[c.id],
-            otherUser,
-          };
-        })
-        .filter(Boolean) as RecentEntanglement[];
+        const profilesById: Record<string, UserProfile> = {};
+        (otherProfiles || []).forEach((p: any) => {
+          profilesById[p.id] = p as UserProfile;
+        });
 
-      setRecentEntanglements(entanglements);
-    } catch (e) {
-      console.error("Error loading entanglements", e);
-      setRecentEntanglements([]);
-    } finally {
-      setLoadingEntanglements(false);
-    }
-  };
+        const entanglements: RecentEntanglement[] = rows
+          .map((c) => {
+            const otherId = otherIdByConnection[c.id];
+            const otherUser = profilesById[otherId];
+            if (!otherUser) return null;
 
-  loadEntanglements();
-}, [user]);
-  
+            const status =
+              (c.status as "accepted" | "declined" | "rejected") || "accepted";
+
+            return {
+              connectionId: c.id,
+              created_at: c.created_at,
+              status,
+              isSender: isSenderByConnection[c.id],
+              otherUser,
+            };
+          })
+          .filter(Boolean) as RecentEntanglement[];
+
+        setRecentEntanglements(entanglements);
+      } catch (e) {
+        console.error("Error loading entanglements", e);
+        setRecentEntanglements([]);
+      } finally {
+        setLoadingEntanglements(false);
+      }
+    };
+
+    loadEntanglements();
+  }, [user]);
+
   const isActionLoading = (connectionId: string) =>
     actionLoadingIds.includes(connectionId);
 
@@ -419,9 +466,6 @@ useEffect(() => {
           prev.filter((r) => r.connectionId !== connectionId)
         );
 
-        // If the status='declined' update succeeded, the sender will later
-        // see: "Your entanglement request has been declined by X".
-        // For you (decliner), show in your recent list right away:
         if (sender) {
           setRecentEntanglements((prev) => [
             {
@@ -446,14 +490,16 @@ useEffect(() => {
 
   if (!user && !loading) return null;
 
-  // Sidebar helpers
+  // Sidebar helpers (same pattern as community/homepage)
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
     (user as any)?.email?.split("@")[0] ||
     "User";
 
-  const sidebarName = sidebarProfile?.full_name || fallbackName || "Your profile";
+  const sidebarFullName =
+    sidebarProfile?.full_name || fallbackName || "Your profile";
+
   const avatarUrl = sidebarProfile?.avatar_url || null;
   const educationLevel = sidebarProfile?.highest_education || "";
   const describesYou =
@@ -461,9 +507,7 @@ useEffect(() => {
   const affiliation =
     sidebarProfile?.affiliation ||
     sidebarProfile?.current_org ||
-    [sidebarProfile?.city, sidebarProfile?.country]
-      .filter(Boolean)
-      .join(", ");
+    [sidebarProfile?.city, sidebarProfile?.country].filter(Boolean).join(", ");
 
   const hasProfileExtraInfo =
     Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
@@ -489,12 +533,17 @@ useEffect(() => {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR */}
+          {/* LEFT SIDEBAR – same as homepage/community */}
           <aside
             className="layout-left sticky-col"
-            style={{ display: "flex", flexDirection: "column" }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              borderRight: "1px solid rgba(148,163,184,0.18)", // vertical divider
+              paddingRight: 16,
+            }}
           >
-            {/* Profile card */}
+            {/* Profile card – clickable */}
             <Link
               href="/profile"
               className="sidebar-card profile-sidebar-card"
@@ -509,28 +558,16 @@ useEffect(() => {
                   {avatarUrl ? (
                     <img
                       src={avatarUrl}
-                      alt={sidebarName}
+                      alt={sidebarFullName}
                       className="profile-sidebar-avatar"
                     />
                   ) : (
                     <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarName
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()}
+                      {sidebarFullName.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
-                <div className="profile-sidebar-title-block">
-                  <div className="profile-sidebar-name">{sidebarName}</div>
-                  {sidebarProfile?.role && (
-                    <div className="profile-sidebar-role">
-                      {sidebarProfile.role}
-                    </div>
-                  )}
-                </div>
+                <div className="profile-sidebar-name">{sidebarFullName}</div>
               </div>
 
               {hasProfileExtraInfo && (
@@ -584,6 +621,231 @@ useEffect(() => {
                 </Link>
               </div>
             </div>
+
+            {/* My organization tile */}
+            {user && !loadingMyOrg && myOrg && (
+              <div
+                className="sidebar-card dashboard-sidebar-card"
+                style={{ marginTop: 16 }}
+              >
+                <div className="dashboard-sidebar-title">My organization</div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {/* Logo + name row */}
+                  <Link
+                    href={`/orgs/${myOrg.slug}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        border: "1px solid rgba(148,163,184,0.45)",
+                        background:
+                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        fontSize: 18,
+                      }}
+                    >
+                      {myOrg.logo_url ? (
+                        <img
+                          src={myOrg.logo_url}
+                          alt={myOrg.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        myOrg.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {myOrg.name}
+                    </div>
+                  </Link>
+
+                  {/* Simple stats (placeholder) */}
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "rgba(148,163,184,0.95)",
+                      marginTop: 4,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                  >
+                    <div>
+                      Followers:{" "}
+                      <span style={{ color: "#e5e7eb" }}>0</span>
+                    </div>
+                    <div>
+                      Views:{" "}
+                      <span style={{ color: "#e5e7eb" }}>0</span>
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <Link
+                        href="/dashboard/my-organizations"
+                        style={{
+                          color: "#7dd3fc",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Analytics →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Social icons + brand logo/name */}
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 16,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              {/* Icons row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  fontSize: 18,
+                  alignItems: "center",
+                }}
+              >
+                {/* Email */}
+                <a
+                  href="mailto:info@quantum5ocial.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Email Quantum5ocial"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
+                    <polyline points="3 7 12 13 21 7" />
+                  </svg>
+                </a>
+
+                {/* X icon */}
+                <a
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Quantum5ocial on X"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4l8 9.5L20 4" />
+                    <path d="M4 20l6.5-7.5L20 20" />
+                  </svg>
+                </a>
+
+                {/* GitHub */}
+                <a
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Quantum5ocial on GitHub"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
+                  </svg>
+                </a>
+              </div>
+
+              {/* Brand row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <img
+                  src="/Q5_white_bg.png"
+                  alt="Quantum5ocial logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 4,
+                    objectFit: "contain",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Quantum5ocial
+                </span>
+              </div>
+            </div>
           </aside>
 
           {/* CENTER – NOTIFICATIONS */}
@@ -597,8 +859,15 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* PENDING REQUESTS */}
-            <div style={{ marginBottom: 24 }}>
+            {/* PENDING REQUESTS – wrapped in its own card block */}
+            <div
+              className="card"
+              style={{
+                marginBottom: 20,
+                padding: 16,
+                borderRadius: 18,
+              }}
+            >
               <div
                 className="section-subtitle"
                 style={{ marginBottom: 8 }}
@@ -635,6 +904,7 @@ useEffect(() => {
                       display: "flex",
                       flexDirection: "column",
                       gap: 16,
+                      marginTop: 4,
                     }}
                   >
                     {pendingRequests.map(({ connectionId, sender }) => {
@@ -857,8 +1127,14 @@ useEffect(() => {
                 )}
             </div>
 
-            {/* RECENT ENTANGLEMENTS */}
-            <div>
+            {/* RECENT ENTANGLEMENTS – separate card block */}
+            <div
+              className="card"
+              style={{
+                padding: 16,
+                borderRadius: 18,
+              }}
+            >
               <div
                 className="section-subtitle"
                 style={{ marginBottom: 8 }}
@@ -867,7 +1143,9 @@ useEffect(() => {
               </div>
 
               {loadingEntanglements && (
-                <p className="profile-muted">Loading your entangled states…</p>
+                <p className="profile-muted">
+                  Loading your entangled states…
+                </p>
               )}
 
               {!loadingEntanglements &&
@@ -885,114 +1163,130 @@ useEffect(() => {
                       display: "flex",
                       flexDirection: "column",
                       gap: 10,
+                      marginTop: 4,
                     }}
                   >
                     {recentEntanglements.map(
-  ({ connectionId, otherUser, created_at, status, isSender }) => {
-    const name = otherUser.full_name || "Quantum5ocial member";
-    const initials = name
-      .split(" ")
-      .map((p) => p[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-    const when = formatDateTime(created_at);
+                      ({
+                        connectionId,
+                        otherUser,
+                        created_at,
+                        status,
+                        isSender,
+                      }) => {
+                        const name =
+                          otherUser.full_name || "Quantum5ocial member";
+                        const initials = name
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase();
+                        const when = formatDateTime(created_at);
 
-    let message: string;
+                        let message: string;
 
-    if (status === "accepted") {
-      // same as before
-      message = `You are now entangled with ${name}`;
-    } else if (status === "declined" || status === "rejected") {
-      if (isSender) {
-        // you sent the request, they declined
-        message = `Your entanglement request has been declined by ${name}`;
-      } else {
-        // they sent the request, you declined
-        message = `You declined the entanglement request from ${name}`;
-      }
-    } else {
-      message = `Entanglement activity with ${name}`;
-    }
+                        if (status === "accepted") {
+                          message = `You are now entangled with ${name}`;
+                        } else if (
+                          status === "declined" ||
+                          status === "rejected"
+                        ) {
+                          if (isSender) {
+                            message = `Your entanglement request has been declined by ${name}`;
+                          } else {
+                            message = `You declined the entanglement request from ${name}`;
+                          }
+                        } else {
+                          message = `Entanglement activity with ${name}`;
+                        }
 
-    return (
-      <div
-        key={`ent-${connectionId}`}
-        className="card"
-        style={{
-          padding: 10,
-          borderRadius: 12,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "999px",
-              overflow: "hidden",
-              flexShrink: 0,
-              background:
-                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 13,
-              color: "#e5e7eb",
-              fontWeight: 600,
-            }}
-          >
-            {otherUser.avatar_url ? (
-              <img
-                src={otherUser.avatar_url}
-                alt={name}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
-                }}
-              />
-            ) : (
-              initials
-            )}
-          </div>
-          <div style={{ fontSize: 13 }}>
-            <span style={{ opacity: 0.9 }}>{message}</span>
-          </div>
-        </div>
-        {when && (
-          <div
-            style={{
-              fontSize: 11,
-              color: "rgba(148,163,184,0.95)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {when}
-          </div>
-        )}
-      </div>
-    );
-  }
-)}
+                        return (
+                          <div
+                            key={`ent-${connectionId}`}
+                            className="card"
+                            style={{
+                              padding: 10,
+                              borderRadius: 12,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: "999px",
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  background:
+                                    "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 13,
+                                  color: "#e5e7eb",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {otherUser.avatar_url ? (
+                                  <img
+                                    src={otherUser.avatar_url}
+                                    alt={name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block",
+                                    }}
+                                  />
+                                ) : (
+                                  initials
+                                )}
+                              </div>
+                              <div style={{ fontSize: 13 }}>
+                                <span style={{ opacity: 0.9 }}>
+                                  {message}
+                                </span>
+                              </div>
+                            </div>
+                            {when && (
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.95)",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {when}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                    )}
                   </div>
                 )}
             </div>
           </section>
 
-          {/* RIGHT COLUMN – empty for now */}
-          <aside className="layout-right" />
+          {/* RIGHT COLUMN – with subtle divider to the middle */}
+          <aside
+            className="layout-right"
+            style={{
+              borderLeft: "1px solid rgba(148,163,184,0.18)", // vertical divider on right
+              paddingLeft: 16,
+            }}
+          />
         </main>
       </div>
     </>
