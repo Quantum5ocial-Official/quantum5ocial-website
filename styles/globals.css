@@ -2743,16 +2743,30 @@ html.theme-light footer {
   position: sticky;
   top: 80px; /* just under navbar */
 }
-/* Vertical divider between left sidebar and middle column */
+
+/* Middle column: host vertical dividers */
 .layout-main {
   position: relative;
 }
 
-/* line sits halfway in the 24px gap (12px from the middle column) */
+/* LEFT divider – halfway in the 24px gap (12px from middle column) */
 .layout-main::before {
   content: "";
   position: absolute;
   left: -12px;              /* half of the column gap */
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+/* RIGHT divider – halfway in the 24px gap (12px from middle column) */
+.layout-main::after {
+  content: "";
+  position: absolute;
+  right: -12px;             /* half of the column gap */
   top: 0;
   bottom: 0;
   width: 1px;
@@ -2766,8 +2780,10 @@ html.theme-light footer {
     display: block;
   }
 
-  .layout-main::before {
-    display: none; /* hide divider on small screens */
+  /* hide both dividers on small screens */
+  .layout-main::before,
+  .layout-main::after {
+    display: none;
   }
 
   .layout-left,
@@ -2793,10 +2809,12 @@ html.theme-light footer {
     order: 3;
     margin-top: 24px;
   }
+
   .layout-right::before {
-  display: none;
+    display: none;
+  }
 }
-}
+
 .hover-tile:hover {
   transform: translateY(-3px);
   border-color: rgba(148,163,184,0.45);
