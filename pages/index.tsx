@@ -374,19 +374,31 @@ export default function Home() {
           {/* LEFT SIDEBAR */}
 <aside
   className="layout-left sticky-col"
-  style={{ display: "flex", flexDirection: "column" }}
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    gap: 6, // uniform spacing between all sidebar sections
+  }}
 >
 
-  {/* PROFILE CARD → /profile */}
+  {/* PROFILE CARD – clickable → profile page */}
   <Link
     href="/profile"
     className="sidebar-card profile-sidebar-card"
-    style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+    style={{
+      textDecoration: "none",
+      color: "inherit",
+      cursor: "pointer",
+    }}
   >
     <div className="profile-sidebar-header">
       <div className="profile-sidebar-avatar-wrapper">
         {avatarUrl ? (
-          <img src={avatarUrl} alt={sidebarFullName} className="profile-sidebar-avatar" />
+          <img
+            src={avatarUrl}
+            alt={sidebarFullName}
+            className="profile-sidebar-avatar"
+          />
         ) : (
           <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
             {sidebarFullName.charAt(0).toUpperCase()}
@@ -396,9 +408,14 @@ export default function Home() {
       <div className="profile-sidebar-name">{sidebarFullName}</div>
     </div>
 
-    {(hasProfileExtraInfo || (profileSummary as any)?.city || (profileSummary as any)?.country) && (
+    {/* Education / Role / Affiliation / Location */}
+    {(hasProfileExtraInfo ||
+      (profileSummary as any)?.city ||
+      (profileSummary as any)?.country) && (
       <div className="profile-sidebar-info-block">
-        {educationLevel && <div className="profile-sidebar-info-value">{educationLevel}</div>}
+        {educationLevel && (
+          <div className="profile-sidebar-info-value">{educationLevel}</div>
+        )}
         {describesYou && (
           <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
             {describesYou}
@@ -409,9 +426,17 @@ export default function Home() {
             {affiliation}
           </div>
         )}
-        {(profileSummary as any)?.city || (profileSummary as any)?.country ? (
-          <div className="profile-sidebar-info-value" style={{ marginTop: 4, opacity: 0.9 }}>
-            {[(profileSummary as any)?.city, (profileSummary as any)?.country]
+
+        {(profileSummary as any)?.city ||
+        (profileSummary as any)?.country ? (
+          <div
+            className="profile-sidebar-info-value"
+            style={{ marginTop: 4, opacity: 0.9 }}
+          >
+            {[
+              (profileSummary as any)?.city,
+              (profileSummary as any)?.country,
+            ]
               .filter(Boolean)
               .join(", ")}
           </div>
@@ -420,80 +445,148 @@ export default function Home() {
     )}
   </Link>
 
-  {/* QUICK DASHBOARD CARD */}
-  <div className="sidebar-card dashboard-sidebar-card" style={{ marginTop: 8 }}>
+  {/* QUICK DASHBOARD (individual row links) */}
+  <div className="sidebar-card dashboard-sidebar-card">
     <div className="dashboard-sidebar-title">Quick dashboard</div>
 
     <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-      <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
-        style={{ display: "flex", justifyContent: "space-between" }}>
+      <Link
+        href="/dashboard/entangled-states"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <span>Entanglements</span>
-        <span style={{ opacity: 0.9 }}>{entangledCount ?? "…"}</span>
+        <span style={{ opacity: 0.9 }}>
+          {entangledCount === null ? "…" : entangledCount}
+        </span>
       </Link>
 
-      <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
-        style={{ display: "flex", justifyContent: "space-between" }}>
+      <Link
+        href="/dashboard/saved-jobs"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <span>Saved jobs</span>
-        <span style={{ opacity: 0.9 }}>{savedJobsCount ?? "…"}</span>
+        <span style={{ opacity: 0.9 }}>
+          {savedJobsCount === null ? "…" : savedJobsCount}
+        </span>
       </Link>
 
-      <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
-        style={{ display: "flex", justifyContent: "space-between" }}>
+      <Link
+        href="/dashboard/saved-products"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <span>Saved products</span>
-        <span style={{ opacity: 0.9 }}>{savedProductsCount ?? "…"}</span>
+        <span style={{ opacity: 0.9 }}>
+          {savedProductsCount === null ? "…" : savedProductsCount}
+        </span>
       </Link>
 
-      <Link href="/ecosystem" className="dashboard-sidebar-link"
-        style={{ display: "flex", justifyContent: "space-between" }}>
+      <Link
+        href="/ecosystem"
+        className="dashboard-sidebar-link"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
         <span>My Ecosystem</span>
       </Link>
     </div>
   </div>
 
-  {/* MY ORGANIZATION CARD */}
+  {/* MY ORGANIZATION TILE */}
   {user && !loadingMyOrg && myOrg && (
     <Link
       href={`/orgs/${myOrg.slug}`}
       className="sidebar-card dashboard-sidebar-card"
-      style={{ marginTop: 8, textDecoration: "none", color: "inherit" }}
+      style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
     >
       <div className="dashboard-sidebar-title">My organization</div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
-        {/* Logo */}
+      <div
+        style={{
+          marginTop: 10,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
         <div
           style={{
             width: 48,
             height: 48,
             borderRadius: 14,
             overflow: "hidden",
+            flexShrink: 0,
             border: "1px solid rgba(148,163,184,0.45)",
             background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            color: "#0f172a",
+            fontWeight: 700,
+            fontSize: 18,
           }}
         >
           {myOrg.logo_url ? (
             <img
               src={myOrg.logo_url}
               alt={myOrg.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
             />
           ) : (
             myOrg.name.charAt(0).toUpperCase()
           )}
         </div>
 
-        {/* Name + stats */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden" }}>
+          <div
+            style={{
+              fontSize: 15,
+              fontWeight: 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
             {myOrg.name}
           </div>
 
-          <div style={{ marginTop: 4, fontSize: 13, color: "rgba(148,163,184,0.95)" }}>
-            <div>Followers: <span style={{ color: "#e5e7eb" }}>0</span></div>
-            <div>Views: <span style={{ color: "#e5e7eb" }}>0</span></div>
+          <div
+            style={{
+              fontSize: 13,
+              color: "rgba(148,163,184,0.95)",
+              marginTop: 4,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <div>
+              Followers: <span style={{ color: "#e5e7eb" }}>0</span>
+            </div>
+            <div>
+              Views: <span style={{ color: "#e5e7eb" }}>0</span>
+            </div>
             <div style={{ marginTop: 4, color: "#7dd3fc" }}>Analytics →</div>
           </div>
         </div>
@@ -505,10 +598,10 @@ export default function Home() {
   <div
     className="sidebar-card premium-sidebar-card"
     style={{
-      marginTop: 8,
       padding: "14px 16px",
       borderRadius: 20,
-      background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+      background:
+        "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
       border: "1px solid rgba(251,191,36,0.5)",
       boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
     }}
@@ -518,8 +611,16 @@ export default function Home() {
       <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
     </div>
 
-    <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.5, marginBottom: 10 }}>
-      Unlock advanced analytics, visibility boosts, and premium perks.
+    <div
+      style={{
+        fontSize: 12,
+        color: "rgba(248,250,252,0.9)",
+        lineHeight: 1.5,
+        marginBottom: 10,
+      }}
+    >
+      Unlock advanced analytics, boosted visibility, and premium perks for your
+      profile and organization.
     </div>
 
     <div
@@ -543,28 +644,48 @@ export default function Home() {
       width: "100%",
       height: 1,
       background: "rgba(148,163,184,0.18)",
-      marginTop: 8,       // reduced spacing
+      marginTop: 6,
       marginBottom: 6,
     }}
   />
 
-  {/* BOTTOM ICONS + LOGO + COPYRIGHT */}
-  <div style={{ marginTop: "auto", paddingTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-
-    {/* Social icons */}
-    <div style={{ display: "flex", gap: 12, fontSize: 18, alignItems: "center" }}>
+  {/* SOCIAL + LOGO + COPYRIGHT */}
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        fontSize: 18,
+        alignItems: "center",
+      }}
+    >
       <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
       <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
       <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
     </div>
 
-    {/* Logo + © */}
-    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-      <img src="/Q5_white_bg.png" alt="Quantum5ocial logo"
-        style={{ width: 24, height: 24, borderRadius: 4, objectFit: "contain" }} />
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 12,
+        color: "rgba(148,163,184,0.9)",
+      }}
+    >
+      <img
+        src="/Q5_white_bg.png"
+        alt="Quantum5ocial logo"
+        style={{ width: 24, height: 24, borderRadius: 4 }}
+      />
       <span>© 2025 Quantum5ocial</span>
     </div>
-
   </div>
 </aside>
           
