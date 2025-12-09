@@ -381,8 +381,6 @@ export default function Home() {
   savedJobsCount={savedJobsCount}
   savedProductsCount={savedProductsCount}
 />
-          {/* divider column */}
-  <div className="layout-divider" aria-hidden="true" />
           
           {/* MIDDLE MAIN COLUMN */}
           <section className="layout-main">
