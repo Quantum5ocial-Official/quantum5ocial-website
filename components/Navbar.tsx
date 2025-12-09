@@ -295,20 +295,17 @@ export default function Navbar() {
 
           {/* Global search – desktop only */}
           <form
-            onSubmit={handleGlobalSearchSubmit}
-            className="nav-search-desktop"
-          >
-            <input
-              type="text"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="Search jobs, products, people, organizations…"
-              className="nav-search-input"
-            />
-            <button type="submit" className="nav-search-button">
-              Search
-            </button>
-          </form>
+  onSubmit={handleGlobalSearchSubmit}
+  className="nav-search-desktop"
+>
+  <input
+    type="text"
+    value={globalSearch}
+    onChange={(e) => setGlobalSearch(e.target.value)}
+    placeholder="Search jobs, products, people, organizations…"
+    className="nav-search-input"
+  />
+</form>
         </div>
 
         {/* RIGHT: nav links + theme + user + hamburger */}
