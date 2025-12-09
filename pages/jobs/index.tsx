@@ -750,10 +750,9 @@ export default function JobsIndexPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT COLUMN – FILTERS + HIGHLIGHTED TILES ========== */}
+          {/* ========== RIGHT COLUMN – ONLY FILTERS ========== */}
           <aside className="layout-right sticky-col">
-            {/* Filters moved here from left column */}
-            <div className="sidebar-card" style={{ marginBottom: 20 }}>
+            <div className="sidebar-card">
               {/* Employment type */}
               <div className="products-filters-section">
                 <div className="products-filters-title">Employment type</div>
@@ -874,55 +873,6 @@ export default function JobsIndexPage() {
               >
                 Reset filters
               </button>
-            </div>
-
-            {/* Highlight tiles (same as before, now under filters) */}
-            <div className="hero-tiles hero-tiles-vertical">
-              {/* Quantum roles spotlight */}
-              <div className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Highlighted</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Quantum roles spotlight</div>
-                    <div className="tile-icon-orbit">🧪</div>
-                  </div>
-                  <p className="tile-text">
-                    This tile will later showcase a curated quantum job or role
-                    from the marketplace – ideal for demos.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Example: PhD position</span>
-                    <span className="tile-pill">Location</span>
-                    <span className="tile-pill">Lab / company</span>
-                  </div>
-                  <div className="tile-cta">
-                    Jobs spotlight <span>›</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Featured hiring partner */}
-              <div className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Highlighted</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Featured hiring partner</div>
-                    <div className="tile-icon-orbit">🏢</div>
-                  </div>
-                  <p className="tile-text">
-                    Later this can feature a lab, startup, or company actively
-                    hiring across multiple roles.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Superconducting</span>
-                    <span className="tile-pill">Spin qubits</span>
-                    <span className="tile-pill">Cryo engineer</span>
-                  </div>
-                  <div className="tile-cta">
-                    Partner spotlight <span>›</span>
-                  </div>
-                </div>
-              </div>
             </div>
           </aside>
         </main>
