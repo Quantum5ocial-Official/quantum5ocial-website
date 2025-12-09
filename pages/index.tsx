@@ -685,7 +685,7 @@ export default function Home() {
         fontSize: 12,
         color: "rgba(248,250,252,0.9)",
         lineHeight: 1.5,
-        marginBottom: 2,
+        marginBottom: 6,
       }}
     >
       Unlock advanced analytics, boosted visibility, and premium perks for
@@ -713,8 +713,8 @@ export default function Home() {
       width: "100%",
       height: 1,
       background: "rgba(148,163,184,0.18)",
-      marginTop: 20,
-      marginBottom: 2,
+      marginTop: 10,
+      marginBottom: 6,
     }}
   />
 
