@@ -415,52 +415,6 @@ export default function Home() {
                   Starting with marketplace features now, and evolving into a
                   full social platform as the community grows.
                 </p>
-
-                {/* 🔍 GLOBAL SEARCH BAR */}
-                <form
-                  onSubmit={handleGlobalSearchSubmit}
-                  className="hero-search"
-                  style={{
-                    marginTop: 24,
-                    maxWidth: 580,
-                    display: "flex",
-                    gap: 10,
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={globalSearch}
-                    onChange={(e) => setGlobalSearch(e.target.value)}
-                    placeholder="Search jobs, products, people, and organizations…"
-                    style={{
-                      flex: 1,
-                      padding: "10px 14px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(148,163,184,0.5)",
-                      background: "rgba(15,23,42,0.95)",
-                      color: "#e5e7eb",
-                      fontSize: 14,
-                      outline: "none",
-                    }}
-                  />
-                  <button
-                    type="submit"
-                    style={{
-                      padding: "10px 18px",
-                      borderRadius: 999,
-                      border: "none",
-                      background:
-                        "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                      color: "#0f172a",
-                      fontWeight: 600,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    Search
-                  </button>
-                </form>
               </div>
             </section>
 
