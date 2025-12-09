@@ -2769,18 +2769,26 @@ html.theme-light footer {
   backdrop-filter: blur(1px);
 }
 
+/* Your existing layout-3col can stay as is, but make sure the gap is defined */
 .layout-3col {
-  position: relative; /* allows us to place the line */
   display: grid;
   grid-template-columns: auto 1fr auto;
+  gap: 24px;              /* or whatever you already use */
 }
 
-/* Vertical divider in the middle of the gap between left + middle */
-.layout-3col::after {
+/* LEFT COLUMN – add this */
+.layout-left {
+  position: relative;      /* needed for the ::after divider */
+}
+
+/* Vertical divider, halfway into the gap */
+.layout-left::after {
   content: "";
   position: absolute;
-  top: 0;               /* line starts right below the navbar block */
-  bottom: 0;            /* runs full height */
+  top: 0;                  /* starts just under the navbar area */
+  bottom: 0;               /* runs down the whole content area */
   width: 1px;
   background: rgba(148, 163, 184, 0.25);
+  right: -12px;            /* = half of the gap (gap = 24px → 12px) */
+  pointer-events: none;    /* so it never blocks clicks */
 }
