@@ -2764,7 +2764,21 @@ html.theme-light footer {
   border-color: rgba(148,163,184,0.45);
   box-shadow: 0 20px 50px rgba(0,0,0,0.55);
 }
-.layout-left {
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(1px);
+.layout-3col {
+  position: relative; /* allows us to place the line */
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+}
+
+/* Vertical divider in the middle of the gap between left + middle */
+.layout-3col::after {
+  content: "";
+  position: absolute;
+  top: 0;               /* line starts right below the navbar block */
+  bottom: 0;            /* runs full height */
+  width: 1px;
+  background: rgba(148, 163, 184, 0.25);
+  
+  /* 🎯 Position the line exactly in the middle of the gap */
+  left: calc(270px + (var(--column-gap, 24px) / 2));
 }
