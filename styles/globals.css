@@ -2783,7 +2783,4 @@ html.theme-light footer {
   bottom: 0;            /* runs full height */
   width: 1px;
   background: rgba(148, 163, 184, 0.25);
-  
-  /* 🎯 Position the line exactly in the middle of the gap */
-  left: calc(270px + (var(--column-gap, 24px) / 2));
 }
