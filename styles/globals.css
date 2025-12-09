@@ -2724,22 +2724,24 @@ html.theme-light footer {
    3-COLUMN LAYOUT (ALREADY USED)
    =========================== */
 
-/* 3-column layout with a slim divider between left + middle */
+/* 3-column layout (desktop) */
 .layout-3col {
   display: grid;
-  grid-template-columns:
-    260px          /* left sidebar */
-    1px            /* vertical divider */
-    minmax(0, 1fr) /* middle content */
-    260px;         /* right sidebar */
-  column-gap: 24px;
+  grid-template-columns: 260px minmax(0, 1fr) 260px;
+  gap: 24px;
   align-items: flex-start;
 }
 
-/* the vertical line itself */
-.layout-divider {
-  background: rgba(148, 163, 184, 0.28);
-  border-radius: 999px;
+.layout-left,
+.layout-main,
+.layout-right {
+  min-width: 0;
+}
+
+/* make sidebars sticky on desktop */
+.sticky-col {
+  position: sticky;
+  top: 80px; /* just under navbar */
 }
 
 @media (max-width: 900px) {
