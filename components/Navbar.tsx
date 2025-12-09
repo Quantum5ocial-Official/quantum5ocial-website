@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   KeyboardEvent,
+  FormEvent,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -19,7 +20,7 @@ export default function Navbar() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false); // nested dashboard inside user menu
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<Theme>("dark");
@@ -33,6 +34,16 @@ export default function Navbar() {
 
   // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
+
+  // global search in navbar
+  const [globalSearch, setGlobalSearch] = useState("");
+
+  const handleGlobalSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const term = globalSearch.trim();
+    if (!term) return;
+    router.push(`/search?q=${encodeURIComponent(term)}`);
+  };
 
   // ----- THEME HANDLING -----
   useEffect(() => {
@@ -250,33 +261,63 @@ export default function Navbar() {
           justifyContent: "space-between",
           width: "100%",
           height: 72,
+          gap: 16,
         }}
       >
-        {/* Brand */}
-        <Link href="/" className="brand-clickable">
-          <div className="brand">
-            <img
-              src="/Q5_white_bg.png"
-              alt="Quantum5ocial logo"
-              className="brand-logo"
-            />
-            <div>
-              <div className="brand-text-main brand-text-gradient">
-                Quantum5ocial
-              </div>
-              <div className="brand-text-sub">
-                Connecting the quantum world
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        {/* RIGHT SIDE */}
+        {/* LEFT: brand + global search */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 16,
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          {/* Brand */}
+          <Link href="/" className="brand-clickable">
+            <div className="brand">
+              <img
+                src="/Q5_white_bg.png"
+                alt="Quantum5ocial logo"
+                className="brand-logo"
+              />
+              <div>
+                <div className="brand-text-main brand-text-gradient">
+                  Quantum5ocial
+                </div>
+                <div className="brand-text-sub">
+                  Connecting the quantum world
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {/* Global search – desktop only */}
+          <form
+            onSubmit={handleGlobalSearchSubmit}
+            className="nav-search-desktop"
+          >
+            <input
+              type="text"
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+              placeholder="Search jobs, products, people, organizations…"
+              className="nav-search-input"
+            />
+            <button type="submit" className="nav-search-button">
+              Search
+            </button>
+          </form>
+        </div>
+
+        {/* RIGHT: nav links + theme + user + hamburger */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexShrink: 0,
           }}
         >
           {/* DESKTOP NAV */}
@@ -310,8 +351,6 @@ export default function Navbar() {
             >
               <span className="nav-link-label">Community</span>
             </Link>
-
-            {/* My Ecosystem REMOVED from here */}
 
             <Link
               href="/orgs"
@@ -362,7 +401,7 @@ export default function Navbar() {
               </Link>
             )}
 
-            {/* Theme toggle — after notifications */}
+            {/* Theme toggle */}
             <button
               type="button"
               className="nav-link nav-link-button theme-toggle"
@@ -418,7 +457,7 @@ export default function Navbar() {
                       My profile
                     </Link>
 
-                    {/* My ecosystem ONLY here */}
+                    {/* My ecosystem */}
                     <Link
                       href="/ecosystem"
                       className="nav-dropdown-item"
@@ -598,8 +637,6 @@ export default function Navbar() {
             Community
           </Link>
 
-          {/* My Ecosystem REMOVED from top-level mobile links */}
-
           <Link
             href="/orgs"
             className={`nav-link ${
@@ -610,7 +647,7 @@ export default function Navbar() {
             Organizations
           </Link>
 
-          {/* Dashboard section in MOBILE remains simple links */}
+          {/* Dashboard section in MOBILE */}
           {!loading && user && (
             <>
               <div className="nav-mobile-section-label">
@@ -719,7 +756,6 @@ export default function Navbar() {
               >
                 My profile
               </Link>
-              {/* My ecosystem under Account in mobile */}
               <Link
                 href="/ecosystem"
                 className="nav-link"
