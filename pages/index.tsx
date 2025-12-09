@@ -619,7 +619,7 @@ export default function Home() {
         marginBottom: 10,
       }}
     >
-      Unlock advanced analytics, boosted visibility, and premium perks for your
+      Unlock advanced analytics, reduced ads, and premium perks for your
       profile and organization.
     </div>
 
