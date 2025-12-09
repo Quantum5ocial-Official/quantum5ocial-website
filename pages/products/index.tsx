@@ -7,6 +7,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
+import LeftSidebar from "../../components/LeftSidebar";
 
 const CATEGORIES = [
   "Cryogenics",
@@ -72,10 +73,28 @@ type Product = {
   image3_url: string | null;
 
   // extra optional metadata for richer filters
-  product_type: string | null;      // Hardware / Software / Service / Consulting / Other
-  technology_type: string | null;   // coarse tech modality
+  product_type: string | null; // Hardware / Software / Service / Consulting / Other
+  technology_type: string | null; // coarse tech modality
   organisation_type: string | null; // Startup / Company / University / ...
-  quantum_domain: string | null;    // Computing / Communication / Sensing / ...
+  quantum_domain: string | null; // Computing / Communication / Sensing / ...
+};
+
+type ProfileSummary = {
+  full_name: string | null;
+  avatar_url: string | null;
+  education_level?: string | null;
+  describes_you?: string | null;
+  affiliation?: string | null;
+  highest_education?: string | null;
+  current_org?: string | null;
+};
+
+// Minimal org summary for sidebar tile
+type MyOrgSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
 };
 
 export default function ProductsPage() {
@@ -100,6 +119,17 @@ export default function ProductsPage() {
     "all"
   );
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "out">("all");
+
+  // ==== LEFT SIDEBAR STATE (profile + counts + org) ====
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
+    null
+  );
+  const [entangledCount, setEntangledCount] = useState<number | null>(null);
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
 
   // --- Load products ---
   useEffect(() => {
@@ -126,11 +156,12 @@ export default function ProductsPage() {
     loadProducts();
   }, []);
 
-  // --- Load saved products for current user ---
+  // --- Load saved products for current user (ids + count) ---
   useEffect(() => {
     const loadSaved = async () => {
       if (!user) {
         setSavedIds(new Set());
+        setSavedProductsCount(null);
         return;
       }
       setLoadingSaved(true);
@@ -142,16 +173,120 @@ export default function ProductsPage() {
       if (err) {
         console.error("Error loading saved products", err);
         setSavedIds(new Set());
+        setSavedProductsCount(0);
       } else {
-        const ids = new Set<string>(
-          (data || []).map((row: any) => String(row.product_id))
+        const idsArray = (data || []).map((row: any) =>
+          String(row.product_id)
         );
-        setSavedIds(ids);
+        setSavedIds(new Set<string>(idsArray));
+        setSavedProductsCount(idsArray.length);
       }
       setLoadingSaved(false);
     };
 
     loadSaved();
+  }, [user]);
+
+  // --- Load saved jobs count + entangled count for sidebar ---
+  useEffect(() => {
+    const loadSidebarCounts = async () => {
+      if (!user) {
+        setSavedJobsCount(null);
+        setEntangledCount(null);
+        return;
+      }
+
+      try {
+        // Saved jobs count
+        const { data: savedJobsRows, error: savedJobsErr } = await supabase
+          .from("saved_jobs")
+          .select("job_id")
+          .eq("user_id", user.id);
+
+        if (!savedJobsErr && savedJobsRows) {
+          setSavedJobsCount(savedJobsRows.length);
+        } else {
+          setSavedJobsCount(0);
+        }
+
+        // Entangled states – unique "other" user ids
+        const { data: connRows, error: connErr } = await supabase
+          .from("connections")
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+        if (!connErr && connRows && connRows.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connRows.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
+          );
+          setEntangledCount(otherIds.length);
+        } else {
+          setEntangledCount(0);
+        }
+      } catch (e) {
+        console.error("Error loading sidebar counts", e);
+        setSavedJobsCount(0);
+        setEntangledCount(0);
+      }
+    };
+
+    loadSidebarCounts();
+  }, [user]);
+
+  // ---- Load current user profile for LeftSidebar ----
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  // ---- Load user's first organization for LeftSidebar ----
+  useEffect(() => {
+    const loadMyOrg = async () => {
+      if (!user) {
+        setMyOrg(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .eq("created_by", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMyOrg(data as MyOrgSummary);
+      } else {
+        setMyOrg(null);
+      }
+    };
+
+    loadMyOrg();
   }, [user]);
 
   // --- Toggle save / unsave ---
@@ -179,6 +314,7 @@ export default function ProductsPage() {
         next.delete(productId);
         return next;
       });
+      setSavedProductsCount((prev) => (prev !== null ? prev - 1 : prev));
     } else {
       const { error: err } = await supabase
         .from("saved_products")
@@ -189,6 +325,7 @@ export default function ProductsPage() {
         return;
       }
       setSavedIds((prev) => new Set(prev).add(productId));
+      setSavedProductsCount((prev) => (prev !== null ? prev + 1 : prev));
     }
   };
 
@@ -273,6 +410,7 @@ export default function ProductsPage() {
     priceFilter,
     stockFilter,
   ]);
+
   const heroProducts = filteredProducts.slice(0, 2);
   const remainingProducts = filteredProducts.slice(heroProducts.length);
 
@@ -309,140 +447,19 @@ export default function ProductsPage() {
       <div className="page">
         <Navbar />
 
-        {/* Same 3-column layout as community / jobs */}
+        {/* Same 3-column layout as homepage / jobs */}
         <main className="layout-3col">
-          {/* ========== LEFT: filters inside sidebar-card ========== */}
-          <aside className="layout-left sticky-col">
-            <div className="sidebar-card">
-              
+          {/* ========== LEFT: profile sidebar via LeftSidebar ========== */}
+          <LeftSidebar
+            user={user}
+            profileSummary={profileSummary}
+            myOrg={myOrg}
+            entangledCount={entangledCount}
+            savedJobsCount={savedJobsCount}
+            savedProductsCount={savedProductsCount}
+          />
 
-              {/* Category */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Category</div>
-                <select
-                  className="products-filters-input"
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                >
-                  <option value="all">All categories</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Product type */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Product type</div>
-                <select
-                  className="products-filters-input"
-                  value={productTypeFilter}
-                  onChange={(e) => setProductTypeFilter(e.target.value)}
-                >
-                  {PRODUCT_TYPE_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Technology type */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Technology</div>
-                <select
-                  className="products-filters-input"
-                  value={techTypeFilter}
-                  onChange={(e) => setTechTypeFilter(e.target.value)}
-                >
-                  {TECH_TYPE_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Organisation type */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Organisation</div>
-                <select
-                  className="products-filters-input"
-                  value={orgTypeFilter}
-                  onChange={(e) => setOrgTypeFilter(e.target.value)}
-                >
-                  {ORG_TYPE_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quantum domain */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Quantum domain</div>
-                <select
-                  className="products-filters-input"
-                  value={domainFilter}
-                  onChange={(e) => setDomainFilter(e.target.value)}
-                >
-                  {DOMAIN_FILTERS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Price */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Price</div>
-                <select
-                  className="products-filters-input"
-                  value={priceFilter}
-                  onChange={(e) =>
-                    setPriceFilter(
-                      e.target.value as "all" | "fixed" | "contact"
-                    )
-                  }
-                >
-                  <option value="all">All</option>
-                  <option value="fixed">Fixed price</option>
-                  <option value="contact">Contact for price</option>
-                </select>
-              </div>
-
-              {/* Stock */}
-              <div className="products-filters-section">
-                <div className="products-filters-title">Stock</div>
-                <select
-                  className="products-filters-input"
-                  value={stockFilter}
-                  onChange={(e) =>
-                    setStockFilter(e.target.value as "all" | "in" | "out")
-                  }
-                >
-                  <option value="all">All</option>
-                  <option value="in">In stock</option>
-                  <option value="out">Out of stock</option>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                className="nav-ghost-btn"
-                style={{ width: "100%", marginTop: 8 }}
-                onClick={resetFilters}
-              >
-                Reset filters
-              </button>
-            </div>
-          </aside>
-
-                    {/* ========== MIDDLE: header + products (layout-main) ========== */}
+          {/* ========== MIDDLE: header + products (layout-main) ========== */}
           <section className="layout-main">
             <section className="section">
               {/* STICKY HEADER + SEARCH */}
@@ -838,54 +855,132 @@ export default function ProductsPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT: highlighted tiles like other pages ========== */}
+          {/* ========== RIGHT: filters (moved from old left) ========== */}
           <aside className="layout-right sticky-col">
-            <div className="hero-tiles hero-tiles-vertical">
-              {/* Highlighted product */}
-              <div className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Highlighted</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Product of the week</div>
-                    <div className="tile-icon-orbit">🔧</div>
-                  </div>
-                  <p className="tile-text">
-                    Later this can highlight a sponsored or curated product from
-                    the marketplace.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Hardware</span>
-                    <span className="tile-pill">Software</span>
-                    <span className="tile-pill">Service</span>
-                  </div>
-                  <div className="tile-cta">
-                    Product spotlight <span>›</span>
-                  </div>
-                </div>
+            <div className="sidebar-card">
+              {/* Category */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Category</div>
+                <select
+                  className="products-filters-input"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <option value="all">All categories</option>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {/* Vendor spotlight */}
-              <div className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Highlighted</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Featured vendor</div>
-                    <div className="tile-icon-orbit">🏭</div>
-                  </div>
-                  <p className="tile-text">
-                    A startup, company, or lab showcasing multiple products in
-                    the Quantum Marketplace.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Startup</span>
-                    <span className="tile-pill">Cryo / RF</span>
-                    <span className="tile-pill">Chips</span>
-                  </div>
-                  <div className="tile-cta">
-                    Vendor spotlight <span>›</span>
-                  </div>
-                </div>
+              {/* Product type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Product type</div>
+                <select
+                  className="products-filters-input"
+                  value={productTypeFilter}
+                  onChange={(e) => setProductTypeFilter(e.target.value)}
+                >
+                  {PRODUCT_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </div>
+
+              {/* Technology type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Technology</div>
+                <select
+                  className="products-filters-input"
+                  value={techTypeFilter}
+                  onChange={(e) => setTechTypeFilter(e.target.value)}
+                >
+                  {TECH_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Organisation type */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Organisation</div>
+                <select
+                  className="products-filters-input"
+                  value={orgTypeFilter}
+                  onChange={(e) => setOrgTypeFilter(e.target.value)}
+                >
+                  {ORG_TYPE_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Quantum domain */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Quantum domain</div>
+                <select
+                  className="products-filters-input"
+                  value={domainFilter}
+                  onChange={(e) => setDomainFilter(e.target.value)}
+                >
+                  {DOMAIN_FILTERS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Price</div>
+                <select
+                  className="products-filters-input"
+                  value={priceFilter}
+                  onChange={(e) =>
+                    setPriceFilter(
+                      e.target.value as "all" | "fixed" | "contact"
+                    )
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="fixed">Fixed price</option>
+                  <option value="contact">Contact for price</option>
+                </select>
+              </div>
+
+              {/* Stock */}
+              <div className="products-filters-section">
+                <div className="products-filters-title">Stock</div>
+                <select
+                  className="products-filters-input"
+                  value={stockFilter}
+                  onChange={(e) =>
+                    setStockFilter(e.target.value as "all" | "in" | "out")
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="in">In stock</option>
+                  <option value="out">Out of stock</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                style={{ width: "100%", marginTop: 8 }}
+                onClick={resetFilters}
+              >
+                Reset filters
+              </button>
             </div>
           </aside>
         </main>
