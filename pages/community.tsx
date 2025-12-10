@@ -5,22 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import LeftSidebar from "../components/LeftSidebar";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
-  ssr: false,
-});
-
-// Left-sidebar profile summary (same as homepage)
-type ProfileSummary = {
-  full_name: string | null;
-  avatar_url: string | null;
-  education_level?: string | null;
-  describes_you?: string | null;
-  affiliation?: string | null;
-  highest_education?: string | null;
-  current_org?: string | null;
-};
 
 // Community member type (person)
 type CommunityProfile = {
@@ -35,7 +22,6 @@ type CommunityProfile = {
   city: string | null;
   created_at?: string | null;
 
-  // Optional extra fields we sometimes use
   education_level?: string | null;
   describes_you?: string | null;
   current_org?: string | null;
@@ -64,22 +50,14 @@ type CommunityItem = {
   id: string;
   name: string;
   avatar_url: string | null;
-  typeLabel: string; // e.g. "Member", "Company", "Research group"
-  roleLabel: string; // for person: role, for org: industry or institution
+  typeLabel: string;
+  roleLabel: string;
   affiliationLine: string;
   short_bio: string;
   highest_education?: string | null;
   city?: string | null;
   country?: string | null;
   created_at: string | null;
-};
-
-// Minimal org summary for sidebar tile
-type MyOrgSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
 };
 
 // Connections / entanglement
@@ -100,20 +78,6 @@ type ConnectionRow = {
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
-
-  // --- Sidebar profile + counts (same as homepage) ---
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
-  ...
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
-    null
-  );
-  const [entangledCount, setEntangledCount] = useState<number | null>(null);
-
-  // First organization created by this user (for sidebar tile)
-  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
 
   // --- Community data: people + orgs ---
   const [profiles, setProfiles] = useState<CommunityProfile[]>([]);
@@ -170,7 +134,6 @@ export default function CommunityPage() {
     const currentRow = connectionsByOtherId[targetUserId];
     const currentStatus = getConnectionStatus(targetUserId);
 
-    // Already accepted or outgoing pending → ignore click
     if (currentStatus === "accepted" || currentStatus === "pending_outgoing") {
       return;
     }
@@ -221,12 +184,13 @@ export default function CommunityPage() {
     } catch (e) {
       console.error("Unexpected error creating/accepting entanglement", e);
     } finally {
-    setEntangleLoadingIds((prev) =>
-      prev.filter((id) => id !== targetUserId)
-    );
+      setEntangleLoadingIds((prev) =>
+        prev.filter((id) => id !== targetUserId)
+      );
     }
   };
-    // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
+
+  // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
   const handleDeclineEntangle = async (targetUserId: string) => {
     if (!user) {
       router.push("/auth?redirect=/community");
@@ -236,7 +200,6 @@ export default function CommunityPage() {
     const currentRow = connectionsByOtherId[targetUserId];
     const currentStatus = getConnectionStatus(targetUserId);
 
-    // Only allow decline if there is a pending incoming request
     if (!currentRow || currentStatus !== "pending_incoming") {
       return;
     }
@@ -244,7 +207,6 @@ export default function CommunityPage() {
     setEntangleLoadingIds((prev) => [...prev, targetUserId]);
 
     try {
-      // 1) Try to set status = 'declined'
       const { error } = await supabase
         .from("connections")
         .update({ status: "declined" })
@@ -253,7 +215,6 @@ export default function CommunityPage() {
       if (error) {
         console.error("Error declining entanglement, falling back to delete", error);
 
-        // 2) Fallback: delete the row if update fails (e.g. enum doesn't allow 'declined')
         const { error: deleteError } = await supabase
           .from("connections")
           .delete()
@@ -264,7 +225,6 @@ export default function CommunityPage() {
         }
       }
 
-      // 3) In any case: remove it from local state so UI updates
       setConnectionsByOtherId((prev) => {
         const copy = { ...prev };
         delete copy[targetUserId];
@@ -287,12 +247,10 @@ export default function CommunityPage() {
     }
 
     const alreadyFollowing = isFollowingOrg(orgId);
-
     setFollowLoadingIds((prev) => [...prev, orgId]);
 
     try {
       if (alreadyFollowing) {
-        // Unfollow
         const { error } = await supabase
           .from("org_follows")
           .delete()
@@ -309,7 +267,6 @@ export default function CommunityPage() {
           });
         }
       } else {
-        // Follow
         const { error } = await supabase
           .from("org_follows")
           .upsert(
@@ -333,125 +290,6 @@ export default function CommunityPage() {
     }
   };
 
-  // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setProfileSummary(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!error && data) {
-        setProfileSummary(data as ProfileSummary);
-      } else {
-        setProfileSummary(null);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  // === LOAD COUNTS FOR QUICK DASHBOARD (saved jobs/products + entangled states) ===
-  useEffect(() => {
-    const loadCounts = async () => {
-      if (!user) {
-        setSavedJobsCount(null);
-        setSavedProductsCount(null);
-        setEntangledCount(null);
-        return;
-      }
-
-      try {
-        // Saved jobs
-        const { data: savedJobsRows, error: savedJobsErr } = await supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", user.id);
-
-        if (!savedJobsErr && savedJobsRows) {
-          setSavedJobsCount(savedJobsRows.length);
-        } else {
-          setSavedJobsCount(0);
-        }
-
-        // Saved products
-        const { data: savedProdRows, error: savedProdErr } = await supabase
-          .from("saved_products")
-          .select("product_id")
-          .eq("user_id", user.id);
-
-        if (!savedProdErr && savedProdRows) {
-          setSavedProductsCount(savedProdRows.length);
-        } else {
-          setSavedProductsCount(0);
-        }
-
-        // Entangled states – count unique "other" users in accepted connections
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-        
-        if (!connErr && connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-      } catch (e) {
-        console.error("Error loading sidebar counts", e);
-        setSavedJobsCount(0);
-        setSavedProductsCount(0);
-        setEntangledCount(0);
-      }
-    };
-
-    loadCounts();
-  }, [user]);
-
-    // === LOAD FIRST ORGANIZATION OWNED BY THIS USER FOR SIDEBAR TILE ===
-  useEffect(() => {
-    const loadMyOrg = async () => {
-      if (!user) {
-        setMyOrg(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug, logo_url")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setMyOrg(data as MyOrgSummary);
-      } else {
-        setMyOrg(null);
-        if (error) {
-          console.error("Error loading my organization for sidebar", error);
-        }
-      }
-    };
-
-    loadMyOrg();
-  }, [user]);
-
   // === LOAD COMMUNITY PROFILES (PEOPLE) ===
   useEffect(() => {
     const loadProfiles = async () => {
@@ -469,8 +307,7 @@ export default function CommunityPage() {
           setProfilesError("Could not load community members.");
           setProfiles([]);
         } else {
-          const list = (data || []) as CommunityProfile[];
-          setProfiles(list);
+          setProfiles((data || []) as CommunityProfile[]);
         }
       } catch (e) {
         console.error("Community load crashed:", e);
@@ -600,10 +437,9 @@ export default function CommunityPage() {
 
   const communityLoading = loadingProfiles || loadingOrgs;
   const communityError = profilesError || orgsError;
-
   const totalCommunityCount = (profiles?.length || 0) + (orgs?.length || 0);
 
-    // === FILTER PEOPLE + ORGS BY SEARCH ===
+  // === FILTER PEOPLE + ORGS BY SEARCH ===
   const filteredProfiles = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return profiles;
@@ -619,7 +455,7 @@ export default function CommunityPage() {
     });
   }, [profiles, search]);
 
-    const filteredOrgs = useMemo(() => {
+  const filteredOrgs = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return orgs;
 
@@ -639,11 +475,10 @@ export default function CommunityPage() {
       return haystack.includes(q);
     });
   }, [orgs, search]);
-  
+
   // === FEATURED PROFILE + ORGANIZATION OF THE WEEK ===
   const featuredProfile =
     filteredProfiles.length > 0 ? filteredProfiles[0] : null;
-
   const featuredOrg = filteredOrgs.length > 0 ? filteredOrgs[0] : null;
 
   // === UNIFIED COMMUNITY ITEM LIST (MIXED PEOPLE + ORGS) ===
@@ -656,7 +491,7 @@ export default function CommunityPage() {
       const short_bio =
         p.short_bio ||
         (p.affiliation
-          ? Member of the quantum ecosystem at ${p.affiliation}.
+          ? `Member of the quantum ecosystem at ${p.affiliation}.`
           : "Quantum5ocial community member exploring the quantum ecosystem.");
 
       return {
@@ -676,8 +511,7 @@ export default function CommunityPage() {
     });
 
     const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
-      const typeLabel =
-        o.kind === "company" ? "Company" : "Research group";
+      const typeLabel = o.kind === "company" ? "Company" : "Research group";
 
       let roleLabel: string;
       let affiliationLine: string;
@@ -720,7 +554,6 @@ export default function CommunityPage() {
 
     const merged = [...personItems, ...orgItems];
 
-    // Sort by created_at descending so people + orgs are mixed chronologically
     return merged.sort((a, b) => {
       const ta = a.created_at ? Date.parse(a.created_at) : 0;
       const tb = b.created_at ? Date.parse(b.created_at) : 0;
@@ -737,22 +570,13 @@ export default function CommunityPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT SIDEBAR (same as homepage) ========== */}
-                  <main className="layout-3col">
-          {/* ========== LEFT SIDEBAR (shared component) ========== */}
-          <LeftSidebar
-            user={user}
-            profileSummary={profileSummary}
-            myOrg={myOrg}
-            entangledCount={entangledCount}
-            savedJobsCount={savedJobsCount}
-            savedProductsCount={savedProductsCount}
-          />
+          {/* LEFT SIDEBAR (shared component, self-contained) */}
+          <LeftSidebar />
 
-          {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
+          {/* MIDDLE COLUMN – COMMUNITY LIST */}
           <section className="layout-main">
             <section className="section">
-              {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
+              {/* STICKY HEADER + SEARCH */}
               <div className="jobs-main-header">
                 <div
                   className="card"
@@ -764,7 +588,6 @@ export default function CommunityPage() {
                     boxShadow: "0 18px 45px rgba(15,23,42,0.8)",
                   }}
                 >
-                  {/* HERO HEADER */}
                   <div
                     className="section-header"
                     style={{
@@ -822,7 +645,6 @@ export default function CommunityPage() {
                       </div>
                     </div>
 
-                    {/* Small CTA block on the right */}
                     <div
                       style={{
                         display: "flex",
@@ -849,7 +671,7 @@ export default function CommunityPage() {
                     </div>
                   </div>
 
-                  {/* Center-column search bar */}
+                  {/* Search bar */}
                   <div className="jobs-main-search" style={{ marginTop: 14 }}>
                     <div
                       style={{
@@ -919,7 +741,7 @@ export default function CommunityPage() {
                   </div>
                 )}
 
-              {/* MAIN CONTENT WHEN WE HAVE ITEMS */}
+              {/* MAIN CONTENT */}
               {!communityLoading && !communityError && hasAnyCommunity && (
                 <>
                   {/* PROFILE OF THE WEEK */}
@@ -1036,7 +858,7 @@ export default function CommunityPage() {
                             >
                               {featuredProfile.role || "Quantum5ocial member"}
                               {featuredProfile.affiliation
-                                ?  · ${featuredProfile.affiliation}
+                                ? ` · ${featuredProfile.affiliation}`
                                 : ""}
                             </div>
                             <div
@@ -1052,145 +874,143 @@ export default function CommunityPage() {
                             </div>
 
                             {/* Entangle button with status */}
-                            {(!user || featuredProfile.id !== user.id) && (
-                              (() => {
-                                const status = getConnectionStatus(
-                                  featuredProfile.id
-                                );
-                                const loading = isEntangleLoading(
-                                  featuredProfile.id
-                                );
+                            {(!user || featuredProfile.id !== user.id) && (() => {
+                              const status = getConnectionStatus(
+                                featuredProfile.id
+                              );
+                              const loading = isEntangleLoading(
+                                featuredProfile.id
+                              );
 
-                                // Incoming request → show Accept + Decline (like notifications)
-                                if (user && status === "pending_incoming") {
-                                  return (
-                                    <div
-                                      style={{
-                                        marginTop: 10,
-                                        display: "flex",
-                                        gap: 8,
-                                        flexWrap: "wrap",
-                                      }}
-                                    >
-                                      <button
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={() =>
-                                          handleEntangle(featuredProfile.id)
-                                        }
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 120,
-                                          padding: "6px 0",
-                                          borderRadius: 999,
-                                          border: "none",
-                                          background:
-                                            "linear-gradient(90deg,#22c55e,#16a34a)",
-                                          color: "#0f172a",
-                                          fontSize: 12,
-                                          fontWeight: 600,
-                                          cursor: loading
-                                            ? "default"
-                                            : "pointer",
-                                          opacity: loading ? 0.7 : 1,
-                                        }}
-                                      >
-                                        {loading ? "…" : "Accept request"}
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={() =>
-                                          handleDeclineEntangle(
-                                            featuredProfile.id
-                                          )
-                                        }
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 100,
-                                          padding: "6px 0",
-                                          borderRadius: 999,
-                                          border:
-                                            "1px solid rgba(148,163,184,0.7)",
-                                          background: "transparent",
-                                          color: "rgba(248,250,252,0.9)",
-                                          fontSize: 12,
-                                          cursor: loading
-                                            ? "default"
-                                            : "pointer",
-                                          opacity: loading ? 0.7 : 1,
-                                        }}
-                                      >
-                                        Decline
-                                      </button>
-                                    </div>
-                                  );
-                                }
-
-                                // All other states → single button
-                                let label = "Entangle +";
-                                let bg =
-                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
-                                let border = "none";
-                                let color = "#0f172a";
-                                let disabled = false;
-
-                                if (user) {
-                                  if (status === "pending_outgoing") {
-                                    label = "Requested";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(148,163,184,0.7)";
-                                    color = "rgba(148,163,184,0.95)";
-                                    disabled = true;
-                                  } else if (status === "accepted") {
-                                    label = "Entangled ✓";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(74,222,128,0.7)";
-                                    color = "rgba(187,247,208,0.95)";
-                                    disabled = true;
-                                  } else if (status === "declined") {
-                                    label = "Declined";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(148,163,184,0.5)";
-                                    color = "rgba(148,163,184,0.7)";
-                                    disabled = true;
-                                  }
-                                }
-
+                              // Incoming request → Accept + Decline
+                              if (user && status === "pending_incoming") {
                                 return (
-                                  <button
-                                    type="button"
+                                  <div
                                     style={{
                                       marginTop: 10,
-                                      padding: "6px 12px",
-                                      borderRadius: 999,
-                                      border,
-                                      background: bg,
-                                      color,
-                                      fontSize: 12,
-                                      cursor:
-                                        disabled || loading
+                                      display: "flex",
+                                      gap: 8,
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={() =>
+                                        handleEntangle(featuredProfile.id)
+                                      }
+                                      style={{
+                                        flex: 1,
+                                        minWidth: 120,
+                                        padding: "6px 0",
+                                        borderRadius: 999,
+                                        border: "none",
+                                        background:
+                                          "linear-gradient(90deg,#22c55e,#16a34a)",
+                                        color: "#0f172a",
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                        cursor: loading
                                           ? "default"
                                           : "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 6,
-                                      opacity: loading ? 0.7 : 1,
-                                    }}
-                                    disabled={disabled || loading}
-                                    onClick={() =>
-                                      handleEntangle(featuredProfile.id)
-                                    }
-                                  >
-                                    {loading ? "…" : label}
-                                  </button>
+                                        opacity: loading ? 0.7 : 1,
+                                      }}
+                                    >
+                                      {loading ? "…" : "Accept request"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={() =>
+                                        handleDeclineEntangle(
+                                          featuredProfile.id
+                                        )
+                                      }
+                                      style={{
+                                        flex: 1,
+                                        minWidth: 100,
+                                        padding: "6px 0",
+                                        borderRadius: 999,
+                                        border:
+                                          "1px solid rgba(148,163,184,0.7)",
+                                        background: "transparent",
+                                        color: "rgba(248,250,252,0.9)",
+                                        fontSize: 12,
+                                        cursor: loading
+                                          ? "default"
+                                          : "pointer",
+                                        opacity: loading ? 0.7 : 1,
+                                      }}
+                                    >
+                                      Decline
+                                    </button>
+                                  </div>
                                 );
-                              })()
-                            )}
+                              }
+
+                              // Other states → single button
+                              let label = "Entangle +";
+                              let bg =
+                                "linear-gradient(90deg,#22d3ee,#6366f1)";
+                              let border = "none";
+                              let color = "#0f172a";
+                              let disabled = false;
+
+                              if (user) {
+                                if (status === "pending_outgoing") {
+                                  label = "Requested";
+                                  bg = "transparent";
+                                  border =
+                                    "1px solid rgba(148,163,184,0.7)";
+                                  color = "rgba(148,163,184,0.95)";
+                                  disabled = true;
+                                } else if (status === "accepted") {
+                                  label = "Entangled ✓";
+                                  bg = "transparent";
+                                  border =
+                                    "1px solid rgba(74,222,128,0.7)";
+                                  color = "rgba(187,247,208,0.95)";
+                                  disabled = true;
+                                } else if (status === "declined") {
+                                  label = "Declined";
+                                  bg = "transparent";
+                                  border =
+                                    "1px solid rgba(148,163,184,0.5)";
+                                  color = "rgba(148,163,184,0.7)";
+                                  disabled = true;
+                                }
+                              }
+
+                              return (
+                                <button
+                                  type="button"
+                                  style={{
+                                    marginTop: 10,
+                                    padding: "6px 12px",
+                                    borderRadius: 999,
+                                    border,
+                                    background: bg,
+                                    color,
+                                    fontSize: 12,
+                                    cursor:
+                                      disabled || loading
+                                        ? "default"
+                                        : "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    opacity: loading ? 0.7 : 1,
+                                  }}
+                                  disabled={disabled || loading}
+                                  onClick={() =>
+                                    handleEntangle(featuredProfile.id)
+                                  }
+                                >
+                                  {loading ? "…" : label}
+                                </button>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -1257,7 +1077,7 @@ export default function CommunityPage() {
                             alignItems: "flex-start",
                           }}
                         >
-                          {/* Logo / initial */}
+                          {/* Logo */}
                           <div
                             style={{
                               width: 56,
@@ -1341,15 +1161,11 @@ export default function CommunityPage() {
                             >
                               {featuredOrg.kind === "company"
                                 ? featuredOrg.industry || "Quantum company"
-                                : featuredOrg.institution ||
-                                  "Research group"}
+                                : featuredOrg.institution || "Research group"}
                               {featuredOrg.city || featuredOrg.country
-                                ?  · ${[
-                                    featuredOrg.city,
-                                    featuredOrg.country,
-                                  ]
+                                ? ` · ${[featuredOrg.city, featuredOrg.country]
                                     .filter(Boolean)
-                                    .join(", ")}
+                                    .join(", ")}`
                                 : ""}
                             </div>
                             <div
@@ -1370,9 +1186,7 @@ export default function CommunityPage() {
                               const following = isFollowingOrg(featuredOrg.id);
                               const loading = isFollowLoading(featuredOrg.id);
 
-                              const label = following
-                                ? "Following"
-                                : "Follow";
+                              const label = following ? "Following" : "Follow";
                               const bg = following
                                 ? "transparent"
                                 : "rgba(59,130,246,0.16)";
@@ -1394,18 +1208,14 @@ export default function CommunityPage() {
                                     background: bg,
                                     color,
                                     fontSize: 12,
-                                    cursor: loading
-                                      ? "default"
-                                      : "pointer",
+                                    cursor: loading ? "default" : "pointer",
                                     display: "inline-flex",
                                     alignItems: "center",
                                     gap: 6,
                                     opacity: loading ? 0.7 : 1,
                                   }}
                                   disabled={loading}
-                                  onClick={() =>
-                                    handleFollowOrg(featuredOrg.id)
-                                  }
+                                  onClick={() => handleFollowOrg(featuredOrg.id)}
                                 >
                                   {loading ? "…" : label}
                                   {!following && (
@@ -1487,7 +1297,7 @@ export default function CommunityPage() {
 
                       return (
                         <div
-                          key={${item.kind}-${item.id}}
+                          key={`${item.kind}-${item.id}`}
                           className="card"
                           style={{
                             textDecoration: "none",
@@ -1512,27 +1322,20 @@ export default function CommunityPage() {
                                 style={{
                                   width: 52,
                                   height: 52,
-                                  borderRadius:
-                                    item.kind === "organization"
-                                      ? 14
-                                      : "999px",
+                                  borderRadius: isOrganization ? 14 : "999px",
                                   overflow: "hidden",
                                   flexShrink: 0,
                                   border:
                                     "1px solid rgba(148,163,184,0.4)",
-                                  background:
-                                    item.kind === "organization"
-                                      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-                                      : "rgba(15,23,42,0.9)",
+                                  background: isOrganization
+                                    ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                                    : "rgba(15,23,42,0.9)",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
                                   fontSize: 18,
                                   fontWeight: 600,
-                                  color:
-                                    item.kind === "organization"
-                                      ? "#0f172a"
-                                      : "#e5e7eb",
+                                  color: isOrganization ? "#0f172a" : "#e5e7eb",
                                 }}
                               >
                                 {item.avatar_url ? (
@@ -1859,7 +1662,7 @@ export default function CommunityPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES + COPYRIGHT ========== */}
+          {/* RIGHT SIDEBAR – HIGHLIGHTED TILES + COPYRIGHT */}
           <aside
             className="layout-right sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
@@ -1935,7 +1738,6 @@ export default function CommunityPage() {
               </div>
             </div>
 
-            {/* Copyright at bottom of right column */}
             <div
               style={{
                 marginTop: "auto",
