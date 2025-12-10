@@ -49,6 +49,7 @@ type CommunityOrg = {
 type CommunityItem = {
   kind: "person" | "organization";
   id: string;
+  slug?: string;              // <— add this
   name: string;
   avatar_url: string | null;
   typeLabel: string;
@@ -352,6 +353,7 @@ export default function CommunityPage() {
       return {
         kind: "organization",
         id: o.id,
+        slug: o.slug,
         name: o.name,
         avatar_url: o.logo_url || null,
         typeLabel,
@@ -1103,32 +1105,40 @@ export default function CommunityPage() {
                           : undefined;
 
                       const isOrganization = item.kind === "organization";
-                      const isSelf =
-                        item.kind === "person" &&
-                        user &&
-                        item.id === user.id;
+const isSelf =
+  item.kind === "person" &&
+  user &&
+  item.id === user.id;
 
-                      return (
-                        <div
-                          key={`${item.kind}-${item.id}`}
-                          className="card"
-                          style={{
-                            textDecoration: "none",
-                            padding: 14,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                            minHeight: 230,
-                            ...(item.kind === "person"
-                              ? { cursor: "pointer" }
-                              : {}),
-                          }}
-                          onClick={
-                            item.kind === "person"
-                              ? () => router.push(`/profile/${item.id}`)
-                              : undefined
-                          }
-                        >
+const isClickable =
+  item.kind === "person" ||
+  (item.kind === "organization" && item.slug);
+
+return (
+  <div
+    key={`${item.kind}-${item.id}`}
+    className="card"
+    style={{
+      textDecoration: "none",
+      padding: 14,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      minHeight: 230,
+      ...(isClickable ? { cursor: "pointer" } : {}),
+    }}
+    onClick={
+      !isClickable
+        ? undefined
+        : () => {
+            if (item.kind === "person") {
+              router.push(`/profile/${item.id}`);
+            } else if (item.kind === "organization" && item.slug) {
+              router.push(`/orgs/${item.slug}`);
+            }
+          }
+    }
+  >
                           <div className="card-inner">
                             {/* Top row */}
                             <div
