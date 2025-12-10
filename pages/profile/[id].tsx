@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import { useEntanglements } from "../../lib/useEntanglements";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), {
   ssr: false,
@@ -31,20 +32,6 @@ type Profile = {
   lab_website: string | null;
 };
 
-type ConnectionStatus =
-  | "none"
-  | "pending_outgoing"
-  | "pending_incoming"
-  | "accepted"
-  | "declined";
-
-type ConnectionRow = {
-  id: string;
-  user_id: string;
-  target_user_id: string;
-  status: "pending" | "accepted" | "declined";
-};
-
 export default function MemberProfilePage() {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -56,18 +43,21 @@ export default function MemberProfilePage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
 
-  // Entangle state just for this profile
-  const [connectionRow, setConnectionRow] = useState<ConnectionRow | null>(
-    null
-  );
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>("none");
-  const [entangleLoading, setEntangleLoading] = useState(false);
-
   const isSelf = useMemo(
     () => !!user && !!profileId && user.id === profileId,
     [user, profileId]
   );
+
+  // ---- Shared entanglement hook ----
+  const {
+    getConnectionStatus,
+    isEntangleLoading,
+    handleEntangle,
+    handleDeclineEntangle,
+  } = useEntanglements({
+    user,
+    redirectPath: router.asPath || "/community",
+  });
 
   // -------- Load profile --------
   useEffect(() => {
@@ -121,149 +111,16 @@ export default function MemberProfilePage() {
     loadProfile();
   }, [profileId]);
 
-  // -------- Load entanglement between current user and this profile --------
-  useEffect(() => {
-    const loadConnection = async () => {
-      if (!user || !profileId || user.id === profileId) {
-        setConnectionRow(null);
-        setConnectionStatus("none");
-        return;
-      }
-
-      // Find any connection row between these two users
-      const { data, error } = await supabase
-        .from("connections")
-        .select("id, user_id, target_user_id, status")
-        .or(
-          `and(user_id.eq.${user.id},target_user_id.eq.${profileId}),and(user_id.eq.${profileId},target_user_id.eq.${user.id})`
-        );
-
-      if (error) {
-        console.error("Error loading entanglement for profile", error);
-        setConnectionRow(null);
-        setConnectionStatus("none");
-        return;
-      }
-
-      const rows = (data || []) as ConnectionRow[];
-
-      if (rows.length === 0) {
-        setConnectionRow(null);
-        setConnectionStatus("none");
-        return;
-      }
-
-      const row = rows[0];
-      setConnectionRow(row);
-
-      if (row.status === "accepted") {
-        setConnectionStatus("accepted");
-      } else if (row.status === "declined") {
-        setConnectionStatus("declined");
-      } else if (row.status === "pending") {
-        if (row.user_id === user.id) {
-          setConnectionStatus("pending_outgoing");
-        } else if (row.target_user_id === user.id) {
-          setConnectionStatus("pending_incoming");
-        } else {
-          setConnectionStatus("none");
-        }
-      } else {
-        setConnectionStatus("none");
-      }
-    };
-
-    loadConnection();
-  }, [user, profileId]);
-
-  // -------- Entangle handlers --------
-  const handleEntangleClick = async () => {
-    if (!profileId) return;
-
-    // If not logged in → send to auth
-    if (!user) {
-      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-
-    if (isSelf) return;
-
-    setEntangleLoading(true);
-
-    try {
-      // Accept incoming request
-      if (connectionStatus === "pending_incoming" && connectionRow) {
-        const { error } = await supabase
-          .from("connections")
-          .update({ status: "accepted" })
-          .eq("id", connectionRow.id);
-
-        if (!error) {
-          setConnectionRow({ ...connectionRow, status: "accepted" });
-          setConnectionStatus("accepted");
-        }
-        return;
-      }
-
-      // New request (or re-request after decline)
-      if (connectionStatus === "none" || connectionStatus === "declined") {
-        const { data, error } = await supabase
-          .from("connections")
-          .insert({
-            user_id: user.id,
-            target_user_id: profileId,
-            status: "pending",
-          })
-          .select("id, user_id, target_user_id, status")
-          .maybeSingle();
-
-        if (!error && data) {
-          const row = data as ConnectionRow;
-          setConnectionRow(row);
-          setConnectionStatus("pending_outgoing");
-        }
-      }
-    } catch (e) {
-      console.error("Error in entangle action on profile", e);
-    } finally {
-      setEntangleLoading(false);
-    }
-  };
-
-  const handleDeclineClick = async () => {
-    if (!user || !profileId || !connectionRow) return;
-    if (connectionStatus !== "pending_incoming") return;
-
-    setEntangleLoading(true);
-
-    try {
-      // Mark as declined (same logic as other pages)
-      const { error } = await supabase
-        .from("connections")
-        .update({ status: "declined" })
-        .eq("id", connectionRow.id);
-
-      if (!error) {
-        setConnectionRow({ ...connectionRow, status: "declined" });
-        setConnectionStatus("declined");
-      }
-    } catch (e) {
-      console.error("Error declining entanglement on profile", e);
-    } finally {
-      setEntangleLoading(false);
-    }
-  };
-
   // -------- Rendering helpers --------
-  const displayName =
-    profile?.full_name || "Quantum5ocial member";
+  const displayName = profile?.full_name || "Quantum5ocial member";
 
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((x) => x[0]?.toUpperCase())
-    .join("") || "Q5";
+  const initials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "Q5";
 
   const focusTags =
     profile?.focus_areas
@@ -346,8 +203,13 @@ export default function MemberProfilePage() {
       );
     }
 
+    if (!profileId) return null;
+
+    const status = getConnectionStatus(profileId);
+    const loading = isEntangleLoading(profileId);
+
     // Incoming request → Accept + Decline
-    if (connectionStatus === "pending_incoming") {
+    if (status === "pending_incoming") {
       return (
         <div
           style={{
@@ -359,8 +221,8 @@ export default function MemberProfilePage() {
         >
           <button
             type="button"
-            onClick={handleEntangleClick}
-            disabled={entangleLoading}
+            onClick={() => handleEntangle(profileId)}
+            disabled={loading}
             style={{
               padding: "6px 14px",
               borderRadius: 999,
@@ -370,18 +232,18 @@ export default function MemberProfilePage() {
               color: "#0f172a",
               fontSize: 12,
               fontWeight: 600,
-              cursor: entangleLoading ? "default" : "pointer",
-              opacity: entangleLoading ? 0.7 : 1,
+              cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.7 : 1,
               whiteSpace: "nowrap",
             }}
           >
-            {entangleLoading ? "…" : "Accept request"}
+            {loading ? "…" : "Accept request"}
           </button>
 
           <button
             type="button"
-            onClick={handleDeclineClick}
-            disabled={entangleLoading}
+            onClick={() => handleDeclineEntangle(profileId)}
+            disabled={loading}
             style={{
               padding: "6px 14px",
               borderRadius: 999,
@@ -389,8 +251,8 @@ export default function MemberProfilePage() {
               background: "transparent",
               color: "rgba(248,250,252,0.9)",
               fontSize: 12,
-              cursor: entangleLoading ? "default" : "pointer",
-              opacity: entangleLoading ? 0.7 : 1,
+              cursor: loading ? "default" : "pointer",
+              opacity: loading ? 0.7 : 1,
               whiteSpace: "nowrap",
             }}
           >
@@ -407,28 +269,28 @@ export default function MemberProfilePage() {
     let color = "#0f172a";
     let disabled = false;
 
-    if (connectionStatus === "pending_outgoing") {
+    if (status === "pending_outgoing") {
       label = "Request sent";
       border = "1px solid rgba(148,163,184,0.7)";
       bg = "transparent";
       color = "rgba(148,163,184,0.95)";
       disabled = true;
-    } else if (connectionStatus === "accepted") {
+    } else if (status === "accepted") {
       label = "Entangled ✓";
       border = "1px solid rgba(74,222,128,0.7)";
       bg = "transparent";
       color = "rgba(187,247,208,0.95)";
       disabled = true;
-    } else if (connectionStatus === "declined") {
+    } else if (status === "declined") {
+      // Allow sending again (handled in hook)
       label = "Entangle +";
-      // Allow sending again (handled in click logic)
     }
 
     return (
       <button
         type="button"
-        onClick={handleEntangleClick}
-        disabled={entangleLoading || disabled}
+        onClick={() => handleEntangle(profileId)}
+        disabled={loading || disabled}
         style={{
           padding: "6px 16px",
           borderRadius: 999,
@@ -436,16 +298,15 @@ export default function MemberProfilePage() {
           background: bg,
           color,
           fontSize: 12,
-          cursor:
-            entangleLoading || disabled ? "default" : "pointer",
+          cursor: loading || disabled ? "default" : "pointer",
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
           whiteSpace: "nowrap",
-          opacity: entangleLoading ? 0.7 : 1,
+          opacity: loading ? 0.7 : 1,
         }}
       >
-        {entangleLoading ? "…" : label}
+        {loading ? "…" : label}
       </button>
     );
   };
