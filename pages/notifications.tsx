@@ -1,30 +1,12 @@
 // pages/notifications.tsx
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
-
-const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 import LeftSidebar from "../components/LeftSidebar";
 
-type ProfileSummary = {
-  full_name: string | null;
-  avatar_url: string | null;
-  education_level?: string | null;
-  describes_you?: string | null;
-  affiliation?: string | null;
-  highest_education?: string | null;
-  current_org?: string | null;
-};
-
-type MyOrgSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-};
+const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
 type Notification = {
   id: string;
@@ -41,147 +23,11 @@ export default function NotificationsPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
-  // ==== LEFT SIDEBAR STATE (same pattern as jobs page) ====
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
-    null
-  );
-  const [entangledCount, setEntangledCount] = useState<number | null>(null);
-  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
-
   // ==== NOTIFICATIONS STATE ====
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState<boolean>(false);
-
-  // ---- Load saved jobs count ----
-  useEffect(() => {
-    const loadSavedJobs = async () => {
-      if (!user) {
-        setSavedJobsCount(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("saved_jobs")
-        .select("job_id")
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Error loading saved jobs count", error);
-        setSavedJobsCount(0);
-        return;
-      }
-
-      setSavedJobsCount((data || []).length);
-    };
-
-    loadSavedJobs();
-  }, [user]);
-
-  // ---- Load saved products count & entangled count ----
-  useEffect(() => {
-    const loadSidebarCounts = async () => {
-      if (!user) {
-        setSavedProductsCount(null);
-        setEntangledCount(null);
-        return;
-      }
-
-      try {
-        const { data: savedProdRows, error: savedProdErr } = await supabase
-          .from("saved_products")
-          .select("product_id")
-          .eq("user_id", user.id);
-
-        if (!savedProdErr && savedProdRows) {
-          setSavedProductsCount(savedProdRows.length);
-        } else {
-          setSavedProductsCount(0);
-        }
-
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (!connErr && connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-      } catch (e) {
-        console.error("Error loading sidebar counts", e);
-        setSavedProductsCount(0);
-        setEntangledCount(0);
-      }
-    };
-
-    loadSidebarCounts();
-  }, [user]);
-
-  // ---- Load profile for LeftSidebar ----
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setProfileSummary(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!error && data) {
-        setProfileSummary(data as ProfileSummary);
-      } else {
-        setProfileSummary(null);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  // ---- Load user's first organization for LeftSidebar ----
-  useEffect(() => {
-    const loadMyOrg = async () => {
-      if (!user) {
-        setMyOrg(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug, logo_url")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setMyOrg(data as MyOrgSummary);
-      } else {
-        setMyOrg(null);
-      }
-    };
-
-    loadMyOrg();
-  }, [user]);
 
   // ---- Load notifications ----
   useEffect(() => {
@@ -282,15 +128,8 @@ export default function NotificationsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – same usage as jobs page */}
-          <LeftSidebar
-            user={user}
-            profileSummary={profileSummary}
-            myOrg={myOrg}
-            entangledCount={entangledCount}
-            savedJobsCount={savedJobsCount}
-            savedProductsCount={savedProductsCount}
-          />
+          {/* LEFT SIDEBAR – shared component (self-contained) */}
+          <LeftSidebar />
 
           {/* MIDDLE – notifications list */}
           <section className="layout-main">
@@ -305,14 +144,16 @@ export default function NotificationsPage() {
                     Notifications
                     {!loading && !error && (
                       <span
-                        style={{
-                          fontSize: 12,
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          background: "rgba(56,189,248,0.13)",
-                          border: "1px solid rgba(56,189,248,0.35)",
-                          color: "#7dd3fc",
-                        }}
+                        style={
+                          {
+                            fontSize: 12,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "rgba(56,189,248,0.13)",
+                            border: "1px solid rgba(56,189,248,0.35)",
+                            color: "#7dd3fc",
+                          } as React.CSSProperties
+                        }
                       >
                         {unreadCount} unread
                       </span>
@@ -487,9 +328,7 @@ export default function NotificationsPage() {
           {/* RIGHT COLUMN – static info / future settings */}
           <aside className="layout-right sticky-col">
             <div className="sidebar-card">
-              <div className="products-filters-title">
-                Notification tips
-              </div>
+              <div className="products-filters-title">Notification tips</div>
               <p
                 style={{
                   fontSize: 12,
