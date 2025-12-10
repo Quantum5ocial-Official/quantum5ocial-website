@@ -379,9 +379,7 @@ export default function NotificationsPage() {
                     className="section-sub"
                     style={{ maxWidth: 480, lineHeight: 1.45 }}
                   >
-                    Stay up to date with entanglement requests, past
-                    entanglement notifications, job updates, and activity across
-                    the Quantum5ocial ecosystem.
+                    Your requests here:
                   </div>
                 </div>
 
