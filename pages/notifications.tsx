@@ -290,21 +290,37 @@ export default function NotificationsPage() {
           };
           setEntangledUpdates((prev) => [acceptedItem, ...prev]);
         }
-      } else {
+            } else {
         // decline: mark as declined so the other user can send again
         const { error } = await supabase
           .from("connections")
           .update({ status: "declined" })
-          .eq("id", item.id)
-          .eq("target_user_id", user.id);
+          .eq("id", item.id);
 
         if (error) {
-          console.error("Decline entanglement error", error);
-        } else {
-          setEntanglementRequests((prev) =>
-            prev.filter((req) => req.id !== item.id)
+          console.error(
+            "Decline entanglement error, falling back to delete",
+            error
           );
+
+          // Fallback: delete the connection entirely
+          const { error: deleteError } = await supabase
+            .from("connections")
+            .delete()
+            .eq("id", item.id);
+
+          if (deleteError) {
+            console.error(
+              "Error deleting connection on decline",
+              deleteError
+            );
+          }
         }
+
+        // In any case, remove from the UI so the card disappears
+        setEntanglementRequests((prev) =>
+          prev.filter((req) => req.id !== item.id)
+        );
       }
     } finally {
       setActingOnId(null);
