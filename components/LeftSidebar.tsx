@@ -1,5 +1,8 @@
 // components/LeftSidebar.tsx
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { supabase } from "../lib/supabaseClient";
+import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 type ProfileSummary = {
   full_name: string | null;
@@ -20,55 +23,104 @@ type MyOrgSummary = {
   logo_url: string | null;
 };
 
-type LeftSidebarProps = {
-  user: any; // supabase user object (or null)
-  profileSummary: ProfileSummary | null;
-  myOrg: MyOrgSummary | null;
-  entangledCount: number | null;
-  savedJobsCount: number | null;
-  savedProductsCount: number | null;
-};
+export default function LeftSidebar() {
+  const { user } = useSupabaseUser();
 
-export default function LeftSidebar({
-  user,
-  profileSummary,
-  myOrg,
-  entangledCount,
-  savedJobsCount,
-  savedProductsCount,
-}: LeftSidebarProps) {
-  // --- derived fields (same logic as before) ---
+  const [loading, setLoading] = useState(true);
+
+  // Fetched data
+  const [profile, setProfile] = useState<ProfileSummary | null>(null);
+  const [entangledCount, setEntangledCount] = useState<number | null>(null);
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
+    null
+  );
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
+
+  // 🔥 Load everything internally
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    const loadAll = async () => {
+      try {
+        // PROFILE
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .maybeSingle();
+        setProfile((p as ProfileSummary) || null);
+
+        // ENTANGLEMENTS
+        const { data: ents } = await supabase
+          .from("entanglements")
+          .select("id")
+          .eq("user_id", user.id);
+        setEntangledCount(ents?.length || 0);
+
+        // SAVED JOBS
+        const { data: savedJobs } = await supabase
+          .from("saved_jobs")
+          .select("job_id")
+          .eq("user_id", user.id);
+        setSavedJobsCount(savedJobs?.length || 0);
+
+        // SAVED PRODUCTS
+        const { data: savedProducts } = await supabase
+          .from("saved_products")
+          .select("product_id")
+          .eq("user_id", user.id);
+        setSavedProductsCount(savedProducts?.length || 0);
+
+        // MY ORGANIZATION (first one)
+        const { data: orgRow } = await supabase
+          .from("organizations")
+          .select("id, name, slug, logo_url")
+          .eq("created_by", user.id)
+          .eq("is_active", true)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (orgRow) {
+          setMyOrg(orgRow as MyOrgSummary);
+        } else {
+          setMyOrg(null);
+        }
+      } catch (err) {
+        console.error("LeftSidebar load error:", err);
+      }
+
+      setLoading(false);
+    };
+
+    loadAll();
+  }, [user]);
+
+  if (!user) return null;
+
+  // Derived fields
   const fallbackName =
-    (user as any)?.user_metadata?.name ||
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email?.split("@")[0] ||
     "User";
 
-  const sidebarFullName =
-    profileSummary?.full_name || fallbackName || "Your profile";
-
-  const avatarUrl = profileSummary?.avatar_url || null;
+  const fullName = profile?.full_name || fallbackName;
+  const avatarUrl = profile?.avatar_url || null;
 
   const educationLevel =
-    (profileSummary as any)?.education_level ||
-    (profileSummary as any)?.highest_education ||
-    "";
+    profile?.education_level || profile?.highest_education || "";
+  const describesYou = profile?.describes_you || "";
+  const affiliation = profile?.affiliation || profile?.current_org || "";
+  const city = profile?.city || "";
+  const country = profile?.country || "";
 
-  const describesYou =
-    (profileSummary as any)?.describes_you ||
-    (profileSummary as any)?.role ||
-    "";
-
-  const affiliation =
-    (profileSummary as any)?.affiliation ||
-    (profileSummary as any)?.current_org ||
-    "";
-
-  const hasProfileExtraInfo =
-    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
-
-  const city = (profileSummary as any)?.city || "";
-  const country = (profileSummary as any)?.country || "";
+  const hasExtras =
+    educationLevel || describesYou || affiliation || city || country;
 
   return (
     <aside
@@ -76,37 +128,35 @@ export default function LeftSidebar({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 6, // uniform spacing between blocks
+        gap: 6,
       }}
     >
-      {/* PROFILE CARD – clickable → profile page */}
+      {/* ======================================================
+         PROFILE CARD
+      ======================================================= */}
       <Link
         href="/profile"
         className="sidebar-card profile-sidebar-card"
-        style={{
-          textDecoration: "none",
-          color: "inherit",
-          cursor: "pointer",
-        }}
+        style={{ textDecoration: "none", color: "inherit" }}
       >
         <div className="profile-sidebar-header">
           <div className="profile-sidebar-avatar-wrapper">
             {avatarUrl ? (
               <img
                 src={avatarUrl}
-                alt={sidebarFullName}
+                alt={fullName}
                 className="profile-sidebar-avatar"
               />
             ) : (
               <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {sidebarFullName.charAt(0).toUpperCase()}
+                {fullName.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
-          <div className="profile-sidebar-name">{sidebarFullName}</div>
+          <div className="profile-sidebar-name">{fullName}</div>
         </div>
 
-        {(hasProfileExtraInfo || city || country) && (
+        {hasExtras && (
           <div className="profile-sidebar-info-block">
             {educationLevel && (
               <div className="profile-sidebar-info-value">
@@ -114,18 +164,12 @@ export default function LeftSidebar({
               </div>
             )}
             {describesYou && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4 }}
-              >
+              <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                 {describesYou}
               </div>
             )}
             {affiliation && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4 }}
-              >
+              <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                 {affiliation}
               </div>
             )}
@@ -141,76 +185,48 @@ export default function LeftSidebar({
         )}
       </Link>
 
-      {/* QUICK DASHBOARD */}
+      {/* ======================================================
+         QUICK DASHBOARD
+      ======================================================= */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link
-            href="/dashboard/entangled-states"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link">
             <span>Entanglements</span>
             <span style={{ opacity: 0.9 }}>
-              {entangledCount === null ? "…" : entangledCount}
+              {entangledCount ?? "…"}
             </span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-jobs"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link">
             <span>Saved jobs</span>
             <span style={{ opacity: 0.9 }}>
-              {savedJobsCount === null ? "…" : savedJobsCount}
+              {savedJobsCount ?? "…"}
             </span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-products"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link">
             <span>Saved products</span>
             <span style={{ opacity: 0.9 }}>
-              {savedProductsCount === null ? "…" : savedProductsCount}
+              {savedProductsCount ?? "…"}
             </span>
           </Link>
 
-          <Link
-            href="/ecosystem"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+          <Link href="/ecosystem" className="dashboard-sidebar-link">
             <span>My Ecosystem</span>
           </Link>
         </div>
       </div>
 
-      {/* MY ORGANIZATION (if exists) */}
-      {user && myOrg && (
+      {/* ======================================================
+         MY ORGANIZATION — conditional
+      ======================================================= */}
+      {myOrg && (
         <Link
           href={`/orgs/${myOrg.slug}`}
           className="sidebar-card dashboard-sidebar-card"
-          style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+          style={{ textDecoration: "none", color: "inherit" }}
         >
           <div className="dashboard-sidebar-title">My organization</div>
 
@@ -228,7 +244,6 @@ export default function LeftSidebar({
                 height: 48,
                 borderRadius: 14,
                 overflow: "hidden",
-                flexShrink: 0,
                 border: "1px solid rgba(148,163,184,0.45)",
                 background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                 display: "flex",
@@ -243,11 +258,7 @@ export default function LeftSidebar({
                 <img
                   src={myOrg.logo_url}
                   alt={myOrg.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
                 myOrg.name.charAt(0).toUpperCase()
@@ -259,9 +270,9 @@ export default function LeftSidebar({
                 style={{
                   fontSize: 15,
                   fontWeight: 500,
+                  whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
                 }}
               >
                 {myOrg.name}
@@ -277,22 +288,18 @@ export default function LeftSidebar({
                   gap: 2,
                 }}
               >
-                <div>
-                  Followers: <span style={{ color: "#e5e7eb" }}>0</span>
-                </div>
-                <div>
-                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
-                </div>
-                <div style={{ marginTop: 4, color: "#7dd3fc" }}>
-                  Analytics →
-                </div>
+                <div>Followers: <span style={{ color: "#e5e7eb" }}>0</span></div>
+                <div>Views: <span style={{ color: "#e5e7eb" }}>0</span></div>
+                <div style={{ marginTop: 4, color: "#7dd3fc" }}>Analytics →</div>
               </div>
             </div>
           </div>
         </Link>
       )}
 
-      {/* PREMIUM CARD */}
+      {/* ======================================================
+         PREMIUM CARD
+      ======================================================= */}
       <div
         className="sidebar-card premium-sidebar-card"
         style={{
@@ -304,17 +311,11 @@ export default function LeftSidebar({
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
           <span style={{ fontSize: 18 }}>👑</span>
           <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
         </div>
+
         <div
           style={{
             fontSize: 12,
@@ -323,9 +324,9 @@ export default function LeftSidebar({
             marginBottom: 10,
           }}
         >
-          Unlock advanced analytics, reduced ads, and premium perks for
-          your profile and organization.
+          Unlock advanced analytics, reduced ads, and premium perks for your profile and organization.
         </div>
+
         <div
           style={{
             fontSize: 11,
@@ -352,52 +353,14 @@ export default function LeftSidebar({
         }}
       />
 
-      {/* SOCIAL + LOGO + COPYRIGHT */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            fontSize: 18,
-            alignItems: "center",
-          }}
-        >
-          <a
-            href="mailto:info@quantum5ocial.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Email Quantum5ocial"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
-            ✉️
-          </a>
-          <a
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Quantum5ocial on X"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
-            𝕏
-          </a>
-          <a
-            href="#"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Quantum5ocial on LinkedIn"
-            style={{
-              color: "rgba(148,163,184,0.9)",
-              fontWeight: 600,
-            }}
-          >
-            in
-          </a>
+      {/* ======================================================
+         SOCIALS + COPYRIGHT
+      ======================================================= */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
         </div>
 
         <div
@@ -412,12 +375,7 @@ export default function LeftSidebar({
           <img
             src="/Q5_white_bg.png"
             alt="Quantum5ocial logo"
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 4,
-              objectFit: "contain",
-            }}
+            style={{ width: 24, height: 24, borderRadius: 4 }}
           />
           <span>© 2025 Quantum5ocial</span>
         </div>
