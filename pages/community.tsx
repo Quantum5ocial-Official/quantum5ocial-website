@@ -396,7 +396,7 @@ export default function CommunityPage() {
           .from("connections")
           .select("user_id, target_user_id, status")
           .eq("status", "accepted")
-          .or(user_id.eq.${user.id},target_user_id.eq.${user.id});
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
 
         if (!connErr && connRows && connRows.length > 0) {
           const otherIds = Array.from(
@@ -529,7 +529,7 @@ export default function CommunityPage() {
         const { data, error } = await supabase
           .from("connections")
           .select("id, user_id, target_user_id, status")
-          .or(user_id.eq.${user.id},target_user_id.eq.${user.id});
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
 
         if (error) {
           console.error("Error loading entanglement connections", error);
