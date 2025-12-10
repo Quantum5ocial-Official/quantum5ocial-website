@@ -84,12 +84,16 @@ export default function OrganizationDetailPage() {
   const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
   const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
 
-  // Followers state
+    // Followers state
   const [followers, setFollowers] = useState<FollowerProfile[]>([]);
   const [followersCount, setFollowersCount] = useState<number | null>(null);
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(true);
   const [followersError, setFollowersError] = useState<string | null>(null);
 
+  // 🔹 Follow state for this org
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followLoading, setFollowLoading] = useState<boolean>(false);
+  
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
     if (!slug) return;
@@ -340,6 +344,36 @@ export default function OrganizationDetailPage() {
     loadMyOrg();
   }, [user]);
 
+    // 🔹 Load whether current user follows this organization
+  useEffect(() => {
+    const loadFollowStatus = async () => {
+      if (!user || !org) {
+        setIsFollowing(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("org_follows")
+          .select("org_id")
+          .eq("user_id", user.id)
+          .eq("org_id", org.id)
+          .maybeSingle();
+
+        if (!error && data) {
+          setIsFollowing(true);
+        } else {
+          setIsFollowing(false);
+        }
+      } catch (e) {
+        console.error("Error loading follow status", e);
+        setIsFollowing(false);
+      }
+    };
+
+    loadFollowStatus();
+  }, [user, org]);
+
   // === SIDEBAR HELPERS ===
   const fallbackName =
     (user as any)?.user_metadata?.name ||
@@ -447,6 +481,63 @@ export default function OrganizationDetailPage() {
                 </div>
               )}
             </Link>
+            
+              // 🔹 Follow / unfollow handler
+  const handleFollowClick = async () => {
+    if (!org) return;
+
+    // Not logged in → go to auth
+    if (!user) {
+      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    setFollowLoading(true);
+
+    try {
+      if (isFollowing) {
+        // Unfollow
+        const { error } = await supabase
+          .from("org_follows")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("org_id", org.id);
+
+        if (error) {
+          console.error("Error unfollowing organization", error);
+        } else {
+          setIsFollowing(false);
+          setFollowersCount((prev) =>
+            prev === null ? prev : Math.max(prev - 1, 0)
+          );
+        }
+      } else {
+        // Follow
+        const { error } = await supabase
+          .from("org_follows")
+          .upsert(
+            {
+              user_id: user.id,
+              org_id: org.id,
+            },
+            { onConflict: "user_id,org_id" }
+          );
+
+        if (error) {
+          console.error("Error following organization", error);
+        } else {
+          setIsFollowing(true);
+          setFollowersCount((prev) =>
+            prev === null ? prev : prev + 1
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Unexpected error in follow handler", e);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
             {/* Quick dashboard */}
             <div className="sidebar-card dashboard-sidebar-card">
@@ -864,7 +955,7 @@ export default function OrganizationDetailPage() {
                           </div>
                         </div>
 
-                        {/* Actions */}
+                                                {/* Actions */}
                         <div
                           style={{
                             display: "flex",
@@ -895,20 +986,35 @@ export default function OrganizationDetailPage() {
                           ) : (
                             <button
                               type="button"
-                              disabled
+                              onClick={handleFollowClick}   // 🔹 real handler
+                              disabled={followLoading}
                               style={{
                                 padding: "9px 16px",
                                 borderRadius: 999,
                                 fontSize: 13,
-                                border:
-                                  "1px solid rgba(148,163,184,0.6)",
-                                background: "transparent",
-                                color: "rgba(148,163,184,0.95)",
-                                cursor: "not-allowed",
+                                border: isFollowing
+                                  ? "1px solid rgba(148,163,184,0.7)"
+                                  : "1px solid rgba(59,130,246,0.6)",
+                                background: isFollowing
+                                  ? "transparent"
+                                  : "rgba(59,130,246,0.16)",
+                                color: isFollowing
+                                  ? "rgba(148,163,184,0.95)"
+                                  : "#bfdbfe",
+                                cursor: followLoading
+                                  ? "default"
+                                  : "pointer",
                                 whiteSpace: "nowrap",
+                                opacity: followLoading ? 0.7 : 1,
                               }}
                             >
-                              Follow (soon)
+                              {followLoading
+                                ? "…"
+                                : !user
+                                ? "Sign in to follow"
+                                : isFollowing
+                                ? "Following"
+                                : "Follow"}
                             </button>
                           )}
                         </div>
