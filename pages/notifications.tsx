@@ -1,338 +1,279 @@
 // pages/notifications.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
-  ssr: false,
-});
+import LeftSidebar from "../components/LeftSidebar";
 
-// Connection row (pending / accepted / declined)
-type ConnectionRow = {
-  id: string;
-  user_id: string;
-  target_user_id: string;
-  status: string;
-  created_at: string | null;
-};
-
-// Minimal profile for request & entanglement cards
-type UserProfile = {
-  id: string;
+type ProfileSummary = {
   full_name: string | null;
   avatar_url: string | null;
-  role: string | null;
-  short_bio: string | null;
-  highest_education: string | null;
-  affiliation: string | null;
-  country: string | null;
-  city: string | null;
+  education_level?: string | null;
+  describes_you?: string | null;
+  affiliation?: string | null;
+  highest_education?: string | null;
+  current_org?: string | null;
 };
 
-type PendingRequest = {
-  connectionId: string;
-  created_at: string | null;
-  sender: UserProfile;
+type MyOrgSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
 };
 
-type RecentEntanglement = {
-  connectionId: string;
+type Notification = {
+  id: string;
+  user_id: string;
+  type: string | null;
+  title: string | null;
+  message: string | null;
+  link_url: string | null;
+  is_read: boolean | null;
   created_at: string | null;
-  status: "accepted" | "declined" | "rejected";
-  isSender: boolean; // is *current* user the one who sent the request?
-  otherUser: UserProfile;
 };
 
 export default function NotificationsPage() {
-  const { user, loading } = useSupabaseUser();
+  const { user } = useSupabaseUser();
   const router = useRouter();
 
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
-  const [loadingRequests, setLoadingRequests] = useState(true);
-  const [requestsError, setRequestsError] = useState<string | null>(null);
-  const [actionLoadingIds, setActionLoadingIds] = useState<string[]>([]);
+  // ==== LEFT SIDEBAR STATE (same pattern as jobs page) ====
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
+    null
+  );
+  const [entangledCount, setEntangledCount] = useState<number | null>(null);
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
 
-  const [recentEntanglements, setRecentEntanglements] = useState<
-    RecentEntanglement[]
-  >([]);
-  const [loadingEntanglements, setLoadingEntanglements] = useState(true);
+  // ==== NOTIFICATIONS STATE ====
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [markingAll, setMarkingAll] = useState<boolean>(false);
 
-  // Redirect if not logged in
+  // ---- Load saved jobs count ----
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/auth?redirect=/notifications");
-    }
-  }, [loading, user, router]);
-
-  // Format date/time for entanglement cards
-  const formatDateTime = (iso: string | null) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  // Load pending requests
-  useEffect(() => {
-    const loadPendingRequests = async () => {
+    const loadSavedJobs = async () => {
       if (!user) {
-        setPendingRequests([]);
-        setLoadingRequests(false);
+        setSavedJobsCount(null);
         return;
       }
 
-      setLoadingRequests(true);
-      setRequestsError(null);
+      const { data, error } = await supabase
+        .from("saved_jobs")
+        .select("job_id")
+        .eq("user_id", user.id);
 
-      try {
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("id, user_id, target_user_id, status, created_at")
-          .eq("target_user_id", user.id)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false });
-
-        if (connErr) throw connErr;
-
-        if (!connRows || connRows.length === 0) {
-          setPendingRequests([]);
-          return;
-        }
-
-        const senderIds = Array.from(
-          new Set((connRows as ConnectionRow[]).map((c) => c.user_id))
-        );
-
-        const { data: senderProfiles, error: profErr } = await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, country, city"
-          )
-          .in("id", senderIds);
-
-        if (profErr) throw profErr;
-
-        const profilesById: Record<string, UserProfile> = {};
-        (senderProfiles || []).forEach((p: any) => {
-          profilesById[p.id] = p as UserProfile;
-        });
-
-        const requests: PendingRequest[] = (connRows as ConnectionRow[])
-          .map((c) => {
-            const sender = profilesById[c.user_id];
-            if (!sender) return null;
-            return {
-              connectionId: c.id,
-              created_at: c.created_at,
-              sender,
-            };
-          })
-          .filter(Boolean) as PendingRequest[];
-
-        setPendingRequests(requests);
-      } catch (e) {
-        console.error("Error loading pending requests", e);
-        setRequestsError(
-          "Could not load your notifications. Please try again later."
-        );
-        setPendingRequests([]);
-      } finally {
-        setLoadingRequests(false);
-      }
-    };
-
-    loadPendingRequests();
-  }, [user]);
-
-  // Load recent entanglements
-  useEffect(() => {
-    const loadEntanglements = async () => {
-      if (!user) {
-        setRecentEntanglements([]);
-        setLoadingEntanglements(false);
+      if (error) {
+        console.error("Error loading saved jobs count", error);
+        setSavedJobsCount(0);
         return;
       }
 
-      setLoadingEntanglements(true);
-
-      try {
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("id, user_id, target_user_id, status, created_at")
-          .in("status", ["accepted", "declined", "rejected"])
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
-          .order("created_at", { ascending: false })
-          .limit(30);
-
-        if (connErr) throw connErr;
-        if (!connRows || connRows.length === 0) {
-          setRecentEntanglements([]);
-          return;
-        }
-
-        const rows = connRows as ConnectionRow[];
-
-        const otherIdByConnection: Record<string, string> = {};
-        const isSenderByConnection: Record<string, boolean> = {};
-        const otherIdsSet = new Set<string>();
-
-        rows.forEach((c) => {
-          const isSender = c.user_id === user.id;
-          const otherId = isSender ? c.target_user_id : c.user_id;
-          isSenderByConnection[c.id] = isSender;
-          otherIdByConnection[c.id] = otherId;
-          otherIdsSet.add(otherId);
-        });
-
-        const otherIds = Array.from(otherIdsSet);
-
-        const { data: otherProfiles, error: profErr } = await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, country, city"
-          )
-          .in("id", otherIds);
-
-        if (profErr) throw profErr;
-
-        const profilesById: Record<string, UserProfile> = {};
-        (otherProfiles || []).forEach((p: any) => {
-          profilesById[p.id] = p as UserProfile;
-        });
-
-        const entanglements: RecentEntanglement[] = rows
-          .map((c) => {
-            const otherId = otherIdByConnection[c.id];
-            const otherUser = profilesById[otherId];
-            if (!otherUser) return null;
-
-            const status =
-              (c.status as "accepted" | "declined" | "rejected") || "accepted";
-
-            return {
-              connectionId: c.id,
-              created_at: c.created_at,
-              status,
-              isSender: isSenderByConnection[c.id],
-              otherUser,
-            };
-          })
-          .filter(Boolean) as RecentEntanglement[];
-
-        setRecentEntanglements(entanglements);
-      } catch (e) {
-        console.error("Error loading entanglements", e);
-        setRecentEntanglements([]);
-      } finally {
-        setLoadingEntanglements(false);
-      }
+      setSavedJobsCount((data || []).length);
     };
 
-    loadEntanglements();
+    loadSavedJobs();
   }, [user]);
 
-  const isActionLoading = (connectionId: string) =>
-    actionLoadingIds.includes(connectionId);
+  // ---- Load saved products count & entangled count ----
+  useEffect(() => {
+    const loadSidebarCounts = async () => {
+      if (!user) {
+        setSavedProductsCount(null);
+        setEntangledCount(null);
+        return;
+      }
 
-  const handleRespond = async (
-    connectionId: string,
-    accept: boolean,
-    sender?: UserProfile
-  ) => {
-    if (!user) {
-      router.push("/auth?redirect=/notifications");
-      return;
-    }
+      try {
+        const { data: savedProdRows, error: savedProdErr } = await supabase
+          .from("saved_products")
+          .select("product_id")
+          .eq("user_id", user.id);
 
-    setActionLoadingIds((prev) => [...prev, connectionId]);
-
-    try {
-      if (accept) {
-        const { error } = await supabase
-          .from("connections")
-          .update({ status: "accepted" })
-          .eq("id", connectionId);
-
-        if (error) {
-          console.error("Error accepting connection", error);
+        if (!savedProdErr && savedProdRows) {
+          setSavedProductsCount(savedProdRows.length);
         } else {
-          setPendingRequests((prev) =>
-            prev.filter((r) => r.connectionId !== connectionId)
-          );
-
-          if (sender) {
-            setRecentEntanglements((prev) => [
-              {
-                connectionId,
-                created_at: new Date().toISOString(),
-                status: "accepted",
-                isSender: false,
-                otherUser: sender,
-              },
-              ...prev,
-            ]);
-          }
+          setSavedProductsCount(0);
         }
-      } else {
-        const { error } = await supabase
+
+        const { data: connRows, error: connErr } = await supabase
           .from("connections")
-          .update({ status: "declined" })
-          .eq("id", connectionId);
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
 
-        if (error) {
-          console.error(
-            "Error declining connection, falling back to delete",
-            error
+        if (!connErr && connRows && connRows.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connRows.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
           );
-          const { error: deleteError } = await supabase
-            .from("connections")
-            .delete()
-            .eq("id", connectionId);
-
-          if (deleteError) {
-            console.error(
-              "Error deleting connection on decline fallback",
-              deleteError
-            );
-          }
+          setEntangledCount(otherIds.length);
+        } else {
+          setEntangledCount(0);
         }
-
-        setPendingRequests((prev) =>
-          prev.filter((r) => r.connectionId !== connectionId)
-        );
-
-        if (sender) {
-          setRecentEntanglements((prev) => [
-            {
-              connectionId,
-              created_at: new Date().toISOString(),
-              status: "declined",
-              isSender: false,
-              otherUser: sender,
-            },
-            ...prev,
-          ]);
-        }
+      } catch (e) {
+        console.error("Error loading sidebar counts", e);
+        setSavedProductsCount(0);
+        setEntangledCount(0);
       }
-    } catch (e) {
-      console.error("Unexpected error updating connection", e);
+    };
+
+    loadSidebarCounts();
+  }, [user]);
+
+  // ---- Load profile for LeftSidebar ----
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  // ---- Load user's first organization for LeftSidebar ----
+  useEffect(() => {
+    const loadMyOrg = async () => {
+      if (!user) {
+        setMyOrg(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .eq("created_by", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMyOrg(data as MyOrgSummary);
+      } else {
+        setMyOrg(null);
+      }
+    };
+
+    loadMyOrg();
+  }, [user]);
+
+  // ---- Load notifications ----
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (!user) {
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading notifications", error);
+        setError("Could not load notifications.");
+        setNotifications([]);
+      } else {
+        setNotifications((data || []) as Notification[]);
+      }
+
+      setLoading(false);
+    };
+
+    loadNotifications();
+  }, [user]);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.is_read).length,
+    [notifications]
+  );
+
+  const handleMarkAllRead = async () => {
+    if (!user || notifications.length === 0 || unreadCount === 0) return;
+
+    setMarkingAll(true);
+    try {
+      const idsToMark = notifications
+        .filter((n) => !n.is_read)
+        .map((n) => n.id);
+
+      if (idsToMark.length === 0) {
+        setMarkingAll(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .in("id", idsToMark);
+
+      if (error) {
+        console.error("Error marking all as read", error);
+      } else {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            idsToMark.includes(n.id) ? { ...n, is_read: true } : n
+          )
+        );
+      }
     } finally {
-      setActionLoadingIds((prev) =>
-        prev.filter((id) => id !== connectionId)
-      );
+      setMarkingAll(false);
     }
   };
 
-  if (!user && !loading) return null;
+  const handleOpenNotification = async (notification: Notification) => {
+    if (!notification.link_url) return;
+
+    // Mark single notification as read on click
+    if (!notification.is_read) {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", notification.id);
+
+      if (!error) {
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notification.id ? { ...n, is_read: true } : n
+          )
+        );
+      }
+    }
+
+    router.push(notification.link_url);
+  };
 
   return (
     <>
@@ -341,7 +282,7 @@ export default function NotificationsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT COLUMN – PROFILE SIDEBAR (same component as homepage) ========== */}
+          {/* LEFT SIDEBAR – same usage as jobs page */}
           <LeftSidebar
             user={user}
             profileSummary={profileSummary}
@@ -351,438 +292,232 @@ export default function NotificationsPage() {
             savedProductsCount={savedProductsCount}
           />
 
-          {/* CENTER – NOTIFICATIONS */}
-          <section className="layout-center">
-            <div className="section-header" style={{ marginBottom: 16 }}>
-              <div>
-                <div className="section-title">Notifications</div>
-                <div className="section-sub">
-                  Entanglement activity in your Quantum5ocial ecosystem.
-                </div>
-              </div>
-            </div>
-
-            {/* BLOCK 1: Pending requests */}
-            <div
-              className="card"
-              style={{ marginBottom: 20, padding: 16, borderRadius: 18 }}
-            >
-              <div
-                className="section-subtitle"
-                style={{ marginBottom: 8 }}
-              >
-                Pending entanglement requests
-              </div>
-
-              {loadingRequests && (
-                <p className="profile-muted">Loading your requests…</p>
-              )}
-
-              {requestsError && !loadingRequests && (
-                <p
-                  className="profile-muted"
-                  style={{ color: "#f97373", marginTop: 8 }}
-                >
-                  {requestsError}
-                </p>
-              )}
-
-              {!loadingRequests &&
-                !requestsError &&
-                pendingRequests.length === 0 && (
-                  <div className="products-empty">
-                    You have no entanglement requests at the moment.
-                  </div>
-                )}
-
-              {!loadingRequests &&
-                !requestsError &&
-                pendingRequests.length > 0 && (
+          {/* MIDDLE – notifications list */}
+          <section className="layout-main">
+            <section className="section">
+              {/* Header */}
+              <div className="section-header">
+                <div>
                   <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 16,
-                      marginTop: 4,
-                    }}
+                    className="section-title"
+                    style={{ display: "flex", alignItems: "center", gap: 10 }}
                   >
-                    {pendingRequests.map(({ connectionId, sender }) => {
-                      const name =
-                        sender.full_name || "Quantum5ocial member";
-                      const initials = name
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase();
-                      const location = [sender.city, sender.country]
-                        .filter(Boolean)
-                        .join(", ");
-                      const metaLines: string[] = [];
-                      if (sender.highest_education)
-                        metaLines.push(sender.highest_education);
-                      if (sender.affiliation)
-                        metaLines.push(sender.affiliation);
-                      if (location) metaLines.push(location);
-                      const meta = metaLines.join(" · ");
+                    Notifications
+                    {!loading && !error && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: "rgba(56,189,248,0.13)",
+                          border: "1px solid rgba(56,189,248,0.35)",
+                          color: "#7dd3fc",
+                        }}
+                      >
+                        {unreadCount} unread
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className="section-sub"
+                    style={{ maxWidth: 480, lineHeight: 1.45 }}
+                  >
+                    Stay up to date with connection requests, job updates, and
+                    activity across the Quantum5ocial ecosystem.
+                  </div>
+                </div>
 
-                      return (
+                {notifications.length > 0 && unreadCount > 0 && (
+                  <button
+                    className="nav-ghost-btn"
+                    style={{ fontSize: 13, cursor: "pointer" }}
+                    disabled={markingAll}
+                    onClick={handleMarkAllRead}
+                  >
+                    {markingAll ? "Marking…" : "Mark all as read"}
+                  </button>
+                )}
+              </div>
+
+              {/* Body */}
+              {loading && (
+                <div className="products-status">Loading notifications…</div>
+              )}
+
+              {error && !loading && (
+                <div className="products-status" style={{ color: "#f87171" }}>
+                  {error}
+                </div>
+              )}
+
+              {!loading && !error && notifications.length === 0 && (
+                <div className="products-empty">
+                  No notifications yet. As you save jobs, entangle with people,
+                  and follow organizations, updates will appear here.
+                </div>
+              )}
+
+              {!loading && !error && notifications.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    marginTop: 6,
+                  }}
+                >
+                  {notifications.map((n) => {
+                    const read = !!n.is_read;
+                    const created =
+                      n.created_at && !Number.isNaN(Date.parse(n.created_at))
+                        ? new Date(n.created_at).toLocaleString()
+                        : "";
+
+                    return (
+                      <div
+                        key={n.id}
+                        className="card"
+                        style={{
+                          padding: 12,
+                          borderRadius: 12,
+                          border: read
+                            ? "1px solid rgba(30,64,175,0.4)"
+                            : "1px solid rgba(56,189,248,0.8)",
+                          background: read
+                            ? "rgba(15,23,42,0.9)"
+                            : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
+                          cursor: n.link_url ? "pointer" : "default",
+                          opacity: read ? 0.9 : 1,
+                        }}
+                        onClick={() => n.link_url && handleOpenNotification(n)}
+                      >
                         <div
-                          key={connectionId}
-                          className="card"
                           style={{
-                            padding: 18,
-                            borderRadius: 18,
-                            border: "1px solid rgba(56,189,248,0.35)",
-                            background:
-                              "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.14), rgba(15,23,42,0.98))",
-                            boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: 10,
                           }}
                         >
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 14,
-                              alignItems: "flex-start",
-                            }}
-                          >
-                            {/* Avatar */}
+                          <div>
                             <div
                               style={{
-                                width: 56,
-                                height: 56,
-                                borderRadius: "999px",
-                                overflow: "hidden",
-                                flexShrink: 0,
-                                background:
-                                  "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                border:
-                                  "1px solid rgba(148,163,184,0.55)",
-                                color: "#e5e7eb",
-                                fontWeight: 600,
-                                fontSize: 18,
+                                fontSize: 12,
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                color: read ? "#9ca3af" : "#7dd3fc",
+                                marginBottom: 2,
                               }}
                             >
-                              {sender.avatar_url ? (
-                                <img
-                                  src={sender.avatar_url}
-                                  alt={name}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                  }}
-                                />
-                              ) : (
-                                initials
-                              )}
+                              {n.type || "Update"}
                             </div>
-
-                            {/* Text block */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: 8,
-                                  marginBottom: 4,
-                                }}
-                              >
-                                <div>
-                                  <div
-                                    style={{
-                                      fontWeight: 600,
-                                      fontSize: 15,
-                                    }}
-                                  >
-                                    {name}
-                                  </div>
-                                  {sender.role && (
-                                    <div
-                                      style={{
-                                        fontSize: 12,
-                                        color: "rgba(148,163,184,0.95)",
-                                        marginTop: 2,
-                                      }}
-                                    >
-                                      {sender.role}
-                                    </div>
-                                  )}
-                                </div>
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    padding: "2px 9px",
-                                    borderRadius: 999,
-                                    border:
-                                      "1px solid rgba(148,163,184,0.7)",
-                                    color: "rgba(226,232,240,0.95)",
-                                    textTransform: "uppercase",
-                                    letterSpacing: "0.08em",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  Member
-                                </span>
-                              </div>
-
-                              {meta && (
-                                <div
-                                  style={{
-                                    fontSize: 12,
-                                    color: "rgba(148,163,184,0.95)",
-                                    marginBottom: 6,
-                                  }}
-                                >
-                                  {meta}
-                                </div>
-                              )}
-
+                            <div
+                              style={{
+                                fontSize: 14,
+                                fontWeight: 600,
+                                marginBottom: 3,
+                              }}
+                            >
+                              {n.title || "Notification"}
+                            </div>
+                            {n.message && (
                               <div
                                 style={{
                                   fontSize: 12,
                                   color: "var(--text-muted)",
-                                  lineHeight: 1.45,
-                                  marginBottom: 12,
+                                  lineHeight: 1.4,
                                 }}
                               >
-                                {sender.short_bio ||
-                                  "Wants to entangle with you on Quantum5ocial and join your ecosystem."}
-                              </div>
-
-                              {/* Actions */}
-                              <div
-                                style={{
-                                  display: "flex",
-                                  gap: 10,
-                                  flexWrap: "wrap",
-                                }}
-                              >
-                                <button
-                                  type="button"
-                                  disabled={isActionLoading(connectionId)}
-                                  onClick={() =>
-                                    handleRespond(
-                                      connectionId,
-                                      true,
-                                      sender
-                                    )
-                                  }
-                                  style={{
-                                    flex: 1,
-                                    minWidth: 140,
-                                    padding: "8px 0",
-                                    borderRadius: 999,
-                                    border: "none",
-                                    background: isActionLoading(connectionId)
-                                      ? "rgba(34,197,94,0.7)"
-                                      : "#22c55e",
-                                    color: "#022c22",
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  {isActionLoading(connectionId)
-                                    ? "Accepting…"
-                                    : "Accept request"}
-                                </button>
-
-                                <button
-                                  type="button"
-                                  disabled={isActionLoading(connectionId)}
-                                  onClick={() =>
-                                    handleRespond(connectionId, false, sender)
-                                  }
-                                  style={{
-                                    flex: 1,
-                                    minWidth: 120,
-                                    padding: "8px 0",
-                                    borderRadius: 999,
-                                    border:
-                                      "1px solid rgba(148,163,184,0.7)",
-                                    background: "transparent",
-                                    color: "rgba(248,250,252,0.9)",
-                                    fontSize: 13,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  {isActionLoading(connectionId)
-                                    ? "Processing…"
-                                    : "Decline"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-            </div>
-
-            {/* BLOCK 2: Recent entanglements */}
-            <div
-              className="card"
-              style={{ padding: 16, borderRadius: 18 }}
-            >
-              <div
-                className="section-subtitle"
-                style={{ marginBottom: 8 }}
-              >
-                Recent entanglements
-              </div>
-
-              {loadingEntanglements && (
-                <p className="profile-muted">
-                  Loading your entangled states…
-                </p>
-              )}
-
-              {!loadingEntanglements &&
-                recentEntanglements.length === 0 && (
-                  <div className="products-empty">
-                    No entangled activity yet. Once you accept, send, or decline
-                    requests, you&apos;ll see a history of entanglements here.
-                  </div>
-                )}
-
-              {!loadingEntanglements &&
-                recentEntanglements.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      marginTop: 4,
-                    }}
-                  >
-                    {recentEntanglements.map(
-                      ({
-                        connectionId,
-                        otherUser,
-                        created_at,
-                        status,
-                        isSender,
-                      }) => {
-                        const name =
-                          otherUser.full_name || "Quantum5ocial member";
-                        const initials = name
-                          .split(" ")
-                          .map((p) => p[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase();
-                        const when = formatDateTime(created_at);
-
-                        let message: string;
-
-                        if (status === "accepted") {
-                          message = `You are now entangled with ${name}`;
-                        } else if (
-                          status === "declined" ||
-                          status === "rejected"
-                        ) {
-                          if (isSender) {
-                            message = `Your entanglement request has been declined by ${name}`;
-                          } else {
-                            message = `You declined the entanglement request from ${name}`;
-                          }
-                        } else {
-                          message = `Entanglement activity with ${name}`;
-                        }
-
-                        return (
-                          <div
-                            key={`ent-${connectionId}`}
-                            className="card"
-                            style={{
-                              padding: 10,
-                              borderRadius: 12,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 10,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: "999px",
-                                  overflow: "hidden",
-                                  flexShrink: 0,
-                                  background:
-                                    "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 13,
-                                  color: "#e5e7eb",
-                                  fontWeight: 600,
-                                }}
-                              >
-                                {otherUser.avatar_url ? (
-                                  <img
-                                    src={otherUser.avatar_url}
-                                    alt={name}
-                                    style={{
-                                      width: "100%",
-                                      height: "100%",
-                                      objectFit: "cover",
-                                      display: "block",
-                                    }}
-                                  />
-                                ) : (
-                                  initials
-                                )}
-                              </div>
-                              <div style={{ fontSize: 13 }}>
-                                <span style={{ opacity: 0.9 }}>
-                                  {message}
-                                </span>
-                              </div>
-                            </div>
-                            {when && (
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  color: "rgba(148,163,184,0.95)",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {when}
+                                {n.message}
                               </div>
                             )}
                           </div>
-                        );
-                      }
-                    )}
-                  </div>
-                )}
-            </div>
+
+                          <div
+                            style={{
+                              textAlign: "right",
+                              minWidth: 80,
+                              fontSize: 11,
+                              color: "rgba(148,163,184,0.9)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 4,
+                              alignItems: "flex-end",
+                            }}
+                          >
+                            <span>{created}</span>
+                            {!read && (
+                              <span
+                                style={{
+                                  padding: "1px 6px",
+                                  borderRadius: 999,
+                                  border:
+                                    "1px solid rgba(56,189,248,0.8)",
+                                  color: "#7dd3fc",
+                                }}
+                              >
+                                New
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {n.link_url && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 12,
+                              color: "#93c5fd",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <span>Open related page</span> <span>↗</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </section>
 
-          {/* RIGHT COLUMN – with subtle divider */}
-          <aside
-            className="layout-right"
-            style={{
-              borderLeft: "1px solid rgba(148,163,184,0.18)",
-              paddingLeft: 16,
-            }}
-          />
+          {/* RIGHT COLUMN – static info / future settings */}
+          <aside className="layout-right sticky-col">
+            <div className="sidebar-card">
+              <div className="products-filters-title">
+                Notification tips
+              </div>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-muted)",
+                  marginTop: 6,
+                  lineHeight: 1.5,
+                }}
+              >
+                In future we can let users fine-tune which notifications they
+                receive – for example only job updates, only entanglement
+                requests, or only organization activity.
+              </p>
+
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 10,
+                  borderRadius: 10,
+                  background:
+                    "radial-gradient(circle at top left, rgba(56,189,248,0.16), rgba(15,23,42,1))",
+                  fontSize: 12,
+                }}
+              >
+                For now, notifications are a simple feed of actions related to
+                your profile, jobs, and organizations you follow.
+              </div>
+            </div>
+          </aside>
         </main>
       </div>
     </>
