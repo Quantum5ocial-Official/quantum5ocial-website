@@ -1,34 +1,14 @@
 // pages/notifications.tsx
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-
-// Sidebar profile summary (aligned with homepage/community)
-type ProfileSummary = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  role: string | null;
-  highest_education: string | null;
-  describes_you: string | null;
-  affiliation: string | null;
-  current_org: string | null;
-  country: string | null;
-  city: string | null;
-};
-
-// Minimal org summary for sidebar tile
-type MyOrgSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-};
+const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
+  ssr: false,
+});
 
 // Connection row (pending / accepted / declined)
 type ConnectionRow = {
@@ -70,21 +50,6 @@ export default function NotificationsPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  // Sidebar state
-  const [sidebarProfile, setSidebarProfile] = useState<ProfileSummary | null>(
-    null
-  );
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
-    null
-  );
-  const [entangledCount, setEntangledCount] = useState<number | null>(null);
-
-  // My organization for sidebar tile
-  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
-  const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
-
-  // Notifications data
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState<string | null>(null);
@@ -116,122 +81,7 @@ export default function NotificationsPage() {
     });
   };
 
-  // Load sidebar profile + counts
-  useEffect(() => {
-    const loadSidebar = async () => {
-      if (!user) {
-        setSidebarProfile(null);
-        setSavedJobsCount(null);
-        setSavedProductsCount(null);
-        setEntangledCount(null);
-        return;
-      }
-
-      try {
-        // Profile
-        const { data: prof, error: profErr } = await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, avatar_url, role, highest_education, describes_you, affiliation, current_org, country, city"
-          )
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (!profErr && prof) {
-          setSidebarProfile(prof as ProfileSummary);
-        } else {
-          setSidebarProfile(null);
-        }
-
-        // Saved jobs
-        const { data: savedJobsRows, error: savedJobsErr } = await supabase
-          .from("saved_jobs")
-          .select("id")
-          .eq("user_id", user.id);
-
-        if (!savedJobsErr && savedJobsRows) {
-          setSavedJobsCount(savedJobsRows.length);
-        } else {
-          setSavedJobsCount(0);
-        }
-
-        // Saved products
-        const { data: savedProdRows, error: savedProdErr } = await supabase
-          .from("saved_products")
-          .select("id")
-          .eq("user_id", user.id);
-
-        if (!savedProdErr && savedProdRows) {
-          setSavedProductsCount(savedProdRows.length);
-        } else {
-          setSavedProductsCount(0);
-        }
-
-        // Entangled states (unique others in accepted connections)
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (!connErr && connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-      } catch (e) {
-        console.error("Error loading notifications sidebar", e);
-        setSidebarProfile(null);
-        setSavedJobsCount(0);
-        setSavedProductsCount(0);
-        setEntangledCount(0);
-      }
-    };
-
-    loadSidebar();
-  }, [user]);
-
-  // Load FIRST organization created by this user for sidebar tile
-  useEffect(() => {
-    const loadMyOrg = async () => {
-      if (!user) {
-        setMyOrg(null);
-        setLoadingMyOrg(false);
-        return;
-      }
-
-      setLoadingMyOrg(true);
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug, logo_url")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setMyOrg(data as MyOrgSummary);
-      } else {
-        setMyOrg(null);
-        if (error) {
-          console.error("Error loading my organization for sidebar", error);
-        }
-      }
-      setLoadingMyOrg(false);
-    };
-
-    loadMyOrg();
-  }, [user]);
-
-  // Load pending requests (status=pending where current user is target)
+  // Load pending requests
   useEffect(() => {
     const loadPendingRequests = async () => {
       if (!user) {
@@ -303,7 +153,7 @@ export default function NotificationsPage() {
     loadPendingRequests();
   }, [user]);
 
-  // Load recent entanglements (accepted + declined where current user is either side)
+  // Load recent entanglements
   useEffect(() => {
     const loadEntanglements = async () => {
       if (!user) {
@@ -331,7 +181,6 @@ export default function NotificationsPage() {
 
         const rows = connRows as ConnectionRow[];
 
-        // figure out whom to load profiles for
         const otherIdByConnection: Record<string, string> = {};
         const isSenderByConnection: Record<string, boolean> = {};
         const otherIdsSet = new Set<string>();
@@ -408,7 +257,6 @@ export default function NotificationsPage() {
 
     try {
       if (accept) {
-        // Simple accept: set status = 'accepted'
         const { error } = await supabase
           .from("connections")
           .update({ status: "accepted" })
@@ -417,12 +265,10 @@ export default function NotificationsPage() {
         if (error) {
           console.error("Error accepting connection", error);
         } else {
-          // Remove from pending list
           setPendingRequests((prev) =>
             prev.filter((r) => r.connectionId !== connectionId)
           );
 
-          // Add to recent entanglements immediately (you are target here)
           if (sender) {
             setRecentEntanglements((prev) => [
               {
@@ -437,7 +283,6 @@ export default function NotificationsPage() {
           }
         }
       } else {
-        // Decline: try status = 'declined', fallback to delete
         const { error } = await supabase
           .from("connections")
           .update({ status: "declined" })
@@ -461,7 +306,6 @@ export default function NotificationsPage() {
           }
         }
 
-        // Remove from pending list locally
         setPendingRequests((prev) =>
           prev.filter((r) => r.connectionId !== connectionId)
         );
@@ -490,42 +334,6 @@ export default function NotificationsPage() {
 
   if (!user && !loading) return null;
 
-  // Sidebar helpers (same pattern as community/homepage)
-  const fallbackName =
-    (user as any)?.user_metadata?.name ||
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
-    "User";
-
-  const sidebarFullName =
-    sidebarProfile?.full_name || fallbackName || "Your profile";
-
-  const avatarUrl = sidebarProfile?.avatar_url || null;
-  const educationLevel = sidebarProfile?.highest_education || "";
-  const describesYou =
-    sidebarProfile?.describes_you || sidebarProfile?.role || "";
-  const affiliation =
-    sidebarProfile?.affiliation ||
-    sidebarProfile?.current_org ||
-    [sidebarProfile?.city, sidebarProfile?.country].filter(Boolean).join(", ");
-
-  const hasProfileExtraInfo =
-    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
-
-  const entangledLabel = !user
-    ? "Entangled states"
-    : `Entangled states (${entangledCount === null ? "…" : entangledCount})`;
-
-  const savedJobsLabel = !user
-    ? "Saved jobs"
-    : `Saved jobs (${savedJobsCount === null ? "…" : savedJobsCount})`;
-
-  const savedProductsLabel = !user
-    ? "Saved products"
-    : `Saved products (${
-        savedProductsCount === null ? "…" : savedProductsCount
-      })`;
-
   return (
     <>
       <div className="bg-layer" />
@@ -533,319 +341,17 @@ export default function NotificationsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – same as homepage/community */}
+          {/* LEFT SIDEBAR – shared */}
           <aside
             className="layout-left sticky-col"
             style={{
               display: "flex",
               flexDirection: "column",
-              borderRight: "1px solid rgba(148,163,184,0.18)", // vertical divider
+              borderRight: "1px solid rgba(148,163,184,0.18)",
               paddingRight: 16,
             }}
           >
-            {/* Profile card – clickable */}
-            <Link
-              href="/profile"
-              className="sidebar-card profile-sidebar-card"
-              style={{
-                textDecoration: "none",
-                color: "inherit",
-                cursor: "pointer",
-              }}
-            >
-              <div className="profile-sidebar-header">
-                <div className="profile-sidebar-avatar-wrapper">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={sidebarFullName}
-                      className="profile-sidebar-avatar"
-                    />
-                  ) : (
-                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarFullName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="profile-sidebar-name">{sidebarFullName}</div>
-              </div>
-
-              {hasProfileExtraInfo && (
-                <div className="profile-sidebar-info-block">
-                  {educationLevel && (
-                    <div className="profile-sidebar-info-value">
-                      {educationLevel}
-                    </div>
-                  )}
-                  {describesYou && (
-                    <div
-                      className="profile-sidebar-info-value"
-                      style={{ marginTop: 4 }}
-                    >
-                      {describesYou}
-                    </div>
-                  )}
-                  {affiliation && (
-                    <div
-                      className="profile-sidebar-info-value"
-                      style={{ marginTop: 4 }}
-                    >
-                      {affiliation}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Link>
-
-            {/* Quick dashboard */}
-            <div className="sidebar-card dashboard-sidebar-card">
-              <div className="dashboard-sidebar-title">Quick dashboard</div>
-              <div className="dashboard-sidebar-links">
-                <Link
-                  href="/dashboard/entangled-states"
-                  className="dashboard-sidebar-link"
-                >
-                  {entangledLabel}
-                </Link>
-                <Link
-                  href="/dashboard/saved-jobs"
-                  className="dashboard-sidebar-link"
-                >
-                  {savedJobsLabel}
-                </Link>
-                <Link
-                  href="/dashboard/saved-products"
-                  className="dashboard-sidebar-link"
-                >
-                  {savedProductsLabel}
-                </Link>
-              </div>
-            </div>
-
-            {/* My organization tile */}
-            {user && !loadingMyOrg && myOrg && (
-              <div
-                className="sidebar-card dashboard-sidebar-card"
-                style={{ marginTop: 16 }}
-              >
-                <div className="dashboard-sidebar-title">My organization</div>
-
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}
-                >
-                  {/* Logo + name row */}
-                  <Link
-                    href={`/orgs/${myOrg.slug}`}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      textDecoration: "none",
-                      color: "inherit",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 14,
-                        overflow: "hidden",
-                        flexShrink: 0,
-                        border: "1px solid rgba(148,163,184,0.45)",
-                        background:
-                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#0f172a",
-                        fontWeight: 700,
-                        fontSize: 18,
-                      }}
-                    >
-                      {myOrg.logo_url ? (
-                        <img
-                          src={myOrg.logo_url}
-                          alt={myOrg.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                      ) : (
-                        myOrg.name.charAt(0).toUpperCase()
-                      )}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 15,
-                        fontWeight: 500,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {myOrg.name}
-                    </div>
-                  </Link>
-
-                  {/* Simple stats (placeholder) */}
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "rgba(148,163,184,0.95)",
-                      marginTop: 4,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    <div>
-                      Followers:{" "}
-                      <span style={{ color: "#e5e7eb" }}>0</span>
-                    </div>
-                    <div>
-                      Views:{" "}
-                      <span style={{ color: "#e5e7eb" }}>0</span>
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                      <Link
-                        href="/dashboard/my-organizations"
-                        style={{
-                          color: "#7dd3fc",
-                          textDecoration: "none",
-                        }}
-                      >
-                        Analytics →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Social icons + brand logo/name */}
-            <div
-              style={{
-                marginTop: "auto",
-                paddingTop: 16,
-                borderTop: "1px solid rgba(148,163,184,0.18)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              {/* Icons row */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  fontSize: 18,
-                  alignItems: "center",
-                }}
-              >
-                {/* Email */}
-                <a
-                  href="mailto:info@quantum5ocial.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Email Quantum5ocial"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
-                    <polyline points="3 7 12 13 21 7" />
-                  </svg>
-                </a>
-
-                {/* X icon */}
-                <a
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Quantum5ocial on X"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 4l8 9.5L20 4" />
-                    <path d="M4 20l6.5-7.5L20 20" />
-                  </svg>
-                </a>
-
-                {/* GitHub */}
-                <a
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Quantum5ocial on GitHub"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
-                  </svg>
-                </a>
-              </div>
-
-              {/* Brand row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <img
-                  src="/Q5_white_bg.png"
-                  alt="Quantum5ocial logo"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 4,
-                    objectFit: "contain",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  Quantum5ocial
-                </span>
-              </div>
-            </div>
+            <LeftSidebar />
           </aside>
 
           {/* CENTER – NOTIFICATIONS */}
@@ -859,14 +365,10 @@ export default function NotificationsPage() {
               </div>
             </div>
 
-            {/* PENDING REQUESTS – wrapped in its own card block */}
+            {/* BLOCK 1: Pending requests */}
             <div
               className="card"
-              style={{
-                marginBottom: 20,
-                padding: 16,
-                borderRadius: 18,
-              }}
+              style={{ marginBottom: 20, padding: 16, borderRadius: 18 }}
             >
               <div
                 className="section-subtitle"
@@ -1127,13 +629,10 @@ export default function NotificationsPage() {
                 )}
             </div>
 
-            {/* RECENT ENTANGLEMENTS – separate card block */}
+            {/* BLOCK 2: Recent entanglements */}
             <div
               className="card"
-              style={{
-                padding: 16,
-                borderRadius: 18,
-              }}
+              style={{ padding: 16, borderRadius: 18 }}
             >
               <div
                 className="section-subtitle"
@@ -1279,11 +778,11 @@ export default function NotificationsPage() {
             </div>
           </section>
 
-          {/* RIGHT COLUMN – with subtle divider to the middle */}
+          {/* RIGHT COLUMN – with subtle divider */}
           <aside
             className="layout-right"
             style={{
-              borderLeft: "1px solid rgba(148,163,184,0.18)", // vertical divider on right
+              borderLeft: "1px solid rgba(148,163,184,0.18)",
               paddingLeft: 16,
             }}
           />
