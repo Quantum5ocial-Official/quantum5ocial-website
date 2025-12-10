@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import { useEntanglements } from "../lib/useEntanglements";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
@@ -41,6 +42,12 @@ export default function ProfileViewPage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+
+  // Initialize shared entanglement logic (no UI here, just consistency / future use)
+  useEntanglements({
+    user,
+    redirectPath: "/profile",
+  });
 
   // Redirect if not logged in
   useEffect(() => {
