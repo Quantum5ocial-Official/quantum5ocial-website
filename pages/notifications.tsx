@@ -25,7 +25,6 @@ type ConnectionRow = {
   target_user_id: string;
   status: string;
   created_at: string | null;
-  updated_at: string | null;
 };
 
 type MiniProfile = {
@@ -38,7 +37,6 @@ type EntanglementItem = {
   id: string;
   message: string;
   created_at: string | null;
-  link_url?: string | null;
   otherProfile: MiniProfile | null;
 };
 
@@ -46,8 +44,7 @@ export default function NotificationsPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
-  // main state
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [entanglementRequests, setEntanglementRequests] = useState<
@@ -62,7 +59,6 @@ export default function NotificationsPage() {
 
   const [markingAll, setMarkingAll] = useState(false);
 
-  // helper for date/time
   const formatCreated = (created_at: string | null) => {
     if (!created_at) return "";
     const t = Date.parse(created_at);
@@ -70,7 +66,7 @@ export default function NotificationsPage() {
     return new Date(t).toLocaleString();
   };
 
-  // ---------- LOAD EVERYTHING ----------
+  // ===== LOAD DATA =====
   useEffect(() => {
     const loadAll = async () => {
       if (!user) {
@@ -85,36 +81,30 @@ export default function NotificationsPage() {
       setError(null);
 
       try {
-        // 1) Pending entanglement requests (connections where YOU are target)
+        // 1) Pending entanglement requests (YOU are target)
         const { data: pendingRows, error: pendingErr } = await supabase
           .from("connections")
-          .select("id, user_id, target_user_id, status, created_at, updated_at")
+          .select("id, user_id, target_user_id, status, created_at")
           .eq("status", "pending")
           .eq("target_user_id", user.id);
 
-        if (pendingErr) {
-          throw pendingErr;
-        }
-
+        if (pendingErr) throw pendingErr;
         const pending = (pendingRows || []) as ConnectionRow[];
 
-        // 2) Accepted entangled states (connections where YOU are in the pair)
+        // 2) Accepted entangled states (YOU in the pair)
         const { data: acceptedRows, error: acceptedErr } = await supabase
           .from("connections")
-          .select("id, user_id, target_user_id, status, created_at, updated_at")
+          .select("id, user_id, target_user_id, status, created_at")
           .eq("status", "accepted")
           .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
-          .order("updated_at", { ascending: false });
+          .order("created_at", { ascending: false });
 
-        if (acceptedErr) {
-          throw acceptedErr;
-        }
-
+        if (acceptedErr) throw acceptedErr;
         const accepted = (acceptedRows || []) as ConnectionRow[];
 
-        // 3) Pull profiles for all "other" users
+        // 3) Load profiles for all other users
         const allIds = new Set<string>();
-        pending.forEach((c) => allIds.add(c.user_id)); // requester
+        pending.forEach((c) => allIds.add(c.user_id));
         accepted.forEach((c) => {
           allIds.add(c.user_id);
           allIds.add(c.target_user_id);
@@ -128,9 +118,7 @@ export default function NotificationsPage() {
             .select("id, full_name, avatar_url")
             .in("id", Array.from(allIds));
 
-          if (profErr) {
-            throw profErr;
-          }
+          if (profErr) throw profErr;
 
           const profiles = (profRows || []) as MiniProfile[];
           profileMap = new Map(
@@ -138,7 +126,7 @@ export default function NotificationsPage() {
           );
         }
 
-        // Build entanglement requests list
+        // Build entanglement requests block
         const reqItems: EntanglementItem[] = pending.map((c) => {
           const other = profileMap.get(c.user_id) || null; // requester
           const name = other?.full_name || "Quantum member";
@@ -147,11 +135,10 @@ export default function NotificationsPage() {
             message: `${name} wants to entangle with you`,
             created_at: c.created_at,
             otherProfile: other,
-            // could add link_url: `/community/${other?.id}` later
           };
         });
 
-        // Build entangled updates list
+        // Build entangled states block
         const updItems: EntanglementItem[] = accepted.map((c) => {
           const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
           const other = profileMap.get(otherId) || null;
@@ -159,7 +146,7 @@ export default function NotificationsPage() {
           return {
             id: c.id,
             message: `You are now entangled with ${name}`,
-            created_at: c.updated_at || c.created_at,
+            created_at: c.created_at,
             otherProfile: other,
           };
         });
@@ -167,7 +154,7 @@ export default function NotificationsPage() {
         setEntanglementRequests(reqItems);
         setEntangledUpdates(updItems);
 
-        // 4) Optional: other notifications from notifications table
+        // 4) Optional extra notifications table
         try {
           const { data: notifRows, error: notifErr } = await supabase
             .from("notifications")
@@ -179,9 +166,7 @@ export default function NotificationsPage() {
             setOtherNotifications(notifRows as Notification[]);
           } else {
             setOtherNotifications([]);
-            if (notifErr) {
-              console.warn("notifications-table error:", notifErr);
-            }
+            if (notifErr) console.warn("notifications-table error:", notifErr);
           }
         } catch (innerErr) {
           console.warn("notifications-table error:", innerErr);
@@ -201,7 +186,6 @@ export default function NotificationsPage() {
     loadAll();
   }, [user]);
 
-  // unread count: pending requests + unread from notifications table
   const unreadCount = useMemo(
     () =>
       (entanglementRequests?.length || 0) +
@@ -212,8 +196,6 @@ export default function NotificationsPage() {
   const handleMarkAllRead = async () => {
     if (!user) return;
 
-    // For now we only mark notifications-table rows as read.
-    // Entanglement requests become "not pending" once accepted / rejected.
     const unreadNotifIds = otherNotifications
       .filter((n) => !n.is_read)
       .map((n) => n.id);
@@ -274,10 +256,10 @@ export default function NotificationsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – self-contained */}
+          {/* LEFT SIDEBAR */}
           <LeftSidebar />
 
-          {/* MIDDLE – notifications */}
+          {/* MIDDLE COLUMN */}
           <section className="layout-main">
             <section className="section">
               {/* Header */}
@@ -325,7 +307,7 @@ export default function NotificationsPage() {
                 )}
               </div>
 
-              {/* Status */}
+              {/* Status / empty */}
               {loading && (
                 <div className="products-status">Loading notifications…</div>
               )}
@@ -380,8 +362,7 @@ export default function NotificationsPage() {
                             style={{
                               padding: 12,
                               borderRadius: 12,
-                              border:
-                                "1px solid rgba(56,189,248,0.8)",
+                              border: "1px solid rgba(56,189,248,0.8)",
                               background:
                                 "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
                             }}
