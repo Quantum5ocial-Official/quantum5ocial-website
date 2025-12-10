@@ -608,13 +608,15 @@ export default function CommunityPage() {
                       </div>
 
                       <div
-                        className="card"
-                        style={{
-                          borderRadius: 14,
-                          padding: 14,
-                          background: "rgba(15,23,42,0.95)",
-                        }}
-                      >
+  className="card"
+  style={{
+    borderRadius: 14,
+    padding: 14,
+    background: "rgba(15,23,42,0.95)",
+    cursor: "pointer",
+  }}
+  onClick={() => router.push(`/profile/${featuredProfile.id}`)}
+>
                         <div
                           className="card-inner"
                           style={{
@@ -711,9 +713,10 @@ export default function CommunityPage() {
                                     <button
                                       type="button"
                                       disabled={loading}
-                                      onClick={() =>
-                                        handleEntangle(featuredProfile.id)
-                                      }
+                                      onClick={(e) => {
+  e.stopPropagation();
+  handleEntangle(featuredProfile.id);
+}}
                                       style={{
                                         flex: 1,
                                         minWidth: 120,
@@ -737,11 +740,10 @@ export default function CommunityPage() {
                                     <button
                                       type="button"
                                       disabled={loading}
-                                      onClick={() =>
-                                        handleDeclineEntangle(
-                                          featuredProfile.id
-                                        )
-                                      }
+                                      onClick={(e) => {
+  e.stopPropagation();
+  handleDeclineEntangle(featuredProfile.id);
+}}
                                       style={{
                                         flex: 1,
                                         minWidth: 100,
@@ -818,9 +820,10 @@ export default function CommunityPage() {
                                     opacity: loading ? 0.7 : 1,
                                   }}
                                   disabled={disabled || loading}
-                                  onClick={() =>
-                                    handleEntangle(featuredProfile.id)
-                                  }
+                                  onClick={(e) => {
+  e.stopPropagation();
+  handleEntangle(featuredProfile.id);
+}}
                                 >
                                   {loading ? "…" : label}
                                 </button>
@@ -877,13 +880,19 @@ export default function CommunityPage() {
                       </div>
 
                       <div
-                        className="card"
-                        style={{
-                          borderRadius: 14,
-                          padding: 14,
-                          background: "rgba(15,23,42,0.95)",
-                        }}
-                      >
+  className="card"
+  style={{
+    borderRadius: 14,
+    padding: 14,
+    background: "rgba(15,23,42,0.95)",
+    cursor: "pointer",
+  }}
+  onClick={() => {
+    if (featuredOrg.slug) {
+      router.push(`/orgs/${featuredOrg.slug}`);
+    }
+  }}
+>
                         <div
                           className="card-inner"
                           style={{
@@ -1030,7 +1039,10 @@ export default function CommunityPage() {
                                     opacity: loading ? 0.7 : 1,
                                   }}
                                   disabled={loading}
-                                  onClick={() => handleFollowOrg(featuredOrg.id)}
+                                  onClick={(e) => {
+  e.stopPropagation();
+  handleFollowOrg(featuredOrg.id);
+}}
                                 >
                                   {loading ? "…" : label}
                                   {!following && (
