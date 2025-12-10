@@ -23,7 +23,6 @@ export default function NotificationsPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
-  // ==== NOTIFICATIONS STATE ====
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +65,36 @@ export default function NotificationsPage() {
     [notifications]
   );
 
+  // Group into 3 buckets
+  const entanglementRequests = useMemo(
+    () =>
+      notifications.filter((n) =>
+        ["entanglement_request", "connection_request"].includes(
+          n.type || ""
+        )
+      ),
+    [notifications]
+  );
+
+  const entangledUpdates = useMemo(
+    () =>
+      notifications.filter((n) =>
+        ["entangled", "connection_accepted"].includes(n.type || "")
+      ),
+    [notifications]
+  );
+
+  const otherNotifications = useMemo(
+    () =>
+      notifications.filter(
+        (n) =>
+          !["entanglement_request", "connection_request", "entangled", "connection_accepted"].includes(
+            n.type || ""
+          )
+      ),
+    [notifications]
+  );
+
   const handleMarkAllRead = async () => {
     if (!user || notifications.length === 0 || unreadCount === 0) return;
 
@@ -102,7 +131,6 @@ export default function NotificationsPage() {
   const handleOpenNotification = async (notification: Notification) => {
     if (!notification.link_url) return;
 
-    // Mark single notification as read on click
     if (!notification.is_read) {
       const { error } = await supabase
         .from("notifications")
@@ -119,6 +147,13 @@ export default function NotificationsPage() {
     }
 
     router.push(notification.link_url);
+  };
+
+  const formatCreated = (created_at: string | null) => {
+    if (!created_at) return "";
+    const time = Date.parse(created_at);
+    if (Number.isNaN(time)) return "";
+    return new Date(time).toLocaleString();
   };
 
   return (
@@ -144,16 +179,14 @@ export default function NotificationsPage() {
                     Notifications
                     {!loading && !error && (
                       <span
-                        style={
-                          {
-                            fontSize: 12,
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                            background: "rgba(56,189,248,0.13)",
-                            border: "1px solid rgba(56,189,248,0.35)",
-                            color: "#7dd3fc",
-                          } as React.CSSProperties
-                        }
+                        style={{
+                          fontSize: 12,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background: "rgba(56,189,248,0.13)",
+                          border: "1px solid rgba(56,189,248,0.35)",
+                          color: "#7dd3fc",
+                        }}
                       >
                         {unreadCount} unread
                       </span>
@@ -163,8 +196,9 @@ export default function NotificationsPage() {
                     className="section-sub"
                     style={{ maxWidth: 480, lineHeight: 1.45 }}
                   >
-                    Stay up to date with connection requests, job updates, and
-                    activity across the Quantum5ocial ecosystem.
+                    Stay up to date with entanglement requests, new entangled
+                    states, job updates, and activity across the Quantum5ocial
+                    ecosystem.
                   </div>
                 </div>
 
@@ -180,7 +214,7 @@ export default function NotificationsPage() {
                 )}
               </div>
 
-              {/* Body */}
+              {/* Status */}
               {loading && (
                 <div className="products-status">Loading notifications…</div>
               )}
@@ -193,8 +227,8 @@ export default function NotificationsPage() {
 
               {!loading && !error && notifications.length === 0 && (
                 <div className="products-empty">
-                  No notifications yet. As you save jobs, entangle with people,
-                  and follow organizations, updates will appear here.
+                  No notifications yet. As you entangle with people, and follow
+                  jobs and organizations, updates will appear here.
                 </div>
               )}
 
@@ -203,123 +237,256 @@ export default function NotificationsPage() {
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: 10,
-                    marginTop: 6,
+                    gap: 20,
+                    marginTop: 8,
                   }}
                 >
-                  {notifications.map((n) => {
-                    const read = !!n.is_read;
-                    const created =
-                      n.created_at && !Number.isNaN(Date.parse(n.created_at))
-                        ? new Date(n.created_at).toLocaleString()
-                        : "";
-
-                    return (
+                  {/* ===== BLOCK 1 – Entanglement requests ===== */}
+                  {entanglementRequests.length > 0 && (
+                    <div>
                       <div
-                        key={n.id}
-                        className="card"
                         style={{
-                          padding: 12,
-                          borderRadius: 12,
-                          border: read
-                            ? "1px solid rgba(30,64,175,0.4)"
-                            : "1px solid rgba(56,189,248,0.8)",
-                          background: read
-                            ? "rgba(15,23,42,0.9)"
-                            : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
-                          cursor: n.link_url ? "pointer" : "default",
-                          opacity: read ? 0.9 : 1,
+                          fontSize: 12,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: "rgba(148,163,184,0.9)",
+                          marginBottom: 6,
                         }}
-                        onClick={() => n.link_url && handleOpenNotification(n)}
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            gap: 10,
-                          }}
-                        >
-                          <div>
+                        Entanglement requests
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        {entanglementRequests.map((n) => {
+                          const read = !!n.is_read;
+                          return (
                             <div
+                              key={n.id}
+                              className="card"
                               style={{
-                                fontSize: 12,
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                                color: read ? "#9ca3af" : "#7dd3fc",
-                                marginBottom: 2,
+                                padding: 12,
+                                borderRadius: 12,
+                                border: read
+                                  ? "1px solid rgba(30,64,175,0.4)"
+                                  : "1px solid rgba(56,189,248,0.8)",
+                                background: read
+                                  ? "rgba(15,23,42,0.9)"
+                                  : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
+                                cursor: n.link_url ? "pointer" : "default",
                               }}
+                              onClick={() =>
+                                n.link_url && handleOpenNotification(n)
+                              }
                             >
-                              {n.type || "Update"}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 14,
-                                fontWeight: 600,
-                                marginBottom: 3,
-                              }}
-                            >
-                              {n.title || "Notification"}
-                            </div>
-                            {n.message && (
                               <div
                                 style={{
-                                  fontSize: 12,
-                                  color: "var(--text-muted)",
-                                  lineHeight: 1.4,
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 10,
                                 }}
                               >
-                                {n.message}
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {n.message || n.title || "Entanglement request"}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "rgba(148,163,184,0.9)",
+                                  }}
+                                >
+                                  {formatCreated(n.created_at)}
+                                </div>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-                          <div
-                            style={{
-                              textAlign: "right",
-                              minWidth: 80,
-                              fontSize: 11,
-                              color: "rgba(148,163,184,0.9)",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 4,
-                              alignItems: "flex-end",
-                            }}
-                          >
-                            <span>{created}</span>
-                            {!read && (
-                              <span
+                  {/* ===== BLOCK 2 – Entangled states updates ===== */}
+                  {entangledUpdates.length > 0 && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: "rgba(148,163,184,0.9)",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Entangled states
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        {entangledUpdates.map((n) => {
+                          const read = !!n.is_read;
+                          return (
+                            <div
+                              key={n.id}
+                              className="card"
+                              style={{
+                                padding: 10,
+                                borderRadius: 10,
+                                border: read
+                                  ? "1px solid rgba(30,64,175,0.4)"
+                                  : "1px solid rgba(56,189,248,0.8)",
+                                background: read
+                                  ? "rgba(15,23,42,0.9)"
+                                  : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
+                                cursor: n.link_url ? "pointer" : "default",
+                              }}
+                              onClick={() =>
+                                n.link_url && handleOpenNotification(n)
+                              }
+                            >
+                              <div
                                 style={{
-                                  padding: "1px 6px",
-                                  borderRadius: 999,
-                                  border:
-                                    "1px solid rgba(56,189,248,0.8)",
-                                  color: "#7dd3fc",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 10,
+                                  fontSize: 13,
                                 }}
                               >
-                                New
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {n.link_url && (
-                          <div
-                            style={{
-                              marginTop: 6,
-                              fontSize: 12,
-                              color: "#93c5fd",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                            }}
-                          >
-                            <span>Open related page</span> <span>↗</span>
-                          </div>
-                        )}
+                                <div>
+                                  {n.message ||
+                                    n.title ||
+                                    "You are now entangled with a member."}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "rgba(148,163,184,0.9)",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {formatCreated(n.created_at)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
+
+                  {/* ===== BLOCK 3 – Other notifications ===== */}
+                  {otherNotifications.length > 0 && (
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: "rgba(148,163,184,0.9)",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Other activity
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        {otherNotifications.map((n) => {
+                          const read = !!n.is_read;
+                          return (
+                            <div
+                              key={n.id}
+                              className="card"
+                              style={{
+                                padding: 12,
+                                borderRadius: 12,
+                                border: read
+                                  ? "1px solid rgba(30,64,175,0.4)"
+                                  : "1px solid rgba(56,189,248,0.8)",
+                                background: read
+                                  ? "rgba(15,23,42,0.9)"
+                                  : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
+                                cursor: n.link_url ? "pointer" : "default",
+                              }}
+                              onClick={() =>
+                                n.link_url && handleOpenNotification(n)
+                              }
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "flex-start",
+                                  gap: 10,
+                                }}
+                              >
+                                <div>
+                                  <div
+                                    style={{
+                                      fontSize: 12,
+                                      letterSpacing: "0.08em",
+                                      textTransform: "uppercase",
+                                      color: read ? "#9ca3af" : "#7dd3fc",
+                                      marginBottom: 2,
+                                    }}
+                                  >
+                                    {n.type || "Update"}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: 14,
+                                      fontWeight: 600,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    {n.title || "Notification"}
+                                  </div>
+                                  {n.message && (
+                                    <div
+                                      style={{
+                                        fontSize: 12,
+                                        color: "var(--text-muted)",
+                                        lineHeight: 1.4,
+                                      }}
+                                    >
+                                      {n.message}
+                                    </div>
+                                  )}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "rgba(148,163,184,0.9)",
+                                    textAlign: "right",
+                                  }}
+                                >
+                                  {formatCreated(n.created_at)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </section>
