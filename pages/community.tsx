@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import type { NextPage } from "next";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
@@ -97,14 +98,15 @@ type ConnectionRow = {
   status: "pending" | "accepted" | "declined";
 };
 
-export default function CommunityPage() {
+const CommunityPage: NextPage = () => {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
   // --- Sidebar profile + counts (same as homepage) ---
-    const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
     null
   );
+  ...
   const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
   const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
     null
@@ -1949,7 +1951,9 @@ export default function CommunityPage() {
             </div>
           </aside>
         </main>
-      </div>
+            </div>
     </>
   );
-}
+};
+
+export default CommunityPage;
