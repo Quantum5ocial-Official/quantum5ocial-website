@@ -6,6 +6,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import LeftSidebar from "../components/LeftSidebar";
+import { useEntanglements } from "../lib/useEntanglements";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 
@@ -60,21 +61,6 @@ type CommunityItem = {
   created_at: string | null;
 };
 
-// Connections / entanglement
-type ConnectionStatus =
-  | "none"
-  | "pending_outgoing"
-  | "pending_incoming"
-  | "accepted"
-  | "declined";
-
-type ConnectionRow = {
-  id: string;
-  user_id: string;
-  target_user_id: string;
-  status: "pending" | "accepted" | "declined";
-};
-
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
@@ -90,154 +76,11 @@ export default function CommunityPage() {
 
   const [search, setSearch] = useState("");
 
-  // === CONNECTION + FOLLOW STATE ===
-  const [connectionsByOtherId, setConnectionsByOtherId] = useState<
-    Record<string, ConnectionRow>
-  >({});
-  const [entangleLoadingIds, setEntangleLoadingIds] = useState<string[]>([]);
-
   const [orgFollows, setOrgFollows] = useState<Record<string, boolean>>({});
   const [followLoadingIds, setFollowLoadingIds] = useState<string[]>([]);
 
-  // --- HELPERS FOR CONNECTION/FOLLOW STATE ---
-  const getConnectionStatus = (otherUserId: string): ConnectionStatus => {
-    if (!user) return "none";
-    const row = connectionsByOtherId[otherUserId];
-    if (!row) return "none";
-
-    if (row.status === "accepted") return "accepted";
-    if (row.status === "declined") return "declined";
-
-    if (row.status === "pending") {
-      if (row.user_id === user.id) return "pending_outgoing";
-      if (row.target_user_id === user.id) return "pending_incoming";
-    }
-
-    return "none";
-  };
-
-  const isEntangleLoading = (otherUserId: string) =>
-    entangleLoadingIds.includes(otherUserId);
-
   const isFollowingOrg = (orgId: string) => !!orgFollows[orgId];
   const isFollowLoading = (orgId: string) => followLoadingIds.includes(orgId);
-
-  // --- ENTANGLE HANDLER (send / accept) ---
-  const handleEntangle = async (targetUserId: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/community");
-      return;
-    }
-
-    if (targetUserId === user.id) return; // no self-entanglement
-
-    const currentRow = connectionsByOtherId[targetUserId];
-    const currentStatus = getConnectionStatus(targetUserId);
-
-    if (currentStatus === "accepted" || currentStatus === "pending_outgoing") {
-      return;
-    }
-
-    setEntangleLoadingIds((prev) => [...prev, targetUserId]);
-
-    try {
-      // Case 1: there's a pending request *to you* → accept it
-      if (currentStatus === "pending_incoming" && currentRow) {
-        const { error } = await supabase
-          .from("connections")
-          .update({ status: "accepted" })
-          .eq("id", currentRow.id);
-
-        if (error) {
-          console.error("Error accepting entanglement", error);
-        } else {
-          setConnectionsByOtherId((prev) => ({
-            ...prev,
-            [targetUserId]: { ...currentRow, status: "accepted" },
-          }));
-        }
-        return;
-      }
-
-      // Case 2: no connection yet → send request (pending_outgoing)
-      if (currentStatus === "none" || currentStatus === "declined") {
-        const { data, error } = await supabase
-          .from("connections")
-          .insert({
-            user_id: user.id,
-            target_user_id: targetUserId,
-            status: "pending",
-          })
-          .select("id, user_id, target_user_id, status")
-          .maybeSingle();
-
-        if (error) {
-          console.error("Error creating entanglement request", error);
-        } else if (data) {
-          const newRow = data as ConnectionRow;
-          setConnectionsByOtherId((prev) => ({
-            ...prev,
-            [targetUserId]: newRow,
-          }));
-        }
-      }
-    } catch (e) {
-      console.error("Unexpected error creating/accepting entanglement", e);
-    } finally {
-      setEntangleLoadingIds((prev) =>
-        prev.filter((id) => id !== targetUserId)
-      );
-    }
-  };
-
-  // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
-  const handleDeclineEntangle = async (targetUserId: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/community");
-      return;
-    }
-
-    const currentRow = connectionsByOtherId[targetUserId];
-    const currentStatus = getConnectionStatus(targetUserId);
-
-    if (!currentRow || currentStatus !== "pending_incoming") {
-      return;
-    }
-
-    setEntangleLoadingIds((prev) => [...prev, targetUserId]);
-
-    try {
-      const { error } = await supabase
-        .from("connections")
-        .update({ status: "declined" })
-        .eq("id", currentRow.id);
-
-      if (error) {
-        console.error("Error declining entanglement, falling back to delete", error);
-
-        const { error: deleteError } = await supabase
-          .from("connections")
-          .delete()
-          .eq("id", currentRow.id);
-
-        if (deleteError) {
-          console.error("Error deleting entanglement on decline", deleteError);
-        }
-      }
-
-      setConnectionsByOtherId((prev) => {
-        const copy = { ...prev };
-        delete copy[targetUserId];
-        return copy;
-      });
-    } catch (e) {
-      console.error("Unexpected error declining entanglement", e);
-    } finally {
-      setEntangleLoadingIds((prev) =>
-        prev.filter((id) => id !== targetUserId)
-      );
-    }
-  };
 
   // --- FOLLOW / UNFOLLOW ORG HANDLER ---
   const handleFollowOrg = async (orgId: string) => {
@@ -354,48 +197,18 @@ export default function CommunityPage() {
 
     loadOrgs();
   }, []);
+  
+  const [search, setSearch] = useState("");
 
-  // === LOAD CONNECTIONS (ENTANGLEMENTS) ===
-  useEffect(() => {
-    const loadConnections = async () => {
-      if (!user) {
-        setConnectionsByOtherId({});
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("connections")
-          .select("id, user_id, target_user_id, status")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (error) {
-          console.error("Error loading entanglement connections", error);
-          setConnectionsByOtherId({});
-          return;
-        }
-
-        const rows = (data || []) as ConnectionRow[];
-        const map: Record<string, ConnectionRow> = {};
-
-        rows.forEach((c) => {
-          const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
-          map[otherId] = c;
-        });
-
-        setConnectionsByOtherId(map);
-      } catch (e) {
-        console.error("Unexpected error loading entanglement connections", e);
-        setConnectionsByOtherId({});
-      }
-    };
-
-    if (user) {
-      loadConnections();
-    } else {
-      setConnectionsByOtherId({});
-    }
-  }, [user]);
+    const {
+    getConnectionStatus,
+    isEntangleLoading,
+    handleEntangle,
+    handleDeclineEntangle,
+  } = useEntanglements({
+    user,
+    redirectPath: "/community",
+  });
 
   // === LOAD ORG_FOLLOWS FOR FOLLOW STATE ===
   useEffect(() => {
