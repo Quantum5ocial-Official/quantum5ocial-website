@@ -51,7 +51,6 @@ type CommunityProfile = {
   short_bio?: string | null;
 };
 
-// NEW: minimal org summary for sidebar tile
 type MyOrgSummary = {
   id: string;
   name: string;
@@ -63,35 +62,24 @@ export default function Home() {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
-  // 🔍 global search input (hero)
   const [globalSearch, setGlobalSearch] = useState("");
-
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>(
-    []
-  );
+  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>([]);
 
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
 
-  // counts for sidebar quick dashboard
   const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
-    null
-  );
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(null);
   const [entangledCount, setEntangledCount] = useState<number | null>(null);
 
-  // NEW: first organization created by this user (for sidebar tile)
   const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
   const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
 
-  // === GLOBAL SEARCH HANDLER ===
   const handleGlobalSearchSubmit = (e: FormEvent) => {
     e.preventDefault();
     const term = globalSearch.trim();
@@ -99,7 +87,6 @@ export default function Home() {
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
 
-  // === LOAD FEATURED JOBS & PRODUCTS ===
   useEffect(() => {
     const loadJobs = async () => {
       setLoadingJobs(true);
@@ -141,7 +128,6 @@ export default function Home() {
     loadProducts();
   }, []);
 
-  // === LOAD FEATURED COMMUNITY MEMBERS (latest 2 profiles) ===
   useEffect(() => {
     const loadMembers = async () => {
       setLoadingMembers(true);
@@ -162,7 +148,6 @@ export default function Home() {
     loadMembers();
   }, []);
 
-  // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) {
@@ -186,7 +171,6 @@ export default function Home() {
     loadProfile();
   }, [user]);
 
-  // === LOAD COUNTS FOR QUICK DASHBOARD (saved jobs/products + entangled states) ===
   useEffect(() => {
     const loadCounts = async () => {
       if (!user) {
@@ -197,7 +181,6 @@ export default function Home() {
       }
 
       try {
-        // Saved jobs
         const { data: savedJobsRows, error: savedJobsErr } = await supabase
           .from("saved_jobs")
           .select("job_id")
@@ -209,7 +192,6 @@ export default function Home() {
           setSavedJobsCount(0);
         }
 
-        // Saved products
         const { data: savedProdRows, error: savedProdErr } = await supabase
           .from("saved_products")
           .select("product_id")
@@ -221,7 +203,6 @@ export default function Home() {
           setSavedProductsCount(0);
         }
 
-        // Entangled states – count unique "other" users in accepted connections
         const { data: connRows, error: connErr } = await supabase
           .from("connections")
           .select("user_id, target_user_id, status")
@@ -251,7 +232,6 @@ export default function Home() {
     loadCounts();
   }, [user]);
 
-  // === LOAD FIRST ORGANIZATION OWNED BY THIS USER FOR SIDEBAR TILE ===
   useEffect(() => {
     const loadMyOrg = async () => {
       if (!user) {
@@ -283,8 +263,6 @@ export default function Home() {
 
     loadMyOrg();
   }, [user]);
-
-  // === HELPERS ===
 
   const formatJobMeta = (job: Job) =>
     [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
@@ -322,66 +300,17 @@ export default function Home() {
     return [highestEdu, role, aff].filter(Boolean).join(" · ");
   };
 
-  // Fallback / sidebar name
-  const fallbackName =
-    (user as any)?.user_metadata?.name ||
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
-    "User";
-
-  const sidebarFullName =
-    profileSummary?.full_name || fallbackName || "Your profile";
-
-  const avatarUrl = profileSummary?.avatar_url || null;
-  const educationLevel =
-    (profileSummary as any)?.education_level ||
-    (profileSummary as any)?.highest_education ||
-    "";
-  const describesYou =
-    (profileSummary as any)?.describes_you ||
-    (profileSummary as any)?.role ||
-    "";
-  const affiliation =
-    (profileSummary as any)?.affiliation ||
-    (profileSummary as any)?.current_org ||
-    "";
-
-  const hasProfileExtraInfo =
-    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
-
-  // Sidebar labels with counts
-  const entangledLabel = !user
-    ? "Entangled states"
-    : `Entangled states (${entangledCount === null ? "…" : entangledCount})`;
-
-  const savedJobsLabel = !user
-    ? "Saved jobs"
-    : `Saved jobs (${savedJobsCount === null ? "…" : savedJobsCount})`;
-
-  const savedProductsLabel = !user
-    ? "Saved products"
-    : `Saved products (${
-        savedProductsCount === null ? "…" : savedProductsCount
-      })`;
-
   return (
     <>
       <div className="bg-layer" />
       <div className="page">
         <Navbar />
 
-        {/* 3-COLUMN LAYOUT */}
         <main className="layout-3col">
-          {/* LEFT SIDEBAR */}
-<LeftSidebar
-  user={user}
-  profileSummary={profileSummary}
-  myOrg={myOrg}
-  entangledCount={entangledCount}
-  savedJobsCount={savedJobsCount}
-  savedProductsCount={savedProductsCount}
-/>
-          
+
+          {/* LEFT SIDEBAR — UPDATED */}
+          <LeftSidebar />
+       
           {/* MIDDLE MAIN COLUMN */}
           <section className="layout-main">
             {/* HERO */}
