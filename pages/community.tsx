@@ -1322,7 +1322,9 @@ return (
                                       opacity: loading ? 0.7 : 1,
                                     }}
                                     disabled={loading}
-                                    onClick={() => handleFollowOrg(item.id)}
+                                    onClick={(e) => {e.stopPropagation();
+                                                     handleFollowOrg(item.id);
+                                                    }}
                                   >
                                     {loading ? "…" : label}
                                     {!following && (
@@ -1369,9 +1371,9 @@ return (
                                       <button
                                         type="button"
                                         disabled={loading}
-                                        onClick={() =>
-                                          handleEntangle(item.id)
-                                        }
+                                        onClick={(e) => {e.stopPropagation();
+                                                         handleEntangle(item.id);
+                                                        }}
                                         style={{
                                           flex: 1,
                                           minWidth: 120,
@@ -1395,9 +1397,10 @@ return (
                                       <button
                                         type="button"
                                         disabled={loading}
-                                        onClick={() =>
-                                          handleDeclineEntangle(item.id)
-                                        }
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeclineEntangle(item.id);
+                                        }}
                                         style={{
                                           flex: 1,
                                           minWidth: 100,
