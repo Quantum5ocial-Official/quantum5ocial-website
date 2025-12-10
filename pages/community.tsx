@@ -76,6 +76,18 @@ export default function CommunityPage() {
 
   const [search, setSearch] = useState("");
 
+  // === CONNECTION STATE (from shared hook) ===
+  const {
+    getConnectionStatus,
+    isEntangleLoading,
+    handleEntangle,
+    handleDeclineEntangle,
+  } = useEntanglements({
+    user,
+    redirectPath: "/community",
+  });
+
+  // === FOLLOW STATE (orgs) ===
   const [orgFollows, setOrgFollows] = useState<Record<string, boolean>>({});
   const [followLoadingIds, setFollowLoadingIds] = useState<string[]>([]);
 
@@ -197,18 +209,6 @@ export default function CommunityPage() {
 
     loadOrgs();
   }, []);
-  
-  const [search, setSearch] = useState("");
-
-    const {
-    getConnectionStatus,
-    isEntangleLoading,
-    handleEntangle,
-    handleDeclineEntangle,
-  } = useEntanglements({
-    user,
-    redirectPath: "/community",
-  });
 
   // === LOAD ORG_FOLLOWS FOR FOLLOW STATE ===
   useEffect(() => {
@@ -1110,23 +1110,25 @@ export default function CommunityPage() {
 
                       return (
                         <div
-  key={`${item.kind}-${item.id}`}
-  className="card"
-  style={{
-    textDecoration: "none",
-    padding: 14,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    minHeight: 230,
-    ...(item.kind === "person" ? { cursor: "pointer" } : {}),
-  }}
-  onClick={
-    item.kind === "person"
-      ? () => router.push(`/profile/${item.id}`)
-      : undefined
-  }
->
+                          key={`${item.kind}-${item.id}`}
+                          className="card"
+                          style={{
+                            textDecoration: "none",
+                            padding: 14,
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            minHeight: 230,
+                            ...(item.kind === "person"
+                              ? { cursor: "pointer" }
+                              : {}),
+                          }}
+                          onClick={
+                            item.kind === "person"
+                              ? () => router.push(`/profile/${item.id}`)
+                              : undefined
+                          }
+                        >
                           <div className="card-inner">
                             {/* Top row */}
                             <div
