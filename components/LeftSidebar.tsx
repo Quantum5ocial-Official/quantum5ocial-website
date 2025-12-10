@@ -54,12 +54,25 @@ export default function LeftSidebar() {
           .maybeSingle();
         setProfile((p as ProfileSummary) || null);
 
-        // ENTANGLEMENTS
-        const { data: ents } = await supabase
-          .from("entanglements")
-          .select("id")
-          .eq("user_id", user.id);
-        setEntangledCount(ents?.length || 0);
+        // ENTANGLED STATES (same definition as entangled-states page)
+        const { data: connRows, error: connErr } = await supabase
+          .from("connections")
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+        if (!connErr && connRows && connRows.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connRows.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
+          );
+          setEntangledCount(otherIds.length);
+        } else {
+          setEntangledCount(0);
+        }
 
         // SAVED JOBS
         const { data: savedJobs } = await supabase
@@ -164,12 +177,18 @@ export default function LeftSidebar() {
               </div>
             )}
             {describesYou && (
-              <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              <div
+                className="profile-sidebar-info-value"
+                style={{ marginTop: 4 }}
+              >
                 {describesYou}
               </div>
             )}
             {affiliation && (
-              <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              <div
+                className="profile-sidebar-info-value"
+                style={{ marginTop: 4 }}
+              >
                 {affiliation}
               </div>
             )}
@@ -202,7 +221,7 @@ export default function LeftSidebar() {
               gap: 8,
             }}
           >
-            <span>Entanglements</span>
+            <span>Entangled states</span>
             <span style={{ opacity: 0.9 }}>{entangledCount ?? "…"}</span>
           </Link>
 
