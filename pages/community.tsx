@@ -1281,212 +1281,191 @@ return (
                           </div>
 
                           {/* Footer actions */}
-                          <div style={{ marginTop: 10 }}>
-                            {isOrganization ? (
-                              // Follow / Following for org cards
-                              (() => {
-                                const following = isFollowingOrg(item.id);
-                                const loading = isFollowLoading(item.id);
+<div style={{ marginTop: 10 }}>
+  {isOrganization ? (
+    // Follow / Following for org cards
+    (() => {
+      const following = isFollowingOrg(item.id);
+      const loading = isFollowLoading(item.id);
 
-                                const label = following
-                                  ? "Following"
-                                  : "Follow";
-                                const bg = following
-                                  ? "transparent"
-                                  : "rgba(59,130,246,0.16)";
-                                const border = following
-                                  ? "1px solid rgba(148,163,184,0.7)"
-                                  : "1px solid rgba(59,130,246,0.6)";
-                                const color = following
-                                  ? "rgba(148,163,184,0.95)"
-                                  : "#bfdbfe";
+      const label = following ? "Following" : "Follow";
+      const bg = following
+        ? "transparent"
+        : "rgba(59,130,246,0.16)";
+      const border = following
+        ? "1px solid rgba(148,163,184,0.7)"
+        : "1px solid rgba(59,130,246,0.6)";
+      const color = following
+        ? "rgba(148,163,184,0.95)"
+        : "#bfdbfe";
 
-                                return (
-                                  <button
-                                    type="button"
-                                    style={{
-                                      width: "100%",
-                                      padding: "7px 0",
-                                      borderRadius: 10,
-                                      border,
-                                      background: bg,
-                                      color,
-                                      fontSize: 12,
-                                      cursor: loading
-                                        ? "default"
-                                        : "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      gap: 6,
-                                      opacity: loading ? 0.7 : 1,
-                                    }}
-                                    disabled={loading}
-                                    onClick={(e) => {e.stopPropagation();
-                                                     handleFollowOrg(item.id);
-                                                    }}
-                                  >
-                                    {loading ? "…" : label}
-                                    {!following && (
-                                      <span style={{ fontSize: 14 }}>+</span>
-                                    )}
-                                  </button>
-                                );
-                              })()
-                            ) : isSelf ? (
-                              // Self profile
-                              <button
-                                type="button"
-                                style={{
-                                  width: "100%",
-                                  padding: "7px 0",
-                                  borderRadius: 10,
-                                  border:
-                                    "1px solid rgba(148,163,184,0.7)",
-                                  background: "transparent",
-                                  color: "rgba(148,163,184,0.9)",
-                                  fontSize: 12,
-                                  cursor: "default",
-                                }}
-                                disabled
-                              >
-                                This is you
-                              </button>
-                            ) : (
-                              // Entangle button(s) for other people
-                              (() => {
-                                const status = getConnectionStatus(item.id);
-                                const loading = isEntangleLoading(item.id);
+      return (
+        <button
+          type="button"
+          style={{
+            width: "100%",
+            padding: "7px 0",
+            borderRadius: 10,
+            border,
+            background: bg,
+            color,
+            fontSize: 12,
+            cursor: loading ? "default" : "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            opacity: loading ? 0.7 : 1,
+          }}
+          disabled={loading}
+          onClick={(e) => {
+            e.stopPropagation();        // 🔥 Prevent card navigation
+            handleFollowOrg(item.id);
+          }}
+        >
+          {loading ? "…" : label}
+          {!following && <span style={{ fontSize: 14 }}>+</span>}
+        </button>
+      );
+    })()
+  ) : isSelf ? (
+    <button
+      type="button"
+      style={{
+        width: "100%",
+        padding: "7px 0",
+        borderRadius: 10,
+        border: "1px solid rgba(148,163,184,0.7)",
+        background: "transparent",
+        color: "rgba(148,163,184,0.9)",
+        fontSize: 12,
+        cursor: "default",
+      }}
+      disabled
+      onClick={(e) => e.stopPropagation()} // 🔥 Just in case
+    >
+      This is you
+    </button>
+  ) : (
+    // Entangle logic for people
+    (() => {
+      const status = getConnectionStatus(item.id);
+      const loading = isEntangleLoading(item.id);
 
-                                // Incoming request → Accept + Decline
-                                if (user && status === "pending_incoming") {
-                                  return (
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        gap: 8,
-                                        flexWrap: "wrap",
-                                      }}
-                                    >
-                                      <button
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={(e) => {e.stopPropagation();
-                                                         handleEntangle(item.id);
-                                                        }}
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 120,
-                                          padding: "7px 0",
-                                          borderRadius: 10,
-                                          border: "none",
-                                          background:
-                                            "linear-gradient(90deg,#22c55e,#16a34a)",
-                                          color: "#0f172a",
-                                          fontSize: 12,
-                                          fontWeight: 600,
-                                          cursor: loading
-                                            ? "default"
-                                            : "pointer",
-                                          opacity: loading ? 0.7 : 1,
-                                        }}
-                                      >
-                                        {loading ? "…" : "Accept request"}
-                                      </button>
+      if (user && status === "pending_incoming") {
+        return (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={(e) => {
+                e.stopPropagation();    // 🔥 Prevent card click
+                handleEntangle(item.id);
+              }}
+              style={{
+                flex: 1,
+                minWidth: 120,
+                padding: "7px 0",
+                borderRadius: 10,
+                border: "none",
+                background:
+                  "linear-gradient(90deg,#22c55e,#16a34a)",
+                color: "#0f172a",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: loading ? "default" : "pointer",
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? "…" : "Accept request"}
+            </button>
 
-                                      <button
-                                        type="button"
-                                        disabled={loading}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeclineEntangle(item.id);
-                                        }}
-                                        style={{
-                                          flex: 1,
-                                          minWidth: 100,
-                                          padding: "7px 0",
-                                          borderRadius: 10,
-                                          border:
-                                            "1px solid rgba(148,163,184,0.7)",
-                                          background: "transparent",
-                                          color:
-                                            "rgba(248,250,252,0.9)",
-                                          fontSize: 12,
-                                          cursor: loading
-                                            ? "default"
-                                            : "pointer",
-                                          opacity: loading ? 0.7 : 1,
-                                        }}
-                                      >
-                                        Decline
-                                      </button>
-                                    </div>
-                                  );
-                                }
+            <button
+              type="button"
+              disabled={loading}
+              onClick={(e) => {
+                e.stopPropagation();    // 🔥 Prevent card click
+                handleDeclineEntangle(item.id);
+              }}
+              style={{
+                flex: 1,
+                minWidth: 100,
+                padding: "7px 0",
+                borderRadius: 10,
+                border: "1px solid rgba(148,163,184,0.7)",
+                background: "transparent",
+                color: "rgba(248,250,252,0.9)",
+                fontSize: 12,
+                cursor: loading ? "default" : "pointer",
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              Decline
+            </button>
+          </div>
+        );
+      }
 
-                                // Other states → single button
-                                let label = "Entangle +";
-                                let bg =
-                                  "linear-gradient(90deg,#22d3ee,#6366f1)";
-                                let border = "none";
-                                let color = "#0f172a";
-                                let disabled = false;
+      // Outgoing or accepted states
+      let label = "Entangle +";
+      let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
+      let border = "none";
+      let color = "#0f172a";
+      let disabled = false;
 
-                                if (user) {
-                                  if (status === "pending_outgoing") {
-                                    label = "Requested";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(148,163,184,0.7)";
-                                    color = "rgba(148,163,184,0.95)";
-                                    disabled = true;
-                                  } else if (status === "accepted") {
-                                    label = "Entangled ✓";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(74,222,128,0.7)";
-                                    color = "rgba(187,247,208,0.95)";
-                                    disabled = true;
-                                  } else if (status === "declined") {
-                                    label = "Declined";
-                                    bg = "transparent";
-                                    border =
-                                      "1px solid rgba(148,163,184,0.5)";
-                                    color = "rgba(148,163,184,0.7)";
-                                    disabled = true;
-                                  }
-                                }
+      if (user) {
+        if (status === "pending_outgoing") {
+          label = "Requested";
+          bg = "transparent";
+          border = "1px solid rgba(148,163,184,0.7)";
+          color = "rgba(148,163,184,0.95)";
+          disabled = true;
+        } else if (status === "accepted") {
+          label = "Entangled ✓";
+          bg = "transparent";
+          border = "1px solid rgba(74,222,128,0.7)";
+          color = "rgba(187,247,208,0.95)";
+          disabled = true;
+        } else if (status === "declined") {
+          label = "Declined";
+          bg = "transparent";
+          border = "1px solid rgba(148,163,184,0.5)";
+          color = "rgba(148,163,184,0.7)";
+          disabled = true;
+        }
+      }
 
-                                return (
-                                  <button
-                                    type="button"
-                                    style={{
-                                      width: "100%",
-                                      padding: "7px 0",
-                                      borderRadius: 10,
-                                      border,
-                                      background: bg,
-                                      color,
-                                      fontSize: 12,
-                                      cursor:
-                                        disabled || loading
-                                          ? "default"
-                                          : "pointer",
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      gap: 6,
-                                      opacity: loading ? 0.7 : 1,
-                                    }}
-                                    disabled={disabled || loading}
-                                    onClick={() => handleEntangle(item.id)}
-                                  >
-                                    {loading ? "…" : label}
-                                  </button>
-                                );
-                              })()
-                            )}
-                          </div>
+      return (
+        <button
+          type="button"
+          disabled={disabled || loading}
+          onClick={(e) => {
+            e.stopPropagation();        // 🔥 Prevent card nav
+            if (!disabled && !loading) handleEntangle(item.id);
+          }}
+          style={{
+            width: "100%",
+            padding: "7px 0",
+            borderRadius: 10,
+            border,
+            background: bg,
+            color,
+            fontSize: 12,
+            cursor:
+              disabled || loading ? "default" : "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            opacity: loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? "…" : label}
+        </button>
+      );
+    })()
+  )}
+</div>
                         </div>
                       );
                     })}
