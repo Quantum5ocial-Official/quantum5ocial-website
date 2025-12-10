@@ -397,7 +397,7 @@ export default function CommunityPage() {
           .select("user_id, target_user_id, status")
           .eq("status", "accepted")
           .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
+        
         if (!connErr && connRows && connRows.length > 0) {
           const otherIds = Array.from(
             new Set(
