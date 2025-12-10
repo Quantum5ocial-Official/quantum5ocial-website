@@ -7,18 +7,9 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-import LeftSidebar from "../components/LeftSidebar";
-
-// Left-sidebar profile summary (same as homepage)
-type ProfileSummary = {
-  full_name: string | null;
-  avatar_url: string | null;
-  education_level?: string | null;
-  describes_you?: string | null;
-  affiliation?: string | null;
-  highest_education?: string | null;
-  current_org?: string | null;
-};
+const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
+  ssr: false,
+});
 
 // Community member type (person)
 type CommunityProfile = {
@@ -72,14 +63,6 @@ type CommunityItem = {
   created_at: string | null;
 };
 
-// Minimal org summary for sidebar tile
-type MyOrgSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-};
-
 // Connections / entanglement
 type ConnectionStatus =
   | "none"
@@ -98,19 +81,6 @@ type ConnectionRow = {
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
-
-  // --- Sidebar profile + counts (same as homepage / jobs / products) ---
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
-    null
-  );
-  const [entangledCount, setEntangledCount] = useState<number | null>(null);
-
-  // First organization created by this user (for sidebar tile)
-  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
 
   // --- Community data: people + orgs ---
   const [profiles, setProfiles] = useState<CommunityProfile[]>([]);
@@ -224,7 +194,7 @@ export default function CommunityPage() {
     }
   };
 
-  // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
+  // --- DECLINE ENTANGLE HANDLER ---
   const handleDeclineEntangle = async (targetUserId: string) => {
     if (!user) {
       router.push("/auth?redirect=/community");
@@ -234,7 +204,6 @@ export default function CommunityPage() {
     const currentRow = connectionsByOtherId[targetUserId];
     const currentStatus = getConnectionStatus(targetUserId);
 
-    // Only allow decline if there is a pending incoming request
     if (!currentRow || currentStatus !== "pending_incoming") {
       return;
     }
@@ -242,19 +211,13 @@ export default function CommunityPage() {
     setEntangleLoadingIds((prev) => [...prev, targetUserId]);
 
     try {
-      // 1) Try to set status = 'declined'
       const { error } = await supabase
         .from("connections")
         .update({ status: "declined" })
         .eq("id", currentRow.id);
 
       if (error) {
-        console.error(
-          "Error declining entanglement, falling back to delete",
-          error
-        );
-
-        // 2) Fallback: delete the row if update fails
+        console.error("Error declining entanglement, falling back to delete", error);
         const { error: deleteError } = await supabase
           .from("connections")
           .delete()
@@ -265,7 +228,6 @@ export default function CommunityPage() {
         }
       }
 
-      // 3) In any case: remove it from local state so UI updates
       setConnectionsByOtherId((prev) => {
         const copy = { ...prev };
         delete copy[targetUserId];
@@ -293,7 +255,6 @@ export default function CommunityPage() {
 
     try {
       if (alreadyFollowing) {
-        // Unfollow
         const { error } = await supabase
           .from("org_follows")
           .delete()
@@ -310,7 +271,6 @@ export default function CommunityPage() {
           });
         }
       } else {
-        // Follow
         const { error } = await supabase
           .from("org_follows")
           .upsert(
@@ -333,125 +293,6 @@ export default function CommunityPage() {
       setFollowLoadingIds((prev) => prev.filter((id) => id !== orgId));
     }
   };
-
-  // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setProfileSummary(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!error && data) {
-        setProfileSummary(data as ProfileSummary);
-      } else {
-        setProfileSummary(null);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  // === LOAD COUNTS FOR QUICK DASHBOARD (saved jobs/products + entangled states) ===
-  useEffect(() => {
-    const loadCounts = async () => {
-      if (!user) {
-        setSavedJobsCount(null);
-        setSavedProductsCount(null);
-        setEntangledCount(null);
-        return;
-      }
-
-      try {
-        // Saved jobs
-        const { data: savedJobsRows, error: savedJobsErr } = await supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", user.id);
-
-        if (!savedJobsErr && savedJobsRows) {
-          setSavedJobsCount(savedJobsRows.length);
-        } else {
-          setSavedJobsCount(0);
-        }
-
-        // Saved products
-        const { data: savedProdRows, error: savedProdErr } = await supabase
-          .from("saved_products")
-          .select("product_id")
-          .eq("user_id", user.id);
-
-        if (!savedProdErr && savedProdRows) {
-          setSavedProductsCount(savedProdRows.length);
-        } else {
-          setSavedProductsCount(0);
-        }
-
-        // Entangled states – count unique "other" users in accepted connections
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (!connErr && connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-      } catch (e) {
-        console.error("Error loading sidebar counts", e);
-        setSavedJobsCount(0);
-        setSavedProductsCount(0);
-        setEntangledCount(0);
-      }
-    };
-
-    loadCounts();
-  }, [user]);
-
-  // === LOAD FIRST ORGANIZATION OWNED BY THIS USER FOR SIDEBAR TILE ===
-  useEffect(() => {
-    const loadMyOrg = async () => {
-      if (!user) {
-        setMyOrg(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug, logo_url")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setMyOrg(data as MyOrgSummary);
-      } else {
-        setMyOrg(null);
-        if (error) {
-          console.error("Error loading my organization for sidebar", error);
-        }
-      }
-    };
-
-    loadMyOrg();
-  }, [user]);
 
   // === LOAD COMMUNITY PROFILES (PEOPLE) ===
   useEffect(() => {
@@ -738,15 +579,18 @@ export default function CommunityPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT SIDEBAR – now shared LeftSidebar component ========== */}
-          <LeftSidebar
-            user={user}
-            profileSummary={profileSummary}
-            myOrg={myOrg}
-            entangledCount={entangledCount}
-            savedJobsCount={savedJobsCount}
-            savedProductsCount={savedProductsCount}
-          />
+          {/* ========== LEFT SIDEBAR (shared component) ========== */}
+          <aside
+            className="layout-left sticky-col"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              borderRight: "1px solid rgba(148,163,184,0.18)",
+              paddingRight: 16,
+            }}
+          >
+            <LeftSidebar />
+          </aside>
 
           {/* ========== MIDDLE COLUMN – COMMUNITY LIST (unchanged) ========== */}
           <section className="layout-main">
