@@ -1297,17 +1297,23 @@ export default function CommunityPage() {
 
                       return (
                         <div
-                          key={`${item.kind}-${item.id}`}
-                          className="card"
-                          style={{
-                            textDecoration: "none",
-                            padding: 14,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                            minHeight: 230,
-                          }}
-                        >
+  key={`${item.kind}-${item.id}`}
+  className="card"
+  style={{
+    textDecoration: "none",
+    padding: 14,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    minHeight: 230,
+    ...(item.kind === "person" ? { cursor: "pointer" } : {}),
+  }}
+  onClick={
+    item.kind === "person"
+      ? () => router.push(`/profile/${item.id}`)
+      : undefined
+  }
+>
                           <div className="card-inner">
                             {/* Top row */}
                             <div
