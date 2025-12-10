@@ -341,18 +341,15 @@ export default function NotificationsPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – shared */}
-          <aside
-            className="layout-left sticky-col"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              borderRight: "1px solid rgba(148,163,184,0.18)",
-              paddingRight: 16,
-            }}
-          >
-            <LeftSidebar />
-          </aside>
+          {/* ========== LEFT COLUMN – PROFILE SIDEBAR (same component as homepage) ========== */}
+          <LeftSidebar
+            user={user}
+            profileSummary={profileSummary}
+            myOrg={myOrg}
+            entangledCount={entangledCount}
+            savedJobsCount={savedJobsCount}
+            savedProductsCount={savedProductsCount}
+          />
 
           {/* CENTER – NOTIFICATIONS */}
           <section className="layout-center">
