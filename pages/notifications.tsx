@@ -58,6 +58,7 @@ export default function NotificationsPage() {
   );
 
   const [markingAll, setMarkingAll] = useState(false);
+  const [actingOnId, setActingOnId] = useState<string | null>(null);
 
   const formatCreated = (created_at: string | null) => {
     if (!created_at) return "";
@@ -138,7 +139,7 @@ export default function NotificationsPage() {
           };
         });
 
-        // Build entangled states block
+        // Build accepted / past notifications block
         const updItems: EntanglementItem[] = accepted.map((c) => {
           const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
           const other = profileMap.get(otherId) || null;
@@ -185,6 +186,8 @@ export default function NotificationsPage() {
 
     loadAll();
   }, [user]);
+
+  // ===== HANDLERS =====
 
   const unreadCount = useMemo(
     () =>
@@ -244,6 +247,59 @@ export default function NotificationsPage() {
     router.push(notification.link_url);
   };
 
+  const handleRespondRequest = async (
+    item: EntanglementItem,
+    action: "accept" | "decline"
+  ) => {
+    if (!user) return;
+    setActingOnId(item.id);
+
+    try {
+      if (action === "accept") {
+        const { error } = await supabase
+          .from("connections")
+          .update({ status: "accepted" })
+          .eq("id", item.id)
+          .eq("target_user_id", user.id);
+
+        if (error) {
+          console.error("Accept entanglement error", error);
+        } else {
+          // Remove from requests
+          setEntanglementRequests((prev) =>
+            prev.filter((req) => req.id !== item.id)
+          );
+
+          // Add to past notifications (at the top)
+          const name =
+            item.otherProfile?.full_name || "Quantum member";
+          const acceptedItem: EntanglementItem = {
+            ...item,
+            message: `You are now entangled with ${name}`,
+          };
+          setEntangledUpdates((prev) => [acceptedItem, ...prev]);
+        }
+      } else {
+        // decline
+        const { error } = await supabase
+          .from("connections")
+          .update({ status: "declined" })
+          .eq("id", item.id)
+          .eq("target_user_id", user.id);
+
+        if (error) {
+          console.error("Decline entanglement error", error);
+        } else {
+          setEntanglementRequests((prev) =>
+            prev.filter((req) => req.id !== item.id)
+          );
+        }
+      }
+    } finally {
+      setActingOnId(null);
+    }
+  };
+
   const totalItems =
     entanglementRequests.length +
     entangledUpdates.length +
@@ -289,9 +345,9 @@ export default function NotificationsPage() {
                     className="section-sub"
                     style={{ maxWidth: 480, lineHeight: 1.45 }}
                   >
-                    Stay up to date with entanglement requests, new entangled
-                    states, job updates, and activity across the Quantum5ocial
-                    ecosystem.
+                    Stay up to date with entanglement requests, past
+                    entanglement notifications, job updates, and activity across
+                    the Quantum5ocial ecosystem.
                   </div>
                 </div>
 
@@ -355,45 +411,160 @@ export default function NotificationsPage() {
                           gap: 8,
                         }}
                       >
-                        {entanglementRequests.map((item) => (
-                          <div
-                            key={item.id}
-                            className="card"
-                            style={{
-                              padding: 12,
-                              borderRadius: 12,
-                              border: "1px solid rgba(56,189,248,0.8)",
-                              background:
-                                "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
-                            }}
-                          >
+                        {entanglementRequests.map((item) => {
+                          const other = item.otherProfile;
+                          const name =
+                            other?.full_name || "Quantum member";
+                          const avatarUrl = other?.avatar_url || null;
+
+                          return (
                             <div
+                              key={item.id}
+                              className="card"
                               style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: 10,
-                                fontSize: 13,
+                                padding: 12,
+                                borderRadius: 12,
+                                border: "1px solid rgba(56,189,248,0.8)",
+                                background:
+                                  "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
                               }}
                             >
-                              <div>{item.message}</div>
                               <div
                                 style={{
-                                  fontSize: 11,
-                                  color: "rgba(148,163,184,0.9)",
-                                  whiteSpace: "nowrap",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 12,
                                 }}
                               >
-                                {formatCreated(item.created_at)}
+                                {/* Left: profile */}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 40,
+                                      height: 40,
+                                      borderRadius: "999px",
+                                      overflow: "hidden",
+                                      border:
+                                        "1px solid rgba(148,163,184,0.6)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      background:
+                                        "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                      color: "#fff",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {avatarUrl ? (
+                                      <img
+                                        src={avatarUrl}
+                                        alt={name}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                        }}
+                                      />
+                                    ) : (
+                                      name.charAt(0).toUpperCase()
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 14,
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      {name}
+                                    </div>
+                                    <div
+                                      style={{
+                                        fontSize: 12,
+                                        color: "var(--text-muted)",
+                                      }}
+                                    >
+                                      wants to entangle with you
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Right: date + buttons */}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "flex-end",
+                                    gap: 6,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      color: "rgba(148,163,184,0.9)",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {formatCreated(item.created_at)}
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: 6,
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="nav-cta"
+                                      style={{
+                                        padding: "4px 10px",
+                                        fontSize: 12,
+                                        cursor: "pointer",
+                                      }}
+                                      disabled={actingOnId === item.id}
+                                      onClick={() =>
+                                        handleRespondRequest(item, "accept")
+                                      }
+                                    >
+                                      {actingOnId === item.id
+                                        ? "Accepting…"
+                                        : "Accept"}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="nav-ghost-btn"
+                                      style={{
+                                        padding: "4px 10px",
+                                        fontSize: 12,
+                                        cursor: "pointer",
+                                      }}
+                                      disabled={actingOnId === item.id}
+                                      onClick={() =>
+                                        handleRespondRequest(item, "decline")
+                                      }
+                                    >
+                                      {actingOnId === item.id
+                                        ? "Declining…"
+                                        : "Decline"}
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {/* BLOCK 2 – Entangled states */}
+                  {/* BLOCK 2 – Past notifications (accepted entanglements) */}
                   {entangledUpdates.length > 0 && (
                     <div>
                       <div
@@ -405,7 +576,7 @@ export default function NotificationsPage() {
                           marginBottom: 6,
                         }}
                       >
-                        Entangled states
+                        Past notifications
                       </div>
                       <div
                         style={{
@@ -414,44 +585,99 @@ export default function NotificationsPage() {
                           gap: 8,
                         }}
                       >
-                        {entangledUpdates.map((item) => (
-                          <div
-                            key={item.id}
-                            className="card"
-                            style={{
-                              padding: 10,
-                              borderRadius: 10,
-                              border: "1px solid rgba(30,64,175,0.4)",
-                              background: "rgba(15,23,42,0.9)",
-                            }}
-                          >
+                        {entangledUpdates.map((item) => {
+                          const other = item.otherProfile;
+                          const name =
+                            other?.full_name || "Quantum member";
+                          const avatarUrl = other?.avatar_url || null;
+
+                          return (
                             <div
+                              key={item.id}
+                              className="card"
                               style={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: 10,
-                                fontSize: 13,
+                                padding: 10,
+                                borderRadius: 10,
+                                border: "1px solid rgba(30,64,175,0.4)",
+                                background: "rgba(15,23,42,0.9)",
                               }}
                             >
-                              <div>{item.message}</div>
                               <div
                                 style={{
-                                  fontSize: 11,
-                                  color: "rgba(148,163,184,0.9)",
-                                  whiteSpace: "nowrap",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 12,
                                 }}
                               >
-                                {formatCreated(item.created_at)}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      width: 32,
+                                      height: 32,
+                                      borderRadius: "999px",
+                                      overflow: "hidden",
+                                      border:
+                                        "1px solid rgba(148,163,184,0.6)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      background:
+                                        "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                      color: "#fff",
+                                      fontWeight: 600,
+                                      fontSize: 14,
+                                    }}
+                                  >
+                                    {avatarUrl ? (
+                                      <img
+                                        src={avatarUrl}
+                                        alt={name}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                        }}
+                                      />
+                                    ) : (
+                                      name.charAt(0).toUpperCase()
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      {item.message}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    color: "rgba(148,163,184,0.9)",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {formatCreated(item.created_at)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
-                  {/* BLOCK 3 – Other activity (optional) */}
+                  {/* BLOCK 3 – Other activity (optional, from notifications table) */}
                   {otherNotifications.length > 0 && (
                     <div>
                       <div
@@ -582,9 +808,9 @@ export default function NotificationsPage() {
                   fontSize: 12,
                 }}
               >
-                For now, this page focuses on entanglement requests, new
-                entangled states, and any additional activity routed through the
-                notifications system.
+                For now, this page focuses on entanglement requests, past
+                entanglement notifications, and any additional activity routed
+                through the notifications system.
               </div>
             </div>
           </aside>
