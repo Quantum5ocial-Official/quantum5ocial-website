@@ -602,20 +602,20 @@ export default function CommunityPage() {
 
   const totalCommunityCount = (profiles?.length || 0) + (orgs?.length || 0);
 
-  // === FILTER PEOPLE + ORGS BY SEARCH ===
+    // === FILTER PEOPLE + ORGS BY SEARCH ===
   const filteredProfiles = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return profiles;
 
-      return profiles.filter((p) => {
-    const haystack = (
-      `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${
-        p.short_bio || ""
-      } ${p.city || ""} ${p.country || ""}`
-    ).toLowerCase();
+    return profiles.filter((p) => {
+      const haystack = (
+        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${
+          p.short_bio || ""
+        } ${p.city || ""} ${p.country || ""}`
+      ).toLowerCase();
 
-    return haystack.includes(q);
-  });
+      return haystack.includes(q);
+    });
   }, [profiles, search]);
 
   const filteredOrgs = useMemo(() => {
@@ -626,19 +626,19 @@ export default function CommunityPage() {
       const location = [o.city, o.country].filter(Boolean).join(" ");
       const meta =
         o.kind === "company"
-          ? ${o.industry || ""} ${o.focus_areas || ""}
-          : ${o.institution || ""} ${o.department || ""} ${
+          ? `${o.industry || ""} ${o.focus_areas || ""}`
+          : `${o.institution || ""} ${o.department || ""} ${
               o.focus_areas || ""
-            };
+            }`;
 
       const haystack = (
-        ${o.name || ""} ${meta} ${o.tagline || ""} ${location}
+        `${o.name || ""} ${meta} ${o.tagline || ""} ${location}`
       ).toLowerCase();
 
       return haystack.includes(q);
     });
   }, [orgs, search]);
-
+  
   // === FEATURED PROFILE + ORGANIZATION OF THE WEEK ===
   const featuredProfile =
     filteredProfiles.length > 0 ? filteredProfiles[0] : null;
