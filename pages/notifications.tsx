@@ -102,11 +102,11 @@ export default function NotificationsPage() {
         // 2) Accepted entangled states (YOU in the pair)
         const { data: acceptedRows, error: acceptedErr } = await supabase
           .from("connections")
-          .select("id, user_id, target_user_id, status, created_at, updated_at")
+          .select("id, user_id, target_user_id, status, created_at")
           .eq("status", "accepted")
           .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`)
-          .order("updated_at", { ascending: false });
-
+          .order("created_at", { ascending: false });
+        
         if (acceptedErr) throw acceptedErr;
         const accepted = (acceptedRows || []) as ConnectionRow[];
 
@@ -150,20 +150,17 @@ export default function NotificationsPage() {
 
         // Build accepted / past notifications block
         const updItems: EntanglementItem[] = accepted.map((c) => {
-          const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
-          const other = profileMap.get(otherId) || null;
-          const name = other?.full_name || "Quantum member";
+  const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
+  const other = profileMap.get(otherId) || null;
+  const name = other?.full_name || "Quantum member";
 
-          // show the time when it was accepted (updated_at), fallback to created_at
-          const acceptedTime = c.updated_at || c.created_at;
-
-          return {
-            id: c.id,
-            message: `You are now entangled with ${name}`,
-            created_at: acceptedTime,
-            otherProfile: other,
-          };
-        });
+  return {
+    id: c.id,
+    message: `You are now entangled with ${name}`,
+    created_at: c.created_at, // for now we only have created_at in the table
+    otherProfile: other,
+  };
+});
 
         setEntanglementRequests(reqItems);
         setEntangledUpdates(updItems);
