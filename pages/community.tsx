@@ -618,21 +618,21 @@ export default function CommunityPage() {
     });
   }, [profiles, search]);
 
-  const filteredOrgs = useMemo(() => {
+    const filteredOrgs = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return orgs;
 
-    return orgs.filter((o) => {
-      const location = [o.city, o.country].filter(Boolean).join(" ");
+    return orgs.filter((org) => {
+      const location = [org.city, org.country].filter(Boolean).join(" ");
       const meta =
-        o.kind === "company"
-          ? `${o.industry || ""} ${o.focus_areas || ""}`
-          : `${o.institution || ""} ${o.department || ""} ${
-              o.focus_areas || ""
+        org.kind === "company"
+          ? `${org.industry || ""} ${org.focus_areas || ""}`
+          : `${org.institution || ""} ${org.department || ""} ${
+              org.focus_areas || ""
             }`;
 
       const haystack = (
-        `${o.name || ""} ${meta} ${o.tagline || ""} ${location}`
+        `${org.name || ""} ${meta} ${org.tagline || ""} ${location}`
       ).toLowerCase();
 
       return haystack.includes(q);
