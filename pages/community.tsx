@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
-import type { NextPage } from "next";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
 const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
@@ -98,7 +97,7 @@ type ConnectionRow = {
   status: "pending" | "accepted" | "declined";
 };
 
-const CommunityPage: NextPage = () => {
+export default function CommunityPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
@@ -1951,9 +1950,7 @@ const CommunityPage: NextPage = () => {
             </div>
           </aside>
         </main>
-            </div>
+      </div>
     </>
   );
-};
-
-export default CommunityPage;
+}
