@@ -7,7 +7,10 @@ import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
-import LeftSidebar from "../../components/LeftSidebar";
+const LeftSidebar: any = dynamic(
+  () => import("../../components/LeftSidebar"),
+  { ssr: false }
+);
 
 const CATEGORIES = [
   "Cryogenics",
