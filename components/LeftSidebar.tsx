@@ -192,28 +192,58 @@ export default function LeftSidebar() {
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link">
+          <Link
+            href="/dashboard/entangled-states"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             <span>Entanglements</span>
-            <span style={{ opacity: 0.9 }}>
-              {entangledCount ?? "…"}
-            </span>
+            <span style={{ opacity: 0.9 }}>{entangledCount ?? "…"}</span>
           </Link>
 
-          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link">
+          <Link
+            href="/dashboard/saved-jobs"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             <span>Saved jobs</span>
-            <span style={{ opacity: 0.9 }}>
-              {savedJobsCount ?? "…"}
-            </span>
+            <span style={{ opacity: 0.9 }}>{savedJobsCount ?? "…"}</span>
           </Link>
 
-          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link">
+          <Link
+            href="/dashboard/saved-products"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             <span>Saved products</span>
-            <span style={{ opacity: 0.9 }}>
-              {savedProductsCount ?? "…"}
-            </span>
+            <span style={{ opacity: 0.9 }}>{savedProductsCount ?? "…"}</span>
           </Link>
 
-          <Link href="/ecosystem" className="dashboard-sidebar-link">
+          <Link
+            href="/ecosystem"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
             <span>My Ecosystem</span>
           </Link>
         </div>
@@ -288,8 +318,12 @@ export default function LeftSidebar() {
                   gap: 2,
                 }}
               >
-                <div>Followers: <span style={{ color: "#e5e7eb" }}>0</span></div>
-                <div>Views: <span style={{ color: "#e5e7eb" }}>0</span></div>
+                <div>
+                  Followers: <span style={{ color: "#e5e7eb" }}>0</span>
+                </div>
+                <div>
+                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
+                </div>
                 <div style={{ marginTop: 4, color: "#7dd3fc" }}>Analytics →</div>
               </div>
             </div>
@@ -311,9 +345,34 @@ export default function LeftSidebar() {
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 18 }}>👑</span>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
+        {/* header row: icon + title + pill */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 18 }}>👑</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
+          </div>
+
+          <div
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.75)",
+              border: "1px solid rgba(251,191,36,0.6)",
+              color: "rgba(251,191,36,0.9)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Coming soon
+          </div>
         </div>
 
         <div
@@ -321,24 +380,10 @@ export default function LeftSidebar() {
             fontSize: 12,
             color: "rgba(248,250,252,0.9)",
             lineHeight: 1.5,
-            marginBottom: 10,
           }}
         >
-          Unlock advanced analytics, reduced ads, and premium perks for your profile and organization.
-        </div>
-
-        <div
-          style={{
-            fontSize: 11,
-            padding: "4px 10px",
-            borderRadius: 999,
-            background: "rgba(15,23,42,0.75)",
-            width: "fit-content",
-            border: "1px solid rgba(251,191,36,0.6)",
-            color: "rgba(251,191,36,0.9)",
-          }}
-        >
-          Coming soon
+          Unlock advanced analytics, reduced ads, and premium perks for your
+          profile and organization.
         </div>
       </div>
 
@@ -358,9 +403,21 @@ export default function LeftSidebar() {
       ======================================================= */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
+          <a
+            href="mailto:info@quantum5ocial.com"
+            style={{ color: "rgba(148,163,184,0.9)" }}
+          >
+            ✉️
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
+            𝕏
+          </a>
+          <a
+            href="#"
+            style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}
+          >
+            in
+          </a>
         </div>
 
         <div
