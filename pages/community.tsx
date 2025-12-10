@@ -7,9 +7,17 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
-const LeftSidebar = dynamic(() => import("../components/LeftSidebar"), {
-  ssr: false,
-});
+
+// Left-sidebar profile summary (same as homepage)
+type ProfileSummary = {
+  full_name: string | null;
+  avatar_url: string | null;
+  education_level?: string | null;
+  describes_you?: string | null;
+  affiliation?: string | null;
+  highest_education?: string | null;
+  current_org?: string | null;
+};
 
 // Community member type (person)
 type CommunityProfile = {
@@ -63,6 +71,14 @@ type CommunityItem = {
   created_at: string | null;
 };
 
+// Minimal org summary for sidebar tile
+type MyOrgSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+};
+
 // Connections / entanglement
 type ConnectionStatus =
   | "none"
@@ -81,6 +97,20 @@ type ConnectionRow = {
 export default function CommunityPage() {
   const { user } = useSupabaseUser();
   const router = useRouter();
+
+  // --- Sidebar profile + counts (same as homepage) ---
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
+    null
+  );
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
+  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
+    null
+  );
+  const [entangledCount, setEntangledCount] = useState<number | null>(null);
+
+  // NEW: first organization created by this user (for sidebar tile)
+  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
+  const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
 
   // --- Community data: people + orgs ---
   const [profiles, setProfiles] = useState<CommunityProfile[]>([]);
@@ -188,13 +218,12 @@ export default function CommunityPage() {
     } catch (e) {
       console.error("Unexpected error creating/accepting entanglement", e);
     } finally {
-      setEntangleLoadingIds((prev) =>
-        prev.filter((id) => id !== targetUserId)
-      );
+    setEntangleLoadingIds((prev) =>
+      prev.filter((id) => id !== targetUserId)
+    );
     }
   };
-
-  // --- DECLINE ENTANGLE HANDLER ---
+    // --- DECLINE ENTANGLE HANDLER (for incoming requests) ---
   const handleDeclineEntangle = async (targetUserId: string) => {
     if (!user) {
       router.push("/auth?redirect=/community");
@@ -204,6 +233,7 @@ export default function CommunityPage() {
     const currentRow = connectionsByOtherId[targetUserId];
     const currentStatus = getConnectionStatus(targetUserId);
 
+    // Only allow decline if there is a pending incoming request
     if (!currentRow || currentStatus !== "pending_incoming") {
       return;
     }
@@ -211,6 +241,7 @@ export default function CommunityPage() {
     setEntangleLoadingIds((prev) => [...prev, targetUserId]);
 
     try {
+      // 1) Try to set status = 'declined'
       const { error } = await supabase
         .from("connections")
         .update({ status: "declined" })
@@ -218,6 +249,8 @@ export default function CommunityPage() {
 
       if (error) {
         console.error("Error declining entanglement, falling back to delete", error);
+
+        // 2) Fallback: delete the row if update fails (e.g. enum doesn't allow 'declined')
         const { error: deleteError } = await supabase
           .from("connections")
           .delete()
@@ -228,6 +261,7 @@ export default function CommunityPage() {
         }
       }
 
+      // 3) In any case: remove it from local state so UI updates
       setConnectionsByOtherId((prev) => {
         const copy = { ...prev };
         delete copy[targetUserId];
@@ -255,6 +289,7 @@ export default function CommunityPage() {
 
     try {
       if (alreadyFollowing) {
+        // Unfollow
         const { error } = await supabase
           .from("org_follows")
           .delete()
@@ -271,6 +306,7 @@ export default function CommunityPage() {
           });
         }
       } else {
+        // Follow
         const { error } = await supabase
           .from("org_follows")
           .upsert(
@@ -293,6 +329,128 @@ export default function CommunityPage() {
       setFollowLoadingIds((prev) => prev.filter((id) => id !== orgId));
     }
   };
+
+  // === LOAD CURRENT USER PROFILE FOR LEFT SIDEBAR ===
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        setProfileSummary(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data) {
+        setProfileSummary(data as ProfileSummary);
+      } else {
+        setProfileSummary(null);
+      }
+    };
+
+    loadProfile();
+  }, [user]);
+
+  // === LOAD COUNTS FOR QUICK DASHBOARD (saved jobs/products + entangled states) ===
+  useEffect(() => {
+    const loadCounts = async () => {
+      if (!user) {
+        setSavedJobsCount(null);
+        setSavedProductsCount(null);
+        setEntangledCount(null);
+        return;
+      }
+
+      try {
+        // Saved jobs
+        const { data: savedJobsRows, error: savedJobsErr } = await supabase
+          .from("saved_jobs")
+          .select("job_id")
+          .eq("user_id", user.id);
+
+        if (!savedJobsErr && savedJobsRows) {
+          setSavedJobsCount(savedJobsRows.length);
+        } else {
+          setSavedJobsCount(0);
+        }
+
+        // Saved products
+        const { data: savedProdRows, error: savedProdErr } = await supabase
+          .from("saved_products")
+          .select("product_id")
+          .eq("user_id", user.id);
+
+        if (!savedProdErr && savedProdRows) {
+          setSavedProductsCount(savedProdRows.length);
+        } else {
+          setSavedProductsCount(0);
+        }
+
+        // Entangled states – count unique "other" users in accepted connections
+        const { data: connRows, error: connErr } = await supabase
+          .from("connections")
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(user_id.eq.${user.id},target_user_id.eq.${user.id});
+
+        if (!connErr && connRows && connRows.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connRows.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
+          );
+          setEntangledCount(otherIds.length);
+        } else {
+          setEntangledCount(0);
+        }
+      } catch (e) {
+        console.error("Error loading sidebar counts", e);
+        setSavedJobsCount(0);
+        setSavedProductsCount(0);
+        setEntangledCount(0);
+      }
+    };
+
+    loadCounts();
+  }, [user]);
+
+  // === LOAD FIRST ORGANIZATION OWNED BY THIS USER FOR SIDEBAR TILE ===
+  useEffect(() => {
+    const loadMyOrg = async () => {
+      if (!user) {
+        setMyOrg(null);
+        setLoadingMyOrg(false);
+        return;
+      }
+
+      setLoadingMyOrg(true);
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .eq("created_by", user.id)
+        .eq("is_active", true)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setMyOrg(data as MyOrgSummary);
+      } else {
+        setMyOrg(null);
+        if (error) {
+          console.error("Error loading my organization for sidebar", error);
+        }
+      }
+      setLoadingMyOrg(false);
+    };
+
+    loadMyOrg();
+  }, [user]);
 
   // === LOAD COMMUNITY PROFILES (PEOPLE) ===
   useEffect(() => {
@@ -372,7 +530,7 @@ export default function CommunityPage() {
         const { data, error } = await supabase
           .from("connections")
           .select("id, user_id, target_user_id, status")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+          .or(user_id.eq.${user.id},target_user_id.eq.${user.id});
 
         if (error) {
           console.error("Error loading entanglement connections", error);
@@ -452,9 +610,9 @@ export default function CommunityPage() {
 
     return profiles.filter((p) => {
       const haystack = (
-        `${p.full_name || ""} ${p.role || ""} ${
+        ${p.full_name || ""} ${p.role || ""} ${
           p.affiliation || ""
-        } ${p.short_bio || ""} ${p.city || ""} ${p.country || ""}`
+        } ${p.short_bio || ""} ${p.city || ""} ${p.country || ""}
       ).toLowerCase();
 
       return haystack.includes(q);
@@ -469,13 +627,13 @@ export default function CommunityPage() {
       const location = [o.city, o.country].filter(Boolean).join(" ");
       const meta =
         o.kind === "company"
-          ? `${o.industry || ""} ${o.focus_areas || ""}`
-          : `${o.institution || ""} ${o.department || ""} ${
+          ? ${o.industry || ""} ${o.focus_areas || ""}
+          : ${o.institution || ""} ${o.department || ""} ${
               o.focus_areas || ""
-            }`;
+            };
 
       const haystack = (
-        `${o.name || ""} ${meta} ${o.tagline || ""} ${location}`
+        ${o.name || ""} ${meta} ${o.tagline || ""} ${location}
       ).toLowerCase();
 
       return haystack.includes(q);
@@ -498,7 +656,7 @@ export default function CommunityPage() {
       const short_bio =
         p.short_bio ||
         (p.affiliation
-          ? `Member of the quantum ecosystem at ${p.affiliation}.`
+          ? Member of the quantum ecosystem at ${p.affiliation}.
           : "Quantum5ocial community member exploring the quantum ecosystem.");
 
       return {
@@ -572,6 +730,47 @@ export default function CommunityPage() {
 
   const hasAnyCommunity = communityItems.length > 0;
 
+  // === SIDEBAR HELPERS ===
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
+
+  const sidebarFullName =
+    profileSummary?.full_name || fallbackName || "Your profile";
+
+  const avatarUrl = profileSummary?.avatar_url || null;
+  const educationLevel =
+    (profileSummary as any)?.education_level ||
+    (profileSummary as any)?.highest_education ||
+    "";
+  const describesYou =
+    (profileSummary as any)?.describes_you ||
+    (profileSummary as any)?.role ||
+    "";
+  const affiliation =
+    (profileSummary as any)?.affiliation ||
+    (profileSummary as any)?.current_org ||
+    "";
+
+  const hasProfileExtraInfo =
+    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
+
+  const entangledLabel = !user
+    ? "Entangled states"
+    : Entangled states (${entangledCount === null ? "…" : entangledCount});
+
+  const savedJobsLabel = !user
+    ? "Saved jobs"
+    : Saved jobs (${savedJobsCount === null ? "…" : savedJobsCount});
+
+  const savedProductsLabel = !user
+    ? "Saved products"
+    : Saved products (${
+        savedProductsCount === null ? "…" : savedProductsCount
+      });
+
   return (
     <>
       <div className="bg-layer" />
@@ -579,17 +778,317 @@ export default function CommunityPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT COLUMN – PROFILE SIDEBAR (same component as homepage) ========== */}
-          <LeftSidebar
-            user={user}
-            profileSummary={profileSummary}
-            myOrg={myOrg}
-            entangledCount={entangledCount}
-            savedJobsCount={savedJobsCount}
-            savedProductsCount={savedProductsCount}
-          />
+          {/* ========== LEFT SIDEBAR (same as homepage) ========== */}
+          <aside
+            className="layout-left sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
+            {/* Profile card – clickable */}
+            <Link
+              href="/profile"
+              className="sidebar-card profile-sidebar-card"
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                cursor: "pointer",
+              }}
+            >
+              <div className="profile-sidebar-header">
+                <div className="profile-sidebar-avatar-wrapper">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={sidebarFullName}
+                      className="profile-sidebar-avatar"
+                    />
+                  ) : (
+                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                      {sidebarFullName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="profile-sidebar-name">{sidebarFullName}</div>
+              </div>
 
-          {/* ========== MIDDLE COLUMN – COMMUNITY LIST (unchanged) ========== */}
+              {hasProfileExtraInfo && (
+                <div className="profile-sidebar-info-block">
+                  {educationLevel && (
+                    <div className="profile-sidebar-info-value">
+                      {educationLevel}
+                    </div>
+                  )}
+                  {describesYou && (
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
+                      {describesYou}
+                    </div>
+                  )}
+                  {affiliation && (
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
+                      {affiliation}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Link>
+
+            {/* Quick dashboard */}
+            <div className="sidebar-card dashboard-sidebar-card">
+              <div className="dashboard-sidebar-title">Quick dashboard</div>
+              <div className="dashboard-sidebar-links">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="dashboard-sidebar-link"
+                >
+                  {entangledLabel}
+                </Link>
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-sidebar-link"
+                >
+                  {savedJobsLabel}
+                </Link>
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-sidebar-link"
+                >
+                  {savedProductsLabel}
+                </Link>
+              </div>
+            </div>
+
+            {/* My organization tile */}
+            {user && !loadingMyOrg && myOrg && (
+              <div
+                className="sidebar-card dashboard-sidebar-card"
+                style={{ marginTop: 16 }}
+              >
+                <div className="dashboard-sidebar-title">My organization</div>
+
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {/* Logo + name row */}
+                  <Link
+                    href={/orgs/${myOrg.slug}}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      textDecoration: "none",
+                      color: "inherit",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        border: "1px solid rgba(148,163,184,0.45)",
+                        background:
+                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        fontSize: 18,
+                      }}
+                    >
+                      {myOrg.logo_url ? (
+                        <img
+                          src={myOrg.logo_url}
+                          alt={myOrg.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        myOrg.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {myOrg.name}
+                    </div>
+                  </Link>
+
+                  {/* Simple stats (placeholder) */}
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "rgba(148,163,184,0.95)",
+                      marginTop: 4,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                    }}
+                  >
+                    <div>
+                      Followers:{" "}
+                      <span style={{ color: "#e5e7eb" }}>0</span>
+                    </div>
+                    <div>
+                      Views:{" "}
+                      <span style={{ color: "#e5e7eb" }}>0</span>
+                    </div>
+                    <div style={{ marginTop: 4 }}>
+                      <Link
+                        href="/dashboard/my-organizations"
+                        style={{
+                          color: "#7dd3fc",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Analytics →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Social icons + brand logo/name */}
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 16,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              {/* Icons row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  fontSize: 18,
+                  alignItems: "center",
+                }}
+              >
+                {/* Email */}
+                <a
+                  href="mailto:info@quantum5ocial.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Email Quantum5ocial"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="5" width="18" height="14" rx="2" ry="2" />
+                    <polyline points="3 7 12 13 21 7" />
+                  </svg>
+                </a>
+
+                {/* X icon */}
+                <a
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Quantum5ocial on X"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 4l8 9.5L20 4" />
+                    <path d="M4 20l6.5-7.5L20 20" />
+                  </svg>
+                </a>
+
+                {/* GitHub */}
+                <a
+                  href="#"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Quantum5ocial on GitHub"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.51 2.87 8.33 6.84 9.68.5.1.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.49.55-3.01-1.09-3.01-1.09-.45-1.17-1.11-1.48-1.11-1.48-.9-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.55 2.34 1.1 2.91.84.09-.66.35-1.1.63-1.35-1.99-.23-4.09-1.03-4.09-4.6 0-1.02.35-1.85.93-2.5-.09-.23-.4-1.16.09-2.42 0 0 .75-.25 2.46.95A8.23 8.23 0 0 1 12 6.84c.76 0 1.53.1 2.25.29 1.7-1.2 2.45-.95 2.45-.95.5 1.26.19 2.19.09 2.42.58.65.93 1.48.93 2.5 0 3.58-2.11 4.37-4.12 4.6.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.59.69.49A10.04 10.04 0 0 0 22 12.26C22 6.58 17.52 2 12 2z" />
+                  </svg>
+                </a>
+              </div>
+
+              {/* Brand row */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <img
+                  src="/Q5_white_bg.png"
+                  alt="Quantum5ocial logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 4,
+                    objectFit: "contain",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  Quantum5ocial
+                </span>
+              </div>
+            </div>
+          </aside>
+
+          {/* ========== MIDDLE COLUMN – COMMUNITY LIST ========== */}
           <section className="layout-main">
             <section className="section">
               {/* STICKY HEADER + SEARCH (reuse jobs styles) */}
@@ -876,7 +1375,7 @@ export default function CommunityPage() {
                             >
                               {featuredProfile.role || "Quantum5ocial member"}
                               {featuredProfile.affiliation
-                                ? ` · ${featuredProfile.affiliation}`
+                                ?  · ${featuredProfile.affiliation}
                                 : ""}
                             </div>
                             <div
@@ -901,7 +1400,7 @@ export default function CommunityPage() {
                                   featuredProfile.id
                                 );
 
-                                // Incoming request → show Accept + Decline
+                                // Incoming request → show Accept + Decline (like notifications)
                                 if (user && status === "pending_incoming") {
                                   return (
                                     <div
@@ -1184,12 +1683,12 @@ export default function CommunityPage() {
                                 : featuredOrg.institution ||
                                   "Research group"}
                               {featuredOrg.city || featuredOrg.country
-                                ? ` · ${[
+                                ?  · ${[
                                     featuredOrg.city,
                                     featuredOrg.country,
                                   ]
                                     .filter(Boolean)
-                                    .join(", ")}`
+                                    .join(", ")}
                                 : ""}
                             </div>
                             <div
@@ -1327,7 +1826,7 @@ export default function CommunityPage() {
 
                       return (
                         <div
-                          key={`${item.kind}-${item.id}`}
+                          key={${item.kind}-${item.id}}
                           className="card"
                           style={{
                             textDecoration: "none",
@@ -1699,7 +2198,7 @@ export default function CommunityPage() {
             </section>
           </section>
 
-          {/* ========== RIGHT SIDEBAR – same as before ========== */}
+          {/* ========== RIGHT SIDEBAR – HIGHLIGHTED TILES + COPYRIGHT ========== */}
           <aside
             className="layout-right sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
