@@ -607,15 +607,15 @@ export default function CommunityPage() {
     const q = search.toLowerCase().trim();
     if (!q) return profiles;
 
-    return profiles.filter((p) => {
-      const haystack = (
-        ${p.full_name || ""} ${p.role || ""} ${
-          p.affiliation || ""
-        } ${p.short_bio || ""} ${p.city || ""} ${p.country || ""}
-      ).toLowerCase();
+      return profiles.filter((p) => {
+    const haystack = (
+      `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${
+        p.short_bio || ""
+      } ${p.city || ""} ${p.country || ""}`
+    ).toLowerCase();
 
-      return haystack.includes(q);
-    });
+    return haystack.includes(q);
+  });
   }, [profiles, search]);
 
   const filteredOrgs = useMemo(() => {
