@@ -53,23 +53,8 @@ export default function EntangledStatesPage() {
       setOrgsLoading(true);
 
       try {
-        // TODO: hook this up to your real "organization follows" table
-        // Example (adjust later to your schema):
-        // const { data, error } = await supabase
-        //   .from("organization_followers")
-        //   .select("organizations(id, name, logo_url, short_description)")
-        //   .eq("user_id", user.id);
-        //
-        // if (!error && data) {
-        //   const orgs: FollowedOrg[] = data
-        //     .map((row: any) => row.organizations)
-        //     .filter(Boolean);
-        //   setFollowedOrgs(orgs);
-        // } else {
-        //   setFollowedOrgs([]);
-        // }
-
-        setFollowedOrgs([]); // placeholder for now
+        // placeholder – hook to real org_follows later
+        setFollowedOrgs([]);
       } finally {
         setOrgsLoading(false);
       }
@@ -128,7 +113,6 @@ export default function EntangledStatesPage() {
         return;
       }
 
-      // 🔧 IMPORTANT: select("*") so we don't break if a column name changes / doesn't exist
       const { data: profData, error: profError } = await supabase
         .from("profiles")
         .select("*")
@@ -326,81 +310,92 @@ export default function EntangledStatesPage() {
                         .join(" · ");
 
                       return (
-                        <div
+                        <Link
                           key={p.id}
-                          className="card"
+                          href={`/profile/${p.id}`}
                           style={{
-                            padding: 14,
-                            minHeight: 160,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
+                            textDecoration: "none",
+                            color: "inherit",
                           }}
                         >
                           <div
-                            className="card-inner"
+                            className="card"
                             style={{
+                              padding: 14,
+                              minHeight: 160,
                               display: "flex",
-                              gap: 14,
-                              alignItems: "flex-start",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              cursor: "pointer",
                             }}
                           >
-                            {/* Avatar */}
                             <div
+                              className="card-inner"
                               style={{
-                                width: 52,
-                                height: 52,
-                                borderRadius: "999px",
-                                overflow: "hidden",
-                                border:
-                                  "1px solid rgba(148,163,184,0.5)",
                                 display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                background:
-                                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                                color: "#fff",
-                                fontWeight: 600,
+                                gap: 14,
+                                alignItems: "flex-start",
                               }}
                             >
-                              {p.avatar_url ? (
-                                <img
-                                  src={p.avatar_url}
-                                  alt={name}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              ) : (
-                                name.charAt(0).toUpperCase()
-                              )}
-                            </div>
-
-                            <div style={{ flex: 1 }}>
-                              <div className="card-title">{name}</div>
-                              {meta && (
-                                <div
-                                  className="card-meta"
-                                  style={{ marginTop: 2 }}
-                                >
-                                  {meta}
-                                </div>
-                              )}
+                              {/* Avatar */}
                               <div
-                                className="card-footer-text"
                                 style={{
-                                  marginTop: 6,
-                                  fontSize: 12,
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius: "999px",
+                                  overflow: "hidden",
+                                  border:
+                                    "1px solid rgba(148,163,184,0.5)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  background:
+                                    "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                  color: "#fff",
+                                  fontWeight: 600,
                                 }}
                               >
-                                One of your entangled states in the
-                                Quantum Community.
+                                {p.avatar_url ? (
+                                  <img
+                                    src={p.avatar_url}
+                                    alt={name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  name.charAt(0).toUpperCase()
+                                )}
+                              </div>
+
+                              <div style={{ flex: 1 }}>
+                                <div className="card-title">
+                                  {name}
+                                </div>
+                                {meta && (
+                                  <div
+                                    className="card-meta"
+                                    style={{ marginTop: 2 }}
+                                  >
+                                    {meta}
+                                  </div>
+                                )}
+                                <div
+                                  className="card-footer-text"
+                                  style={{
+                                    marginTop: 6,
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  One of your entangled states in the
+                                  Quantum Community.
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
+                        </Link>
                       );
                     })}
                   </div>
