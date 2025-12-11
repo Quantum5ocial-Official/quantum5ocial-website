@@ -44,40 +44,46 @@ export default function EntangledStatesPage() {
 
   // ----- load followed organizations (horizontal strip) -----
   useEffect(() => {
-    const loadFollowedOrgs = async () => {
-      if (!user) {
+  const loadFollowedOrgs = async () => {
+    if (!user) {
+      setFollowedOrgs([]);
+      return;
+    }
+
+    setOrgsLoading(true);
+
+    try {
+      // Load followed organizations
+      const { data, error } = await supabase
+        .from("org_follows")
+        .select(`
+          org_id,
+          organizations:org_id (
+            id,
+            name,
+            logo_url,
+            short_description
+          )
+        `)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Followed orgs error", error);
         setFollowedOrgs([]);
-        return;
+      } else {
+        const orgs: FollowedOrg[] = (data || [])
+          .map((row: any) => row.organizations)
+          .filter(Boolean);
+
+        setFollowedOrgs(orgs);
       }
+    } finally {
+      setOrgsLoading(false);
+    }
+  };
 
-      setOrgsLoading(true);
-
-      try {
-        // TODO: hook this up to your real "organization follows" table
-        // Example (adjust later to your schema):
-        // const { data, error } = await supabase
-        //   .from("organization_followers")
-        //   .select("organizations(id, name, logo_url, short_description)")
-        //   .eq("user_id", user.id);
-        //
-        // if (!error && data) {
-        //   const orgs: FollowedOrg[] = data
-        //     .map((row: any) => row.organizations)
-        //     .filter(Boolean);
-        //   setFollowedOrgs(orgs);
-        // } else {
-        //   setFollowedOrgs([]);
-        // }
-
-        setFollowedOrgs([]); // placeholder for now
-      } finally {
-        setOrgsLoading(false);
-      }
-    };
-
-    loadFollowedOrgs();
-  }, [user]);
-
+  loadFollowedOrgs();
+}, [user]);
   // ----- load entangled states (connected members) -----
   useEffect(() => {
     const loadConnections = async () => {
@@ -327,16 +333,18 @@ export default function EntangledStatesPage() {
 
                       return (
                         <div
-                          key={p.id}
-                          className="card"
-                          style={{
-                            padding: 14,
-                            minHeight: 160,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                          }}
-                        >
+  key={p.id}
+  className="card"
+  style={{
+    padding: 14,
+    minHeight: 160,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    cursor: "pointer",
+  }}
+  onClick={() => router.push(`/profile/${p.id}`)}
+>
                           <div
                             className="card-inner"
                             style={{
