@@ -46,7 +46,7 @@ export default function NavbarIcons() {
   // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
 
-  // global search in navbar (desktop)
+  // global search (shared by desktop & mobile)
   const [globalSearch, setGlobalSearch] = useState("");
 
   const handleGlobalSearchSubmit = (e: FormEvent) => {
@@ -54,6 +54,7 @@ export default function NavbarIcons() {
     const term = globalSearch.trim();
     if (!term) return;
     router.push(`/search?q=${encodeURIComponent(term)}`);
+    // optionally close mobile menu if search was from mobile drawer in the future
   };
 
   // ----- HANDLE RESPONSIVE -----
@@ -71,7 +72,7 @@ export default function NavbarIcons() {
     if (typeof window === "undefined") return;
 
     const stored = window.localStorage.getItem("q5_theme");
-       const initial: Theme = stored === "light" ? "light" : "dark";
+    const initial: Theme = stored === "light" ? "light" : "dark";
 
     setTheme(initial);
     document.documentElement.classList.toggle(
@@ -406,7 +407,7 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
-            // MOBILE BRAND — left aligned, bigger, very small gap, no subtext
+            // MOBILE BRAND — left aligned, bigger logo, minimal gap, no subtext
             <Link
               href="/"
               className="brand-clickable"
@@ -419,6 +420,7 @@ export default function NavbarIcons() {
               <img
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial logo"
+                // NOTE: no className here so CSS for .brand-logo doesn't override
                 style={{
                   width: 48,
                   height: 48,
@@ -460,10 +462,52 @@ export default function NavbarIcons() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 16,
+            gap: 12,
             flexShrink: 0,
           }}
         >
+          {/* MOBILE SEARCH BAR – between brand & hamburger */}
+          {isMobile && (
+            <form
+              onSubmit={handleGlobalSearchSubmit}
+              className="nav-search-mobile"
+              style={{
+                flexShrink: 1,
+                maxWidth: 180,
+                display: "flex",
+                alignItems: "center",
+                padding: "4px 10px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.6)",
+                background: "rgba(15,23,42,0.9)",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 14,
+                  marginRight: 6,
+                  opacity: 0.85,
+                }}
+              >
+                🔍
+              </span>
+              <input
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search"
+                style={{
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "#e5e7eb",
+                  fontSize: 13,
+                  width: "100%",
+                }}
+              />
+            </form>
+          )}
+
           {/* DESKTOP NAV (hidden on mobile) */}
           {!isMobile && (
             <nav
@@ -714,33 +758,6 @@ export default function NavbarIcons() {
                 </div>
               )}
             </nav>
-          )}
-
-          {/* MOBILE SEARCH BUTTON – only on mobile, between brand & hamburger */}
-          {isMobile && (
-            <button
-              type="button"
-              className="nav-mobile-search"
-              onClick={() => router.push("/search")}
-              aria-label="Search"
-              style={{
-                background: "transparent",
-                border: "1px solid rgba(148,163,184,0.6)",
-                borderRadius: 999,
-                width: 36,
-                height: 36,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                fontSize: 18,
-              }}
-            >
-              {/* Use emoji instead of external SVG to avoid broken icon */}
-              <span role="img" aria-hidden="true">
-                🔍
-              </span>
-            </button>
           )}
 
           {/* MOBILE HAMBURGER – only on mobile */}
