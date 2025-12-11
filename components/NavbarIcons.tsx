@@ -46,7 +46,7 @@ export default function NavbarIcons() {
   // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
 
-  // global search in navbar
+  // global search in navbar (desktop)
   const [globalSearch, setGlobalSearch] = useState("");
 
   const handleGlobalSearchSubmit = (e: FormEvent) => {
@@ -375,7 +375,7 @@ export default function NavbarIcons() {
           gap: 16,
         }}
       >
-        {/* LEFT: brand + global search */}
+        {/* LEFT: brand + global search (desktop) */}
         <div
           style={{
             display: "flex",
@@ -386,39 +386,57 @@ export default function NavbarIcons() {
           }}
         >
           {/* Brand */}
-          <Link
-  href="/"
-  className="brand-clickable"
-  style={{
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-  }}
->
-  <img
-    src="/Q5_white_bg.png"
-    alt="Quantum5ocial logo"
-    className="brand-logo"
-    style={{
-      width: 42,      // bigger logo
-      height: 42,
-      objectFit: "contain",
-    }}
-  />
-
-  <div className="brand-text-wrapper">
-    <div
-      className="brand-text-main brand-text-gradient"
-      style={{
-        fontSize: 20,          // bigger brand name
-        fontWeight: 700,
-        margin: 0,
-      }}
-    >
-      Quantum5ocial
-    </div>
-  </div>
-</Link>
+          {!isMobile ? (
+            // DESKTOP BRAND — original version with subtext
+            <Link href="/" className="brand-clickable">
+              <div className="brand">
+                <img
+                  src="/Q5_white_bg.png"
+                  alt="Quantum5ocial logo"
+                  className="brand-logo"
+                />
+                <div>
+                  <div className="brand-text-main brand-text-gradient">
+                    Quantum5ocial
+                  </div>
+                  <div className="brand-text-sub">
+                    Connecting the quantum world
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ) : (
+            // MOBILE BRAND — left aligned, slightly bigger, no subtext
+            <Link
+              href="/"
+              className="brand-clickable"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <img
+                src="/Q5_white_bg.png"
+                alt="Quantum5ocial logo"
+                style={{
+                  width: 40,
+                  height: 40,
+                  objectFit: "contain",
+                }}
+              />
+              <div
+                className="brand-text-main brand-text-gradient"
+                style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  margin: 0,
+                }}
+              >
+                Quantum5ocial
+              </div>
+            </Link>
+          )}
 
           {/* Global search – desktop only */}
           {!isMobile && (
@@ -437,7 +455,7 @@ export default function NavbarIcons() {
           )}
         </div>
 
-        {/* RIGHT: nav links + theme + user + hamburger */}
+        {/* RIGHT: nav links + theme + user + mobile controls */}
         <div
           style={{
             display: "flex",
@@ -495,7 +513,7 @@ export default function NavbarIcons() {
                 </Link>
               )}
 
-              {/* USER MENU (DESKTOP) – same as before */}
+              {/* USER MENU (DESKTOP) – unchanged */}
               {!loading && user && (
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
@@ -698,25 +716,26 @@ export default function NavbarIcons() {
             </nav>
           )}
 
-          {/* MOBILE SEARCH BUTTON */}
-<button
-  type="button"
-  className="nav-mobile-search"
-  onClick={() => router.push("/search")}
-  aria-label="Search"
-  style={{
-    background: "transparent",
-    border: "none",
-    padding: 6,
-    display: "none",          // hidden by default
-  }}
->
-  <img
-    src="/icons/search.svg"
-    alt="Search"
-    style={{ width: 24, height: 24, opacity: 0.9 }}
-  />
-</button>
+          {/* MOBILE SEARCH BUTTON – only on mobile, between brand & hamburger */}
+          {isMobile && (
+            <button
+              type="button"
+              className="nav-mobile-search"
+              onClick={() => router.push("/search")}
+              aria-label="Search"
+              style={{
+                background: "transparent",
+                border: "none",
+                padding: 6,
+              }}
+            >
+              <img
+                src="/icons/search.svg"
+                alt="Search"
+                style={{ width: 24, height: 24, opacity: 0.9 }}
+              />
+            </button>
+          )}
 
           {/* MOBILE HAMBURGER – only on mobile */}
           {isMobile && (
@@ -743,65 +762,66 @@ export default function NavbarIcons() {
       >
         <nav className="nav-links nav-links-mobile">
           {/* PROFILE ROW (mobile) */}
-{!loading && user && (
-  <Link
-    href="/profile"
-    className="nav-item-with-icon nav-mobile-profile"
-    onClick={closeMobileMenu}
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      padding: "10px 4px 14px",
-      borderBottom: "1px solid rgba(148,163,184,0.35)",
-      marginBottom: 12,
-      textDecoration: "none",
-    }}
-  >
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: "999px",
-        overflow: "hidden",
-        border: "1px solid rgba(148,163,184,0.7)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-        color: "#fff",
-        fontWeight: 600,
-        flexShrink: 0,
-      }}
-    >
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={firstName}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-        />
-      ) : (
-        firstName.charAt(0).toUpperCase()
-      )}
-    </div>
+          {!loading && user && (
+            <Link
+              href="/profile"
+              className="nav-item-with-icon nav-mobile-profile"
+              onClick={closeMobileMenu}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 4px 14px",
+                borderBottom: "1px solid rgba(148,163,184,0.35)",
+                marginBottom: 12,
+                textDecoration: "none",
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "999px",
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,184,0.7)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={firstName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  firstName.charAt(0).toUpperCase()
+                )}
+              </div>
 
-    <div>
-      <span
-        style={{
-          fontSize: 16,
-          fontWeight: 600,
-          color: "#e5e7eb",
-        }}
-      >
-      </span>
-    </div>
-  </Link>
-)}
+              <div>
+                <span
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 600,
+                    color: "#e5e7eb",
+                  }}
+                >
+                  {firstName}
+                </span>
+              </div>
+            </Link>
+          )}
 
           {/* MAIN ICON NAV ITEMS */}
           <Link
@@ -882,36 +902,33 @@ export default function NavbarIcons() {
           )}
 
           {/* LOGOUT BUTTON */}
-{!loading && user && (
-  <button
-    type="button"
-    onClick={async () => {
-      await handleLogout();
-      closeMobileMenu();
-    }}
-    style={{
-      marginTop: 18,
-      marginBottom: 10,
-      alignSelf: "center",
-
-      padding: "8px 22px",
-      borderRadius: 999,
-      background: "transparent",
-      border: "1px solid rgba(148,163,184,0.5)",
-      color: "rgba(226,232,240,0.9)",
-      fontSize: 14,
-      fontWeight: 500,
-
-      textAlign: "center",
-      cursor: "pointer",
-
-      width: "fit-content",
-      minWidth: "120px",
-    }}
-  >
-    Logout
-  </button>
-)}
+          {!loading && user && (
+            <button
+              type="button"
+              onClick={async () => {
+                await handleLogout();
+                closeMobileMenu();
+              }}
+              style={{
+                marginTop: 18,
+                marginBottom: 10,
+                alignSelf: "center",
+                padding: "8px 22px",
+                borderRadius: 999,
+                background: "transparent",
+                border: "1px solid rgba(148,163,184,0.5)",
+                color: "rgba(226,232,240,0.9)",
+                fontSize: 14,
+                fontWeight: 500,
+                textAlign: "center",
+                cursor: "pointer",
+                width: "fit-content",
+                minWidth: "120px",
+              }}
+            >
+              Logout
+            </button>
+          )}
         </nav>
       </div>
     </header>
