@@ -221,7 +221,7 @@ export default function LeftSidebar() {
               gap: 8,
             }}
           >
-            <span>Entangled states</span>
+            <span>Entanglments</span>
             <span style={{ opacity: 0.9 }}>{entangledCount ?? "…"}</span>
           </Link>
 
