@@ -211,118 +211,128 @@ export default function EntangledStatesPage() {
               </div>
 
               {/* ==== TOP: FOLLOWED ORGANIZATIONS (horizontal strip) ==== */}
-              <section style={{ marginTop: 24 }}>
-                <div className="section-sub" style={{ fontSize: 13 }}>
-                  Organizations you follow
-                </div>
-                <div
-                  style={{
-                    marginTop: 12,
-                    overflowX: "auto",
-                    paddingBottom: 4,
-                  }}
-                >
-                  {orgsLoading ? (
-                    <div className="products-status">
-                      Loading organizations…
-                    </div>
-                  ) : followedOrgs.length === 0 ? (
-                    <div className="products-empty">
-                      You are not following any organizations yet.
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 12,
-                        minHeight: 140,
-                      }}
-                    >
-                      {followedOrgs.map((org) => (
-  <Link
-    key={org.id}
-    href={`/orgs/${org.slug}`}
-    style={{
-      textDecoration: "none",
-      color: "inherit",
-    }}
-  >
-    <div
-      className="card"
-      style={{
-        minWidth: 220,
-        padding: 12,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        cursor: "pointer",
-      }}
-    >
+<section style={{ marginTop: 24 }}>
+  <div className="section-sub" style={{ fontSize: 13 }}>
+    Organizations you follow
+  </div>
+
+  <div style={{ marginTop: 12, overflowX: "auto", paddingBottom: 4 }}>
+    {orgsLoading ? (
+      <div className="products-status">Loading organizations…</div>
+    ) : followedOrgs.length === 0 ? (
+      <div className="products-empty">
+        You are not following any organizations yet.
+      </div>
+    ) : (
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 10,
+          gap: 12,
+          minHeight: 170,
+          paddingRight: 8,
         }}
       >
-        <div
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 12,
-            overflow: "hidden",
-            border: "1px solid rgba(148,163,184,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-            color: "#0f172a",
-            fontWeight: 700,
-          }}
-        >
-          {org.logo_url ? (
-            <img
-              src={org.logo_url}
-              alt={org.name || "Org"}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
+        {followedOrgs.map((org) => {
+          const location = [org.city, org.country]
+            .filter(Boolean)
+            .join(", ");
+
+          return (
+            <div
+              key={org.id}
+              className="card"
+              onClick={() => {
+                if (org.slug) window.location.href = `/orgs/${org.slug}`;
               }}
-            />
-          ) : (
-            (org.name || "?").charAt(0).toUpperCase()
-          )}
-        </div>
-
-        <div
-          style={{
-            fontWeight: 600,
-            fontSize: 14,
-          }}
-        >
-          {org.name || "Quantum organization"}
-        </div>
-      </div>
-
-      {org.short_description && (
-        <p
-          style={{
-            marginTop: 8,
-            fontSize: 12,
-            opacity: 0.8,
-          }}
-        >
-          {org.short_description}
-        </p>
-      )}
-    </div>
-  </Link>
-))}
-                    </div>
+              style={{
+                minWidth: 260,
+                padding: 14,
+                borderRadius: 14,
+                cursor: "pointer",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", gap: 12 }}>
+                {/* Logo */}
+                <div
+                  style={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    background:
+                      "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: "#0f172a",
+                  }}
+                >
+                  {org.logo_url ? (
+                    <img
+                      src={org.logo_url}
+                      alt={org.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    org.name?.charAt(0).toUpperCase()
                   )}
                 </div>
-              </section>
+
+                {/* Text */}
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    className="card-title"
+                    style={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {org.name}
+                  </div>
+                  <div
+                    className="card-meta"
+                    style={{ fontSize: 12, lineHeight: 1.4 }}
+                  >
+                    {org.kind === "company"
+                      ? org.industry || "Quantum company"
+                      : org.institution || "Research group"}
+                    {location ? ` · ${location}` : ""}
+                  </div>
+                </div>
+              </div>
+
+              {/* Tagline / focus areas */}
+              {(org.tagline || org.focus_areas) && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {org.tagline || org.focus_areas}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+</section>
 
               {/* ==== BOTTOM: ENTANGLED MEMBERS (grid) ==== */}
               <section style={{ marginTop: 28 }}>
