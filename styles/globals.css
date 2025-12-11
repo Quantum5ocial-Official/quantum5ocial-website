@@ -3054,8 +3054,17 @@ html.theme-light footer {
   .nav-links-desktop {
     display: none !important; /* hide desktop icons */
   }
+}
+/* default: hidden everywhere */
+.nav-mobile-search {
+  display: none;
+}
 
+/* show ONLY on small screens */
+@media (max-width: 780px) {
   .nav-mobile-search {
-    display: flex !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
