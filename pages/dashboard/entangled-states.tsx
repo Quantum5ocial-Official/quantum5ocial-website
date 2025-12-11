@@ -239,77 +239,86 @@ export default function EntangledStatesPage() {
                       }}
                     >
                       {followedOrgs.map((org) => (
-                        <div
-                          key={org.id}
-                          className="card"
-                          style={{
-                            minWidth: 220,
-                            padding: 12,
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 12,
-                                overflow: "hidden",
-                                border:
-                                  "1px solid rgba(148,163,184,0.6)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                background:
-                                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                                color: "#0f172a",
-                                fontWeight: 700,
-                              }}
-                            >
-                              {org.logo_url ? (
-                                <img
-                                  src={org.logo_url}
-                                  alt={org.name || "Org"}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              ) : (
-                                (org.name || "?").charAt(0).toUpperCase()
-                              )}
-                            </div>
-                            <div
-                              style={{
-                                fontWeight: 600,
-                                fontSize: 14,
-                              }}
-                            >
-                              {org.name || "Quantum organization"}
-                            </div>
-                          </div>
-                          {org.short_description && (
-                            <p
-                              style={{
-                                marginTop: 8,
-                                fontSize: 12,
-                                opacity: 0.8,
-                              }}
-                            >
-                              {org.short_description}
-                            </p>
-                          )}
-                        </div>
-                      ))}
+  <Link
+    key={org.id}
+    href={`/orgs/${org.slug}`}
+    style={{
+      textDecoration: "none",
+      color: "inherit",
+    }}
+  >
+    <div
+      className="card"
+      style={{
+        minWidth: 220,
+        padding: 12,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        cursor: "pointer",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            overflow: "hidden",
+            border: "1px solid rgba(148,163,184,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+            color: "#0f172a",
+            fontWeight: 700,
+          }}
+        >
+          {org.logo_url ? (
+            <img
+              src={org.logo_url}
+              alt={org.name || "Org"}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          ) : (
+            (org.name || "?").charAt(0).toUpperCase()
+          )}
+        </div>
+
+        <div
+          style={{
+            fontWeight: 600,
+            fontSize: 14,
+          }}
+        >
+          {org.name || "Quantum organization"}
+        </div>
+      </div>
+
+      {org.short_description && (
+        <p
+          style={{
+            marginTop: 8,
+            fontSize: 12,
+            opacity: 0.8,
+          }}
+        >
+          {org.short_description}
+        </p>
+      )}
+    </div>
+  </Link>
+))}
                     </div>
                   )}
                 </div>
