@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import LeftSidebar from "../../components/LeftSidebar";
@@ -22,7 +21,7 @@ type Profile = {
   describes_you?: string | null;
 };
 
-// Followed organizations (top strip)
+// Followed organizations strip (future)
 type FollowedOrg = {
   id: string;
   name: string | null;
@@ -32,7 +31,6 @@ type FollowedOrg = {
 
 export default function EntangledStatesPage() {
   const { user } = useSupabaseUser();
-  const router = useRouter();
 
   // main data
   const [loading, setLoading] = useState(true);
@@ -55,44 +53,23 @@ export default function EntangledStatesPage() {
       setOrgsLoading(true);
 
       try {
-        // 1) which orgs this user follows
-        const { data: followRows, error: followErr } = await supabase
-          .from("org_follows")
-          .select("org_id")
-          .eq("user_id", user.id);
+        // TODO: hook this up to your real "organization follows" table
+        // Example (adjust later to your schema):
+        // const { data, error } = await supabase
+        //   .from("organization_followers")
+        //   .select("organizations(id, name, logo_url, short_description)")
+        //   .eq("user_id", user.id);
+        //
+        // if (!error && data) {
+        //   const orgs: FollowedOrg[] = data
+        //     .map((row: any) => row.organizations)
+        //     .filter(Boolean);
+        //   setFollowedOrgs(orgs);
+        // } else {
+        //   setFollowedOrgs([]);
+        // }
 
-        if (followErr) {
-          console.error("Error loading org_follows", followErr);
-          setFollowedOrgs([]);
-          return;
-        }
-
-        const orgIds = (followRows || [])
-          .map((r: any) => r.org_id)
-          .filter(Boolean);
-
-        if (orgIds.length === 0) {
-          setFollowedOrgs([]);
-          return;
-        }
-
-        // 2) load those organizations
-        const { data: orgRows, error: orgErr } = await supabase
-          .from("organizations")
-          .select("id, name, logo_url, short_description")
-          .in("id", orgIds)
-          .eq("is_active", true);
-
-        if (orgErr) {
-          console.error(
-            "Error loading organizations for followed strip",
-            orgErr
-          );
-          setFollowedOrgs([]);
-          return;
-        }
-
-        setFollowedOrgs((orgRows || []) as FollowedOrg[]);
+        setFollowedOrgs([]); // placeholder for now
       } finally {
         setOrgsLoading(false);
       }
@@ -151,11 +128,10 @@ export default function EntangledStatesPage() {
         return;
       }
 
+      // 🔧 IMPORTANT: select("*") so we don't break if a column name changes / doesn't exist
       const { data: profData, error: profError } = await supabase
         .from("profiles")
-        .select(
-          "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
-        )
+        .select("*")
         .in("id", otherIds);
 
       if (profError) {
@@ -183,7 +159,7 @@ export default function EntangledStatesPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – shared component */}
+          {/* LEFT SIDEBAR – same as notifications page */}
           <LeftSidebar />
 
           {/* ========== MIDDLE COLUMN ========== */}
@@ -275,7 +251,7 @@ export default function EntangledStatesPage() {
                               {org.logo_url ? (
                                 <img
                                   src={org.logo_url}
-                                  alt={org.name || "Organization"}
+                                  alt={org.name || "Org"}
                                   style={{
                                     width: "100%",
                                     height: "100%",
@@ -283,9 +259,7 @@ export default function EntangledStatesPage() {
                                   }}
                                 />
                               ) : (
-                                (org.name || "?")
-                                  .charAt(0)
-                                  .toUpperCase()
+                                (org.name || "?").charAt(0).toUpperCase()
                               )}
                             </div>
                             <div
@@ -361,9 +335,7 @@ export default function EntangledStatesPage() {
                             display: "flex",
                             flexDirection: "column",
                             justifyContent: "space-between",
-                            cursor: "pointer",
                           }}
-                          onClick={() => router.push(`/profile/${p.id}`)}
                         >
                           <div
                             className="card-inner"
@@ -418,10 +390,13 @@ export default function EntangledStatesPage() {
                               )}
                               <div
                                 className="card-footer-text"
-                                style={{ marginTop: 6, fontSize: 12 }}
+                                style={{
+                                  marginTop: 6,
+                                  fontSize: 12,
+                                }}
                               >
-                                One of your entangled states in the Quantum
-                                Community.
+                                One of your entangled states in the
+                                Quantum Community.
                               </div>
                             </div>
                           </div>
