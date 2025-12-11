@@ -10,18 +10,20 @@
   stroke-linejoin="round"
 >
 
-  <!-- LEFT FINS (curved + spaced) -->
+  <!-- LEFT FINS -->
   <path d="M6.3 6.0c-0.9 -1.4 -0.4 -2.4 0.6 -3.1" />
   <path d="M6.1 8.4c-0.7 -1.0 -0.5 -1.9 0.3 -2.7" />
 
-  <!-- RIGHT FINS (curved + spaced) -->
+  <!-- RIGHT FINS -->
   <path d="M17.7 6.0c0.9 -1.4 0.4 -2.4 -0.6 -3.1" />
   <path d="M17.9 8.4c0.7 -1.0 0.5 -1.9 -0.3 -2.7" />
 
-  <!-- Bell body -->
-  <path d="M20 14c0-7 -3.5-11 -8-11s-8 4 -8 11c0 7 -2 8.5 -2 8.5h20S20 21 20 14z" />
+  <!-- Bell body (slightly lifted to reveal clapper) -->
+  <path
+    d="M20 13.2c0-7 -3.5-10.2 -8-10.2s-8 3.2 -8 10.2c0 6.5 -2 7.8 -2 7.8h20s-2 -1.3 -2 -7.8z"
+  />
 
-  <!-- Clapper -->
-  <path d="M10 23a2 2 0 0 0 4 0" />
+  <!-- Visible clapper (pendulum) -->
+  <circle cx="12" cy="21" r="1.4" />
 
 </svg>
