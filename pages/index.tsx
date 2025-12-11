@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import LeftSidebar from "../components/LeftSidebar";
 
-const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
+const Navbar = dynamic(() => import("../components/NavbarIcons"), { ssr: false });
 
 type Job = {
   id: string;
