@@ -272,7 +272,7 @@ export default function NavbarIcons() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            height: 80,
+            height: 75,
             minWidth: 90,
             padding: "0 14px",
             gap: 6,
