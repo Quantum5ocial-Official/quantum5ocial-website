@@ -386,23 +386,39 @@ export default function NavbarIcons() {
           }}
         >
           {/* Brand */}
-          <Link href="/" className="brand-clickable">
-            <div className="brand">
-              <img
-                src="/Q5_white_bg.png"
-                alt="Quantum5ocial logo"
-                className="brand-logo"
-              />
-              <div>
-                <div className="brand-text-main brand-text-gradient">
-                  Quantum5ocial
-                </div>
-                <div className="brand-text-sub">
-                  Connecting the quantum world
-                </div>
-              </div>
-            </div>
-          </Link>
+          <Link
+  href="/"
+  className="brand-clickable"
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  }}
+>
+  <img
+    src="/Q5_white_bg.png"
+    alt="Quantum5ocial logo"
+    className="brand-logo"
+    style={{
+      width: 42,      // bigger logo
+      height: 42,
+      objectFit: "contain",
+    }}
+  />
+
+  <div className="brand-text-wrapper">
+    <div
+      className="brand-text-main brand-text-gradient"
+      style={{
+        fontSize: 20,          // bigger brand name
+        fontWeight: 700,
+        margin: 0,
+      }}
+    >
+      Quantum5ocial
+    </div>
+  </div>
+</Link>
 
           {/* Global search – desktop only */}
           {!isMobile && (
@@ -681,6 +697,26 @@ export default function NavbarIcons() {
               )}
             </nav>
           )}
+
+          {/* MOBILE SEARCH BUTTON */}
+<button
+  type="button"
+  className="nav-mobile-search"
+  onClick={() => router.push("/search")}
+  aria-label="Search"
+  style={{
+    background: "transparent",
+    border: "none",
+    padding: 6,
+    display: "none",          // hidden by default
+  }}
+>
+  <img
+    src="/icons/search.svg"
+    alt="Search"
+    style={{ width: 24, height: 24, opacity: 0.9 }}
+  />
+</button>
 
           {/* MOBILE HAMBURGER – only on mobile */}
           {isMobile && (
