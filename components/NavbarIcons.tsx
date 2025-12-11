@@ -628,34 +628,28 @@ export default function NavbarIcons() {
       >
         <nav className="nav-links nav-links-mobile">
           <Link
-            href="/jobs"
-            className={`nav-link ${
-              isActive("/jobs") ? "nav-link-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            Jobs
-          </Link>
+  href="/jobs"
+  className={`nav-item-with-icon ${isActive("/jobs") ? "nav-item-active" : ""}`}
+>
+  <img src="/icons/jobs.svg" className="nav-icon" />
+  <span className="nav-icon-label">Jobs</span>
+</Link>
 
-          <Link
-            href="/products"
-            className={`nav-link ${
-              isActive("/products") ? "nav-link-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            Products
-          </Link>
+<Link
+  href="/products"
+  className={`nav-item-with-icon ${isActive("/products") ? "nav-item-active" : ""}`}
+>
+  <img src="/icons/products.svg" className="nav-icon" />
+  <span className="nav-icon-label">Products</span>
+</Link>
 
-          <Link
-            href="/community"
-            className={`nav-link ${
-              isActive("/community") ? "nav-link-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            Community
-          </Link>
+<Link
+  href="/community"
+  className={`nav-item-with-icon ${isActive("/community") ? "nav-item-active" : ""}`}
+>
+  <img src="/icons/community.svg" className="nav-icon" />
+  <span className="nav-icon-label">Community</span>
+</Link>
 
           {/* Dashboard section in MOBILE */}
           {!loading && user && (
