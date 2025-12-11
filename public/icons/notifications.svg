@@ -1,0 +1,27 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="32"
+  height="32"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="white"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <!-- Left waves -->
+  <path d="M4.2 5.2C3.1 6.3 2.5 7.8 2.5 9.3" />
+  <path d="M5.8 3.6C4.1 4.7 3 6.7 3 8.8" />
+
+  <!-- Right waves -->
+  <path d="M19.8 5.2C20.9 6.3 21.5 7.8 21.5 9.3" />
+  <path d="M18.2 3.6C19.9 4.7 21 6.7 21 8.8" />
+
+  <!-- Bell body -->
+  <path
+    d="M18 10a6 6 0 10-12 0c0 4.2-2 5.9-2 5.9h16s-2-1.7-2-5.9z"
+  />
+
+  <!-- Clapper -->
+  <path d="M10 18a2 2 0 004 0" />
+</svg>
