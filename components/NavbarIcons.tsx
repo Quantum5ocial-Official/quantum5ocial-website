@@ -34,7 +34,7 @@ export default function NavbarIcons() {
   // mobile drawer
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // isMobile – we will hide desktop icons when true
+  // isMobile – used to hide desktop icon bar on small screens
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.innerWidth <= 900;
@@ -404,7 +404,7 @@ export default function NavbarIcons() {
             </div>
           </Link>
 
-          {/* Global search – desktop only (optional) */}
+          {/* Global search – desktop only */}
           {!isMobile && (
             <form
               onSubmit={handleGlobalSearchSubmit}
@@ -479,7 +479,7 @@ export default function NavbarIcons() {
                 </Link>
               )}
 
-              {/* USER MENU (DESKTOP) */}
+              {/* USER MENU (DESKTOP) – same as before */}
               {!loading && user && (
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
@@ -706,6 +706,76 @@ export default function NavbarIcons() {
         }`}
       >
         <nav className="nav-links nav-links-mobile">
+          {/* PROFILE ROW (mobile) */}
+          {!loading && user && (
+            <Link
+              href="/profile"
+              className="nav-item-with-icon nav-mobile-profile"
+              onClick={closeMobileMenu}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "10px 4px 14px",
+                borderBottom: "1px solid rgba(148,163,184,0.35)",
+                marginBottom: 12,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "999px",
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,184,0.7)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background:
+                    "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={firstName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  firstName.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: "#e5e7eb",
+                  }}
+                >
+                  {fullName}
+                </span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(148,163,184,0.9)",
+                  }}
+                >
+                  View profile
+                </span>
+              </div>
+            </Link>
+          )}
+
+          {/* MAIN ICON NAV ITEMS */}
           <Link
             href="/jobs"
             className={`nav-item-with-icon ${
@@ -739,136 +809,62 @@ export default function NavbarIcons() {
             <span className="nav-icon-label">Community</span>
           </Link>
 
-          {/* Dashboard section in MOBILE */}
           {!loading && user && (
-            <>
-              <div className="nav-mobile-section-label">Dashboard</div>
-              <Link
-                href="/dashboard"
-                className={`nav-link ${
-                  isActive("/dashboard") ? "nav-link-active" : ""
-                }`}
-                onClick={closeMobileMenu}
-              >
-                Overview
-              </Link>
-              <Link
-                href="/dashboard/entangled-states"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                Entangled states
-              </Link>
-              <Link
-                href="/dashboard/saved-jobs"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                Saved jobs
-              </Link>
-              <Link
-                href="/dashboard/saved-products"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                Saved products
-              </Link>
-              {hasOrganizations && (
-                <Link
-                  href="/dashboard/my-organizations"
-                  className="nav-link"
-                  onClick={closeMobileMenu}
+            <Link
+              href="/notifications"
+              className={`nav-item-with-icon ${
+                isActive("/notifications") ? "nav-item-active" : ""
+              }`}
+              onClick={closeMobileMenu}
+            >
+              <img src="/icons/notifications.svg" className="nav-icon" />
+              <span className="nav-icon-label">Notifications</span>
+              {notificationsCount > 0 && (
+                <span
+                  style={{
+                    marginLeft: "auto",
+                    minWidth: 18,
+                    height: 18,
+                    borderRadius: 999,
+                    background: "#ef4444",
+                    color: "white",
+                    fontSize: 11,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0 6px",
+                  }}
                 >
-                  My organizations
-                </Link>
+                  {notificationsCount > 9 ? "9+" : notificationsCount}
+                </span>
               )}
-
-              {/* Notifications on mobile */}
-              <div className="nav-mobile-section-label">Notifications</div>
-              <Link
-                href="/notifications"
-                className={`nav-link ${
-                  isActive("/notifications") ? "nav-link-active" : ""
-                }`}
-                onClick={closeMobileMenu}
-              >
-                Notifications
-                {notificationsCount > 0 && (
-                  <span
-                    style={{
-                      marginLeft: 8,
-                      minWidth: 18,
-                      height: 18,
-                      borderRadius: 999,
-                      background: "#ef4444",
-                      color: "white",
-                      fontSize: 11,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      padding: "0 6px",
-                    }}
-                  >
-                    {notificationsCount > 9 ? "9+" : notificationsCount}
-                  </span>
-                )}
-              </Link>
-            </>
+            </Link>
           )}
 
-          <button
-            type="button"
-            className="nav-link nav-link-button theme-toggle mobile-theme-toggle"
-            onClick={toggleTheme}
-          >
-            Theme: {theme === "dark" ? "Dark" : "Light"}
-          </button>
-
+          {/* AUTH AREA */}
           {!loading && !user && (
             <Link
               href="/auth"
               className="nav-cta nav-cta-mobile"
               onClick={closeMobileMenu}
+              style={{ marginTop: 16 }}
             >
               Login / Sign up
             </Link>
           )}
 
           {!loading && user && (
-            <>
-              <div className="nav-mobile-section-label">Account</div>
-              <Link
-                href="/profile"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                My profile
-              </Link>
-              <Link
-                href="/ecosystem"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                My ecosystem
-              </Link>
-              <Link
-                href="/orgs/create"
-                className="nav-link"
-                onClick={closeMobileMenu}
-              >
-                Create my organization page
-              </Link>
-              <button
-                type="button"
-                className="nav-link nav-dropdown-danger"
-                onClick={async () => {
-                  await handleLogout();
-                  closeMobileMenu();
-                }}
-              >
-                Logout
-              </button>
-            </>
+            <button
+              type="button"
+              className="nav-link nav-dropdown-danger"
+              onClick={async () => {
+                await handleLogout();
+                closeMobileMenu();
+              }}
+              style={{ marginTop: 16 }}
+            >
+              Logout
+            </button>
           )}
         </nav>
       </div>
