@@ -127,7 +127,6 @@ export default function EntangledStatesPage() {
     const loadConnections = async () => {
       if (!user) {
         setProfiles([]);
-        setEntangledCount(0);
         setLoading(false);
         return;
       }
@@ -145,14 +144,12 @@ export default function EntangledStatesPage() {
         console.error(connError);
         setErrorMsg("Could not load your entangled states.");
         setProfiles([]);
-        setEntangledCount(0);
         setLoading(false);
         return;
       }
 
       if (!connData || connData.length === 0) {
         setProfiles([]);
-        setEntangledCount(0);
         setLoading(false);
         return;
       }
@@ -167,7 +164,6 @@ export default function EntangledStatesPage() {
 
       if (otherIds.length === 0) {
         setProfiles([]);
-        setEntangledCount(0);
         setLoading(false);
         return;
       }
@@ -181,19 +177,22 @@ export default function EntangledStatesPage() {
         console.error(profError);
         setErrorMsg("Could not load connected profiles.");
         setProfiles([]);
-        setEntangledCount(0);
         setLoading(false);
         return;
       }
 
       const list = (profData || []) as Profile[];
       setProfiles(list);
-      setEntangledCount(list.length);
       setLoading(false);
     };
 
     loadConnections();
   }, [user]);
+
+  // ----- combined entangled count = people + orgs -----
+  useEffect(() => {
+    setEntangledCount(profiles.length + followedOrgs.length);
+  }, [profiles, followedOrgs]);
 
   return (
     <>
