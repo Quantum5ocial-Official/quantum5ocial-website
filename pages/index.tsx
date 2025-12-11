@@ -339,11 +339,6 @@ export default function Home() {
                     Hardware · Software · Services
                   </span>
                 </div>
-
-                <p className="hero-note">
-                  Starting with marketplace features now, and evolving into a
-                  full social platform as the community grows.
-                </p>
               </div>
             </section>
 
