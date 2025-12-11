@@ -3032,3 +3032,30 @@ html.theme-light footer {
   text-transform: uppercase;
   opacity: 0.85;
 }
+@media (max-width: 780px) {
+  .nav-inner {
+    height: 64px !important;
+    padding: 0 16px !important;
+  }
+
+  .brand-clickable {
+    flex-direction: row !important;
+    align-items: center !important;
+  }
+
+  .brand-text-main {
+    font-size: 20px !important;
+  }
+
+  .brand-text-sub {
+    display: none !important; /* hide sub text */
+  }
+
+  .nav-links-desktop {
+    display: none !important; /* hide desktop icons */
+  }
+
+  .nav-mobile-search {
+    display: flex !important;
+  }
+}
