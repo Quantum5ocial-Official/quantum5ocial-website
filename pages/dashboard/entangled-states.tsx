@@ -57,7 +57,22 @@ export default function EntangledStatesPage() {
         // 1) which org_ids does this user follow?
         const { data: followRows, error: followErr } = await supabase
           .from("org_follows")
-          .select("org_id")
+.select(`
+  org_id,
+  organizations (
+    id,
+    slug,
+    name,
+    logo_url,
+    kind,
+    tagline,
+    industry,
+    focus_areas,
+    institution,
+    city,
+    country
+  )
+`)
           .eq("user_id", user.id);
 
         if (followErr) {
