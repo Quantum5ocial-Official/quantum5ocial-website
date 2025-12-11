@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import LeftSidebar from "../../components/LeftSidebar";
@@ -21,7 +22,7 @@ type Profile = {
   describes_you?: string | null;
 };
 
-// Followed organizations strip (future)
+// Followed organizations (top strip)
 type FollowedOrg = {
   id: string;
   name: string | null;
@@ -31,6 +32,7 @@ type FollowedOrg = {
 
 export default function EntangledStatesPage() {
   const { user } = useSupabaseUser();
+  const router = useRouter();
 
   // main data
   const [loading, setLoading] = useState(true);
@@ -44,46 +46,61 @@ export default function EntangledStatesPage() {
 
   // ----- load followed organizations (horizontal strip) -----
   useEffect(() => {
-  const loadFollowedOrgs = async () => {
-    if (!user) {
-      setFollowedOrgs([]);
-      return;
-    }
-
-    setOrgsLoading(true);
-
-    try {
-      // Load followed organizations
-      const { data, error } = await supabase
-        .from("org_follows")
-        .select(`
-          org_id,
-          organizations:org_id (
-            id,
-            name,
-            logo_url,
-            short_description
-          )
-        `)
-        .eq("user_id", user.id);
-
-      if (error) {
-        console.error("Followed orgs error", error);
+    const loadFollowedOrgs = async () => {
+      if (!user) {
         setFollowedOrgs([]);
-      } else {
-        const orgs: FollowedOrg[] = (data || [])
-          .map((row: any) => row.organizations)
+        return;
+      }
+
+      setOrgsLoading(true);
+
+      try {
+        // 1) which orgs this user follows
+        const { data: followRows, error: followErr } = await supabase
+          .from("org_follows")
+          .select("org_id")
+          .eq("user_id", user.id);
+
+        if (followErr) {
+          console.error("Error loading org_follows", followErr);
+          setFollowedOrgs([]);
+          return;
+        }
+
+        const orgIds = (followRows || [])
+          .map((r: any) => r.org_id)
           .filter(Boolean);
 
-        setFollowedOrgs(orgs);
-      }
-    } finally {
-      setOrgsLoading(false);
-    }
-  };
+        if (orgIds.length === 0) {
+          setFollowedOrgs([]);
+          return;
+        }
 
-  loadFollowedOrgs();
-}, [user]);
+        // 2) load those organizations
+        const { data: orgRows, error: orgErr } = await supabase
+          .from("organizations")
+          .select("id, name, logo_url, short_description")
+          .in("id", orgIds)
+          .eq("is_active", true);
+
+        if (orgErr) {
+          console.error(
+            "Error loading organizations for followed strip",
+            orgErr
+          );
+          setFollowedOrgs([]);
+          return;
+        }
+
+        setFollowedOrgs((orgRows || []) as FollowedOrg[]);
+      } finally {
+        setOrgsLoading(false);
+      }
+    };
+
+    loadFollowedOrgs();
+  }, [user]);
+
   // ----- load entangled states (connected members) -----
   useEffect(() => {
     const loadConnections = async () => {
@@ -134,10 +151,11 @@ export default function EntangledStatesPage() {
         return;
       }
 
-      // 🔧 IMPORTANT: select("*") so we don't break if a column name changes / doesn't exist
       const { data: profData, error: profError } = await supabase
         .from("profiles")
-        .select("*")
+        .select(
+          "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
+        )
         .in("id", otherIds);
 
       if (profError) {
@@ -165,7 +183,7 @@ export default function EntangledStatesPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* LEFT SIDEBAR – same as notifications page */}
+          {/* LEFT SIDEBAR – shared component */}
           <LeftSidebar />
 
           {/* ========== MIDDLE COLUMN ========== */}
@@ -257,7 +275,7 @@ export default function EntangledStatesPage() {
                               {org.logo_url ? (
                                 <img
                                   src={org.logo_url}
-                                  alt={org.name || "Org"}
+                                  alt={org.name || "Organization"}
                                   style={{
                                     width: "100%",
                                     height: "100%",
@@ -265,7 +283,9 @@ export default function EntangledStatesPage() {
                                   }}
                                 />
                               ) : (
-                                (org.name || "?").charAt(0).toUpperCase()
+                                (org.name || "?")
+                                  .charAt(0)
+                                  .toUpperCase()
                               )}
                             </div>
                             <div
@@ -333,18 +353,18 @@ export default function EntangledStatesPage() {
 
                       return (
                         <div
-  key={p.id}
-  className="card"
-  style={{
-    padding: 14,
-    minHeight: 160,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    cursor: "pointer",
-  }}
-  onClick={() => router.push(`/profile/${p.id}`)}
->
+                          key={p.id}
+                          className="card"
+                          style={{
+                            padding: 14,
+                            minHeight: 160,
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => router.push(`/profile/${p.id}`)}
+                        >
                           <div
                             className="card-inner"
                             style={{
@@ -398,13 +418,10 @@ export default function EntangledStatesPage() {
                               )}
                               <div
                                 className="card-footer-text"
-                                style={{
-                                  marginTop: 6,
-                                  fontSize: 12,
-                                }}
+                                style={{ marginTop: 6, fontSize: 12 }}
                               >
-                                One of your entangled states in the
-                                Quantum Community.
+                                One of your entangled states in the Quantum
+                                Community.
                               </div>
                             </div>
                           </div>
