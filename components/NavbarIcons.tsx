@@ -408,9 +408,14 @@ export default function NavbarIcons() {
         >
           {/* DESKTOP NAV */}
           <nav
-            className="nav-links nav-links-desktop"
-            style={{ fontSize: 16, display: "flex", alignItems: "center" }}
-          >
+  className="nav-links nav-links-desktop"
+  style={{
+    fontSize: 16,
+    display: "flex",
+    alignItems: "center",
+    gap: 24,        // 🔥 uniform spacing between all icon blocks
+  }}
+>
             {/* ICON + LABEL LINKS */}
             {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
             {renderIconNavLink("/products", "Products", "/icons/products.svg")}
@@ -444,87 +449,69 @@ export default function NavbarIcons() {
             )}
 
             {/* USER MENU (DESKTOP) – avatar + name stacked like an icon */}
-            {!loading && user && (
-              <div className="nav-user-wrapper" ref={userMenuRef}>
                 <button
-                  type="button"
-                  className={`nav-user-button nav-link-button ${
-                    isActive("/profile") ? "nav-link-active" : ""
-                  }`}
-                  onClick={() => {
-                    setIsUserMenuOpen((o) => !o);
-                    setIsDashboardOpen(false);
-                  }}
-                  onKeyDown={toggleDashboardFromKey}
-                  style={{ padding: 0, background: "transparent" }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: 72,
-                      minWidth: 80,
-                      padding: "0 14px",
-                      gap: 6,
-                      borderRadius: 16,
-                      background: isActive("/profile")
-                        ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
-                        : "transparent",
-                      boxShadow: isActive("/profile")
-                        ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
-                        : "none",
-                      transition:
-                        "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
-                      transform: isActive("/profile")
-                        ? "translateY(-1px)"
-                        : "none",
-                    }}
-                  >
-                    <div
-                      className="nav-user-avatar"
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "999px",
-                        overflow: "hidden",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt={firstName}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
-                      ) : (
-                        <span className="nav-user-initial">
-                          {firstName.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className="nav-user-name"
-                      style={{
-                        fontSize: 11,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "rgba(226,232,240,0.96)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {firstName}
-                    </span>
-                  </div>
-                </button>
-
+      type="button"
+      className={`nav-user-button nav-link-button ${
+        isActive("/profile") ? "nav-link-active" : ""
+      }`}
+      onClick={() => {
+        setIsUserMenuOpen((o) => !o);
+        setIsDashboardOpen(false);
+      }}
+      style={{
+        padding: 0,
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: 80,           // 🔥 same as icon blocks
+          minWidth: 90,
+          padding: "0 14px",
+          gap: 6,
+          borderRadius: 16,
+          background: isActive("/profile")
+            ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
+            : "transparent",
+          boxShadow: isActive("/profile")
+            ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
+            : "none",
+        }}
+      >
+        <div
+          className="nav-user-avatar"
+          style={{
+            width: 36,          // 🔥 same as icon size
+            height: 36,
+          }}
+        >
+          {avatarUrl ? (
+            <img src={avatarUrl} alt={firstName} />
+          ) : (
+            <span className="nav-user-initial">
+              {firstName.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <span
+          style={{
+            fontSize: 11,               // 🔥 same as icon label
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "rgba(226,232,240,0.96)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {firstName}
+        </span>
+      </div>
+    </button>
                 {isUserMenuOpen && (
                   <div className="nav-dashboard-menu right-align">
                     {/* My profile */}
