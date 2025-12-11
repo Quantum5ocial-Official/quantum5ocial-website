@@ -248,61 +248,61 @@ export default function NavbarIcons() {
 
   // small helper for the icon+label links (desktop)
   const renderIconNavLink = (
-    href: string,
-    label: string,
-    iconSrc: string
-  ) => {
-    const active = isActive(href);
+  href: string,
+  label: string,
+  iconSrc: string
+) => {
+  const active = isActive(href);
 
-    return (
-      <Link
-        href={href}
-        className={`nav-link ${active ? "nav-link-active" : ""}`}
+  return (
+    <Link
+      href={href}
+      className={`nav-link ${active ? "nav-link-active" : ""}`}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 6,                        // more space between icon + label
+          padding: "8px 14px",           // larger clickable pill
+          borderRadius: 999,
+          background: active
+            ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
+            : "transparent",
+          boxShadow: active
+            ? "0 0 0 1px rgba(56,189,248,0.8), 0 0 20px rgba(56,189,248,0.5)"
+            : "none",
+          transition:
+            "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
+          transform: active ? "translateY(-1px)" : "none",
+        }}
       >
-        <div
+        <img
+          src={iconSrc}
+          alt={label}
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 4,
-            padding: "6px 10px",
-            borderRadius: 999,
-            background: active
-              ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.55), rgba(15,23,42,0.98))"
-              : "transparent",
-            boxShadow: active
-              ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 16px rgba(56,189,248,0.45)"
-              : "none",
-            transition:
-              "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
-            transform: active ? "translateY(-1px)" : "none",
+            width: 26,                    // icon bigger
+            height: 26,
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+        <span
+          style={{
+            fontSize: 12,                 // text slightly bigger
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            color: "rgba(226,232,240,0.95)",
+            whiteSpace: "nowrap",
           }}
         >
-          <img
-            src={iconSrc}
-            alt={label}
-            style={{
-              width: 22,
-              height: 22,
-              objectFit: "contain",
-              display: "block",
-            }}
-          />
-          <span
-            style={{
-              fontSize: 11,
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-              color: "rgba(226,232,240,0.9)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {label}
-          </span>
-        </div>
-      </Link>
-    );
-  };
+          {label}
+        </span>
+      </div>
+    </Link>
+  );
+};
 
   return (
     <header className="nav">
