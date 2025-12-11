@@ -24,10 +24,16 @@ type Profile = {
 // Followed organizations strip
 type FollowedOrg = {
   id: string;
-  name: string | null;
   slug: string;
+  name: string;
   logo_url: string | null;
-  short_description: string | null;
+  kind: "company" | "research_group";
+  tagline: string | null;
+  industry: string | null;
+  focus_areas: string | null;
+  institution: string | null;
+  city: string | null;
+  country: string | null;
 };
 
 export default function EntangledStatesPage() {
@@ -57,22 +63,7 @@ export default function EntangledStatesPage() {
         // 1) which org_ids does this user follow?
         const { data: followRows, error: followErr } = await supabase
           .from("org_follows")
-.select(`
-  org_id,
-  organizations (
-    id,
-    slug,
-    name,
-    logo_url,
-    kind,
-    tagline,
-    industry,
-    focus_areas,
-    institution,
-    city,
-    country
-  )
-`)
+          .select("org_id")
           .eq("user_id", user.id);
 
         if (followErr) {
@@ -87,25 +78,36 @@ export default function EntangledStatesPage() {
           return;
         }
 
-        // 2) load basic org info
+        // 2) load org info for those ids
         const { data: orgRows, error: orgErr } = await supabase
           .from("organizations")
-          .select("id, name, slug, logo_url, tagline")
+          .select(
+            "id, name, slug, logo_url, kind, tagline, industry, focus_areas, institution, city, country"
+          )
           .in("id", orgIds)
           .eq("is_active", true);
 
         if (orgErr) {
-          console.error("Error loading organizations for followed strip", orgErr);
+          console.error(
+            "Error loading organizations for followed strip",
+            orgErr
+          );
           setFollowedOrgs([]);
           return;
         }
 
         const orgs: FollowedOrg[] = (orgRows || []).map((o: any) => ({
           id: o.id,
-          name: o.name,
           slug: o.slug,
+          name: o.name,
           logo_url: o.logo_url,
-          short_description: o.tagline,
+          kind: o.kind,
+          tagline: o.tagline,
+          industry: o.industry,
+          focus_areas: o.focus_areas,
+          institution: o.institution,
+          city: o.city,
+          country: o.country,
         }));
 
         setFollowedOrgs(orgs);
@@ -226,128 +228,141 @@ export default function EntangledStatesPage() {
               </div>
 
               {/* ==== TOP: FOLLOWED ORGANIZATIONS (horizontal strip) ==== */}
-<section style={{ marginTop: 24 }}>
-  <div className="section-sub" style={{ fontSize: 13 }}>
-    Organizations you follow
-  </div>
+              <section style={{ marginTop: 24 }}>
+                <div className="section-sub" style={{ fontSize: 13 }}>
+                  Organizations you follow
+                </div>
 
-  <div style={{ marginTop: 12, overflowX: "auto", paddingBottom: 4 }}>
-    {orgsLoading ? (
-      <div className="products-status">Loading organizations…</div>
-    ) : followedOrgs.length === 0 ? (
-      <div className="products-empty">
-        You are not following any organizations yet.
-      </div>
-    ) : (
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          minHeight: 170,
-          paddingRight: 8,
-        }}
-      >
-        {followedOrgs.map((org) => {
-          const location = [org.city, org.country]
-            .filter(Boolean)
-            .join(", ");
-
-          return (
-            <div
-              key={org.id}
-              className="card"
-              onClick={() => {
-                if (org.slug) window.location.href = `/orgs/${org.slug}`;
-              }}
-              style={{
-                minWidth: 260,
-                padding: 14,
-                borderRadius: 14,
-                cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ display: "flex", gap: 12 }}>
-                {/* Logo */}
                 <div
                   style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    border: "1px solid rgba(148,163,184,0.4)",
-                    background:
-                      "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: "#0f172a",
+                    marginTop: 12,
+                    overflowX: "auto",
+                    paddingBottom: 4,
                   }}
                 >
-                  {org.logo_url ? (
-                    <img
-                      src={org.logo_url}
-                      alt={org.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
+                  {orgsLoading ? (
+                    <div className="products-status">
+                      Loading organizations…
+                    </div>
+                  ) : followedOrgs.length === 0 ? (
+                    <div className="products-empty">
+                      You are not following any organizations yet.
+                    </div>
                   ) : (
-                    org.name?.charAt(0).toUpperCase()
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        minHeight: 170,
+                        paddingRight: 8,
+                      }}
+                    >
+                      {followedOrgs.map((org) => {
+                        const location = [org.city, org.country]
+                          .filter(Boolean)
+                          .join(", ");
+
+                        return (
+                          <div
+                            key={org.id}
+                            className="card"
+                            onClick={() => {
+                              if (org.slug)
+                                window.location.href = `/orgs/${org.slug}`;
+                            }}
+                            style={{
+                              minWidth: 260,
+                              padding: 14,
+                              borderRadius: 14,
+                              cursor: "pointer",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <div style={{ display: "flex", gap: 12 }}>
+                              {/* Logo */}
+                              <div
+                                style={{
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius: 14,
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  border:
+                                    "1px solid rgba(148,163,184,0.4)",
+                                  background:
+                                    "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 18,
+                                  fontWeight: 700,
+                                  color: "#0f172a",
+                                }}
+                              >
+                                {org.logo_url ? (
+                                  <img
+                                    src={org.logo_url}
+                                    alt={org.name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                    }}
+                                  />
+                                ) : (
+                                  org.name.charAt(0).toUpperCase()
+                                )}
+                              </div>
+
+                              {/* Text */}
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  className="card-title"
+                                  style={{
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {org.name}
+                                </div>
+                                <div
+                                  className="card-meta"
+                                  style={{
+                                    fontSize: 12,
+                                    lineHeight: 1.4,
+                                  }}
+                                >
+                                  {org.kind === "company"
+                                    ? org.industry || "Quantum company"
+                                    : org.institution || "Research group"}
+                                  {location ? ` · ${location}` : ""}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Tagline / focus areas */}
+                            {(org.tagline || org.focus_areas) && (
+                              <div
+                                style={{
+                                  marginTop: 8,
+                                  fontSize: 12,
+                                  color: "var(--text-muted)",
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                {org.tagline || org.focus_areas}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
-
-                {/* Text */}
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    className="card-title"
-                    style={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {org.name}
-                  </div>
-                  <div
-                    className="card-meta"
-                    style={{ fontSize: 12, lineHeight: 1.4 }}
-                  >
-                    {org.kind === "company"
-                      ? org.industry || "Quantum company"
-                      : org.institution || "Research group"}
-                    {location ? ` · ${location}` : ""}
-                  </div>
-                </div>
-              </div>
-
-              {/* Tagline / focus areas */}
-              {(org.tagline || org.focus_areas) && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    lineHeight: 1.45,
-                  }}
-                >
-                  {org.tagline || org.focus_areas}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-</section>
+              </section>
 
               {/* ==== BOTTOM: ENTANGLED MEMBERS (grid) ==== */}
               <section style={{ marginTop: 28 }}>
