@@ -246,66 +246,96 @@ export default function NavbarIcons() {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  // small helper for the icon+label links (desktop)
+    // small helper for the icon+label links (desktop)
   const renderIconNavLink = (
-  href: string,
-  label: string,
-  iconSrc: string
-) => {
-  const active = isActive(href);
+    href: string,
+    label: string,
+    iconSrc: string,
+    badgeCount?: number
+  ) => {
+    const active = isActive(href);
 
-  return (
-    <Link
-      href={href}
-      className={`nav-link ${active ? "nav-link-active" : ""}`}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",      // 🔥 vertical centering
-          height: 72,                    // 🔥 full navbar height
-          minWidth: 80,                  // gives them some width
-          padding: "0 14px",
-          gap: 6,
-          borderRadius: 16,
-          background: active
-            ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
-            : "transparent",
-          boxShadow: active
-            ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
-            : "none",
-          transition:
-            "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
-          transform: active ? "translateY(-1px)" : "none",
-        }}
+    const displayBadge =
+      typeof badgeCount === "number" && badgeCount > 0;
+    const badgeText =
+      displayBadge && badgeCount! > 9 ? "9+" : badgeCount;
+
+    return (
+      <Link
+        href={href}
+        className={`nav-link ${active ? "nav-link-active" : ""}`}
       >
-        <img
-          src={iconSrc}
-          alt={label}
+        <div
           style={{
-            width: 32,                    // 🔥 bigger icon
-            height: 32,
-            objectFit: "contain",
-            display: "block",
-          }}
-        />
-        <span
-          style={{
-            fontSize: 11,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "rgba(226,232,240,0.96)",
-            whiteSpace: "nowrap",
+            position: "relative",          // ✅ needed for badge
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            height: 72,                    // full navbar height
+            minWidth: 80,
+            padding: "0 14px",
+            gap: 6,
+            borderRadius: 16,
+            background: active
+              ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
+              : "transparent",
+            boxShadow: active
+              ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
+              : "none",
+            transition:
+              "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
+            transform: active ? "translateY(-1px)" : "none",
           }}
         >
-          {label}
-        </span>
-      </div>
-    </Link>
-  );
-};
+          <img
+            src={iconSrc}
+            alt={label}
+            style={{
+              width: 32,
+              height: 32,
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+
+          <span
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "rgba(226,232,240,0.96)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+
+          {displayBadge && (
+            <span
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 10,
+                minWidth: 16,
+                height: 16,
+                borderRadius: 999,
+                background: "#ef4444",
+                color: "white",
+                fontSize: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0 4px",
+              }}
+            >
+              {badgeText}
+            </span>
+          )}
+        </div>
+      </Link>
+    );
+  };
 
   return (
     <header className="nav">
@@ -386,45 +416,14 @@ export default function NavbarIcons() {
             {renderIconNavLink("/products", "Products", "/icons/products.svg")}
             {renderIconNavLink("/community", "Community", "/icons/community.svg")}
 
-            {/* Notifications (desktop) */}
-            {!loading && user && (
-              <Link
-                href="/notifications"
-                className={`nav-link ${
-                  isActive("/notifications") ? "nav-link-active" : ""
-                }`}
-                aria-label="Notifications"
-              >
-                <span
-                  className="nav-link-label"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <span>Notifications</span>
-                  {notificationsCount > 0 && (
-                    <span
-                      style={{
-                        minWidth: 18,
-                        height: 18,
-                        borderRadius: 999,
-                        background: "#ef4444",
-                        color: "white",
-                        fontSize: 11,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: "0 6px",
-                      }}
-                    >
-                      {notificationsCount > 9 ? "9+" : notificationsCount}
-                    </span>
-                  )}
-                </span>
-              </Link>
-            )}
+                        {/* Notifications (desktop) – icon + label + badge */}
+            {!loading && user &&
+              renderIconNavLink(
+                "/notifications",
+                "Notifications",
+                "/icons/notifications.svg",
+                notificationsCount
+              )}
 
             {/* Theme toggle */}
             <button
