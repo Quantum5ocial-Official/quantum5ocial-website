@@ -5,25 +5,23 @@
   viewBox="0 0 24 24"
   fill="none"
   stroke="white"
-  stroke-width="0.65"
+  stroke-width="0.7"
   stroke-linecap="round"
   stroke-linejoin="round"
 >
 
-  <!-- LEFT FINS (now hugging bell curve + proper spacing) -->
-  <path d="M6.2 4.9c-1.0 0.8 -1.4 2.0 -0.8 3.2" />
-  <path d="M6.0 7.1c-0.9 0.9 -1.1 1.9 -0.5 2.9" />
+  <!-- LEFT FINS (curved + spaced) -->
+  <path d="M6.3 6.0c-0.9 -1.4 -0.4 -2.4 0.6 -3.1" />
+  <path d="M6.1 8.4c-0.7 -1.0 -0.5 -1.9 0.3 -2.7" />
 
-  <!-- RIGHT FINS (same curvature corrected) -->
-  <path d="M17.8 4.9c1.0 0.8 1.4 2.0 0.8 3.2" />
-  <path d="M18.0 7.1c0.9 0.9 1.1 1.9 0.5 2.9" />
+  <!-- RIGHT FINS (curved + spaced) -->
+  <path d="M17.7 6.0c0.9 -1.4 0.4 -2.4 -0.6 -3.1" />
+  <path d="M17.9 8.4c0.7 -1.0 0.5 -1.9 -0.3 -2.7" />
 
-  <!-- Bell body (same height as before) -->
-  <path
-    d="M20 13.2c0-7-3.5-11.2-8-11.2S4 6.2 4 13.2c0 7-2.5 9.4-2.5 9.4h21S20 20.2 20 13.2z"
-  />
+  <!-- Bell body -->
+  <path d="M20 14c0-7 -3.5-11 -8-11s-8 4 -8 11c0 7 -2 8.5 -2 8.5h20S20 21 20 14z" />
 
   <!-- Clapper -->
-  <path d="M10 23.8a2 2 0 004 0" />
+  <path d="M10 23a2 2 0 0 0 4 0" />
 
 </svg>
