@@ -1,13 +1,13 @@
 // pages/index.tsx
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
-import { useSupabaseUser } from "../lib/useSupabaseUser";
 import LeftSidebar from "../components/LeftSidebar";
 
-const Navbar = dynamic(() => import("../components/NavbarIcons"), { ssr: false });
+const Navbar = dynamic(() => import("../components/NavbarIcons"), {
+  ssr: false,
+});
 
 type Job = {
   id: string;
@@ -31,16 +31,6 @@ type Product = {
   image1_url: string | null;
 };
 
-type ProfileSummary = {
-  full_name: string | null;
-  avatar_url: string | null;
-  education_level?: string | null;
-  describes_you?: string | null;
-  affiliation?: string | null;
-  highest_education?: string | null;
-  current_org?: string | null;
-};
-
 type CommunityProfile = {
   id: string;
   full_name: string | null;
@@ -51,18 +41,7 @@ type CommunityProfile = {
   short_bio?: string | null;
 };
 
-type MyOrgSummary = {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-};
-
 export default function Home() {
-  const { user } = useSupabaseUser();
-  const router = useRouter();
-
-  const [globalSearch, setGlobalSearch] = useState("");
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>([]);
@@ -70,22 +49,6 @@ export default function Home() {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
-
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
-
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(null);
-  const [entangledCount, setEntangledCount] = useState<number | null>(null);
-
-  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
-  const [loadingMyOrg, setLoadingMyOrg] = useState<boolean>(true);
-
-  const handleGlobalSearchSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const term = globalSearch.trim();
-    if (!term) return;
-    router.push(`/search?q=${encodeURIComponent(term)}`);
-  };
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -148,122 +111,6 @@ export default function Home() {
     loadMembers();
   }, []);
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setProfileSummary(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!error && data) {
-        setProfileSummary(data as ProfileSummary);
-      } else {
-        setProfileSummary(null);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  useEffect(() => {
-    const loadCounts = async () => {
-      if (!user) {
-        setSavedJobsCount(null);
-        setSavedProductsCount(null);
-        setEntangledCount(null);
-        return;
-      }
-
-      try {
-        const { data: savedJobsRows, error: savedJobsErr } = await supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", user.id);
-
-        if (!savedJobsErr && savedJobsRows) {
-          setSavedJobsCount(savedJobsRows.length);
-        } else {
-          setSavedJobsCount(0);
-        }
-
-        const { data: savedProdRows, error: savedProdErr } = await supabase
-          .from("saved_products")
-          .select("product_id")
-          .eq("user_id", user.id);
-
-        if (!savedProdErr && savedProdRows) {
-          setSavedProductsCount(savedProdRows.length);
-        } else {
-          setSavedProductsCount(0);
-        }
-
-        const { data: connRows, error: connErr } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (!connErr && connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-      } catch (e) {
-        console.error("Error loading sidebar counts", e);
-        setSavedJobsCount(0);
-        setSavedProductsCount(0);
-        setEntangledCount(0);
-      }
-    };
-
-    loadCounts();
-  }, [user]);
-
-  useEffect(() => {
-    const loadMyOrg = async () => {
-      if (!user) {
-        setMyOrg(null);
-        setLoadingMyOrg(false);
-        return;
-      }
-
-      setLoadingMyOrg(true);
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id, name, slug, logo_url")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (!error && data) {
-        setMyOrg(data as MyOrgSummary);
-      } else {
-        setMyOrg(null);
-        if (error) {
-          console.error("Error loading my organization for sidebar", error);
-        }
-      }
-      setLoadingMyOrg(false);
-    };
-
-    loadMyOrg();
-  }, [user]);
-
   const formatJobMeta = (job: Job) =>
     [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
 
@@ -307,10 +154,9 @@ export default function Home() {
         <Navbar />
 
         <main className="layout-3col">
-
-          {/* LEFT SIDEBAR — UPDATED */}
+          {/* LEFT SIDEBAR */}
           <LeftSidebar />
-       
+
           {/* MIDDLE MAIN COLUMN */}
           <section className="layout-main">
             {/* HERO */}
@@ -795,7 +641,7 @@ export default function Home() {
             </section>
           </section>
 
-          {/* RIGHT SIDEBAR – STACKED HERO TILES + COPYRIGHT */}
+          {/* RIGHT SIDEBAR – STACKED HERO TILES */}
           <aside
             className="layout-right sticky-col"
             style={{ display: "flex", flexDirection: "column" }}
@@ -872,8 +718,6 @@ export default function Home() {
                 </div>
               </Link>
             </div>
-
-        
           </aside>
         </main>
       </div>
