@@ -9,25 +9,24 @@
   stroke-linecap="round"
   stroke-linejoin="round"
 >
-  <!-- Left fins (two arcs, following the bell curve, with a visible gap) -->
+
+  <!-- FINS (unchanged) -->
   <path d="M7.6 4.6c-0.8 -0.7 -1.4 -1.5 -1.5 -2.4" />
   <path d="M9.1 4.3c-0.7 -0.6 -1.1 -1.3 -1.2 -2.1" />
-
-  <!-- Right fins (mirror of left) -->
   <path d="M16.4 4.6c0.8 -0.7 1.4 -1.5 1.5 -2.4" />
   <path d="M14.9 4.3c0.7 -0.6 1.1 -1.3 1.2 -2.1" />
 
-  <!-- Bell body: tall, slightly flared bottom, centered like your other icons -->
+  <!-- BODY (20% taller version) -->
   <path
-    d="M19 15.5
-       C19 9.0 16.5 4.5 12 4.5
-       C7.5 4.5 5 9.0 5 15.5
-       c0 0.9 -0.2 1.7 -0.5 2.5
+    d="M19 17.2
+       C19 8.8 16.5 3.8 12 3.8
+       C7.5 3.8 5 8.8 5 17.2
+       c0 1.1 -0.2 2 -0.5 2.8
        h15
-       c-0.3 -0.8 -0.5 -1.6 -0.5 -2.5
+       c-0.3 -0.8 -0.5 -1.7 -0.5 -2.8
        z"
   />
 
-  <!-- Clapper (pendulum): small arc clearly *below* the bell -->
-  <path d="M10.5 19.6a1.5 1.5 0 0 0 3 0" />
+  <!-- CLAPPER (unchanged) -->
+  <path d="M10.6 20.2a1.5 1.5 0 0 0 2.8 0" />
 </svg>
