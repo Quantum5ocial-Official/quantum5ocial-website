@@ -10,20 +10,20 @@
   stroke-linejoin="round"
 >
 
-  <!-- LEFT FINS (more spacing) -->
+  <!-- LEFT FINS -->
   <path d="M3.6 6.2c-1.2 1.4-1.8 3.3-1.8 5" />
   <path d="M5.2 4.8c-1.6 1.2-2.7 3.3-2.7 5.5" />
 
-  <!-- RIGHT FINS (more spacing) -->
+  <!-- RIGHT FINS -->
   <path d="M20.4 6.2c1.2 1.4 1.8 3.3 1.8 5" />
   <path d="M18.8 4.8c1.6 1.2 2.7 3.3 2.7 5.5" />
 
-  <!-- TALLER BELL BODY -->
+  <!-- TALLER BELL BODY (slightly extended upward + downward) -->
   <path
-    d="M20 14c0-6.5-3.6-10.3-8-10.3S4 7.5 4 14c0 6.3-2.7 8.3-2.7 8.3h21.4S20 20.3 20 14z"
+    d="M20 13.2c0-7-3.5-11.2-8-11.2S4 6.2 4 13.2c0 7-2.5 9.4-2.5 9.4h21S20 20.2 20 13.2z"
   />
 
-  <!-- Clapper -->
-  <path d="M10 22.5a2 2 0 004 0" />
+  <!-- Clapper (lower now because bell is taller) -->
+  <path d="M10 23.8a2 2 0 004 0" />
 
 </svg>
