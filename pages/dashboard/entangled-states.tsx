@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
+const Navbar = dynamic(() => import("../../components/NavbarIcons"), { ssr: false });
 
 // Sidebar profile summary (same shape as community.tsx)
 type ProfileSummary = {
