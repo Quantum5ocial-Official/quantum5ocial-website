@@ -2601,7 +2601,37 @@ html.theme-light footer {
 .nav-mobile-toggle.open .nav-mobile-bar:last-child {
   transform: translateY(-3px) rotate(-45deg);
 }
+/* Small round buttons to open left/right sidebars on mobile */
+.nav-mobile-side-toggle {
+  display: none; /* desktop: hidden */
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
 
+.nav-mobile-side-icon {
+  font-size: 16px;
+}
+
+/* Only show on mobile */
+@media (max-width: 768px) {
+  .nav-mobile-side-toggle {
+    display: inline-flex;
+  }
+
+  /* shrink brand logo slightly so everything fits */
+  .brand-logo {
+    width: 64px;
+    height: 64px;
+  }
+}
 /* ===========================
    NAVBAR – DRAWER (MOBILE)
    =========================== */
@@ -2652,7 +2682,98 @@ html.theme-light footer {
   width: 100%;
   justify-content: flex-start;
 }
+/* ===== GENERIC SIDE DRAWERS (MOBILE) ===== */
 
+.side-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease-out;
+  z-index: 59;
+}
+
+.side-drawer-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.side-drawer {
+  position: fixed;
+  top: 60px; /* align with mobile navbar (60px) */
+  bottom: 0;
+  width: 80%;
+  max-width: 320px;
+  background: rgba(8, 14, 32, 0.98);
+  border-radius: 16px 16px 0 0;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  z-index: 60;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease-out;
+  overflow-y: auto;
+}
+
+/* left drawer */
+.side-drawer-left {
+  left: 0;
+}
+
+/* right drawer (slides in from right) */
+.side-drawer-right {
+  right: 0;
+  left: auto;
+  transform: translateX(100%);
+}
+
+/* open state */
+.side-drawer.open.side-drawer-left {
+  transform: translateX(0);
+}
+
+.side-drawer.open.side-drawer-right {
+  transform: translateX(0);
+}
+
+/* small close button inside drawer */
+.side-drawer-close {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 14px 6px;
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.98),
+    rgba(15, 23, 42, 0.85)
+  );
+  z-index: 1;
+}
+
+.side-drawer-close button {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Drawer content spacing */
+.side-drawer-content {
+  padding: 8px 14px 18px;
+}
+
+/* Only show drawers on mobile */
+@media (min-width: 769px) {
+  .side-drawer,
+  .side-drawer-backdrop {
+    display: none;
+  }
+}
 /* ===========================
    NAVBAR – RESPONSIVE RULES
    =========================== */
