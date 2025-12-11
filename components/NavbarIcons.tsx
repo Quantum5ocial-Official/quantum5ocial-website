@@ -13,9 +13,9 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 type Theme = "dark" | "light";
 
-// Shared sizing so icons don't overflow the navbar
-const NAV_BLOCK_HEIGHT = 68;   // height of each icon "pill"
-const NAV_HEADER_HEIGHT = 84;  // overall navbar height
+// Shared sizing
+const NAV_BLOCK_HEIGHT = 68;
+const NAV_HEADER_HEIGHT = 84;
 const NAV_BLOCK_MIN_WIDTH = 90;
 
 export default function NavbarIcons() {
@@ -34,6 +34,12 @@ export default function NavbarIcons() {
   // mobile drawer
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // isMobile – we will hide desktop icons when true
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= 900;
+  });
+
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -49,6 +55,16 @@ export default function NavbarIcons() {
     if (!term) return;
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
+
+  // ----- HANDLE RESPONSIVE -----
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 900);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // ----- THEME HANDLING -----
   useEffect(() => {
@@ -113,7 +129,7 @@ export default function NavbarIcons() {
     };
   }, [user]);
 
-  // ----- HAS ORGANIZATIONS? (for conditional dashboard link) -----
+  // ----- HAS ORGANIZATIONS? -----
   useEffect(() => {
     let cancelled = false;
 
@@ -147,7 +163,7 @@ export default function NavbarIcons() {
     };
   }, [user, router.pathname]);
 
-  // ----- NOTIFICATIONS (incoming pending entanglement requests) -----
+  // ----- NOTIFICATIONS -----
   useEffect(() => {
     let cancelled = false;
 
@@ -205,7 +221,8 @@ export default function NavbarIcons() {
     }
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   // Lock scroll when mobile drawer is open
@@ -387,19 +404,21 @@ export default function NavbarIcons() {
             </div>
           </Link>
 
-          {/* Global search – desktop only */}
-          <form
-            onSubmit={handleGlobalSearchSubmit}
-            className="nav-search-desktop"
-          >
-            <input
-              type="text"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="Search jobs, products, people, organizations…"
-              className="nav-search-input"
-            />
-          </form>
+          {/* Global search – desktop only (optional) */}
+          {!isMobile && (
+            <form
+              onSubmit={handleGlobalSearchSubmit}
+              className="nav-search-desktop"
+            >
+              <input
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search jobs, products, people, organizations…"
+                className="nav-search-input"
+              />
+            </form>
+          )}
         </div>
 
         {/* RIGHT: nav links + theme + user + hamburger */}
@@ -411,267 +430,272 @@ export default function NavbarIcons() {
             flexShrink: 0,
           }}
         >
-          {/* DESKTOP NAV */}
-          <nav
-            className="nav-links nav-links-desktop"
-            style={{
-              fontSize: 16,
-              display: "flex",
-              alignItems: "center",
-              gap: 24, // uniform spacing between icon blocks
-            }}
-          >
-            {/* ICON + LABEL LINKS */}
-            {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
-            {renderIconNavLink("/products", "Products", "/icons/products.svg")}
-            {renderIconNavLink("/community", "Community", "/icons/community.svg")}
-
-            {/* Notifications – icon + label + badge */}
-            {!loading &&
-              user &&
-              renderIconNavLink(
-                "/notifications",
-                "Notifications",
-                "/icons/notifications.svg",
-                notificationsCount
+          {/* DESKTOP NAV (hidden on mobile) */}
+          {!isMobile && (
+            <nav
+              className="nav-links nav-links-desktop"
+              style={{
+                fontSize: 16,
+                display: "flex",
+                alignItems: "center",
+                gap: 24,
+              }}
+            >
+              {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
+              {renderIconNavLink(
+                "/products",
+                "Products",
+                "/icons/products.svg"
+              )}
+              {renderIconNavLink(
+                "/community",
+                "Community",
+                "/icons/community.svg"
               )}
 
-            {/* Theme toggle */}
-            <button
-              type="button"
-              className="nav-link nav-link-button theme-toggle"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? "☀️" : "🌙"}
-            </button>
+              {!loading &&
+                user &&
+                renderIconNavLink(
+                  "/notifications",
+                  "Notifications",
+                  "/icons/notifications.svg",
+                  notificationsCount
+                )}
 
-            {/* Logged-out CTA */}
-            {!loading && !user && (
-              <Link href="/auth" className="nav-cta">
-                Login / Sign up
-              </Link>
-            )}
+              {/* Theme toggle */}
+              <button
+                type="button"
+                className="nav-link nav-link-button theme-toggle"
+                onClick={toggleTheme}
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? "☀️" : "🌙"}
+              </button>
 
-            {/* USER MENU (DESKTOP) – avatar + name stacked like an icon */}
-            {!loading && user && (
-              <div className="nav-user-wrapper" ref={userMenuRef}>
-                <button
-                  type="button"
-                  className={`nav-user-button nav-link-button ${
-                    isActive("/profile") ? "nav-link-active" : ""
-                  }`}
-                  onClick={() => {
-                    setIsUserMenuOpen((o) => !o);
-                    setIsDashboardOpen(false);
-                  }}
-                  style={{
-                    padding: 0,
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div
+              {/* Logged-out CTA */}
+              {!loading && !user && (
+                <Link href="/auth" className="nav-cta">
+                  Login / Sign up
+                </Link>
+              )}
+
+              {/* USER MENU (DESKTOP) */}
+              {!loading && user && (
+                <div className="nav-user-wrapper" ref={userMenuRef}>
+                  <button
+                    type="button"
+                    className={`nav-user-button nav-link-button ${
+                      isActive("/profile") ? "nav-link-active" : ""
+                    }`}
+                    onClick={() => {
+                      setIsUserMenuOpen((o) => !o);
+                      setIsDashboardOpen(false);
+                    }}
                     style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      height: NAV_BLOCK_HEIGHT,
-                      minWidth: NAV_BLOCK_MIN_WIDTH,
-                      padding: "0 14px",
-                      gap: 6,
-                      borderRadius: 16,
-                      background: isActive("/profile")
-                        ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
-                        : "transparent",
-                      boxShadow: isActive("/profile")
-                        ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
-                        : "none",
+                      padding: 0,
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
                     }}
                   >
                     <div
-                      className="nav-user-avatar"
                       style={{
-                        width: 36,
-                        height: 36,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: NAV_BLOCK_HEIGHT,
+                        minWidth: NAV_BLOCK_MIN_WIDTH,
+                        padding: "0 14px",
+                        gap: 6,
+                        borderRadius: 16,
+                        background: isActive("/profile")
+                          ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
+                          : "transparent",
+                        boxShadow: isActive("/profile")
+                          ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
+                          : "none",
                       }}
                     >
-                      {avatarUrl ? (
-                        <img src={avatarUrl} alt={firstName} />
-                      ) : (
-                        <span className="nav-user-initial">
-                          {firstName.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "rgba(226,232,240,0.96)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {firstName}
-                    </span>
-                  </div>
-                </button>
-
-                {isUserMenuOpen && (
-                  <div className="nav-dashboard-menu right-align">
-                    {/* My profile */}
-                    <Link
-                      href="/profile"
-                      className="nav-dropdown-item"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsDashboardOpen(false);
-                      }}
-                    >
-                      My profile
-                    </Link>
-
-                    {/* My ecosystem */}
-                    <Link
-                      href="/ecosystem"
-                      className="nav-dropdown-item"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsDashboardOpen(false);
-                      }}
-                    >
-                      My ecosystem
-                    </Link>
-
-                    {/* Nested Dashboard dropdown inside user menu */}
-                    <div
-                      ref={dashboardRef}
-                      style={{
-                        marginTop: 4,
-                        marginBottom: 4,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className="nav-dropdown-item"
-                        onClick={() => setIsDashboardOpen((o) => !o)}
-                        onKeyDown={toggleDashboardFromKey}
+                      <div
+                        className="nav-user-avatar"
+                        style={{
+                          width: 36,
+                          height: 36,
+                        }}
                       >
-                        <span>Dashboard</span>
-                        <span
-                          style={{
-                            marginLeft: "auto",
-                            fontSize: 10,
-                            opacity: 0.8,
-                          }}
-                        >
-                          {isDashboardOpen ? "▲" : "▼"}
-                        </span>
-                      </button>
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt={firstName} />
+                        ) : (
+                          <span className="nav-user-initial">
+                            {firstName.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase",
+                          color: "rgba(226,232,240,0.96)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {firstName}
+                      </span>
+                    </div>
+                  </button>
 
-                      {isDashboardOpen && (
-                        <>
-                          <Link
-                            href="/dashboard"
-                            className="nav-dropdown-item nav-dropdown-subitem"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsDashboardOpen(false);
+                  {isUserMenuOpen && (
+                    <div className="nav-dashboard-menu right-align">
+                      <Link
+                        href="/profile"
+                        className="nav-dropdown-item"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsDashboardOpen(false);
+                        }}
+                      >
+                        My profile
+                      </Link>
+
+                      <Link
+                        href="/ecosystem"
+                        className="nav-dropdown-item"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsDashboardOpen(false);
+                        }}
+                      >
+                        My ecosystem
+                      </Link>
+
+                      <div
+                        ref={dashboardRef}
+                        style={{
+                          marginTop: 4,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="nav-dropdown-item"
+                          onClick={() => setIsDashboardOpen((o) => !o)}
+                          onKeyDown={toggleDashboardFromKey}
+                        >
+                          <span>Dashboard</span>
+                          <span
+                            style={{
+                              marginLeft: "auto",
+                              fontSize: 10,
+                              opacity: 0.8,
                             }}
                           >
-                            Overview
-                          </Link>
-                          <Link
-                            href="/dashboard/entangled-states"
-                            className="nav-dropdown-item nav-dropdown-subitem"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsDashboardOpen(false);
-                            }}
-                          >
-                            Entangled states
-                          </Link>
-                          <Link
-                            href="/dashboard/saved-jobs"
-                            className="nav-dropdown-item nav-dropdown-subitem"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsDashboardOpen(false);
-                            }}
-                          >
-                            Saved jobs
-                          </Link>
-                          <Link
-                            href="/dashboard/saved-products"
-                            className="nav-dropdown-item nav-dropdown-subitem"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsDashboardOpen(false);
-                            }}
-                          >
-                            Saved products
-                          </Link>
-                          {hasOrganizations && (
+                            {isDashboardOpen ? "▲" : "▼"}
+                          </span>
+                        </button>
+
+                        {isDashboardOpen && (
+                          <>
                             <Link
-                              href="/dashboard/my-organizations"
+                              href="/dashboard"
                               className="nav-dropdown-item nav-dropdown-subitem"
                               onClick={() => {
                                 setIsUserMenuOpen(false);
                                 setIsDashboardOpen(false);
                               }}
                             >
-                              My organizations
+                              Overview
                             </Link>
-                          )}
-                        </>
-                      )}
+                            <Link
+                              href="/dashboard/entangled-states"
+                              className="nav-dropdown-item nav-dropdown-subitem"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsDashboardOpen(false);
+                              }}
+                            >
+                              Entangled states
+                            </Link>
+                            <Link
+                              href="/dashboard/saved-jobs"
+                              className="nav-dropdown-item nav-dropdown-subitem"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsDashboardOpen(false);
+                              }}
+                            >
+                              Saved jobs
+                            </Link>
+                            <Link
+                              href="/dashboard/saved-products"
+                              className="nav-dropdown-item nav-dropdown-subitem"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsDashboardOpen(false);
+                              }}
+                            >
+                              Saved products
+                            </Link>
+                            {hasOrganizations && (
+                              <Link
+                                href="/dashboard/my-organizations"
+                                className="nav-dropdown-item nav-dropdown-subitem"
+                                onClick={() => {
+                                  setIsUserMenuOpen(false);
+                                  setIsDashboardOpen(false);
+                                }}
+                              >
+                                My organizations
+                              </Link>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <Link
+                        href="/orgs/create"
+                        className="nav-dropdown-item"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsDashboardOpen(false);
+                        }}
+                      >
+                        Create my organization page
+                      </Link>
+
+                      <button
+                        type="button"
+                        className="nav-dropdown-item nav-dropdown-danger"
+                        onClick={async () => {
+                          await handleLogout();
+                          setIsUserMenuOpen(false);
+                          setIsDashboardOpen(false);
+                        }}
+                      >
+                        Logout
+                      </button>
                     </div>
+                  )}
+                </div>
+              )}
+            </nav>
+          )}
 
-                    {/* Create organization */}
-                    <Link
-                      href="/orgs/create"
-                      className="nav-dropdown-item"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsDashboardOpen(false);
-                      }}
-                    >
-                      Create my organization page
-                    </Link>
-
-                    {/* Logout */}
-                    <button
-                      type="button"
-                      className="nav-dropdown-item nav-dropdown-danger"
-                      onClick={async () => {
-                        await handleLogout();
-                        setIsUserMenuOpen(false);
-                        setIsDashboardOpen(false);
-                      }}
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </nav>
-
-          {/* MOBILE HAMBURGER */}
-          <button
-            type="button"
-            className={`nav-mobile-toggle ${
-              isMobileMenuOpen ? "open" : ""
-            }`}
-            aria-label="Open navigation"
-            onClick={() => setIsMobileMenuOpen((o) => !o)}
-          >
-            <span className="nav-mobile-bar" />
-            <span className="nav-mobile-bar" />
-          </button>
+          {/* MOBILE HAMBURGER – only on mobile */}
+          {isMobile && (
+            <button
+              type="button"
+              className={`nav-mobile-toggle ${
+                isMobileMenuOpen ? "open" : ""
+              }`}
+              aria-label="Open navigation"
+              onClick={() => setIsMobileMenuOpen((o) => !o)}
+            >
+              <span className="nav-mobile-bar" />
+              <span className="nav-mobile-bar" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -687,6 +711,7 @@ export default function NavbarIcons() {
             className={`nav-item-with-icon ${
               isActive("/jobs") ? "nav-item-active" : ""
             }`}
+            onClick={closeMobileMenu}
           >
             <img src="/icons/jobs.svg" className="nav-icon" />
             <span className="nav-icon-label">Jobs</span>
@@ -697,6 +722,7 @@ export default function NavbarIcons() {
             className={`nav-item-with-icon ${
               isActive("/products") ? "nav-item-active" : ""
             }`}
+            onClick={closeMobileMenu}
           >
             <img src="/icons/products.svg" className="nav-icon" />
             <span className="nav-icon-label">Products</span>
@@ -707,6 +733,7 @@ export default function NavbarIcons() {
             className={`nav-item-with-icon ${
               isActive("/community") ? "nav-item-active" : ""
             }`}
+            onClick={closeMobileMenu}
           >
             <img src="/icons/community.svg" className="nav-icon" />
             <span className="nav-icon-label">Community</span>
@@ -715,9 +742,7 @@ export default function NavbarIcons() {
           {/* Dashboard section in MOBILE */}
           {!loading && user && (
             <>
-              <div className="nav-mobile-section-label">
-                Dashboard
-              </div>
+              <div className="nav-mobile-section-label">Dashboard</div>
               <Link
                 href="/dashboard"
                 className={`nav-link ${
@@ -759,9 +784,7 @@ export default function NavbarIcons() {
               )}
 
               {/* Notifications on mobile */}
-              <div className="nav-mobile-section-label">
-                Notifications
-              </div>
+              <div className="nav-mobile-section-label">Notifications</div>
               <Link
                 href="/notifications"
                 className={`nav-link ${
