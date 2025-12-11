@@ -264,14 +264,17 @@ export default function NavbarIcons() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 6,                        // more space between icon + label
-          padding: "8px 14px",           // larger clickable pill
-          borderRadius: 999,
+          justifyContent: "center",      // 🔥 vertical centering
+          height: 72,                    // 🔥 full navbar height
+          minWidth: 80,                  // gives them some width
+          padding: "0 14px",
+          gap: 6,
+          borderRadius: 16,
           background: active
             ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
             : "transparent",
           boxShadow: active
-            ? "0 0 0 1px rgba(56,189,248,0.8), 0 0 20px rgba(56,189,248,0.5)"
+            ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
             : "none",
           transition:
             "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
@@ -282,18 +285,18 @@ export default function NavbarIcons() {
           src={iconSrc}
           alt={label}
           style={{
-            width: 26,                    // icon bigger
-            height: 26,
+            width: 32,                    // 🔥 bigger icon
+            height: 32,
             objectFit: "contain",
             display: "block",
           }}
         />
         <span
           style={{
-            fontSize: 12,                 // text slightly bigger
-            letterSpacing: "0.06em",
+            fontSize: 11,
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "rgba(226,232,240,0.95)",
+            color: "rgba(226,232,240,0.96)",
             whiteSpace: "nowrap",
           }}
         >
