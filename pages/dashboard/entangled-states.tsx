@@ -5,7 +5,9 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../../components/NavbarIcons"), { ssr: false });
+const Navbar = dynamic(() => import("../../components/NavbarIcons"), {
+  ssr: false,
+});
 
 // Sidebar profile summary (same shape as community.tsx)
 type ProfileSummary = {
@@ -30,6 +32,14 @@ type Profile = {
   describes_you?: string | null;
 };
 
+// (Future) followed organizations strip
+type FollowedOrg = {
+  id: string;
+  name: string | null;
+  logo_url: string | null;
+  short_description: string | null;
+};
+
 export default function EntangledStatesPage() {
   const { user } = useSupabaseUser();
 
@@ -37,6 +47,10 @@ export default function EntangledStatesPage() {
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // followed orgs (for top strip)
+  const [followedOrgs, setFollowedOrgs] = useState<FollowedOrg[]>([]);
+  const [orgsLoading, setOrgsLoading] = useState(false);
 
   // sidebar profile + counters
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
@@ -113,7 +127,44 @@ export default function EntangledStatesPage() {
     loadCounts();
   }, [user]);
 
-  // ----- load entangled states -----
+  // ----- load followed organizations (horizontal strip) -----
+  useEffect(() => {
+    const loadFollowedOrgs = async () => {
+      if (!user) {
+        setFollowedOrgs([]);
+        return;
+      }
+
+      setOrgsLoading(true);
+
+      // 🔧 Wire this to your real "org follows" table when ready.
+      // For now we just leave it empty (UI will show a friendly message).
+      try {
+        // Example (adjust to your schema later):
+        // const { data, error } = await supabase
+        //   .from("organization_followers")
+        //   .select("organizations(id, name, logo_url, short_description)")
+        //   .eq("user_id", user.id);
+        //
+        // if (!error && data) {
+        //   const orgs: FollowedOrg[] = data
+        //     .map((row: any) => row.organizations)
+        //     .filter(Boolean);
+        //   setFollowedOrgs(orgs);
+        // } else {
+        //   setFollowedOrgs([]);
+        // }
+
+        setFollowedOrgs([]); // placeholder
+      } finally {
+        setOrgsLoading(false);
+      }
+    };
+
+    loadFollowedOrgs();
+  }, [user]);
+
+  // ----- load entangled states (connected members) -----
   useEffect(() => {
     const loadConnections = async () => {
       if (!user) {
@@ -153,7 +204,15 @@ export default function EntangledStatesPage() {
             c.user_id === user.id ? c.target_user_id : c.user_id
           )
         )
-      );
+      ).filter(Boolean) as string[];
+
+      // If somehow nothing valid, stop here
+      if (otherIds.length === 0) {
+        setProfiles([]);
+        setEntangledCount(0);
+        setLoading(false);
+        return;
+      }
 
       const { data: profData, error: profError } = await supabase
         .from("profiles")
@@ -210,11 +269,18 @@ export default function EntangledStatesPage() {
 
         <main className="layout-3col">
           {/* ========== LEFT SIDEBAR ========== */}
-          <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column" }}>
+          <aside
+            className="layout-left sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             <Link
               href="/profile"
               className="sidebar-card profile-sidebar-card"
-              style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
+              style={{
+                textDecoration: "none",
+                color: "inherit",
+                cursor: "pointer",
+              }}
             >
               <div className="profile-sidebar-header">
                 <div className="profile-sidebar-avatar-wrapper">
@@ -235,14 +301,24 @@ export default function EntangledStatesPage() {
 
               {hasProfileExtraInfo && (
                 <div className="profile-sidebar-info-block">
-                  {educationLevel && <div className="profile-sidebar-info-value">{educationLevel}</div>}
+                  {educationLevel && (
+                    <div className="profile-sidebar-info-value">
+                      {educationLevel}
+                    </div>
+                  )}
                   {describesYou && (
-                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
                       {describesYou}
                     </div>
                   )}
                   {affiliation && (
-                    <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                    <div
+                      className="profile-sidebar-info-value"
+                      style={{ marginTop: 4 }}
+                    >
                       {affiliation}
                     </div>
                   )}
@@ -254,13 +330,22 @@ export default function EntangledStatesPage() {
             <div className="sidebar-card dashboard-sidebar-card">
               <div className="dashboard-sidebar-title">Quick dashboard</div>
               <div className="dashboard-sidebar-links">
-                <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link">
+                <Link
+                  href="/dashboard/entangled-states"
+                  className="dashboard-sidebar-link"
+                >
                   Entangled states ({entangledCount})
                 </Link>
-                <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link">
+                <Link
+                  href="/dashboard/saved-jobs"
+                  className="dashboard-sidebar-link"
+                >
                   Saved jobs ({savedJobsCount})
                 </Link>
-                <Link href="/dashboard/saved-products" className="dashboard-sidebar-link">
+                <Link
+                  href="/dashboard/saved-products"
+                  className="dashboard-sidebar-link"
+                >
                   Saved products ({savedProductsCount})
                 </Link>
               </div>
@@ -278,25 +363,48 @@ export default function EntangledStatesPage() {
               }}
             >
               <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-                <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
-                <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
-                <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>🐱</a>
+                <a
+                  href="mailto:info@quantum5ocial.com"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  ✉️
+                </a>
+                <a
+                  href="#"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  𝕏
+                </a>
+                <a
+                  href="#"
+                  style={{ color: "rgba(148,163,184,0.9)" }}
+                >
+                  🐱
+                </a>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <img src="/Q5_white_bg.png" alt="Quantum5ocial logo" style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 4,
-                  objectFit: "contain",
-                }} />
-                <span style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 8 }}
+              >
+                <img
+                  src="/Q5_white_bg.png"
+                  alt="Quantum5ocial logo"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 4,
+                    objectFit: "contain",
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
                   Quantum5ocial
                 </span>
               </div>
@@ -309,7 +417,9 @@ export default function EntangledStatesPage() {
               <div className="section-header">
                 <div>
                   <div className="section-title">Entangled states</div>
-                  <div className="section-sub">Your accepted connections in the Quantum Community.</div>
+                  <div className="section-sub">
+                    Your accepted connections in the Quantum Community.
+                  </div>
                 </div>
                 <div
                   style={{
@@ -323,95 +433,270 @@ export default function EntangledStatesPage() {
                 </div>
               </div>
 
-              {loading ? (
-                <div className="products-status">Loading entangled states…</div>
-              ) : entangledCount === 0 ? (
-                <div className="products-empty">
-                  You have no entangled states yet. Visit the{" "}
-                  <Link href="/community" className="section-link">community</Link> and start connecting.
+              {/* ==== TOP: FOLLOWED ORGANIZATIONS (horizontal strip) ==== */}
+              <section style={{ marginTop: 24 }}>
+                <div className="section-sub" style={{ fontSize: 13 }}>
+                  Organizations you follow
                 </div>
-              ) : (
-                <div style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-                  gap: 16,
-                }}>
-                  {profiles.map((p) => {
-                    const name = p.full_name || "Quantum member";
-                    const meta = [
-                      p.role || p.describes_you || null,
-                      p.affiliation || p.current_org || null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ");
-
-                    return (
-                      <div key={p.id} className="card" style={{
-                        padding: 14,
-                        minHeight: 160,
+                <div
+                  style={{
+                    marginTop: 12,
+                    overflowX: "auto",
+                    paddingBottom: 4,
+                  }}
+                >
+                  {orgsLoading ? (
+                    <div className="products-status">
+                      Loading organizations…
+                    </div>
+                  ) : followedOrgs.length === 0 ? (
+                    <div className="products-empty">
+                      You are not following any organizations yet.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
                         display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                      }}>
-                        <div className="card-inner" style={{
-                          display: "flex",
-                          gap: 14,
-                          alignItems: "flex-start",
-                        }}>
-                          {/* Avatar */}
-                          <div style={{
-                            width: 52,
-                            height: 52,
-                            borderRadius: "999px",
-                            overflow: "hidden",
-                            border: "1px solid rgba(148,163,184,0.5)",
+                        gap: 12,
+                        minHeight: 140,
+                      }}
+                    >
+                      {followedOrgs.map((org) => (
+                        <div
+                          key={org.id}
+                          className="card"
+                          style={{
+                            minWidth: 220,
+                            padding: 12,
                             display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                            color: "#fff",
-                            fontWeight: 600,
-                          }}>
-                            {p.avatar_url ? (
-                              <img src={p.avatar_url} alt={name}
-                                style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                            ) : (
-                              name.charAt(0).toUpperCase()
-                            )}
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 12,
+                                overflow: "hidden",
+                                border:
+                                  "1px solid rgba(148,163,184,0.6)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background:
+                                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                color: "#0f172a",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {org.logo_url ? (
+                                <img
+                                  src={org.logo_url}
+                                  alt={org.name || "Org"}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                (org.name || "?")
+                                  .charAt(0)
+                                  .toUpperCase()
+                              )}
+                            </div>
+                            <div
+                              style={{
+                                fontWeight: 600,
+                                fontSize: 14,
+                              }}
+                            >
+                              {org.name || "Quantum organization"}
+                            </div>
                           </div>
+                          {org.short_description && (
+                            <p
+                              style={{
+                                marginTop: 8,
+                                fontSize: 12,
+                                opacity: 0.8,
+                              }}
+                            >
+                              {org.short_description}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
 
-                          <div style={{ flex: 1 }}>
-                            <div className="card-title">{name}</div>
-                            {meta && <div className="card-meta" style={{ marginTop: 2 }}>{meta}</div>}
-                            <div className="card-footer-text" style={{ marginTop: 6, fontSize: 12 }}>
-                              One of your entangled states in the Quantum Community.
+              {/* ==== BOTTOM: ENTANGLED MEMBERS (grid) ==== */}
+              <section style={{ marginTop: 28 }}>
+                <div className="section-sub" style={{ fontSize: 13 }}>
+                  Members you are entangled with
+                </div>
+
+                {loading ? (
+                  <div className="products-status">
+                    Loading entangled states…
+                  </div>
+                ) : entangledCount === 0 ? (
+                  <div className="products-empty">
+                    You have no entangled states yet. Visit the{" "}
+                    <Link href="/community" className="section-link">
+                      community
+                    </Link>{" "}
+                    and start connecting.
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(2,minmax(0,1fr))",
+                      gap: 16,
+                    }}
+                  >
+                    {profiles.map((p) => {
+                      const name = p.full_name || "Quantum member";
+                      const meta = [
+                        p.role || p.describes_you || null,
+                        p.affiliation || p.current_org || null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ");
+
+                      return (
+                        <div
+                          key={p.id}
+                          className="card"
+                          style={{
+                            padding: 14,
+                            minHeight: 160,
+                            display: "flex",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            className="card-inner"
+                            style={{
+                              display: "flex",
+                              gap: 14,
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            {/* Avatar */}
+                            <div
+                              style={{
+                                width: 52,
+                                height: 52,
+                                borderRadius: "999px",
+                                overflow: "hidden",
+                                border:
+                                  "1px solid rgba(148,163,184,0.5)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background:
+                                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                color: "#fff",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {p.avatar_url ? (
+                                <img
+                                  src={p.avatar_url}
+                                  alt={name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                name.charAt(0).toUpperCase()
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1 }}>
+                              <div className="card-title">
+                                {name}
+                              </div>
+                              {meta && (
+                                <div
+                                  className="card-meta"
+                                  style={{ marginTop: 2 }}
+                                >
+                                  {meta}
+                                </div>
+                              )}
+                              <div
+                                className="card-footer-text"
+                                style={{
+                                  marginTop: 6,
+                                  fontSize: 12,
+                                }}
+                              >
+                                One of your entangled states in the
+                                Quantum Community.
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
 
-              {errorMsg && (
-                <p style={{ marginTop: 12, fontSize: 13, color: "#f97373" }}>{errorMsg}</p>
-              )}
+                {errorMsg && (
+                  <p
+                    style={{
+                      marginTop: 12,
+                      fontSize: 13,
+                      color: "#f97373",
+                    }}
+                  >
+                    {errorMsg}
+                  </p>
+                )}
+              </section>
             </section>
           </section>
 
           {/* ========== RIGHT SIDEBAR ========== */}
-          <aside className="layout-right sticky-col" style={{ display: "flex", flexDirection: "column" }}>
+          <aside
+            className="layout-right sticky-col"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
             <div className="hero-tiles hero-tiles-vertical">
               <div className="hero-tile">
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
                   <div className="tile-title-row">
-                    <div className="tile-title">Quantum roles spotlight</div>
+                    <div className="tile-title">
+                      Quantum roles spotlight
+                    </div>
                     <div className="tile-icon-orbit">🧪</div>
                   </div>
-                  <p className="tile-text">A curated job or role from the Quantum Jobs Universe.</p>
-                  <div className="tile-cta">Jobs spotlight <span>›</span></div>
+                  <p className="tile-text">
+                    A curated job or role from the Quantum Jobs
+                    Universe.
+                  </p>
+                  <div className="tile-cta">
+                    Jobs spotlight <span>›</span>
+                  </div>
                 </div>
               </div>
 
@@ -419,11 +704,18 @@ export default function EntangledStatesPage() {
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
                   <div className="tile-title-row">
-                    <div className="tile-title">Quantum product of the week</div>
+                    <div className="tile-title">
+                      Quantum product of the week
+                    </div>
                     <div className="tile-icon-orbit">🔧</div>
                   </div>
-                  <p className="tile-text">A selected hardware, software, or service from the Quantum Products Lab.</p>
-                  <div className="tile-cta">Product spotlight <span>›</span></div>
+                  <p className="tile-text">
+                    A selected hardware, software, or service from the
+                    Quantum Products Lab.
+                  </p>
+                  <div className="tile-cta">
+                    Product spotlight <span>›</span>
+                  </div>
                 </div>
               </div>
 
@@ -431,23 +723,31 @@ export default function EntangledStatesPage() {
                 <div className="hero-tile-inner">
                   <div className="tile-label">Highlighted</div>
                   <div className="tile-title-row">
-                    <div className="tile-title">Featured quantum talent</div>
+                    <div className="tile-title">
+                      Featured quantum talent
+                    </div>
                     <div className="tile-icon-orbit">🤝</div>
                   </div>
-                  <p className="tile-text">A standout member of the quantum ecosystem.</p>
-                  <div className="tile-cta">Talent spotlight <span>›</span></div>
+                  <p className="tile-text">
+                    A standout member of the quantum ecosystem.
+                  </p>
+                  <div className="tile-cta">
+                    Talent spotlight <span>›</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div style={{
-              marginTop: "auto",
-              paddingTop: 12,
-              borderTop: "1px solid rgba(148,163,184,0.18)",
-              fontSize: 12,
-              color: "rgba(148,163,184,0.9)",
-              textAlign: "right",
-            }}>
+            <div
+              style={{
+                marginTop: "auto",
+                paddingTop: 12,
+                borderTop: "1px solid rgba(148,163,184,0.18)",
+                fontSize: 12,
+                color: "rgba(148,163,184,0.9)",
+                textAlign: "right",
+              }}
+            >
               © 2025 Quantum5ocial
             </div>
           </aside>
