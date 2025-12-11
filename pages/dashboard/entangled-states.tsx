@@ -21,10 +21,11 @@ type Profile = {
   describes_you?: string | null;
 };
 
-// Followed organizations strip (future)
+// Followed organizations strip
 type FollowedOrg = {
   id: string;
   name: string | null;
+  slug: string;
   logo_url: string | null;
   short_description: string | null;
 };
@@ -53,7 +54,48 @@ export default function EntangledStatesPage() {
       setOrgsLoading(true);
 
       try {
-        // placeholder – hook to real org_follows later
+        // 1) which org_ids does this user follow?
+        const { data: followRows, error: followErr } = await supabase
+          .from("org_follows")
+          .select("org_id")
+          .eq("user_id", user.id);
+
+        if (followErr) {
+          console.error("Error loading followed orgs", followErr);
+          setFollowedOrgs([]);
+          return;
+        }
+
+        const orgIds = (followRows || []).map((r: any) => r.org_id);
+        if (orgIds.length === 0) {
+          setFollowedOrgs([]);
+          return;
+        }
+
+        // 2) load basic org info
+        const { data: orgRows, error: orgErr } = await supabase
+          .from("organizations")
+          .select("id, name, slug, logo_url, tagline")
+          .in("id", orgIds)
+          .eq("is_active", true);
+
+        if (orgErr) {
+          console.error("Error loading organizations for followed strip", orgErr);
+          setFollowedOrgs([]);
+          return;
+        }
+
+        const orgs: FollowedOrg[] = (orgRows || []).map((o: any) => ({
+          id: o.id,
+          name: o.name,
+          slug: o.slug,
+          logo_url: o.logo_url,
+          short_description: o.tagline,
+        }));
+
+        setFollowedOrgs(orgs);
+      } catch (e) {
+        console.error("Unexpected error loading followed orgs", e);
         setFollowedOrgs([]);
       } finally {
         setOrgsLoading(false);
