@@ -4,22 +4,11 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import LeftSidebar from "../../components/LeftSidebar";
 
 const Navbar = dynamic(() => import("../../components/NavbarIcons"), {
   ssr: false,
 });
-
-// Sidebar profile summary (same shape as community.tsx)
-type ProfileSummary = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  role: string | null;
-  highest_education: string | null;
-  affiliation: string | null;
-  country: string | null;
-  city: string | null;
-};
 
 // Connection profile card
 type Profile = {
@@ -32,7 +21,7 @@ type Profile = {
   describes_you?: string | null;
 };
 
-// (Future) followed organizations strip
+// Followed organizations strip (future)
 type FollowedOrg = {
   id: string;
   name: string | null;
@@ -47,85 +36,11 @@ export default function EntangledStatesPage() {
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [entangledCount, setEntangledCount] = useState(0);
 
   // followed orgs (for top strip)
   const [followedOrgs, setFollowedOrgs] = useState<FollowedOrg[]>([]);
   const [orgsLoading, setOrgsLoading] = useState(false);
-
-  // sidebar profile + counters
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(
-    null
-  );
-  const [savedJobsCount, setSavedJobsCount] = useState(0);
-  const [savedProductsCount, setSavedProductsCount] = useState(0);
-  const [entangledCount, setEntangledCount] = useState(0);
-
-  // ----- load sidebar profile -----
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        setProfileSummary(null);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(`
-          id,
-          full_name,
-          avatar_url,
-          role,
-          highest_education,
-          affiliation,
-          country,
-          city
-        `)
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!error && data) {
-        setProfileSummary(data as ProfileSummary);
-      } else {
-        setProfileSummary(null);
-      }
-    };
-
-    loadProfile();
-  }, [user]);
-
-  // ----- sidebar counters -----
-  useEffect(() => {
-    if (!user) {
-      setSavedJobsCount(0);
-      setSavedProductsCount(0);
-      setEntangledCount(0);
-      return;
-    }
-
-    const loadCounts = async () => {
-      const { count: jobsCount } = await supabase
-        .from("saved_jobs")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-
-      const { count: productsCount } = await supabase
-        .from("saved_products")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-
-      const { count: entCount } = await supabase
-        .from("connections")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "accepted")
-        .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-      setSavedJobsCount(jobsCount || 0);
-      setSavedProductsCount(productsCount || 0);
-      setEntangledCount(entCount || 0);
-    };
-
-    loadCounts();
-  }, [user]);
 
   // ----- load followed organizations (horizontal strip) -----
   useEffect(() => {
@@ -137,10 +52,9 @@ export default function EntangledStatesPage() {
 
       setOrgsLoading(true);
 
-      // 🔧 Wire this to your real "org follows" table when ready.
-      // For now we just leave it empty (UI will show a friendly message).
       try {
-        // Example (adjust to your schema later):
+        // TODO: hook this up to your real "organization follows" table
+        // Example (adjust later to your schema):
         // const { data, error } = await supabase
         //   .from("organization_followers")
         //   .select("organizations(id, name, logo_url, short_description)")
@@ -155,7 +69,7 @@ export default function EntangledStatesPage() {
         //   setFollowedOrgs([]);
         // }
 
-        setFollowedOrgs([]); // placeholder
+        setFollowedOrgs([]); // placeholder for now
       } finally {
         setOrgsLoading(false);
       }
@@ -169,8 +83,8 @@ export default function EntangledStatesPage() {
     const loadConnections = async () => {
       if (!user) {
         setProfiles([]);
-        setLoading(false);
         setEntangledCount(0);
+        setLoading(false);
         return;
       }
 
@@ -187,6 +101,7 @@ export default function EntangledStatesPage() {
         console.error(connError);
         setErrorMsg("Could not load your entangled states.");
         setProfiles([]);
+        setEntangledCount(0);
         setLoading(false);
         return;
       }
@@ -206,7 +121,6 @@ export default function EntangledStatesPage() {
         )
       ).filter(Boolean) as string[];
 
-      // If somehow nothing valid, stop here
       if (otherIds.length === 0) {
         setProfiles([]);
         setEntangledCount(0);
@@ -214,17 +128,17 @@ export default function EntangledStatesPage() {
         return;
       }
 
+      // 🔧 IMPORTANT: select("*") so we don't break if a column name changes / doesn't exist
       const { data: profData, error: profError } = await supabase
         .from("profiles")
-        .select(
-          "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
-        )
+        .select("*")
         .in("id", otherIds);
 
       if (profError) {
         console.error(profError);
         setErrorMsg("Could not load connected profiles.");
         setProfiles([]);
+        setEntangledCount(0);
         setLoading(false);
         return;
       }
@@ -238,29 +152,6 @@ export default function EntangledStatesPage() {
     loadConnections();
   }, [user]);
 
-  // Sidebar helpers
-  const fallbackName =
-    (user as any)?.user_metadata?.name ||
-    (user as any)?.user_metadata?.full_name ||
-    (user as any)?.email?.split("@")[0] ||
-    "User";
-
-  const sidebarFullName =
-    profileSummary?.full_name || fallbackName || "Your profile";
-
-  const avatarUrl = profileSummary?.avatar_url || null;
-  const educationLevel = profileSummary?.highest_education || "";
-  const describesYou = profileSummary?.role || "";
-  const affiliation =
-    profileSummary?.affiliation ||
-    [profileSummary?.city, profileSummary?.country]
-      .filter(Boolean)
-      .join(", ") ||
-    "";
-
-  const hasProfileExtraInfo =
-    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
-
   return (
     <>
       <div className="bg-layer" />
@@ -268,148 +159,8 @@ export default function EntangledStatesPage() {
         <Navbar />
 
         <main className="layout-3col">
-          {/* ========== LEFT SIDEBAR ========== */}
-          <aside
-            className="layout-left sticky-col"
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <Link
-              href="/profile"
-              className="sidebar-card profile-sidebar-card"
-              style={{
-                textDecoration: "none",
-                color: "inherit",
-                cursor: "pointer",
-              }}
-            >
-              <div className="profile-sidebar-header">
-                <div className="profile-sidebar-avatar-wrapper">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={sidebarFullName}
-                      className="profile-sidebar-avatar"
-                    />
-                  ) : (
-                    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                      {sidebarFullName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="profile-sidebar-name">{sidebarFullName}</div>
-              </div>
-
-              {hasProfileExtraInfo && (
-                <div className="profile-sidebar-info-block">
-                  {educationLevel && (
-                    <div className="profile-sidebar-info-value">
-                      {educationLevel}
-                    </div>
-                  )}
-                  {describesYou && (
-                    <div
-                      className="profile-sidebar-info-value"
-                      style={{ marginTop: 4 }}
-                    >
-                      {describesYou}
-                    </div>
-                  )}
-                  {affiliation && (
-                    <div
-                      className="profile-sidebar-info-value"
-                      style={{ marginTop: 4 }}
-                    >
-                      {affiliation}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Link>
-
-            {/* Dashboard counters */}
-            <div className="sidebar-card dashboard-sidebar-card">
-              <div className="dashboard-sidebar-title">Quick dashboard</div>
-              <div className="dashboard-sidebar-links">
-                <Link
-                  href="/dashboard/entangled-states"
-                  className="dashboard-sidebar-link"
-                >
-                  Entangled states ({entangledCount})
-                </Link>
-                <Link
-                  href="/dashboard/saved-jobs"
-                  className="dashboard-sidebar-link"
-                >
-                  Saved jobs ({savedJobsCount})
-                </Link>
-                <Link
-                  href="/dashboard/saved-products"
-                  className="dashboard-sidebar-link"
-                >
-                  Saved products ({savedProductsCount})
-                </Link>
-              </div>
-            </div>
-
-            {/* Social + Brand */}
-            <div
-              style={{
-                marginTop: "auto",
-                paddingTop: 16,
-                borderTop: "1px solid rgba(148,163,184,0.18)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-              }}
-            >
-              <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-                <a
-                  href="mailto:info@quantum5ocial.com"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  ✉️
-                </a>
-                <a
-                  href="#"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  𝕏
-                </a>
-                <a
-                  href="#"
-                  style={{ color: "rgba(148,163,184,0.9)" }}
-                >
-                  🐱
-                </a>
-              </div>
-
-              <div
-                style={{ display: "flex", alignItems: "center", gap: 8 }}
-              >
-                <img
-                  src="/Q5_white_bg.png"
-                  alt="Quantum5ocial logo"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 4,
-                    objectFit: "contain",
-                  }}
-                />
-                <span
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 500,
-                    background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  Quantum5ocial
-                </span>
-              </div>
-            </div>
-          </aside>
+          {/* LEFT SIDEBAR – same as notifications page */}
+          <LeftSidebar />
 
           {/* ========== MIDDLE COLUMN ========== */}
           <section className="layout-main">
@@ -508,9 +259,7 @@ export default function EntangledStatesPage() {
                                   }}
                                 />
                               ) : (
-                                (org.name || "?")
-                                  .charAt(0)
-                                  .toUpperCase()
+                                (org.name || "?").charAt(0).toUpperCase()
                               )}
                             </div>
                             <div
@@ -563,8 +312,7 @@ export default function EntangledStatesPage() {
                     style={{
                       marginTop: 12,
                       display: "grid",
-                      gridTemplateColumns:
-                        "repeat(2,minmax(0,1fr))",
+                      gridTemplateColumns: "repeat(2,minmax(0,1fr))",
                       gap: 16,
                     }}
                   >
@@ -631,9 +379,7 @@ export default function EntangledStatesPage() {
                             </div>
 
                             <div style={{ flex: 1 }}>
-                              <div className="card-title">
-                                {name}
-                              </div>
+                              <div className="card-title">{name}</div>
                               {meta && (
                                 <div
                                   className="card-meta"
@@ -691,8 +437,7 @@ export default function EntangledStatesPage() {
                     <div className="tile-icon-orbit">🧪</div>
                   </div>
                   <p className="tile-text">
-                    A curated job or role from the Quantum Jobs
-                    Universe.
+                    A curated job or role from the Quantum Jobs Universe.
                   </p>
                   <div className="tile-cta">
                     Jobs spotlight <span>›</span>
@@ -710,8 +455,8 @@ export default function EntangledStatesPage() {
                     <div className="tile-icon-orbit">🔧</div>
                   </div>
                   <p className="tile-text">
-                    A selected hardware, software, or service from the
-                    Quantum Products Lab.
+                    A selected hardware, software, or service from the Quantum
+                    Products Lab.
                   </p>
                   <div className="tile-cta">
                     Product spotlight <span>›</span>
