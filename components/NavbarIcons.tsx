@@ -272,8 +272,8 @@ export default function NavbarIcons() {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            height: 72,
-            minWidth: 80,
+            height: 80,
+            minWidth: 90,
             padding: "0 14px",
             gap: 6,
             borderRadius: 16,
@@ -292,8 +292,8 @@ export default function NavbarIcons() {
             src={iconSrc}
             alt={label}
             style={{
-              width: 32,
-              height: 32,
+              width: 36,
+              height: 36,
               objectFit: "contain",
               display: "block",
             }}
