@@ -845,19 +845,37 @@ export default function NavbarIcons() {
             </Link>
           )}
 
-          {!loading && user && (
-            <button
-              type="button"
-              className="nav-link nav-dropdown-danger"
-              onClick={async () => {
-                await handleLogout();
-                closeMobileMenu();
-              }}
-              style={{ marginTop: 16 }}
-            >
-              Logout
-            </button>
-          )}
+          {/* LOGOUT BUTTON */}
+{!loading && user && (
+  <button
+    type="button"
+    onClick={async () => {
+      await handleLogout();
+      closeMobileMenu();
+    }}
+    style={{
+      marginTop: 18,
+      marginBottom: 10,
+      alignSelf: "center",
+
+      padding: "8px 22px",
+      borderRadius: 999,
+      background: "transparent",
+      border: "1px solid rgba(148,163,184,0.5)",
+      color: "rgba(226,232,240,0.9)",
+      fontSize: 14,
+      fontWeight: 500,
+
+      textAlign: "center",
+      cursor: "pointer",
+
+      width: "fit-content",
+      minWidth: "120px",
+    }}
+  >
+    Logout
+  </button>
+)}
         </nav>
       </div>
     </header>
