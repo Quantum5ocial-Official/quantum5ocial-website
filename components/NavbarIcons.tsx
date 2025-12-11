@@ -13,7 +13,15 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 type Theme = "dark" | "light";
 
-export default function NavbarIcons() {
+type NavbarIconsProps = {
+  onOpenLeftSidebar?: () => void;
+  onOpenRightSidebar?: () => void;
+};
+
+export default function NavbarIcons({
+  onOpenLeftSidebar,
+  onOpenRightSidebar,
+}: NavbarIconsProps) {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
@@ -32,7 +40,7 @@ export default function NavbarIcons() {
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // notifications count
+  // notifications count (pending entanglement requests)
   const [notificationsCount, setNotificationsCount] = useState(0);
 
   // global search in navbar
@@ -353,7 +361,7 @@ export default function NavbarIcons() {
           gap: 16,
         }}
       >
-        {/* LEFT: brand + global search */}
+        {/* LEFT: mobile-left-toggle + brand + global search */}
         <div
           style={{
             display: "flex",
@@ -363,6 +371,16 @@ export default function NavbarIcons() {
             minWidth: 0,
           }}
         >
+          {/* MOBILE LEFT SIDEBAR TOGGLE (👤) */}
+          <button
+            type="button"
+            className="nav-mobile-side-toggle nav-mobile-side-toggle-left"
+            aria-label="Open left sidebar"
+            onClick={() => onOpenLeftSidebar && onOpenLeftSidebar()}
+          >
+            <span className="nav-mobile-side-icon">👤</span>
+          </button>
+
           {/* Brand */}
           <Link href="/" className="brand-clickable">
             <div className="brand">
@@ -397,7 +415,7 @@ export default function NavbarIcons() {
           </form>
         </div>
 
-        {/* RIGHT: nav links + theme + user + hamburger */}
+        {/* RIGHT: nav links + theme + user + right-sidebar toggle + hamburger */}
         <div
           style={{
             display: "flex",
@@ -409,14 +427,14 @@ export default function NavbarIcons() {
           {/* DESKTOP NAV */}
           <nav
             className="nav-links nav-links-desktop"
-            style={{fontSize: 16,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 24,        // 🔥 uniform spacing between all icon blocks
-                    }}
-            >
-    
-  {/* ICON + LABEL LINKS */}
+            style={{
+              fontSize: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 24, // uniform spacing
+            }}
+          >
+            {/* ICON + LABEL LINKS */}
             {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
             {renderIconNavLink("/products", "Products", "/icons/products.svg")}
             {renderIconNavLink("/community", "Community", "/icons/community.svg")}
@@ -447,7 +465,8 @@ export default function NavbarIcons() {
                 Login / Sign up
               </Link>
             )}
-                        {/* USER MENU (DESKTOP) – avatar + name stacked like an icon */}
+
+            {/* USER MENU (DESKTOP) – avatar + name stacked like an icon */}
             {!loading && user && (
               <div className="nav-user-wrapper" ref={userMenuRef}>
                 <button
@@ -472,7 +491,7 @@ export default function NavbarIcons() {
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      height: 80,      // same as icon blocks
+                      height: 80, // same as icon blocks
                       minWidth: 90,
                       padding: "0 14px",
                       gap: 6,
@@ -488,7 +507,7 @@ export default function NavbarIcons() {
                     <div
                       className="nav-user-avatar"
                       style={{
-                        width: 36,   // same as icon size
+                        width: 36, // same as icon size
                         height: 36,
                       }}
                     >
@@ -502,7 +521,7 @@ export default function NavbarIcons() {
                     </div>
                     <span
                       style={{
-                        fontSize: 11,            // same as other labels
+                        fontSize: 11, // same as other labels
                         letterSpacing: "0.08em",
                         textTransform: "uppercase",
                         color: "rgba(226,232,240,0.96)",
@@ -654,6 +673,16 @@ export default function NavbarIcons() {
             )}
           </nav>
 
+          {/* MOBILE RIGHT SIDEBAR TOGGLE (✨) */}
+          <button
+            type="button"
+            className="nav-mobile-side-toggle nav-mobile-side-toggle-right"
+            aria-label="Open right sidebar"
+            onClick={() => onOpenRightSidebar && onOpenRightSidebar()}
+          >
+            <span className="nav-mobile-side-icon">✨</span>
+          </button>
+
           {/* MOBILE HAMBURGER */}
           <button
             type="button"
@@ -681,6 +710,7 @@ export default function NavbarIcons() {
             className={`nav-item-with-icon ${
               isActive("/jobs") ? "nav-item-active" : ""
             }`}
+            onClick={closeMobileMenu}
           >
             <img src="/icons/jobs.svg" className="nav-icon" />
             <span className="nav-icon-label">Jobs</span>
@@ -691,6 +721,7 @@ export default function NavbarIcons() {
             className={`nav-item-with-icon ${
               isActive("/products") ? "nav-item-active" : ""
             }`}
+            onClick={closeMobileMenu}
           >
             <img src="/icons/products.svg" className="nav-icon" />
             <span className="nav-icon-label">Products</span>
@@ -701,6 +732,7 @@ export default function NavbarIcons() {
             className={`nav-item-with-icon ${
               isActive("/community") ? "nav-item-active" : ""
             }`}
+            onClick={closeMobileMenu}
           >
             <img src="/icons/community.svg" className="nav-icon" />
             <span className="nav-icon-label">Community</span>
