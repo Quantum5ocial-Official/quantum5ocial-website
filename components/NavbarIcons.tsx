@@ -408,15 +408,15 @@ export default function NavbarIcons() {
         >
           {/* DESKTOP NAV */}
           <nav
-  className="nav-links nav-links-desktop"
-  style={{
-    fontSize: 16,
-    display: "flex",
-    alignItems: "center",
-    gap: 24,        // 🔥 uniform spacing between all icon blocks
-  }}
->
-            {/* ICON + LABEL LINKS */}
+            className="nav-links nav-links-desktop"
+            style={{fontSize: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 24,        // 🔥 uniform spacing between all icon blocks
+                    }}
+            >
+    
+  {/* ICON + LABEL LINKS */}
             {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
             {renderIconNavLink("/products", "Products", "/icons/products.svg")}
             {renderIconNavLink("/community", "Community", "/icons/community.svg")}
