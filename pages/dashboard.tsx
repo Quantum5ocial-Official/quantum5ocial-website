@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../components/Navbar"), { ssr: false });
+const Navbar = dynamic(() => import("../components/NavbarIcons"), { ssr: false });
 
 export default function DashboardPage() {
   const { user, loading } = useSupabaseUser();
