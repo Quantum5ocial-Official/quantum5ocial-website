@@ -246,7 +246,7 @@ export default function NavbarIcons() {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-    // small helper for the icon+label links (desktop)
+  // helper for icon+label links (desktop)
   const renderIconNavLink = (
     href: string,
     label: string,
@@ -267,12 +267,12 @@ export default function NavbarIcons() {
       >
         <div
           style={{
-            position: "relative",          // ✅ needed for badge
+            position: "relative",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            height: 72,                    // full navbar height
+            height: 72,
             minWidth: 80,
             padding: "0 14px",
             gap: 6,
@@ -416,8 +416,9 @@ export default function NavbarIcons() {
             {renderIconNavLink("/products", "Products", "/icons/products.svg")}
             {renderIconNavLink("/community", "Community", "/icons/community.svg")}
 
-                        {/* Notifications (desktop) – icon + label + badge */}
-            {!loading && user &&
+            {/* Notifications – icon + label + badge */}
+            {!loading &&
+              user &&
               renderIconNavLink(
                 "/notifications",
                 "Notifications",
@@ -442,7 +443,7 @@ export default function NavbarIcons() {
               </Link>
             )}
 
-            {/* USER MENU (DESKTOP) */}
+            {/* USER MENU (DESKTOP) – avatar + name stacked like an icon */}
             {!loading && user && (
               <div className="nav-user-wrapper" ref={userMenuRef}>
                 <button
@@ -454,17 +455,74 @@ export default function NavbarIcons() {
                     setIsUserMenuOpen((o) => !o);
                     setIsDashboardOpen(false);
                   }}
+                  onKeyDown={toggleDashboardFromKey}
+                  style={{ padding: 0, background: "transparent" }}
                 >
-                  <div className="nav-user-avatar">
-                    {avatarUrl ? (
-                      <img src={avatarUrl} alt={firstName} />
-                    ) : (
-                      <span className="nav-user-initial">
-                        {firstName.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: 72,
+                      minWidth: 80,
+                      padding: "0 14px",
+                      gap: 6,
+                      borderRadius: 16,
+                      background: isActive("/profile")
+                        ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
+                        : "transparent",
+                      boxShadow: isActive("/profile")
+                        ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
+                        : "none",
+                      transition:
+                        "background 0.18s ease-out, box-shadow 0.18s ease-out, transform 0.12s ease-out",
+                      transform: isActive("/profile")
+                        ? "translateY(-1px)"
+                        : "none",
+                    }}
+                  >
+                    <div
+                      className="nav-user-avatar"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "999px",
+                        overflow: "hidden",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={firstName}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <span className="nav-user-initial">
+                          {firstName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className="nav-user-name"
+                      style={{
+                        fontSize: 11,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: "rgba(226,232,240,0.96)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {firstName}
+                    </span>
                   </div>
-                  <span className="nav-user-name">{firstName}</span>
                 </button>
 
                 {isUserMenuOpen && (
@@ -630,28 +688,34 @@ export default function NavbarIcons() {
       >
         <nav className="nav-links nav-links-mobile">
           <Link
-  href="/jobs"
-  className={`nav-item-with-icon ${isActive("/jobs") ? "nav-item-active" : ""}`}
->
-  <img src="/icons/jobs.svg" className="nav-icon" />
-  <span className="nav-icon-label">Jobs</span>
-</Link>
+            href="/jobs"
+            className={`nav-item-with-icon ${
+              isActive("/jobs") ? "nav-item-active" : ""
+            }`}
+          >
+            <img src="/icons/jobs.svg" className="nav-icon" />
+            <span className="nav-icon-label">Jobs</span>
+          </Link>
 
-<Link
-  href="/products"
-  className={`nav-item-with-icon ${isActive("/products") ? "nav-item-active" : ""}`}
->
-  <img src="/icons/products.svg" className="nav-icon" />
-  <span className="nav-icon-label">Products</span>
-</Link>
+          <Link
+            href="/products"
+            className={`nav-item-with-icon ${
+              isActive("/products") ? "nav-item-active" : ""
+            }`}
+          >
+            <img src="/icons/products.svg" className="nav-icon" />
+            <span className="nav-icon-label">Products</span>
+          </Link>
 
-<Link
-  href="/community"
-  className={`nav-item-with-icon ${isActive("/community") ? "nav-item-active" : ""}`}
->
-  <img src="/icons/community.svg" className="nav-icon" />
-  <span className="nav-icon-label">Community</span>
-</Link>
+          <Link
+            href="/community"
+            className={`nav-item-with-icon ${
+              isActive("/community") ? "nav-item-active" : ""
+            }`}
+          >
+            <img src="/icons/community.svg" className="nav-icon" />
+            <span className="nav-icon-label">Community</span>
+          </Link>
 
           {/* Dashboard section in MOBILE */}
           {!loading && user && (
