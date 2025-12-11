@@ -707,73 +707,65 @@ export default function NavbarIcons() {
       >
         <nav className="nav-links nav-links-mobile">
           {/* PROFILE ROW (mobile) */}
-          {!loading && user && (
-            <Link
-              href="/profile"
-              className="nav-item-with-icon nav-mobile-profile"
-              onClick={closeMobileMenu}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 4px 14px",
-                borderBottom: "1px solid rgba(148,163,184,0.35)",
-                marginBottom: 12,
-              }}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "999px",
-                  overflow: "hidden",
-                  border: "1px solid rgba(148,163,184,0.7)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background:
-                    "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                  color: "#fff",
-                  fontWeight: 600,
-                  flexShrink: 0,
-                }}
-              >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={firstName}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  firstName.charAt(0).toUpperCase()
-                )}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: "#e5e7eb",
-                  }}
-                >
-                  {fullName}
-                </span>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "rgba(148,163,184,0.9)",
-                  }}
-                >
-                  View profile
-                </span>
-              </div>
-            </Link>
-          )}
+{!loading && user && (
+  <Link
+    href="/profile"
+    className="nav-item-with-icon nav-mobile-profile"
+    onClick={closeMobileMenu}
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "10px 4px 14px",
+      borderBottom: "1px solid rgba(148,163,184,0.35)",
+      marginBottom: 12,
+      textDecoration: "none",
+    }}
+  >
+    <div
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: "999px",
+        overflow: "hidden",
+        border: "1px solid rgba(148,163,184,0.7)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+        color: "#fff",
+        fontWeight: 600,
+        flexShrink: 0,
+      }}
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={firstName}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      ) : (
+        firstName.charAt(0).toUpperCase()
+      )}
+    </div>
+
+    <div>
+      <span
+        style={{
+          fontSize: 16,
+          fontWeight: 600,
+          color: "#e5e7eb",
+        }}
+      >
+      </span>
+    </div>
+  </Link>
+)}
 
           {/* MAIN ICON NAV ITEMS */}
           <Link
