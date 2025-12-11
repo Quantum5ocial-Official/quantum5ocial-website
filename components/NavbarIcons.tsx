@@ -13,15 +13,12 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 type Theme = "dark" | "light";
 
-type NavbarIconsProps = {
-  onOpenLeftSidebar?: () => void;
-  onOpenRightSidebar?: () => void;
-};
+// Shared sizing so icons don't overflow the navbar
+const NAV_BLOCK_HEIGHT = 68;   // height of each icon "pill"
+const NAV_HEADER_HEIGHT = 84;  // overall navbar height
+const NAV_BLOCK_MIN_WIDTH = 90;
 
-export default function NavbarIcons({
-  onOpenLeftSidebar,
-  onOpenRightSidebar,
-}: NavbarIconsProps) {
+export default function NavbarIcons() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
@@ -40,7 +37,7 @@ export default function NavbarIcons({
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // notifications count (pending entanglement requests)
+  // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
 
   // global search in navbar
@@ -280,8 +277,8 @@ export default function NavbarIcons({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            height: 75,
-            minWidth: 90,
+            height: NAV_BLOCK_HEIGHT,
+            minWidth: NAV_BLOCK_MIN_WIDTH,
             padding: "0 14px",
             gap: 6,
             borderRadius: 16,
@@ -357,11 +354,11 @@ export default function NavbarIcons({
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
-          height: 72,
+          height: NAV_HEADER_HEIGHT,
           gap: 16,
         }}
       >
-        {/* LEFT: mobile-left-toggle + brand + global search */}
+        {/* LEFT: brand + global search */}
         <div
           style={{
             display: "flex",
@@ -371,16 +368,6 @@ export default function NavbarIcons({
             minWidth: 0,
           }}
         >
-          {/* MOBILE LEFT SIDEBAR TOGGLE (👤) */}
-          <button
-            type="button"
-            className="nav-mobile-side-toggle nav-mobile-side-toggle-left"
-            aria-label="Open left sidebar"
-            onClick={() => onOpenLeftSidebar && onOpenLeftSidebar()}
-          >
-            <span className="nav-mobile-side-icon">👤</span>
-          </button>
-
           {/* Brand */}
           <Link href="/" className="brand-clickable">
             <div className="brand">
@@ -415,7 +402,7 @@ export default function NavbarIcons({
           </form>
         </div>
 
-        {/* RIGHT: nav links + theme + user + right-sidebar toggle + hamburger */}
+        {/* RIGHT: nav links + theme + user + hamburger */}
         <div
           style={{
             display: "flex",
@@ -431,7 +418,7 @@ export default function NavbarIcons({
               fontSize: 16,
               display: "flex",
               alignItems: "center",
-              gap: 24, // uniform spacing
+              gap: 24, // uniform spacing between icon blocks
             }}
           >
             {/* ICON + LABEL LINKS */}
@@ -491,8 +478,8 @@ export default function NavbarIcons({
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      height: 80, // same as icon blocks
-                      minWidth: 90,
+                      height: NAV_BLOCK_HEIGHT,
+                      minWidth: NAV_BLOCK_MIN_WIDTH,
                       padding: "0 14px",
                       gap: 6,
                       borderRadius: 16,
@@ -507,7 +494,7 @@ export default function NavbarIcons({
                     <div
                       className="nav-user-avatar"
                       style={{
-                        width: 36, // same as icon size
+                        width: 36,
                         height: 36,
                       }}
                     >
@@ -521,7 +508,7 @@ export default function NavbarIcons({
                     </div>
                     <span
                       style={{
-                        fontSize: 11, // same as other labels
+                        fontSize: 11,
                         letterSpacing: "0.08em",
                         textTransform: "uppercase",
                         color: "rgba(226,232,240,0.96)",
@@ -673,16 +660,6 @@ export default function NavbarIcons({
             )}
           </nav>
 
-          {/* MOBILE RIGHT SIDEBAR TOGGLE (✨) */}
-          <button
-            type="button"
-            className="nav-mobile-side-toggle nav-mobile-side-toggle-right"
-            aria-label="Open right sidebar"
-            onClick={() => onOpenRightSidebar && onOpenRightSidebar()}
-          >
-            <span className="nav-mobile-side-icon">✨</span>
-          </button>
-
           {/* MOBILE HAMBURGER */}
           <button
             type="button"
@@ -710,7 +687,6 @@ export default function NavbarIcons({
             className={`nav-item-with-icon ${
               isActive("/jobs") ? "nav-item-active" : ""
             }`}
-            onClick={closeMobileMenu}
           >
             <img src="/icons/jobs.svg" className="nav-icon" />
             <span className="nav-icon-label">Jobs</span>
@@ -721,7 +697,6 @@ export default function NavbarIcons({
             className={`nav-item-with-icon ${
               isActive("/products") ? "nav-item-active" : ""
             }`}
-            onClick={closeMobileMenu}
           >
             <img src="/icons/products.svg" className="nav-icon" />
             <span className="nav-icon-label">Products</span>
@@ -732,7 +707,6 @@ export default function NavbarIcons({
             className={`nav-item-with-icon ${
               isActive("/community") ? "nav-item-active" : ""
             }`}
-            onClick={closeMobileMenu}
           >
             <img src="/icons/community.svg" className="nav-icon" />
             <span className="nav-icon-label">Community</span>
