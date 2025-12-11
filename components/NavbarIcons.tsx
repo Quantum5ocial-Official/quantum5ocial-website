@@ -71,7 +71,7 @@ export default function NavbarIcons() {
     if (typeof window === "undefined") return;
 
     const stored = window.localStorage.getItem("q5_theme");
-    const initial: Theme = stored === "light" ? "light" : "dark";
+       const initial: Theme = stored === "light" ? "light" : "dark";
 
     setTheme(initial);
     document.documentElement.classList.toggle(
@@ -406,22 +406,22 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
-            // MOBILE BRAND — left aligned, slightly bigger, no subtext
+            // MOBILE BRAND — left aligned, bigger, very small gap, no subtext
             <Link
               href="/"
               className="brand-clickable"
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
+                gap: 4, // almost no gap
               }}
             >
               <img
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial logo"
                 style={{
-                  width: 40,
-                  height: 40,
+                  width: 48,
+                  height: 48,
                   objectFit: "contain",
                 }}
               />
@@ -725,15 +725,21 @@ export default function NavbarIcons() {
               aria-label="Search"
               style={{
                 background: "transparent",
-                border: "none",
-                padding: 6,
+                border: "1px solid rgba(148,163,184,0.6)",
+                borderRadius: 999,
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                fontSize: 18,
               }}
             >
-              <img
-                src="/icons/search.svg"
-                alt="Search"
-                style={{ width: 24, height: 24, opacity: 0.9 }}
-              />
+              {/* Use emoji instead of external SVG to avoid broken icon */}
+              <span role="img" aria-hidden="true">
+                🔍
+              </span>
             </button>
           )}
 
