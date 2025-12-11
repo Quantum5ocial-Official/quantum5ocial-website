@@ -2866,3 +2866,41 @@ html.theme-light footer {
 .nav-user-wrapper {
   position: relative;
 }
+/* Container for icon navbar item */
+.nav-item-with-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;        /* space for icon */
+  height: 48px;       /* target block size */
+  text-decoration: none;
+  color: #e2e8f0;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 12px;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.nav-item-with-icon:hover {
+  transform: translateY(-2px);
+}
+
+/* Active state with your gradient glow */
+.nav-item-active {
+  background: linear-gradient(90deg, #22d3ee33, #6366f133);
+}
+
+/* Icon itself — now 32px */
+.nav-icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+/* Label below icon */
+.nav-icon-label {
+  font-size: 11px;
+  margin-top: 2px;
+  opacity: 0.9;
+}
