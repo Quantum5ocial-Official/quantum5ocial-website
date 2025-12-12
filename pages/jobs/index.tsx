@@ -5,12 +5,10 @@ import React, {
   useEffect,
   useMemo,
   useState,
-  type ReactElement,
   type ReactNode,
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import AppLayout from "../../components/AppLayout";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
@@ -515,8 +513,8 @@ function JobsMiddle() {
               )}
             </div>
             <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
-              Browse internships, PhD positions, postdocs, and industry roles across
-              labs and companies.
+              Browse internships, PhD positions, postdocs, and industry roles across labs
+              and companies.
             </div>
           </div>
 
@@ -624,13 +622,7 @@ function JobsMiddle() {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    textAlign: "right",
-                  }}
-                >
+                <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
                   For now based on your filters. <br />
                   Later: AI profile matching.
                 </div>
@@ -643,9 +635,7 @@ function JobsMiddle() {
                     <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
                       <div className="job-card-header">
                         <div>
-                          <div className="job-card-title">
-                            {job.title || "Untitled role"}
-                          </div>
+                          <div className="job-card-title">{job.title || "Untitled role"}</div>
                           <div className="job-card-meta">
                             {job.company_name && `${job.company_name} · `}
                             {job.location}
@@ -728,9 +718,7 @@ function JobsMiddle() {
                     <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
                       <div className="job-card-header">
                         <div>
-                          <div className="job-card-title">
-                            {job.title || "Untitled role"}
-                          </div>
+                          <div className="job-card-title">{job.title || "Untitled role"}</div>
                           <div className="job-card-meta">
                             {job.company_name && `${job.company_name} · `}
                             {job.location}
@@ -774,19 +762,53 @@ function JobsMiddle() {
   );
 }
 
-export default function JobsIndexPage() {
-  // IMPORTANT:
-  // This page renders ONLY the middle content.
-  // Layout + right sidebar come from getLayout() below.
+function JobsPageInner() {
   return <JobsMiddle />;
 }
 
-JobsIndexPage.getLayout = function getLayout(page: ReactElement) {
+export default function JobsIndexPage() {
+  // Provider is inside the page so BOTH middle + right can share state,
+  // but AppLayout is NOT used here (handled by _app.tsx).
   return (
     <JobsProvider>
-      <AppLayout variant="three" right={<JobsRightSidebar />}>
-        {page}
-      </AppLayout>
+      <JobsPageInner />
     </JobsProvider>
   );
+}
+
+// Right sidebar needs the provider too — so we wrap it with JobsProvider again,
+// but ONLY for the sidebar tree. To keep it synced with the middle, we pass the
+// SAME provider instance by rendering sidebar inside the same page provider:
+//
+// -> We do that by exposing a sidebar component that is rendered as a child of the page.
+// However layoutProps.right is rendered by AppLayout outside the page tree.
+// So the simplest correct approach is: DO NOT rely on context across layout boundary.
+// Instead, keep filters in URL OR lift provider above layout.
+//
+// ✅ Best fix: lift provider above AppLayout in _app.tsx (next step).
+//
+// For now (to match your current architecture), we keep the right sidebar as a static CTA,
+// or move filters into middle.
+//
+// --- TEMP: keep right sidebar as non-context until provider is lifted above AppLayout ---
+function JobsRightSidebarStatic() {
+  return (
+    <div className="sidebar-card">
+      <div style={{ fontWeight: 600, marginBottom: 8 }}>Filters</div>
+      <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.45 }}>
+        Filters will appear here once we lift JobsProvider above AppLayout so the right
+        column can control the middle.
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <Link href="/jobs" className="nav-ghost-btn" style={{ width: "100%", display: "block" }}>
+          Refresh jobs
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+(JobsIndexPage as any).layoutProps = {
+  variant: "three",
+  right: <JobsRightSidebarStatic />,
 };
