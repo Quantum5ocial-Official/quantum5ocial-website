@@ -3115,3 +3115,110 @@ html.theme-light footer {
     align-items: center !important; /* centers logo/search/hamburger */
   }
 }
+/* ========== MOBILE DRAWERS (<= 900px) ========== */
+@media (max-width: 900px) {
+  /* Backdrop behind drawers */
+  .q5-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 9998;
+  }
+
+  /* Edge buttons centered vertically */
+  .q5-edge-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9997;
+    width: 28px;
+    height: 64px;
+    border-radius: 999px;
+    border: 1px solid rgba(148,163,184,0.55);
+    background: rgba(15,23,42,0.75);
+    color: rgba(226,232,240,0.95);
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .q5-edge-btn-left { left: 6px; }
+  .q5-edge-btn-right { right: 6px; }
+
+  /* Drawer base */
+  .q5-drawer {
+    position: fixed;
+    top: var(--q5-nav-height, 84px);  /* match your NAV_HEADER_HEIGHT */
+    bottom: 0;
+    width: 86vw;
+    max-width: 380px;
+    background: rgba(10,15,30,0.98);
+    border: 1px solid rgba(148,163,184,0.25);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    will-change: transform;
+    transition: transform 180ms ease-out;
+  }
+
+  .q5-drawer-left {
+    left: 0;
+    transform: translateX(-105%);
+    border-right: 1px solid rgba(148,163,184,0.25);
+  }
+  .q5-drawer-right {
+    right: 0;
+    transform: translateX(105%);
+    border-left: 1px solid rgba(148,163,184,0.25);
+  }
+
+  .q5-drawer.open {
+    transform: translateX(0);
+  }
+
+  .q5-drawer-header {
+    height: 52px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid rgba(148,163,184,0.25);
+  }
+
+  .q5-drawer-title {
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(226,232,240,0.9);
+  }
+
+  .q5-drawer-close {
+    background: transparent;
+    border: 1px solid rgba(148,163,184,0.35);
+    color: rgba(226,232,240,0.9);
+    border-radius: 999px;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  /* Scrollable drawer content */
+  .q5-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+  }
+
+  /* Main content (middle column) */
+  .q5-mobile-main {
+    width: 100%;
+  }
+}
