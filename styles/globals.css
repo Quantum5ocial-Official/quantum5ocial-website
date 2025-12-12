@@ -3103,3 +3103,15 @@ html.theme-light footer {
     padding-right: 0 !important;
   }
 }
+@media (max-width: 900px) {
+  .nav {
+    display: flex !important;
+    align-items: center !important; /* centers contents vertically */
+  }
+
+  .nav .nav-inner {
+    height: 84px !important;        /* same as NAV_HEADER_HEIGHT */
+    display: flex !important;
+    align-items: center !important; /* centers logo/search/hamburger */
+  }
+}
