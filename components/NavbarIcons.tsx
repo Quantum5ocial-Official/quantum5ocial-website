@@ -418,15 +418,10 @@ export default function NavbarIcons() {
               }}
             >
               <img
-                src="/Q5_white_bg.png"
-                alt="Quantum5ocial logo"
-                style={{
-                  width: 44,
-                  height: 44,
-                  objectFit: "contain",
-                  display: "block",
-                }}
-              />
+  src="/Q5_white_bg.png"
+  alt="Quantum5ocial logo"
+  className="brand-logo-mobile"
+/>
             </Link>
           )}
 
