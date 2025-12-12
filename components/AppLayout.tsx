@@ -1,5 +1,5 @@
 // components/AppLayout.tsx
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import LeftSidebar from "./LeftSidebar";
 
@@ -36,6 +36,13 @@ type AppLayoutProps = {
    * Later we’ll implement drawers.
    */
   mobileMode?: "middle-only" | "keep-columns";
+
+  /**
+   * If true, AppLayout will wrap children in <section className="layout-main" />.
+   * Set to false for pages that already include their own layout wrappers.
+   * Default: true (recommended style: pages return middle content only).
+   */
+  wrapMiddle?: boolean;
 };
 
 export default function AppLayout({
@@ -45,6 +52,7 @@ export default function AppLayout({
   variant = "three",
   showNavbar = true,
   mobileMode = "middle-only",
+  wrapMiddle = true,
 }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -56,15 +64,20 @@ export default function AppLayout({
     return () => window.removeEventListener("resize", handle);
   }, []);
 
-  const resolvedLeft =
-    left === undefined ? <LeftSidebar /> : left; // undefined => default
-  const resolvedRight =
-    right === undefined ? <div /> : right; // undefined => keep column but empty
+  const resolvedLeft = useMemo(() => {
+    // undefined => default
+    if (left === undefined) return <LeftSidebar />;
+    return left;
+  }, [left]);
 
-  // If we're on mobile and the current mode is "middle-only", show only center content
+  const resolvedRight = useMemo(() => {
+    // undefined => keep column but empty (symmetry)
+    if (right === undefined) return <div />;
+    return right;
+  }, [right]);
+
   const hideSidebarsOnMobile = isMobile && mobileMode === "middle-only";
 
-  // Decide what to render based on variant
   const showLeft =
     !hideSidebarsOnMobile &&
     variant !== "two-right" &&
@@ -77,14 +90,13 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
-  // Grid template (no CSS required)
   const gridTemplateColumns = (() => {
-    if (hideSidebarsOnMobile) return "1fr";
+    if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
     if (variant === "three") return "280px minmax(0, 1fr) 340px";
     if (variant === "two-left") return "280px minmax(0, 1fr)";
     if (variant === "two-right") return "minmax(0, 1fr) 340px";
-    return "minmax(0, 1fr)"; // center
+    return "minmax(0, 1fr)";
   })();
 
   return (
@@ -106,7 +118,11 @@ export default function AppLayout({
           {showLeft && <>{resolvedLeft}</>}
 
           {/* MIDDLE */}
-          <section className="layout-main">{children}</section>
+          {wrapMiddle ? (
+            <section className="layout-main">{children}</section>
+          ) : (
+            <>{children}</>
+          )}
 
           {/* RIGHT */}
           {showRight && (
