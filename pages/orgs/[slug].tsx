@@ -2,14 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { useRouter } from "next/router";
-import dynamic from "next/dynamic";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../../components/NavbarIcons"), {
-  ssr: false,
-});
+const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Org = {
   id: string;
@@ -58,7 +56,7 @@ export default function OrganizationDetailPage() {
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(true);
   const [followersError, setFollowersError] = useState<string | null>(null);
 
-  // Follow state (current user ↔ this org)
+  // Follow state
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
 
@@ -99,7 +97,6 @@ export default function OrganizationDetailPage() {
 
   const metaLine = useMemo(() => {
     if (!org) return "";
-
     const bits: string[] = [];
 
     if (org.kind === "company") {
@@ -143,7 +140,6 @@ export default function OrganizationDetailPage() {
       setFollowersError(null);
 
       try {
-        // 1) follower user_ids
         const { data: followRows, error: followErr } = await supabase
           .from("org_follows")
           .select("user_id")
@@ -161,7 +157,7 @@ export default function OrganizationDetailPage() {
         const userIds = (followRows || []).map((r: any) => r.user_id);
         setFollowersCount(userIds.length);
 
-        // If logged in, we can derive isFollowing from the IDs without fetching profiles
+        // derive isFollowing from IDs
         if (user) setIsFollowing(userIds.includes(user.id));
         else setIsFollowing(false);
 
@@ -170,7 +166,6 @@ export default function OrganizationDetailPage() {
           return;
         }
 
-        // 2) follower profiles
         const { data: profileRows, error: profErr } = await supabase
           .from("profiles")
           .select(
@@ -200,7 +195,6 @@ export default function OrganizationDetailPage() {
     loadFollowers();
   }, [org, user]);
 
-  // === Follow / unfollow handler ===
   const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
 
@@ -227,7 +221,9 @@ export default function OrganizationDetailPage() {
           console.error("Error unfollowing organization", error);
         } else {
           setIsFollowing(false);
-          setFollowersCount((prev) => (prev === null ? prev : Math.max(prev - 1, 0)));
+          setFollowersCount((prev) =>
+            prev === null ? prev : Math.max(prev - 1, 0)
+          );
         }
       } else {
         const { error } = await supabase.from("org_follows").insert({
@@ -255,10 +251,14 @@ export default function OrganizationDetailPage() {
       <div className="page">
         <Navbar />
 
-        {/* ✅ AppLayout provides LEFT. This page renders only the MIDDLE content. */}
+        {/* ✅ AppLayout provides the global LEFT sidebar.
+            This page renders ONLY the main content column. */}
         <main className="layout-3col">
           <section className="layout-main">
-            <section className="section" style={{ paddingTop: 24, paddingBottom: 48 }}>
+            <section
+              className="section"
+              style={{ paddingTop: 24, paddingBottom: 48, maxWidth: 900 }}
+            >
               {loading ? (
                 <div style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}>
                   Loading organization…
@@ -269,9 +269,11 @@ export default function OrganizationDetailPage() {
                 </div>
               ) : (
                 <>
-                  {/* Back */}
                   <div style={{ marginBottom: 16, fontSize: 13 }}>
-                    <Link href="/orgs" style={{ color: "#7dd3fc", textDecoration: "none" }}>
+                    <Link
+                      href="/orgs"
+                      style={{ color: "#7dd3fc", textDecoration: "none" }}
+                    >
                       ← Back to organizations
                     </Link>
                   </div>
@@ -312,7 +314,12 @@ export default function OrganizationDetailPage() {
                         <img
                           src={org.logo_url}
                           alt={org.name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
                         />
                       ) : (
                         firstLetter
@@ -344,7 +351,14 @@ export default function OrganizationDetailPage() {
                             {org.name}
                           </h1>
 
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              alignItems: "center",
+                              flexWrap: "wrap",
+                            }}
+                          >
                             <span
                               style={{
                                 fontSize: 12,
@@ -388,7 +402,14 @@ export default function OrganizationDetailPage() {
                           </div>
                         </div>
 
-                        <div style={{ display: "flex", flexDirection: "row", gap: 8, flexShrink: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            gap: 8,
+                            flexShrink: 0,
+                          }}
+                        >
                           {isOwner ? (
                             <Link
                               href={editHref}
@@ -398,7 +419,8 @@ export default function OrganizationDetailPage() {
                                 fontSize: 13,
                                 fontWeight: 500,
                                 textDecoration: "none",
-                                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                background:
+                                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
                                 color: "#0f172a",
                                 whiteSpace: "nowrap",
                               }}
@@ -417,26 +439,47 @@ export default function OrganizationDetailPage() {
                                 border: isFollowing
                                   ? "1px solid rgba(148,163,184,0.7)"
                                   : "1px solid rgba(59,130,246,0.6)",
-                                background: isFollowing ? "transparent" : "rgba(59,130,246,0.16)",
-                                color: isFollowing ? "rgba(148,163,184,0.95)" : "#bfdbfe",
+                                background: isFollowing
+                                  ? "transparent"
+                                  : "rgba(59,130,246,0.16)",
+                                color: isFollowing
+                                  ? "rgba(148,163,184,0.95)"
+                                  : "#bfdbfe",
                                 cursor: followLoading ? "default" : "pointer",
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {followLoading ? "…" : isFollowing ? "Following" : "Follow"}
+                              {followLoading
+                                ? "…"
+                                : isFollowing
+                                ? "Following"
+                                : "Follow"}
                             </button>
                           )}
                         </div>
                       </div>
 
                       {metaLine && (
-                        <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginBottom: 6 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            color: "rgba(148,163,184,0.95)",
+                            marginBottom: 6,
+                          }}
+                        >
                           {metaLine}
                         </div>
                       )}
 
                       {org.tagline && (
-                        <div style={{ fontSize: 14, color: "rgba(209,213,219,0.95)" }}>{org.tagline}</div>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            color: "rgba(209,213,219,0.95)",
+                          }}
+                        >
+                          {org.tagline}
+                        </div>
                       )}
 
                       {org.website && (
@@ -445,7 +488,10 @@ export default function OrganizationDetailPage() {
                             href={org.website}
                             target="_blank"
                             rel="noopener noreferrer"
-                            style={{ color: "#7dd3fc", textDecoration: "none" }}
+                            style={{
+                              color: "#7dd3fc",
+                              textDecoration: "none",
+                            }}
                           >
                             {org.website.replace(/^https?:\/\//, "")} ↗
                           </a>
@@ -468,7 +514,12 @@ export default function OrganizationDetailPage() {
                         {org.description}
                       </div>
                     ) : (
-                      <div style={{ fontSize: 14, color: "rgba(156,163,175,0.95)" }}>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          color: "rgba(156,163,175,0.95)",
+                        }}
+                      >
                         No detailed description added yet.
                       </div>
                     )}
@@ -486,7 +537,12 @@ export default function OrganizationDetailPage() {
                         >
                           Focus areas
                         </div>
-                        <div style={{ fontSize: 14, color: "rgba(226,232,240,0.95)" }}>
+                        <div
+                          style={{
+                            fontSize: 14,
+                            color: "rgba(226,232,240,0.95)",
+                          }}
+                        >
                           {org.focus_areas}
                         </div>
                       </div>
@@ -506,52 +562,70 @@ export default function OrganizationDetailPage() {
                         Followers
                       </div>
 
-                      {loadingFollowers && <p className="profile-muted">Loading followers…</p>}
+                      {loadingFollowers && (
+                        <p className="profile-muted">Loading followers…</p>
+                      )}
 
                       {followersError && !loadingFollowers && (
-                        <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>
+                        <p
+                          className="profile-muted"
+                          style={{ color: "#f97373", marginTop: 4 }}
+                        >
                           {followersError}
                         </p>
                       )}
 
-                      {!loadingFollowers && !followersError && followersCount === 0 && (
-                        <div className="products-empty">
-                          No followers yet. Once people follow this organization, they will appear here.
-                        </div>
-                      )}
+                      {!loadingFollowers &&
+                        !followersError &&
+                        followersCount === 0 && (
+                          <div className="products-empty">
+                            No followers yet. Once people follow this
+                            organization, they will appear here.
+                          </div>
+                        )}
 
-                      {!loadingFollowers && !followersError && followers.length > 0 && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 6 }}>
-                          {followers.map((f) => {
-                            const name = f.full_name || "Quantum5ocial member";
-                            const initials = name
-                              .split(" ")
-                              .map((p) => p[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase();
+                      {!loadingFollowers &&
+                        !followersError &&
+                        followers.length > 0 && (
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 10,
+                              marginTop: 6,
+                            }}
+                          >
+                            {followers.map((f) => {
+                              const name =
+                                f.full_name || "Quantum5ocial member";
+                              const initials = name
+                                .split(" ")
+                                .map((p) => p[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase();
 
-                            const location = [f.city, f.country].filter(Boolean).join(", ");
-                            const metaParts: string[] = [];
-                            if (f.role) metaParts.push(f.role);
-                            if (f.affiliation) metaParts.push(f.affiliation);
-                            if (location) metaParts.push(location);
-                            const meta = metaParts.join(" · ");
+                              const location = [f.city, f.country]
+                                .filter(Boolean)
+                                .join(", ");
+                              const metaParts: string[] = [];
+                              if (f.role) metaParts.push(f.role);
+                              if (f.affiliation) metaParts.push(f.affiliation);
+                              if (location) metaParts.push(location);
+                              const meta = metaParts.join(" · ");
 
-                            return (
-                              <div
-                                key={f.id}
-                                className="card"
-                                style={{
-                                  padding: 10,
-                                  borderRadius: 12,
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: 10,
-                                }}
-                              >
-                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              return (
+                                <div
+                                  key={f.id}
+                                  className="card"
+                                  style={{
+                                    padding: 10,
+                                    borderRadius: 12,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                  }}
+                                >
                                   <div
                                     style={{
                                       width: 36,
@@ -559,11 +633,13 @@ export default function OrganizationDetailPage() {
                                       borderRadius: "999px",
                                       overflow: "hidden",
                                       flexShrink: 0,
-                                      background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                      background:
+                                        "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
                                       display: "flex",
                                       alignItems: "center",
                                       justifyContent: "center",
-                                      border: "1px solid rgba(148,163,184,0.6)",
+                                      border:
+                                        "1px solid rgba(148,163,184,0.6)",
                                       color: "#e5e7eb",
                                       fontWeight: 600,
                                       fontSize: 13,
@@ -573,7 +649,12 @@ export default function OrganizationDetailPage() {
                                       <img
                                         src={f.avatar_url}
                                         alt={name}
-                                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                          display: "block",
+                                        }}
                                       />
                                     ) : (
                                       initials
@@ -581,17 +662,31 @@ export default function OrganizationDetailPage() {
                                   </div>
 
                                   <div style={{ fontSize: 13 }}>
-                                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{name}</div>
+                                    <div
+                                      style={{
+                                        fontWeight: 500,
+                                        marginBottom: 2,
+                                      }}
+                                    >
+                                      {name}
+                                    </div>
                                     {meta && (
-                                      <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)" }}>{meta}</div>
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          color:
+                                            "rgba(148,163,184,0.95)",
+                                        }}
+                                      >
+                                        {meta}
+                                      </div>
                                     )}
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                              );
+                            })}
+                          </div>
+                        )}
                     </div>
                   </section>
                 </>
