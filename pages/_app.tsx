@@ -14,7 +14,8 @@ export type LayoutProps = {
   showNavbar?: boolean;
   mobileMode?: "middle-only" | "keep-columns";
 
-  // ✅ NEW: lets pages wrap the whole layout in a provider
+  // ✅ allows per-page provider wrapping (right + middle share state)
+  // IMPORTANT: wraps ONLY the page content, NOT the whole AppLayout (prevents sidebar flicker)
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -95,7 +96,12 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   const lp = Component.layoutProps ?? {};
 
-  const content = (
+  // ✅ wrap ONLY the page content so AppLayout (and left sidebar) never remounts
+  const page = lp.wrap
+    ? lp.wrap(<Component {...pageProps} />)
+    : <Component {...pageProps} />;
+
+  return (
     <AppLayout
       variant={lp.variant ?? "three"}
       left={lp.left}
@@ -103,10 +109,7 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
     >
-      <Component {...pageProps} />
+      {page}
     </AppLayout>
   );
-
-  // ✅ NEW: allow per-page provider wrapping (right + middle share state)
-  return lp.wrap ? lp.wrap(content) : content;
 }
