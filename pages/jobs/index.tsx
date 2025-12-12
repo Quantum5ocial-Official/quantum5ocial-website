@@ -686,3 +686,8 @@ export default function JobsIndexPage() {
  *
  * JobsIndexPage.layoutProps = { showLeft: true, showRight: true, variant: "three" };
  */
+Page.getLayout = (page) => (
+  <AppLayout right={<YourRightSidebar />} variant="three">
+    {page}
+  </AppLayout>
+);
