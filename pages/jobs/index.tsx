@@ -1,11 +1,18 @@
 // pages/jobs/index.tsx
-import React, { useEffect, useMemo, useState } from "react";
-import type { ReactElement } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import AppLayout from "../../components/AppLayout";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import AppLayout from "../../components/AppLayout";
 
 type Job = {
   id: string;
@@ -88,161 +95,60 @@ const SENIORITY_FILTERS = [
   "PI / Professor",
 ];
 
-function JobsRightFilters(props: {
+type JobsCtx = {
+  // data
+  jobs: Job[];
+  loading: boolean;
+  error: string | null;
+
+  // saved
+  savedJobIds: string[];
+  savingId: string | null;
+  isSaved: (id: string) => boolean;
+  handleToggleSave: (jobId: string) => Promise<void>;
+
+  // filters
+  search: string;
+  setSearch: (v: string) => void;
+
   employmentFilter: string;
   setEmploymentFilter: (v: string) => void;
+
   remoteFilter: string;
   setRemoteFilter: (v: string) => void;
+
   technologyFilter: string;
   setTechnologyFilter: (v: string) => void;
+
   orgTypeFilter: string;
   setOrgTypeFilter: (v: string) => void;
+
   domainFilter: string;
   setDomainFilter: (v: string) => void;
+
   roleTrackFilter: string;
   setRoleTrackFilter: (v: string) => void;
+
   seniorityFilter: string;
   setSeniorityFilter: (v: string) => void;
+
   resetFilters: () => void;
-}) {
-  const {
-    employmentFilter,
-    setEmploymentFilter,
-    remoteFilter,
-    setRemoteFilter,
-    technologyFilter,
-    setTechnologyFilter,
-    orgTypeFilter,
-    setOrgTypeFilter,
-    domainFilter,
-    setDomainFilter,
-    roleTrackFilter,
-    setRoleTrackFilter,
-    seniorityFilter,
-    setSeniorityFilter,
-    resetFilters,
-  } = props;
 
-  return (
-    <div className="sidebar-card">
-      <div className="products-filters-section">
-        <div className="products-filters-title">Employment type</div>
-        <select
-          className="products-filters-input"
-          value={employmentFilter}
-          onChange={(e) => setEmploymentFilter(e.target.value)}
-        >
-          {EMPLOYMENT_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
+  // derived
+  filteredJobs: Job[];
+  recommendedJobs: Job[];
+  remainingJobs: Job[];
+};
 
-      <div className="products-filters-section">
-        <div className="products-filters-title">Work mode</div>
-        <select
-          className="products-filters-input"
-          value={remoteFilter}
-          onChange={(e) => setRemoteFilter(e.target.value)}
-        >
-          {REMOTE_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
+const JobsContext = createContext<JobsCtx | null>(null);
 
-      <div className="products-filters-section">
-        <div className="products-filters-title">Technology type</div>
-        <select
-          className="products-filters-input"
-          value={technologyFilter}
-          onChange={(e) => setTechnologyFilter(e.target.value)}
-        >
-          {TECHNOLOGY_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Organisation</div>
-        <select
-          className="products-filters-input"
-          value={orgTypeFilter}
-          onChange={(e) => setOrgTypeFilter(e.target.value)}
-        >
-          {ORG_TYPE_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Quantum domain</div>
-        <select
-          className="products-filters-input"
-          value={domainFilter}
-          onChange={(e) => setDomainFilter(e.target.value)}
-        >
-          {DOMAIN_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Role focus</div>
-        <select
-          className="products-filters-input"
-          value={roleTrackFilter}
-          onChange={(e) => setRoleTrackFilter(e.target.value)}
-        >
-          {ROLE_TRACK_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Seniority</div>
-        <select
-          className="products-filters-input"
-          value={seniorityFilter}
-          onChange={(e) => setSeniorityFilter(e.target.value)}
-        >
-          {SENIORITY_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <button
-        type="button"
-        className="nav-ghost-btn"
-        style={{ width: "100%", marginTop: 8 }}
-        onClick={resetFilters}
-      >
-        Reset filters
-      </button>
-    </div>
-  );
+function useJobsCtx() {
+  const ctx = useContext(JobsContext);
+  if (!ctx) throw new Error("useJobsCtx must be used inside <JobsProvider />");
+  return ctx;
 }
 
-export default function JobsIndexPage() {
+function JobsProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
@@ -413,337 +319,474 @@ export default function JobsIndexPage() {
     setSeniorityFilter("All");
   };
 
-  return (
-    <>
-      {/* ===== MIDDLE ONLY (AppLayout wraps this in <section className="layout-main">) ===== */}
-      <section className="section">
-        <div className="jobs-main-header">
-          <div className="section-header">
-            <div>
-              <div
-                className="section-title"
-                style={{ display: "flex", alignItems: "center", gap: 10 }}
-              >
-                Quantum Jobs Universe
-                {!loading && !error && (
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: "rgba(56,189,248,0.15)",
-                      border: "1px solid rgba(56,189,248,0.35)",
-                      color: "#7dd3fc",
-                    }}
-                  >
-                    {filteredJobs.length} roles
-                  </span>
-                )}
-              </div>
-              <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
-                Browse internships, PhD positions, postdocs, and industry roles across
-                labs and companies.
-              </div>
-            </div>
+  const value: JobsCtx = {
+    jobs,
+    loading,
+    error,
 
-            <button
-              className="nav-cta"
-              style={{ cursor: "pointer" }}
-              onClick={() => router.push("/jobs/new")}
+    savedJobIds,
+    savingId,
+    isSaved,
+    handleToggleSave,
+
+    search,
+    setSearch,
+
+    employmentFilter,
+    setEmploymentFilter,
+
+    remoteFilter,
+    setRemoteFilter,
+
+    technologyFilter,
+    setTechnologyFilter,
+
+    orgTypeFilter,
+    setOrgTypeFilter,
+
+    domainFilter,
+    setDomainFilter,
+
+    roleTrackFilter,
+    setRoleTrackFilter,
+
+    seniorityFilter,
+    setSeniorityFilter,
+
+    resetFilters,
+
+    filteredJobs,
+    recommendedJobs,
+    remainingJobs,
+  };
+
+  return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>;
+}
+
+function JobsRightSidebar() {
+  const ctx = useJobsCtx();
+
+  return (
+    <div className="sidebar-card">
+      <div className="products-filters-section">
+        <div className="products-filters-title">Employment type</div>
+        <select
+          className="products-filters-input"
+          value={ctx.employmentFilter}
+          onChange={(e) => ctx.setEmploymentFilter(e.target.value)}
+        >
+          {EMPLOYMENT_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="products-filters-section">
+        <div className="products-filters-title">Work mode</div>
+        <select
+          className="products-filters-input"
+          value={ctx.remoteFilter}
+          onChange={(e) => ctx.setRemoteFilter(e.target.value)}
+        >
+          {REMOTE_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="products-filters-section">
+        <div className="products-filters-title">Technology type</div>
+        <select
+          className="products-filters-input"
+          value={ctx.technologyFilter}
+          onChange={(e) => ctx.setTechnologyFilter(e.target.value)}
+        >
+          {TECHNOLOGY_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="products-filters-section">
+        <div className="products-filters-title">Organisation</div>
+        <select
+          className="products-filters-input"
+          value={ctx.orgTypeFilter}
+          onChange={(e) => ctx.setOrgTypeFilter(e.target.value)}
+        >
+          {ORG_TYPE_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="products-filters-section">
+        <div className="products-filters-title">Quantum domain</div>
+        <select
+          className="products-filters-input"
+          value={ctx.domainFilter}
+          onChange={(e) => ctx.setDomainFilter(e.target.value)}
+        >
+          {DOMAIN_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="products-filters-section">
+        <div className="products-filters-title">Role focus</div>
+        <select
+          className="products-filters-input"
+          value={ctx.roleTrackFilter}
+          onChange={(e) => ctx.setRoleTrackFilter(e.target.value)}
+        >
+          {ROLE_TRACK_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="products-filters-section">
+        <div className="products-filters-title">Seniority</div>
+        <select
+          className="products-filters-input"
+          value={ctx.seniorityFilter}
+          onChange={(e) => ctx.setSeniorityFilter(e.target.value)}
+        >
+          {SENIORITY_FILTERS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <button
+        type="button"
+        className="nav-ghost-btn"
+        style={{ width: "100%", marginTop: 8 }}
+        onClick={ctx.resetFilters}
+      >
+        Reset filters
+      </button>
+    </div>
+  );
+}
+
+function JobsMiddle() {
+  const router = useRouter();
+  const ctx = useJobsCtx();
+
+  return (
+    <section className="section">
+      <div className="jobs-main-header">
+        <div className="section-header">
+          <div>
+            <div
+              className="section-title"
+              style={{ display: "flex", alignItems: "center", gap: 10 }}
             >
-              Post a job
-            </button>
+              Quantum Jobs Universe
+              {!ctx.loading && !ctx.error && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: "rgba(56,189,248,0.15)",
+                    border: "1px solid rgba(56,189,248,0.35)",
+                    color: "#7dd3fc",
+                  }}
+                >
+                  {ctx.filteredJobs.length} roles
+                </span>
+              )}
+            </div>
+            <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
+              Browse internships, PhD positions, postdocs, and industry roles across
+              labs and companies.
+            </div>
           </div>
 
-          <div className="jobs-main-search">
+          <button
+            className="nav-cta"
+            style={{ cursor: "pointer" }}
+            onClick={() => router.push("/jobs/new")}
+          >
+            Post a job
+          </button>
+        </div>
+
+        <div className="jobs-main-search">
+          <div
+            style={{
+              width: "100%",
+              borderRadius: 999,
+              padding: "2px",
+              background:
+                "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+            }}
+          >
             <div
               style={{
-                width: "100%",
                 borderRadius: 999,
-                padding: "2px",
+                background: "rgba(15,23,42,0.97)",
+                padding: "6px 12px",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 14, opacity: 0.85 }}>🔍</span>
+              <input
+                style={{
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "#e5e7eb",
+                  fontSize: 14,
+                  width: "100%",
+                }}
+                placeholder="Search by title, company, location, keywords…"
+                value={ctx.search}
+                onChange={(e) => ctx.setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {ctx.loading && <p className="products-status">Loading jobs…</p>}
+      {!ctx.loading && ctx.error && <p className="products-empty">{ctx.error}</p>}
+
+      {!ctx.loading && !ctx.error && ctx.filteredJobs.length === 0 && (
+        <p className="products-empty">
+          No roles match your filters yet. Try broadening your search.
+        </p>
+      )}
+
+      {!ctx.loading && !ctx.error && ctx.filteredJobs.length > 0 && (
+        <>
+          {ctx.recommendedJobs.length > 0 && (
+            <div
+              style={{
+                marginBottom: 32,
+                padding: 16,
+                borderRadius: 16,
+                border: "1px solid rgba(56,189,248,0.35)",
                 background:
-                  "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
               }}
             >
               <div
                 style={{
-                  borderRadius: 999,
-                  background: "rgba(15,23,42,0.97)",
-                  padding: "6px 12px",
                   display: "flex",
-                  alignItems: "center",
-                  gap: 8,
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 12,
+                  gap: 12,
                 }}
               >
-                <span style={{ fontSize: 14, opacity: 0.85 }}>🔍</span>
-                <input
-                  style={{
-                    border: "none",
-                    outline: "none",
-                    background: "transparent",
-                    color: "#e5e7eb",
-                    fontSize: 14,
-                    width: "100%",
-                  }}
-                  placeholder="Search by title, company, location, keywords…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {loading && <p className="products-status">Loading jobs…</p>}
-        {!loading && error && <p className="products-empty">{error}</p>}
-
-        {!loading && !error && filteredJobs.length === 0 && (
-          <p className="products-empty">
-            No roles match your filters yet. Try broadening your search.
-          </p>
-        )}
-
-        {!loading && !error && filteredJobs.length > 0 && (
-          <>
-            {recommendedJobs.length > 0 && (
-              <div
-                style={{
-                  marginBottom: 32,
-                  padding: 16,
-                  borderRadius: 16,
-                  border: "1px solid rgba(56,189,248,0.35)",
-                  background:
-                    "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    marginBottom: 12,
-                    gap: 12,
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "#7dd3fc",
-                        marginBottom: 4,
-                      }}
-                    >
-                      Recommended for you
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.95rem",
-                        fontWeight: 600,
-                        background: "linear-gradient(90deg,#22d3ee,#a855f7)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
-                    >
-                      Top recommendations based on your profile
-                    </div>
-                  </div>
-
+                <div>
                   <div
                     style={{
-                      fontSize: 12,
-                      color: "var(--text-muted)",
-                      textAlign: "right",
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "#7dd3fc",
+                      marginBottom: 4,
                     }}
                   >
-                    For now based on your filters. <br />
-                    Later: AI profile matching.
+                    Recommended for you
                   </div>
-                </div>
-
-                <div className="jobs-grid">
-                  {recommendedJobs.map((job) => {
-                    const saved = isSaved(job.id);
-                    return (
-                      <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
-                        <div className="job-card-header">
-                          <div>
-                            <div className="job-card-title">
-                              {job.title || "Untitled role"}
-                            </div>
-                            <div className="job-card-meta">
-                              {job.company_name && `${job.company_name} · `}
-                              {job.location}
-                              {job.remote_type ? ` · ${job.remote_type}` : ""}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="product-save-btn"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (!savingId) handleToggleSave(job.id);
-                            }}
-                            aria-label={saved ? "Remove from saved jobs" : "Save job"}
-                          >
-                            {saved ? "❤️" : "🤍"}
-                          </button>
-                        </div>
-
-                        {job.short_description && (
-                          <div className="job-card-description">{job.short_description}</div>
-                        )}
-
-                        <div className="job-card-footer">
-                          <span className="job-salary">{job.salary_display || ""}</span>
-                          {job.employment_type && (
-                            <span className="job-type">{job.employment_type}</span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {remainingJobs.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                {recommendedJobs.length > 0 && (
                   <div
                     style={{
-                      height: 1,
-                      margin: "4px 0 20px",
-                      background:
-                        "linear-gradient(90deg, rgba(148,163,184,0), rgba(148,163,184,0.6), rgba(148,163,184,0))",
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                      background: "linear-gradient(90deg,#22d3ee,#a855f7)",
+                      WebkitBackgroundClip: "text",
+                      WebkitTextFillColor: "transparent",
                     }}
-                  />
-                )}
+                  >
+                    Top recommendations based on your profile
+                  </div>
+                </div>
 
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "baseline",
-                    marginBottom: 10,
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    textAlign: "right",
                   }}
                 >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "rgba(148,163,184,0.9)",
-                        marginBottom: 3,
-                      }}
-                    >
-                      Browse everything
-                    </div>
-                    <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>All roles</div>
-                  </div>
-                </div>
-
-                <div className="jobs-grid">
-                  {remainingJobs.map((job) => {
-                    const saved = isSaved(job.id);
-                    return (
-                      <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
-                        <div className="job-card-header">
-                          <div>
-                            <div className="job-card-title">
-                              {job.title || "Untitled role"}
-                            </div>
-                            <div className="job-card-meta">
-                              {job.company_name && `${job.company_name} · `}
-                              {job.location}
-                              {job.remote_type ? ` · ${job.remote_type}` : ""}
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            className="product-save-btn"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (!savingId) handleToggleSave(job.id);
-                            }}
-                            aria-label={saved ? "Remove from saved jobs" : "Save job"}
-                          >
-                            {saved ? "❤️" : "🤍"}
-                          </button>
-                        </div>
-
-                        {job.short_description && (
-                          <div className="job-card-description">{job.short_description}</div>
-                        )}
-
-                        <div className="job-card-footer">
-                          <span className="job-salary">{job.salary_display || ""}</span>
-                          {job.employment_type && (
-                            <span className="job-type">{job.employment_type}</span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })}
+                  For now based on your filters. <br />
+                  Later: AI profile matching.
                 </div>
               </div>
-            )}
-          </>
-        )}
-      </section>
-    </>
+
+              <div className="jobs-grid">
+                {ctx.recommendedJobs.map((job) => {
+                  const saved = ctx.isSaved(job.id);
+                  return (
+                    <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
+                      <div className="job-card-header">
+                        <div>
+                          <div className="job-card-title">
+                            {job.title || "Untitled role"}
+                          </div>
+                          <div className="job-card-meta">
+                            {job.company_name && `${job.company_name} · `}
+                            {job.location}
+                            {job.remote_type ? ` · ${job.remote_type}` : ""}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="product-save-btn"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!ctx.savingId) ctx.handleToggleSave(job.id);
+                          }}
+                          aria-label={saved ? "Remove from saved jobs" : "Save job"}
+                        >
+                          {saved ? "❤️" : "🤍"}
+                        </button>
+                      </div>
+
+                      {job.short_description && (
+                        <div className="job-card-description">{job.short_description}</div>
+                      )}
+
+                      <div className="job-card-footer">
+                        <span className="job-salary">{job.salary_display || ""}</span>
+                        {job.employment_type && (
+                          <span className="job-type">{job.employment_type}</span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {ctx.remainingJobs.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              {ctx.recommendedJobs.length > 0 && (
+                <div
+                  style={{
+                    height: 1,
+                    margin: "4px 0 20px",
+                    background:
+                      "linear-gradient(90deg, rgba(148,163,184,0), rgba(148,163,184,0.6), rgba(148,163,184,0))",
+                  }}
+                />
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 10,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "rgba(148,163,184,0.9)",
+                      marginBottom: 3,
+                    }}
+                  >
+                    Browse everything
+                  </div>
+                  <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>All roles</div>
+                </div>
+              </div>
+
+              <div className="jobs-grid">
+                {ctx.remainingJobs.map((job) => {
+                  const saved = ctx.isSaved(job.id);
+                  return (
+                    <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
+                      <div className="job-card-header">
+                        <div>
+                          <div className="job-card-title">
+                            {job.title || "Untitled role"}
+                          </div>
+                          <div className="job-card-meta">
+                            {job.company_name && `${job.company_name} · `}
+                            {job.location}
+                            {job.remote_type ? ` · ${job.remote_type}` : ""}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="product-save-btn"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (!ctx.savingId) ctx.handleToggleSave(job.id);
+                          }}
+                          aria-label={saved ? "Remove from saved jobs" : "Save job"}
+                        >
+                          {saved ? "❤️" : "🤍"}
+                        </button>
+                      </div>
+
+                      {job.short_description && (
+                        <div className="job-card-description">{job.short_description}</div>
+                      )}
+
+                      <div className="job-card-footer">
+                        <span className="job-salary">{job.salary_display || ""}</span>
+                        {job.employment_type && (
+                          <span className="job-type">{job.employment_type}</span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
-/**
- * IMPORTANT: Right sidebar must be provided via AppLayout (so we don’t double-render grid/aside).
- * Add this BELOW the component (exactly like this).
- */
+export default function JobsIndexPage() {
+  // IMPORTANT:
+  // This page renders ONLY the middle content.
+  // Layout + right sidebar come from getLayout() below.
+  return <JobsMiddle />;
+}
+
 JobsIndexPage.getLayout = function getLayout(page: ReactElement) {
-  // We MUST keep the same stateful filters as the page.
-  // So: we render the page normally, and put the filters INSIDE the page instead of here.
-  // The clean way is to lift filters into a wrapper component — but we’ll keep it simple:
-  // Use AppLayout right as a function-child wrapper by cloning? Not worth.
-  //
-  // ✅ Minimal & correct approach:
-  // Put the right sidebar in the PAGE by exporting it through a static property.
-  // See note below.
   return (
-    <AppLayout
-      variant="three"
-      right={
-        <JobsRightFiltersBridge>
-          {page}
-        </JobsRightFiltersBridge>
-      }
-    >
-      {page}
-    </AppLayout>
+    <JobsProvider>
+      <AppLayout variant="three" right={<JobsRightSidebar />}>
+        {page}
+      </AppLayout>
+    </JobsProvider>
   );
 };
-
-/**
- * Bridge:
- * We need access to the same filter state that lives inside JobsIndexPage.
- * In Next.js, getLayout can’t access component state directly.
- *
- * ✅ So we keep the right sidebar *inside the page component* in the next step.
- * For now, simplest fix:
- * 1) Comment out JobsIndexPage.getLayout above
- * 2) Instead, keep default AppLayout and let this page be "center" variant with its own right column.
- *
- * But you asked "fix this" properly, so here is the proper minimal refactor:
- * Move filter state into this bridge wrapper and render JobsIndexPage inside it.
- */
-
-function JobsRightFiltersBridge({ children }: { children: ReactElement }) {
-  // This file-level wrapper approach needs a full refactor to pass state down.
-  // We will do it cleanly in the next message if you want.
-  return <div>{children}</div>;
-}
