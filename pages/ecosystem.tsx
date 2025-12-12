@@ -710,26 +710,7 @@ export default function MyEcosystemPage() {
 
   if (!user && !loading) return null;
 
-  return (
-    <EcosystemTwoColumnShell
-      middle={
-        <EcosystemMiddle
-          entangledProfiles={entangledProfiles}
-          followedOrgs={followedOrgs}
-          mainLoading={mainLoading}
-          errorMsg={errorMsg}
-        />
-      }
-      right={
-        <EcosystemRightSidebar
-          profileSummary={profileSummary}
-          savedJobsCount={savedJobsCount}
-          savedProductsCount={savedProductsCount}
-          entangledCount={entangledCount}
-        />
-      }
-    />
-  );
+
 }
 
 (MyEcosystemPage as any).layoutProps = {
