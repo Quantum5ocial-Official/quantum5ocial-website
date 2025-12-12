@@ -42,6 +42,7 @@ export default function OrganizationsDirectoryPage() {
   useEffect(() => {
     const loadOrgs = async () => {
       setLoading(true);
+
       const { data, error } = await supabase
         .from("organizations")
         .select("*")
@@ -53,6 +54,7 @@ export default function OrganizationsDirectoryPage() {
         setOrgs([]);
         if (error) console.error("Error loading organizations", error);
       }
+
       setLoading(false);
     };
 
@@ -93,6 +95,7 @@ export default function OrganizationsDirectoryPage() {
       if (org.department) bits.push(org.department);
     }
 
+    // ✅ IMPORTANT: use backticks
     if (org.city && org.country) bits.push(`${org.city}, ${org.country}`);
     else if (org.country) bits.push(org.country);
 
@@ -108,8 +111,8 @@ export default function OrganizationsDirectoryPage() {
       <div className="page">
         <Navbar />
 
-        {/* Global LEFT sidebar comes from AppLayout. This page renders ONLY the middle content. */}
-        <section className="layout-main">
+        {/* SINGLE COLUMN MIDDLE (global left sidebar comes from AppLayout) */}
+        <main className="layout-main">
           <section className="section">
             <div className="section-header">
               <div>
@@ -130,7 +133,7 @@ export default function OrganizationsDirectoryPage() {
             </div>
 
             {/* Controls */}
-            <section
+            <div
               style={{
                 display: "flex",
                 flexWrap: "wrap",
@@ -168,27 +171,61 @@ export default function OrganizationsDirectoryPage() {
                   backgroundColor: "rgba(15,23,42,0.9)",
                 }}
               >
-                {(["all", "company", "research_group"] as KindFilter[]).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setKindFilter(k)}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 999,
-                      border: "none",
-                      fontSize: 13,
-                      cursor: "pointer",
-                      background:
-                        kindFilter === k
-                          ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-                          : "transparent",
-                      color: kindFilter === k ? "#0f172a" : "#e5e7eb",
-                    }}
-                  >
-                    {k === "all" ? "All" : k === "company" ? "Companies" : "Research groups"}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setKindFilter("all")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "none",
+                    fontSize: 13,
+                    cursor: "pointer",
+                    background:
+                      kindFilter === "all"
+                        ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                        : "transparent",
+                    color: kindFilter === "all" ? "#0f172a" : "#e5e7eb",
+                  }}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKindFilter("company")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "none",
+                    fontSize: 13,
+                    cursor: "pointer",
+                    background:
+                      kindFilter === "company"
+                        ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                        : "transparent",
+                    color: kindFilter === "company" ? "#0f172a" : "#e5e7eb",
+                  }}
+                >
+                  Companies
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKindFilter("research_group")}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 999,
+                    border: "none",
+                    fontSize: 13,
+                    cursor: "pointer",
+                    background:
+                      kindFilter === "research_group"
+                        ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                        : "transparent",
+                    color:
+                      kindFilter === "research_group" ? "#0f172a" : "#e5e7eb",
+                  }}
+                >
+                  Research groups
+                </button>
               </div>
 
               {user && (
@@ -196,7 +233,7 @@ export default function OrganizationsDirectoryPage() {
                   + Create my organization page
                 </Link>
               )}
-            </section>
+            </div>
 
             {/* List */}
             {loading ? (
@@ -313,14 +350,6 @@ export default function OrganizationsDirectoryPage() {
                               {org.tagline.length > 90 ? org.tagline.slice(0, 87) + "…" : org.tagline}
                             </div>
                           )}
-
-                          {!org.tagline && org.focus_areas && (
-                            <div style={{ marginTop: 6, fontSize: 12.5, color: "rgba(209,213,219,0.9)" }}>
-                              {org.focus_areas.length > 90
-                                ? org.focus_areas.slice(0, 87) + "…"
-                                : org.focus_areas}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </Link>
@@ -329,11 +358,11 @@ export default function OrganizationsDirectoryPage() {
               </div>
             )}
           </section>
-        </section>
+        </main>
       </div>
     </>
   );
 }
 
-// If you are using per-page layoutProps:
+// per-page layout config (global left, no right)
 (OrganizationsDirectoryPage as any).layoutProps = { variant: "two-left", right: null };
