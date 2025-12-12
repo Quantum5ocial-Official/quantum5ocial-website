@@ -3097,3 +3097,9 @@ html.theme-light footer {
     display: block !important;
   }
 }
+@media (max-width: 900px) {
+  .nav {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
