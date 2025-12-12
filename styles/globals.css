@@ -3074,3 +3074,26 @@ html.theme-light footer {
     height: 100px;
   }
 }
+/* MOBILE navbar alignment fixes */
+@media (max-width: 900px) {
+  /* Make the navbar content truly flush-left */
+  .nav .nav-inner {
+    padding-left: 6px !important;
+    padding-right: 10px !important;
+    align-items: center !important;
+  }
+
+  /* Ensure brand wrapper doesn't add hidden spacing */
+  .nav .brand-clickable {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  /* Logo: no extra margin, vertically centered */
+  .nav .brand-logo-mobile {
+    margin: 0 !important;
+    display: block !important;
+  }
+}
