@@ -5,18 +5,6 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
-type ProfileSummary = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  role: string | null;
-  highest_education: string | null;
-  describes_you: string | null;
-  affiliation: string | null;
-  country: string | null;
-  city: string | null;
-};
-
 type EntangledProfile = {
   id: string;
   full_name: string | null;
@@ -40,130 +28,109 @@ type EcosystemOrg = {
   focus_areas: string | null;
 };
 
-function EcosystemRightSidebar(props: {
-  profileSummary: ProfileSummary | null;
-  savedJobsCount: number;
-  savedProductsCount: number;
-  entangledCount: number;
-}) {
-  const { profileSummary, savedJobsCount, savedProductsCount, entangledCount } =
-    props;
+export default function MyEcosystemPage() {
+  const { user, loading } = useSupabaseUser();
+  const router = useRouter();
 
-  const sidebarName = profileSummary?.full_name || "Quantum explorer";
-  const avatarUrl = profileSummary?.avatar_url || null;
-  const educationLevel = profileSummary?.highest_education || "";
-  const describesYou = profileSummary?.describes_you || "";
-  const affiliation =
-    profileSummary?.affiliation ||
-    [profileSummary?.city, profileSummary?.country].filter(Boolean).join(", ") ||
-    "";
-
-  const hasProfileExtraInfo =
-    Boolean(educationLevel) || Boolean(describesYou) || Boolean(affiliation);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-      {/* Profile card */}
-      <Link
-        href="/profile"
-        className="sidebar-card profile-sidebar-card"
-        style={{
-          textDecoration: "none",
-          color: "inherit",
-          cursor: "pointer",
-        }}
-      >
-        <div className="profile-sidebar-header">
-          <div className="profile-sidebar-avatar-wrapper">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={sidebarName}
-                className="profile-sidebar-avatar"
-              />
-            ) : (
-              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {sidebarName
-                  .split(" ")
-                  .map((p) => p[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </div>
-            )}
-          </div>
-          <div className="profile-sidebar-title-block">
-            <div className="profile-sidebar-name">{sidebarName}</div>
-            {profileSummary?.role && (
-              <div className="profile-sidebar-role">{profileSummary.role}</div>
-            )}
-          </div>
-        </div>
-
-        {hasProfileExtraInfo && (
-          <div className="profile-sidebar-info-block">
-            {educationLevel && (
-              <div className="profile-sidebar-info-value">{educationLevel}</div>
-            )}
-            {describesYou && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4 }}
-              >
-                {describesYou}
-              </div>
-            )}
-            {affiliation && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4 }}
-              >
-                {affiliation}
-              </div>
-            )}
-          </div>
-        )}
-      </Link>
-
-      {/* Quick dashboard */}
-      <div className="sidebar-card dashboard-sidebar-card">
-        <div className="dashboard-sidebar-title">Quick dashboard</div>
-        <div className="dashboard-sidebar-links">
-          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link">
-            Entangled states ({entangledCount})
-          </Link>
-          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link">
-            Saved jobs ({savedJobsCount})
-          </Link>
-          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link">
-            Saved products ({savedProductsCount})
-          </Link>
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: "auto",
-          paddingTop: 12,
-          borderTop: "1px solid rgba(148,163,184,0.18)",
-          fontSize: 12,
-          color: "rgba(148,163,184,0.9)",
-          textAlign: "right",
-        }}
-      >
-        © 2025 Quantum5ocial
-      </div>
-    </div>
+  const [entangledProfiles, setEntangledProfiles] = useState<EntangledProfile[]>(
+    []
   );
-}
+  const [followedOrgs, setFollowedOrgs] = useState<EcosystemOrg[]>([]);
+  const [mainLoading, setMainLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-function EcosystemMiddle(props: {
-  entangledProfiles: EntangledProfile[];
-  followedOrgs: EcosystemOrg[];
-  mainLoading: boolean;
-  errorMsg: string | null;
-}) {
-  const { entangledProfiles, followedOrgs, mainLoading, errorMsg } = props;
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!loading && !user) router.replace("/auth?redirect=/ecosystem");
+  }, [loading, user, router]);
+
+  // Load ecosystem content
+  useEffect(() => {
+    if (!user) {
+      setMainLoading(false);
+      setEntangledProfiles([]);
+      setFollowedOrgs([]);
+      return;
+    }
+
+    const loadEcosystem = async () => {
+      setMainLoading(true);
+      setErrorMsg(null);
+
+      try {
+        // 1) Entangled people
+        const { data: connData, error: connError } = await supabase
+          .from("connections")
+          .select("user_id, target_user_id, status")
+          .eq("status", "accepted")
+          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+
+        if (connError) throw connError;
+
+        let entangledList: EntangledProfile[] = [];
+        if (connData && connData.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              connData.map((c: any) =>
+                c.user_id === user.id ? c.target_user_id : c.user_id
+              )
+            )
+          );
+
+          if (otherIds.length > 0) {
+            const { data: profData, error: profError } = await supabase
+              .from("profiles")
+              .select(
+                "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
+              )
+              .in("id", otherIds);
+
+            if (profError) throw profError;
+            entangledList = (profData || []) as EntangledProfile[];
+          }
+        }
+        setEntangledProfiles(entangledList);
+
+        // 2) Followed organizations
+        const { data: followRows, error: followError } = await supabase
+          .from("org_follows")
+          .select("org_id")
+          .eq("user_id", user.id);
+
+        if (followError) throw followError;
+
+        const orgIds = Array.from(
+          new Set((followRows || []).map((r: any) => r.org_id))
+        );
+
+        let orgList: EcosystemOrg[] = [];
+        if (orgIds.length > 0) {
+          const { data: orgData, error: orgErr } = await supabase
+            .from("organizations")
+            .select(
+              "id, name, slug, kind, logo_url, tagline, city, country, industry, focus_areas"
+            )
+            .in("id", orgIds);
+
+          if (orgErr) throw orgErr;
+          orgList = (orgData || []) as EcosystemOrg[];
+        }
+
+        setFollowedOrgs(orgList);
+      } catch (e) {
+        console.error("Error loading ecosystem", e);
+        setErrorMsg("Could not load your ecosystem. Please try again later.");
+        setEntangledProfiles([]);
+        setFollowedOrgs([]);
+      } finally {
+        setMainLoading(false);
+      }
+    };
+
+    loadEcosystem();
+  }, [user]);
+
+  if (!user && !loading) return null;
 
   const entangledTotal = entangledProfiles.length;
   const orgsTotal = followedOrgs.length;
@@ -276,7 +243,10 @@ function EcosystemMiddle(props: {
               >
                 {entangledProfiles.map((p) => {
                   const name = p.full_name || "Quantum member";
-                  const meta = [p.role || p.describes_you || null, p.affiliation || p.current_org || null]
+                  const meta = [
+                    p.role || p.describes_you || null,
+                    p.affiliation || p.current_org || null,
+                  ]
                     .filter(Boolean)
                     .join(" · ");
 
@@ -518,199 +488,6 @@ function EcosystemMiddle(props: {
       )}
     </section>
   );
-}
-
-function EcosystemTwoColumnShell(props: {
-  right: React.ReactNode;
-  middle: React.ReactNode;
-}) {
-  const { right, middle } = props;
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 320px",
-        alignItems: "stretch",
-        minHeight: "100vh",
-      }}
-    >
-      <div style={{ paddingRight: 16 }}>{middle}</div>
-      <div style={{ background: "rgba(148,163,184,0.35)", width: 1, alignSelf: "stretch" }} />
-      <div style={{ paddingLeft: 16, position: "sticky", top: 16, alignSelf: "start" }}>
-        {right}
-      </div>
-    </div>
-  );
-}
-
-export default function MyEcosystemPage() {
-  const { user, loading } = useSupabaseUser();
-  const router = useRouter();
-
-  // Sidebar data (now goes to RIGHT panel)
-  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null);
-  const [savedJobsCount, setSavedJobsCount] = useState(0);
-  const [savedProductsCount, setSavedProductsCount] = useState(0);
-  const [entangledCount, setEntangledCount] = useState(0);
-
-  // Main content
-  const [entangledProfiles, setEntangledProfiles] = useState<EntangledProfile[]>([]);
-  const [followedOrgs, setFollowedOrgs] = useState<EcosystemOrg[]>([]);
-  const [mainLoading, setMainLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!loading && !user) router.replace("/auth?redirect=/ecosystem");
-  }, [loading, user, router]);
-
-  // Load sidebar profile + counters
-  useEffect(() => {
-    if (!user) {
-      setProfileSummary(null);
-      setSavedJobsCount(0);
-      setSavedProductsCount(0);
-      setEntangledCount(0);
-      return;
-    }
-
-    const loadSidebar = async () => {
-      try {
-        const { data: prof, error: profErr } = await supabase
-          .from("profiles")
-          .select(
-            "id, full_name, avatar_url, role, highest_education, describes_you, affiliation, country, city"
-          )
-          .eq("id", user.id)
-          .maybeSingle();
-
-        setProfileSummary(!profErr && prof ? (prof as ProfileSummary) : null);
-
-        const { data: savedJobRows } = await supabase
-          .from("saved_jobs")
-          .select("id")
-          .eq("user_id", user.id);
-        setSavedJobsCount(savedJobRows?.length || 0);
-
-        const { data: savedProdRows } = await supabase
-          .from("saved_products")
-          .select("id")
-          .eq("user_id", user.id);
-        setSavedProductsCount(savedProdRows?.length || 0);
-
-        const { data: connRows } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-      } catch (e) {
-        console.error("Error loading ecosystem sidebar", e);
-        setProfileSummary(null);
-        setSavedJobsCount(0);
-        setSavedProductsCount(0);
-        setEntangledCount(0);
-      }
-    };
-
-    loadSidebar();
-  }, [user]);
-
-  // Load main ecosystem content
-  useEffect(() => {
-    if (!user) {
-      setMainLoading(false);
-      setEntangledProfiles([]);
-      setFollowedOrgs([]);
-      return;
-    }
-
-    const loadEcosystem = async () => {
-      setMainLoading(true);
-      setErrorMsg(null);
-
-      try {
-        const { data: connData, error: connError } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id, status")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
-
-        if (connError) throw connError;
-
-        let entangledList: EntangledProfile[] = [];
-        if (connData && connData.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connData.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-
-          if (otherIds.length > 0) {
-            const { data: profData, error: profError } = await supabase
-              .from("profiles")
-              .select(
-                "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
-              )
-              .in("id", otherIds);
-
-            if (profError) throw profError;
-            entangledList = (profData || []) as EntangledProfile[];
-          }
-        }
-        setEntangledProfiles(entangledList);
-
-        const { data: followRows, error: followError } = await supabase
-          .from("org_follows")
-          .select("org_id")
-          .eq("user_id", user.id);
-
-        if (followError) throw followError;
-
-        let orgList: EcosystemOrg[] = [];
-        const orgIds = Array.from(new Set((followRows || []).map((r: any) => r.org_id)));
-
-        if (orgIds.length > 0) {
-          const { data: orgData, error: orgErr } = await supabase
-            .from("organizations")
-            .select("id, name, slug, kind, logo_url, tagline, city, country, industry, focus_areas")
-            .in("id", orgIds);
-
-          if (orgErr) throw orgErr;
-          orgList = (orgData || []) as EcosystemOrg[];
-        }
-
-        setFollowedOrgs(orgList);
-      } catch (e) {
-        console.error("Error loading ecosystem", e);
-        setErrorMsg("Could not load your ecosystem. Please try again later.");
-        setEntangledProfiles([]);
-        setFollowedOrgs([]);
-      } finally {
-        setMainLoading(false);
-      }
-    };
-
-    loadEcosystem();
-  }, [user]);
-
-  if (!user && !loading) return null;
-
-
 }
 
 (MyEcosystemPage as any).layoutProps = {
