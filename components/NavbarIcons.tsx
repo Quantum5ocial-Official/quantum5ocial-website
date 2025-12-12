@@ -54,7 +54,6 @@ export default function NavbarIcons() {
     const term = globalSearch.trim();
     if (!term) return;
     router.push(`/search?q=${encodeURIComponent(term)}`);
-    // optionally close mobile menu if search was from mobile drawer in the future
   };
 
   // ----- HANDLE RESPONSIVE -----
@@ -376,19 +375,19 @@ export default function NavbarIcons() {
           gap: 16,
         }}
       >
-        {/* LEFT: brand + global search (desktop) */}
+        {/* LEFT: brand + (mobile search pill inline) + desktop search */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 16,
+            gap: 12,
             flex: 1,
             minWidth: 0,
           }}
         >
           {/* Brand */}
           {!isMobile ? (
-            // DESKTOP BRAND — original version with subtext
+            // DESKTOP BRAND — original with subtext
             <Link href="/" className="brand-clickable">
               <div className="brand">
                 <img
@@ -407,37 +406,62 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
-            // MOBILE BRAND — left aligned, bigger logo, minimal gap, no subtext
+            // MOBILE BRAND — logo only (no brand name)
             <Link
               href="/"
               className="brand-clickable"
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 4, // almost no gap
+                gap: 0,
+                flexShrink: 0,
               }}
             >
               <img
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial logo"
-                // NOTE: no className here so CSS for .brand-logo doesn't override
                 style={{
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   objectFit: "contain",
+                  display: "block",
                 }}
               />
-              <div
-                className="brand-text-main brand-text-gradient"
-                style={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  margin: 0,
-                }}
-              >
-                Quantum5ocial
-              </div>
             </Link>
+          )}
+
+          {/* MOBILE SEARCH PILL — between logo and hamburger */}
+          {isMobile && (
+            <form
+              onSubmit={handleGlobalSearchSubmit}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.55)",
+                background: "rgba(15,23,42,0.55)",
+              }}
+            >
+              <span style={{ opacity: 0.85, flexShrink: 0 }}>🔍</span>
+              <input
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search"
+                style={{
+                  width: "100%",
+                  border: "none",
+                  outline: "none",
+                  background: "transparent",
+                  color: "#e5e7eb",
+                  fontSize: 14,
+                }}
+              />
+            </form>
           )}
 
           {/* Global search – desktop only */}
@@ -457,7 +481,7 @@ export default function NavbarIcons() {
           )}
         </div>
 
-        {/* RIGHT: nav links + theme + user + mobile controls */}
+        {/* RIGHT: desktop nav OR hamburger */}
         <div
           style={{
             display: "flex",
@@ -466,59 +490,6 @@ export default function NavbarIcons() {
             flexShrink: 0,
           }}
         >
-          
-          {/* MOBILE SEARCH PILL (centered under navbar) */}
-{isMobile && (
-  <div
-    style={{
-      width: "100%",
-      display: "flex",
-      justifyContent: "center",
-      background: "rgba(10,15,30,0.85)", // matches navbar look
-      paddingBottom: 10,
-      paddingTop: 14,
-    }}
-  >
-    <form
-      onSubmit={handleGlobalSearchSubmit}
-      style={{
-        width: "85%",
-        maxWidth: 350,
-        display: "flex",
-        alignItems: "center",
-        padding: "8px 14px",
-        borderRadius: 999,
-        border: "1px solid rgba(148,163,184,0.6)",
-        background: "rgba(15,23,42,0.9)",
-      }}
-    >
-      <span
-        style={{
-          fontSize: 16,
-          marginRight: 10,
-          opacity: 0.85,
-        }}
-      >
-        🔍
-      </span>
-      <input
-        type="text"
-        value={globalSearch}
-        onChange={(e) => setGlobalSearch(e.target.value)}
-        placeholder="Search"
-        style={{
-          flex: 1,
-          border: "none",
-          outline: "none",
-          background: "transparent",
-          color: "#e5e7eb",
-          fontSize: 15,
-        }}
-      />
-    </form>
-  </div>
-)}
-
           {/* DESKTOP NAV (hidden on mobile) */}
           {!isMobile && (
             <nav
@@ -531,16 +502,8 @@ export default function NavbarIcons() {
               }}
             >
               {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
-              {renderIconNavLink(
-                "/products",
-                "Products",
-                "/icons/products.svg"
-              )}
-              {renderIconNavLink(
-                "/community",
-                "Community",
-                "/icons/community.svg"
-              )}
+              {renderIconNavLink("/products", "Products", "/icons/products.svg")}
+              {renderIconNavLink("/community", "Community", "/icons/community.svg")}
 
               {!loading &&
                 user &&
@@ -568,7 +531,7 @@ export default function NavbarIcons() {
                 </Link>
               )}
 
-              {/* USER MENU (DESKTOP) – unchanged */}
+              {/* USER MENU (DESKTOP) */}
               {!loading && user && (
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
