@@ -241,9 +241,7 @@ export default function NavbarIcons() {
     if (path === "/dashboard") {
       return router.pathname.startsWith("/dashboard");
     }
-    return (
-      router.pathname === path || router.pathname.startsWith(path + "/")
-    );
+    return router.pathname === path || router.pathname.startsWith(path + "/");
   };
 
   // Fallback name
@@ -277,16 +275,11 @@ export default function NavbarIcons() {
   ) => {
     const active = isActive(href);
 
-    const displayBadge =
-      typeof badgeCount === "number" && badgeCount > 0;
-    const badgeText =
-      displayBadge && badgeCount! > 9 ? "9+" : badgeCount;
+    const displayBadge = typeof badgeCount === "number" && badgeCount > 0;
+    const badgeText = displayBadge && badgeCount! > 9 ? "9+" : badgeCount;
 
     return (
-      <Link
-        href={href}
-        className={`nav-link ${active ? "nav-link-active" : ""}`}
-      >
+      <Link href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
         <div
           style={{
             position: "relative",
@@ -366,7 +359,8 @@ export default function NavbarIcons() {
         style={{
           maxWidth: 1400,
           margin: "0 auto",
-          padding: "0 24px",
+          // ✅ mobile: minimal padding so logo can be extreme-left
+          padding: isMobile ? "0 8px" : "0 24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -379,8 +373,10 @@ export default function NavbarIcons() {
         <div
           style={{
             display: "flex",
+            // ✅ mobile: tighter spacing
+            gap: isMobile ? 10 : 12,
+            // ✅ vertical centering
             alignItems: "center",
-            gap: 12,
             flex: 1,
             minWidth: 0,
           }}
@@ -406,26 +402,32 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
-            // MOBILE BRAND — logo only (no brand name)
+            // MOBILE BRAND — logo only, extreme-left, vertically centered
             <Link
               href="/"
               className="brand-clickable"
               style={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "flex-start",
                 gap: 0,
                 flexShrink: 0,
+                // no extra padding/margins here
               }}
             >
               <img
-  src="/Q5_white_bg.png"
-  alt="Quantum5ocial logo"
-  className="brand-logo-mobile"
-/>
+                src="/Q5_white_bg.png"
+                alt="Quantum5ocial logo"
+                className="brand-logo-mobile"
+                // (size is controlled by CSS, as you said)
+                style={{
+                  display: "block",
+                }}
+              />
             </Link>
           )}
 
-          {/* MOBILE SEARCH PILL — between logo and hamburger */}
+          {/* MOBILE SEARCH PILL — between logo and hamburger (vertically centered) */}
           {isMobile && (
             <form
               onSubmit={handleGlobalSearchSubmit}
@@ -439,6 +441,8 @@ export default function NavbarIcons() {
                 borderRadius: 999,
                 border: "1px solid rgba(148,163,184,0.55)",
                 background: "rgba(15,23,42,0.55)",
+                // ✅ lock height so it visually centers in navbar block
+                height: 38,
               }}
             >
               <span style={{ opacity: 0.85, flexShrink: 0 }}>🔍</span>
@@ -483,6 +487,8 @@ export default function NavbarIcons() {
             alignItems: "center",
             gap: 12,
             flexShrink: 0,
+            // ✅ keep hamburger vertically centered as well
+            height: "100%",
           }}
         >
           {/* DESKTOP NAV (hidden on mobile) */}
@@ -498,7 +504,11 @@ export default function NavbarIcons() {
             >
               {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
               {renderIconNavLink("/products", "Products", "/icons/products.svg")}
-              {renderIconNavLink("/community", "Community", "/icons/community.svg")}
+              {renderIconNavLink(
+                "/community",
+                "Community",
+                "/icons/community.svg"
+              )}
 
               {!loading &&
                 user &&
@@ -733,11 +743,16 @@ export default function NavbarIcons() {
           {isMobile && (
             <button
               type="button"
-              className={`nav-mobile-toggle ${
-                isMobileMenuOpen ? "open" : ""
-              }`}
+              className={`nav-mobile-toggle ${isMobileMenuOpen ? "open" : ""}`}
               aria-label="Open navigation"
               onClick={() => setIsMobileMenuOpen((o) => !o)}
+              style={{
+                // ✅ ensure it vertically centers (some CSS sets odd line-height)
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: 38,
+              }}
             >
               <span className="nav-mobile-bar" />
               <span className="nav-mobile-bar" />
@@ -747,11 +762,7 @@ export default function NavbarIcons() {
       </div>
 
       {/* MOBILE DRAWER */}
-      <div
-        className={`nav-drawer ${
-          isMobileMenuOpen ? "nav-drawer-open" : ""
-        }`}
-      >
+      <div className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}>
         <nav className="nav-links nav-links-mobile">
           {/* PROFILE ROW (mobile) */}
           {!loading && user && (
