@@ -2,16 +2,23 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import type { NextPage } from "next";
-import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import AppLayout from "../components/AppLayout";
 
-// Routes that should be accessible without login.
 const PUBLIC_ROUTES = ["/auth"];
 
+export type LayoutProps = {
+  variant?: "three" | "two-left" | "two-right" | "center";
+  left?: React.ReactNode | null;
+  right?: React.ReactNode | null;
+  showNavbar?: boolean;
+  mobileMode?: "middle-only" | "keep-columns";
+};
+
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
-  getLayout?: (page: React.ReactElement) => React.ReactNode;
+  layoutProps?: LayoutProps;
 };
 
 type AppPropsWithLayout = AppProps & {
@@ -25,14 +32,12 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      // If this is a public route, allow immediately
       if (PUBLIC_ROUTES.includes(router.pathname)) {
         setAllowed(true);
         setCheckingAuth(false);
         return;
       }
 
-      // For all other routes, require Supabase user
       const { data } = await supabase.auth.getUser();
       const user = data?.user;
 
@@ -48,7 +53,7 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
 
     checkAuth();
-  }, [router.pathname, router]);
+  }, [router.pathname]);
 
   if (checkingAuth) {
     return (
@@ -70,25 +75,22 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     );
   }
 
-  // If not allowed and redirect in progress, render nothing
-  if (!allowed && router.pathname !== "/auth") {
-    return null;
-  }
+  if (!allowed && router.pathname !== "/auth") return null;
 
-  // Keep /auth clean (no navbar/bg/layout)
-  if (router.pathname === "/auth") {
-    return <Component {...pageProps} />;
-  }
+  // No layout on /auth
+  if (router.pathname === "/auth") return <Component {...pageProps} />;
 
-  // Default global layout:
-  // - variant "three"
-  // - left sidebar default
-  // - right empty (page can override via Component.getLayout)
-  const defaultGetLayout = (page: React.ReactElement) => (
-    <AppLayout variant="three">{page}</AppLayout>
+  const lp = Component.layoutProps ?? {};
+
+  return (
+    <AppLayout
+      variant={lp.variant ?? "three"}
+      left={lp.left}
+      right={lp.right}
+      showNavbar={lp.showNavbar ?? true}
+      mobileMode={lp.mobileMode ?? "middle-only"}
+    >
+      <Component {...pageProps} />
+    </AppLayout>
   );
-
-  const getLayout = Component.getLayout ?? defaultGetLayout;
-
-  return getLayout(<Component {...pageProps} />);
 }
