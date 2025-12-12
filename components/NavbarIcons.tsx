@@ -466,47 +466,58 @@ export default function NavbarIcons() {
             flexShrink: 0,
           }}
         >
-          {/* MOBILE SEARCH BAR – between brand & hamburger */}
-          {isMobile && (
-            <form
-              onSubmit={handleGlobalSearchSubmit}
-              className="nav-search-mobile"
-              style={{
-                flexShrink: 1,
-                maxWidth: 180,
-                display: "flex",
-                alignItems: "center",
-                padding: "4px 10px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.6)",
-                background: "rgba(15,23,42,0.9)",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 14,
-                  marginRight: 6,
-                  opacity: 0.85,
-                }}
-              >
-                🔍
-              </span>
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search"
-                style={{
-                  border: "none",
-                  outline: "none",
-                  background: "transparent",
-                  color: "#e5e7eb",
-                  fontSize: 13,
-                  width: "100%",
-                }}
-              />
-            </form>
-          )}
+          
+          {/* MOBILE SEARCH PILL (centered under navbar) */}
+{isMobile && (
+  <div
+    style={{
+      width: "100%",
+      display: "flex",
+      justifyContent: "center",
+      background: "rgba(10,15,30,0.85)", // matches navbar look
+      paddingBottom: 8,
+      paddingTop: 4,
+    }}
+  >
+    <form
+      onSubmit={handleGlobalSearchSubmit}
+      style={{
+        width: "85%",
+        maxWidth: 350,
+        display: "flex",
+        alignItems: "center",
+        padding: "8px 14px",
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.6)",
+        background: "rgba(15,23,42,0.9)",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 16,
+          marginRight: 10,
+          opacity: 0.85,
+        }}
+      >
+        🔍
+      </span>
+      <input
+        type="text"
+        value={globalSearch}
+        onChange={(e) => setGlobalSearch(e.target.value)}
+        placeholder="Search"
+        style={{
+          flex: 1,
+          border: "none",
+          outline: "none",
+          background: "transparent",
+          color: "#e5e7eb",
+          fontSize: 15,
+        }}
+      />
+    </form>
+  </div>
+)}
 
           {/* DESKTOP NAV (hidden on mobile) */}
           {!isMobile && (
