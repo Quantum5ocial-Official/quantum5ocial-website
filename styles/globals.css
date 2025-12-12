@@ -3228,3 +3228,7 @@ html.theme-light footer {
     padding-right: 5px;
   }
 }
+.sidebar-card,
+.layout-right {
+  border-left: none !important;
+}
