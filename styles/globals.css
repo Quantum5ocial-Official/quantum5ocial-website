@@ -3224,7 +3224,7 @@ html.theme-light footer {
 }
 @media (max-width: 900px) {
   .layout-main {
-    padding-left: 14px;
-    padding-right: 14px;
+    padding-left: 10px;
+    padding-right: 10px;
   }
 }
