@@ -1,15 +1,24 @@
 // pages/_app.tsx
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
+import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import Footer from "../components/Footer";
+import AppLayout from "../components/AppLayout";
 
 // Routes that should be accessible without login.
 const PUBLIC_ROUTES = ["/auth"];
 
-export default function MyApp({ Component, pageProps }: AppProps) {
+export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
+  getLayout?: (page: React.ReactElement) => React.ReactNode;
+};
+
+type AppPropsWithLayout = AppProps & {
+  Component: NextPageWithLayout;
+};
+
+export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [allowed, setAllowed] = useState(false);
@@ -41,7 +50,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     checkAuth();
   }, [router.pathname]);
 
-  // While checking auth, show a simple loading state
   if (checkingAuth) {
     return (
       <div className="page">
@@ -67,10 +75,21 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     return null;
   }
 
-  // Normal render if allowed or on /auth
-  return (
-    <>
-      <Component {...pageProps} />
-    </>
+  // Default global layout:
+  // - variant is "three"
+  // - left sidebar is default
+  // - right is empty (page can override later)
+  const defaultGetLayout = (page: React.ReactElement) => (
+    <AppLayout variant="three">{page}</AppLayout>
   );
+
+  const getLayout = Component.getLayout ?? defaultGetLayout;
+
+  // IMPORTANT:
+  // For /auth, you probably want no layout at all (clean screen).
+  if (router.pathname === "/auth") {
+    return <Component {...pageProps} />;
+  }
+
+  return getLayout(<Component {...pageProps} />);
 }
