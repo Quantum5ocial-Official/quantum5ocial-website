@@ -959,7 +959,7 @@ a:focus {
 .sidebar-card {
   border-radius: var(--radius-xl);
   background: var(--card-bg);
-  border: 1px solid var(--border-subtle);
+  border: none;
   padding: 16px 18px;
   box-shadow: var(--shadow-soft);
 }
