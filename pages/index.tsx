@@ -109,7 +109,9 @@ export default function Home() {
   };
 
   const formatProductMeta = (p: Product) =>
-    [p.company_name ? `Vendor: ${p.company_name}` : null].filter(Boolean).join(" · ");
+    [p.company_name ? `Vendor: ${p.company_name}` : null]
+      .filter(Boolean)
+      .join(" · ");
 
   const formatProductTags = (p: Product) => {
     const tags: string[] = [];
@@ -483,6 +485,12 @@ export default function Home() {
             </div>
             <div className="badge-pill">
               <span className="badge-dot" /> Entangled · Connected with labs
+            </div>
+            <div className="badge-pill">
+              <span className="badge-dot" /> Quantum Vendor · Active startup
+            </div>
+            <div className="badge-pill">
+              <span className="badge-dot" /> Resonant · Highly active profile
             </div>
             <div className="badge-pill">
               <span className="badge-dot" /> Quantum Vendor · Active startup
