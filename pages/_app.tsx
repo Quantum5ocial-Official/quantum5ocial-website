@@ -2,8 +2,8 @@
 import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import type { NextPage } from "next";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import AppLayout from "../components/AppLayout";
 
@@ -48,7 +48,7 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
 
     checkAuth();
-  }, [router.pathname]);
+  }, [router.pathname, router]);
 
   if (checkingAuth) {
     return (
@@ -75,21 +75,20 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     return null;
   }
 
+  // Keep /auth clean (no navbar/bg/layout)
+  if (router.pathname === "/auth") {
+    return <Component {...pageProps} />;
+  }
+
   // Default global layout:
-  // - variant is "three"
-  // - left sidebar is default
-  // - right is empty (page can override later)
+  // - variant "three"
+  // - left sidebar default
+  // - right empty (page can override via Component.getLayout)
   const defaultGetLayout = (page: React.ReactElement) => (
     <AppLayout variant="three">{page}</AppLayout>
   );
 
   const getLayout = Component.getLayout ?? defaultGetLayout;
-
-  // IMPORTANT:
-  // For /auth, you probably want no layout at all (clean screen).
-  if (router.pathname === "/auth") {
-    return <Component {...pageProps} />;
-  }
 
   return getLayout(<Component {...pageProps} />);
 }
