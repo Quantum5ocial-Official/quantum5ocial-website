@@ -95,7 +95,7 @@ export default function AppLayout({
 
     if (variant === "three") return "280px minmax(0, 1fr) 280px";
     if (variant === "two-left") return "280px minmax(0, 1fr)";
-    if (variant === "two-right") return "minmax(0, 1fr) 340px";
+    if (variant === "two-right") return "minmax(0, 1fr) 280px";
     return "minmax(0, 1fr)";
   })();
 
