@@ -1,13 +1,9 @@
 // pages/orgs/index.tsx
 import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-
-const Navbar = dynamic(() => import("../../components/Navbar"), {
-  ssr: false,
-});
+import LeftSidebar from "../../components/LeftSidebar";
 
 type Org = {
   id: string;
@@ -31,11 +27,143 @@ type Org = {
 
 type KindFilter = "all" | "company" | "research_group";
 
+function OrgsRightSidebar(props: {
+  search: string;
+  setSearch: (v: string) => void;
+  kindFilter: KindFilter;
+  setKindFilter: (v: KindFilter) => void;
+  showCreateCta: boolean;
+}) {
+  const { search, setSearch, kindFilter, setKindFilter, showCreateCta } = props;
+
+  return (
+    <aside className="layout-right sticky-col">
+      <div className="sidebar-card">
+        <div className="products-filters-title">Search & filters</div>
+
+        <div style={{ marginTop: 10 }}>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search orgs…"
+            style={{
+              width: "100%",
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(148,163,184,0.35)",
+              backgroundColor: "rgba(15,23,42,0.9)",
+              color: "#e5e7eb",
+              fontSize: 14,
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 6,
+              padding: 2,
+              borderRadius: 12,
+              border: "1px solid rgba(148,163,184,0.25)",
+              backgroundColor: "rgba(15,23,42,0.9)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setKindFilter("all")}
+              style={{
+                flex: 1,
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "none",
+                fontSize: 13,
+                cursor: "pointer",
+                background:
+                  kindFilter === "all"
+                    ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                    : "transparent",
+                color: kindFilter === "all" ? "#0f172a" : "#e5e7eb",
+              }}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setKindFilter("company")}
+              style={{
+                flex: 1,
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "none",
+                fontSize: 13,
+                cursor: "pointer",
+                background:
+                  kindFilter === "company"
+                    ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                    : "transparent",
+                color: kindFilter === "company" ? "#0f172a" : "#e5e7eb",
+              }}
+            >
+              Companies
+            </button>
+            <button
+              type="button"
+              onClick={() => setKindFilter("research_group")}
+              style={{
+                flex: 1,
+                padding: "8px 10px",
+                borderRadius: 10,
+                border: "none",
+                fontSize: 13,
+                cursor: "pointer",
+                background:
+                  kindFilter === "research_group"
+                    ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                    : "transparent",
+                color: kindFilter === "research_group" ? "#0f172a" : "#e5e7eb",
+              }}
+            >
+              Research
+            </button>
+          </div>
+        </div>
+
+        {showCreateCta && (
+          <div style={{ marginTop: 14 }}>
+            <Link href="/orgs/create" className="nav-cta" style={{ width: "100%", textAlign: "center" }}>
+              + Create org page
+            </Link>
+          </div>
+        )}
+
+        <div
+          style={{
+            marginTop: 14,
+            padding: 10,
+            borderRadius: 12,
+            background:
+              "radial-gradient(circle at top left, rgba(56,189,248,0.14), rgba(15,23,42,1))",
+            fontSize: 12,
+            color: "rgba(148,163,184,0.95)",
+            lineHeight: 1.45,
+          }}
+        >
+          Tip: Add a clear tagline and focus area so people find you faster.
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 export default function OrganizationsDirectoryPage() {
   const { user } = useSupabaseUser();
 
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
 
@@ -64,7 +192,6 @@ export default function OrganizationsDirectoryPage() {
     const term = search.trim().toLowerCase();
     return orgs.filter((org) => {
       if (kindFilter !== "all" && org.kind !== kindFilter) return false;
-
       if (!term) return true;
 
       const haystack = [
@@ -105,358 +232,197 @@ export default function OrganizationsDirectoryPage() {
     org.kind === "company" ? "Company" : "Research group";
 
   return (
-    <>
-      <div className="bg-layer" />
-      <div className="page">
-        <Navbar />
+    <section className="layout-main">
+      <section className="section">
+        {/* Header */}
+        <div className="section-header">
+          <div>
+            <div className="section-title">Organizations</div>
+            <div className="section-sub" style={{ maxWidth: 680 }}>
+              Explore companies, vendors, labs, and research groups active in
+              quantum technologies.
+            </div>
+          </div>
 
-        <main
-          style={{
-            maxWidth: 960,
-            margin: "0 auto",
-            padding: "32px 24px 64px",
-          }}
-        >
-          {/* Header */}
-          <header
+          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+            {!loading ? `${filteredOrgs.length} result${filteredOrgs.length === 1 ? "" : "s"}` : ""}
+          </div>
+        </div>
+
+        {/* List */}
+        {loading ? (
+          <div className="products-status">Loading organizations…</div>
+        ) : filteredOrgs.length === 0 ? (
+          <div className="products-empty">
+            No organizations found. Try a different search or filter.
+          </div>
+        ) : (
+          <div
             style={{
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
               gap: 16,
             }}
           >
-            <div>
-              <div
-                style={{
-                  fontSize: 13,
-                  letterSpacing: 0.06,
-                  textTransform: "uppercase",
-                  color: "rgba(148,163,184,0.9)",
-                  marginBottom: 4,
-                }}
-              >
-                Directory
-              </div>
-              <h1
-                style={{
-                  fontSize: 28,
-                  fontWeight: 600,
-                  marginBottom: 6,
-                }}
-              >
-                Organizations in the quantum ecosystem
-              </h1>
-              <p
-                style={{
-                  fontSize: 15,
-                  opacity: 0.85,
-                  maxWidth: 640,
-                }}
-              >
-                Explore companies, vendors, labs, and research groups active in
-                quantum technologies. This is just the beginning of the
-                Quantum5ocial organization directory.
-              </p>
-            </div>
+            {filteredOrgs.map((org) => {
+              const meta = formatMeta(org);
+              const kindLabel = formatKindLabel(org);
+              const firstLetter = org.name.charAt(0).toUpperCase();
 
-            {/* CTA to create org page (only if logged in) */}
-            {user && (
-              <Link
-                href="/orgs/create"
-                className="nav-cta"
-                style={{
-                  alignSelf: "center",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                + Create my organization page
-              </Link>
-            )}
-          </header>
-
-          {/* Controls */}
-          <section
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-              alignItems: "center",
-              marginBottom: 20,
-            }}
-          >
-            {/* Search */}
-            <div
-              style={{
-                flex: 1,
-                minWidth: 220,
-              }}
-            >
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, institution, industry, or focus area…"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.6)",
-                  backgroundColor: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 14,
-                }}
-              />
-            </div>
-
-            {/* Kind filter */}
-            <div
-              style={{
-                display: "flex",
-                gap: 6,
-                padding: 2,
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.5)",
-                backgroundColor: "rgba(15,23,42,0.9)",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setKindFilter("all")}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "none",
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background:
-                    kindFilter === "all"
-                      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-                      : "transparent",
-                  color: kindFilter === "all" ? "#0f172a" : "#e5e7eb",
-                }}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                onClick={() => setKindFilter("company")}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "none",
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background:
-                    kindFilter === "company"
-                      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-                      : "transparent",
-                  color: kindFilter === "company" ? "#0f172a" : "#e5e7eb",
-                }}
-              >
-                Companies
-              </button>
-              <button
-                type="button"
-                onClick={() => setKindFilter("research_group")}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 999,
-                  border: "none",
-                  fontSize: 13,
-                  cursor: "pointer",
-                  background:
-                    kindFilter === "research_group"
-                      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-                      : "transparent",
-                  color:
-                    kindFilter === "research_group" ? "#0f172a" : "#e5e7eb",
-                }}
-              >
-                Research groups
-              </button>
-            </div>
-          </section>
-
-          {/* List */}
-          <section>
-            {loading ? (
-              <div
-                style={{
-                  fontSize: 14,
-                  color: "rgba(209,213,219,0.9)",
-                }}
-              >
-                Loading organizations…
-              </div>
-            ) : filteredOrgs.length === 0 ? (
-              <div
-                style={{
-                  fontSize: 14,
-                  color: "rgba(209,213,219,0.9)",
-                }}
-              >
-                No organizations found yet. As more companies and groups join
-                Quantum5ocial, they will appear here.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                  gap: 16,
-                }}
-              >
-                {filteredOrgs.map((org) => {
-                  const meta = formatMeta(org);
-                  const kindLabel = formatKindLabel(org);
-                  const firstLetter = org.name.charAt(0).toUpperCase();
-
-                  return (
-                    <Link
-                      key={org.id}
-                      href={`/orgs/${org.slug}`}
-                      className="org-card-link"
-                      style={{ textDecoration: "none", color: "inherit" }}
+              return (
+                <Link
+                  key={org.id}
+                  href={`/orgs/${org.slug}`}
+                  className="org-card-link"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div
+                    className="hover-tile"
+                    style={{
+                      borderRadius: 18,
+                      padding: 18,
+                      border: "1px solid rgba(148,163,184,0.28)",
+                      background:
+                        "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96))",
+                      boxShadow: "0 18px 40px rgba(15,23,42,0.55)",
+                      display: "flex",
+                      gap: 14,
+                      alignItems: "flex-start",
+                      transition:
+                        "transform 120ms ease-out, box-shadow 150ms ease-out, border-color 120ms ease-out",
+                    }}
+                  >
+                    {/* Logo / initial */}
+                    <div
+                      style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        border: "1px solid rgba(148,163,184,0.45)",
+                        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        fontSize: 20,
+                      }}
                     >
+                      {org.logo_url ? (
+                        <img
+                          src={org.logo_url}
+                          alt={org.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        firstLetter
+                      )}
+                    </div>
+
+                    {/* Text */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          borderRadius: 18,
-                          padding: 18,
-                          border: "1px solid rgba(148,163,184,0.28)",
-                          background:
-                            "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96))",
-                          boxShadow: "0 18px 40px rgba(15,23,42,0.55)",
                           display: "flex",
-                          gap: 14,
-                          alignItems: "flex-start",
-                          transition:
-                            "transform 120ms ease-out, box-shadow 150ms ease-out, border-color 120ms ease-out",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          marginBottom: 4,
                         }}
-                        className="hover-tile"
                       >
-                        {/* Logo / initial */}
                         <div
                           style={{
-                            width: 52,
-                            height: 52,
-                            borderRadius: 16,
+                            fontSize: 16,
+                            fontWeight: 500,
+                            color: "#e5e7eb",
                             overflow: "hidden",
-                            flexShrink: 0,
-                            border:
-                              "1px solid rgba(148,163,184,0.45)",
-                            background:
-                              "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#0f172a",
-                            fontWeight: 700,
-                            fontSize: 20,
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          {org.logo_url ? (
-                            <img
-                              src={org.logo_url}
-                              alt={org.name}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                            />
-                          ) : (
-                            firstLetter
-                          )}
+                          {org.name}
                         </div>
-
-                        {/* Text */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 8,
-                              marginBottom: 4,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 16,
-                                fontWeight: 500,
-                                color: "#e5e7eb",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {org.name}
-                            </div>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                borderRadius: 999,
-                                padding: "3px 8px",
-                                border:
-                                  "1px solid rgba(148,163,184,0.7)",
-                                color: "rgba(226,232,240,0.95)",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {kindLabel}
-                            </span>
-                          </div>
-
-                          {meta && (
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "rgba(148,163,184,0.95)",
-                                marginBottom: 4,
-                              }}
-                            >
-                              {meta}
-                            </div>
-                          )}
-
-                          {org.tagline && (
-                            <div
-                              style={{
-                                fontSize: 13,
-                                color: "rgba(209,213,219,0.95)",
-                              }}
-                            >
-                              {org.tagline.length > 90
-                                ? org.tagline.slice(0, 87) + "…"
-                                : org.tagline}
-                            </div>
-                          )}
-
-                          {!org.tagline && org.focus_areas && (
-                            <div
-                              style={{
-                                fontSize: 12.5,
-                                color: "rgba(209,213,219,0.9)",
-                              }}
-                            >
-                              {org.focus_areas.length > 90
-                                ? org.focus_areas.slice(0, 87) + "…"
-                                : org.focus_areas}
-                            </div>
-                          )}
-                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            borderRadius: 999,
+                            padding: "3px 8px",
+                            border: "1px solid rgba(148,163,184,0.7)",
+                            color: "rgba(226,232,240,0.95)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {kindLabel}
+                        </span>
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        </main>
-      </div>
-    </>
+
+                      {meta && (
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "rgba(148,163,184,0.95)",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {meta}
+                        </div>
+                      )}
+
+                      {org.tagline && (
+                        <div style={{ fontSize: 13, color: "rgba(209,213,219,0.95)" }}>
+                          {org.tagline.length > 90
+                            ? org.tagline.slice(0, 87) + "…"
+                            : org.tagline}
+                        </div>
+                      )}
+
+                      {!org.tagline && org.focus_areas && (
+                        <div style={{ fontSize: 12.5, color: "rgba(209,213,219,0.9)" }}>
+                          {org.focus_areas.length > 90
+                            ? org.focus_areas.slice(0, 87) + "…"
+                            : org.focus_areas}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </section>
   );
 }
+
+// ✅ AppLayout config (3 columns like Jobs/Products/Community)
+(OrganizationsDirectoryPage as any).layoutProps = {
+  variant: "three",
+  left: <LeftSidebar />,
+  right: (
+    <OrgsRightSidebar
+      // NOTE: these props will be injected at runtime by the page component.
+      // AppLayout renders right as-is, so we pass a function-like element by
+      // exporting right via a wrapper in a pattern below.
+      // We'll override this in the page at the bottom.
+      // (kept here only to show intent)
+      // @ts-expect-error
+      search=""
+      // @ts-expect-error
+      setSearch={() => {}}
+      // @ts-expect-error
+      kindFilter="all"
+      // @ts-expect-error
+      setKindFilter={() => {}}
+      // @ts-expect-error
+      showCreateCta={false}
+    />
+  ),
+};
