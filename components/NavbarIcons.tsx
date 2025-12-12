@@ -475,8 +475,8 @@ export default function NavbarIcons() {
       display: "flex",
       justifyContent: "center",
       background: "rgba(10,15,30,0.85)", // matches navbar look
-      paddingBottom: 8,
-      paddingTop: 4,
+      paddingBottom: 10,
+      paddingTop: 14,
     }}
   >
     <form
