@@ -13,6 +13,9 @@ export type LayoutProps = {
   right?: React.ReactNode | null;
   showNavbar?: boolean;
   mobileMode?: "middle-only" | "keep-columns";
+
+  // ✅ NEW: lets pages wrap the whole layout in a provider
+  wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -88,12 +91,11 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   }
 
   if (!allowed && !isPublicRoute) return null;
-
   if (isPublicRoute) return <Component {...pageProps} />;
 
   const lp = Component.layoutProps ?? {};
 
-  return (
+  const content = (
     <AppLayout
       variant={lp.variant ?? "three"}
       left={lp.left}
@@ -104,4 +106,7 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       <Component {...pageProps} />
     </AppLayout>
   );
+
+  // ✅ NEW: allow per-page provider wrapping (right + middle share state)
+  return lp.wrap ? lp.wrap(content) : content;
 }
