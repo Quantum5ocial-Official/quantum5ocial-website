@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
-import AppLayout from "../components/AppLayout";
 
 type Job = {
   id: string;
@@ -162,7 +161,8 @@ export default function Home() {
             <div className="section-title">Featured quantum roles</div>
             <div className="section-sub">The latest roles from the Quantum Jobs Universe.</div>
           </div>
-          <a
+
+          <Link
             href="/jobs"
             className="section-link"
             style={{
@@ -176,7 +176,7 @@ export default function Home() {
             }}
           >
             View all jobs →
-          </a>
+          </Link>
         </div>
 
         {loadingJobs ? (
@@ -231,7 +231,8 @@ export default function Home() {
             <div className="section-title">Highlighted quantum tools &amp; products</div>
             <div className="section-sub">The newest entries from the Quantum Products Lab.</div>
           </div>
-          <a
+
+          <Link
             href="/products"
             className="section-link"
             style={{
@@ -245,7 +246,7 @@ export default function Home() {
             }}
           >
             Browse all products →
-          </a>
+          </Link>
         </div>
 
         {loadingProducts ? (
@@ -344,7 +345,8 @@ export default function Home() {
             <div className="section-title">Featured community members</div>
             <div className="section-sub">Recently joined profiles from the Quantum Community.</div>
           </div>
-          <a
+
+          <Link
             href="/community"
             className="section-link"
             style={{
@@ -358,7 +360,7 @@ export default function Home() {
             }}
           >
             Explore community →
-          </a>
+          </Link>
         </div>
 
         {loadingMembers ? (
@@ -540,21 +542,7 @@ export default function Home() {
   );
 }
 
-/**
- * Layout: 3 columns
- * - Left: default global sidebar from AppLayout
- * - Middle: this page
- * - Right: homepage shortcuts tiles
- */
-Home.getLayout = function getLayout(page: React.ReactElement) {
-  return (
-    <AppLayout variant="three" right={<HomeRightSidebar />}>
-      {page}
-    </AppLayout>
-  );
-};
-
-// Right sidebar is a real component (no duplication, no scope hacks)
+// Right sidebar component
 function HomeRightSidebar() {
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -623,3 +611,9 @@ function HomeRightSidebar() {
     </div>
   );
 }
+
+// Tell _app.tsx to render the right sidebar for this page (no page-level AppLayout)
+(Home as any).layoutOptions = {
+  variant: "three",
+  right: <HomeRightSidebar />,
+};
