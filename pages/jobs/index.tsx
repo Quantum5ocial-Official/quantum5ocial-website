@@ -764,7 +764,7 @@ function JobsTwoColumnShell() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 320px",
+        gridTemplateColumns: "minmax(0, 1fr) 280px",
         gap: 16,
         alignItems: "start",
       }}
