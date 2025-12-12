@@ -131,80 +131,6 @@ export default function Home() {
     return [highestEdu, role, aff].filter(Boolean).join(" · ");
   };
 
-  // RIGHT SIDEBAR CONTENT (exactly as you had it)
-  const RightSidebar = () => (
-    <div className="hero-tiles hero-tiles-vertical">
-      {/* Jobs tile */}
-      <Link href="/jobs" className="hero-tile">
-        <div className="hero-tile-inner">
-          <div className="tile-label">Explore</div>
-          <div className="tile-title-row">
-            <div className="tile-title">Quantum Jobs Universe</div>
-            <div className="tile-icon-orbit">🧪</div>
-          </div>
-          <p className="tile-text">
-            Browse internships, MSc/PhD positions, postdocs, and industry roles
-            from labs and companies worldwide.
-          </p>
-          <div className="tile-pill-row">
-            <span className="tile-pill">MSc / PhD</span>
-            <span className="tile-pill">Postdoc</span>
-            <span className="tile-pill">Industry</span>
-          </div>
-          <div className="tile-cta">
-            Browse jobs <span>›</span>
-          </div>
-        </div>
-      </Link>
-
-      {/* Products tile */}
-      <Link href="/products" className="hero-tile">
-        <div className="hero-tile-inner">
-          <div className="tile-label">Discover</div>
-          <div className="tile-title-row">
-            <div className="tile-title">Quantum Products Lab</div>
-            <div className="tile-icon-orbit">🔧</div>
-          </div>
-          <p className="tile-text">
-            Discover quantum hardware, control electronics, software tools, and
-            services from specialized vendors.
-          </p>
-          <div className="tile-pill-row">
-            <span className="tile-pill">Hardware</span>
-            <span className="tile-pill">Control &amp; readout</span>
-            <span className="tile-pill">Software &amp; services</span>
-          </div>
-          <div className="tile-cta">
-            Browse products <span>›</span>
-          </div>
-        </div>
-      </Link>
-
-      {/* Community tile */}
-      <Link href="/community" className="hero-tile">
-        <div className="hero-tile-inner">
-          <div className="tile-label">Connect</div>
-          <div className="tile-title-row">
-            <div className="tile-title">Quantum Community</div>
-            <div className="tile-icon-orbit">🤝</div>
-          </div>
-          <p className="tile-text">
-            Discover people working in quantum technology – students,
-            researchers, and industry professionals across the world.
-          </p>
-          <div className="tile-pill-row">
-            <span className="tile-pill">Profiles</span>
-            <span className="tile-pill">Labs &amp; companies</span>
-            <span className="tile-pill">Entangle connections</span>
-          </div>
-          <div className="tile-cta">
-            Browse community <span>›</span>
-          </div>
-        </div>
-      </Link>
-    </div>
-  );
-
   return (
     <>
       {/* HERO */}
@@ -217,9 +143,8 @@ export default function Home() {
             shaping the future of quantum technology.
           </h1>
           <p className="hero-sub">
-            Quantum5ocial connects students, researchers, and companies with
-            curated opportunities, services and products across the global
-            quantum ecosystem.
+            Quantum5ocial connects students, researchers, and companies with curated
+            opportunities, services and products across the global quantum ecosystem.
           </p>
 
           <div className="hero-tags">
@@ -235,9 +160,7 @@ export default function Home() {
         <div className="section-header">
           <div>
             <div className="section-title">Featured quantum roles</div>
-            <div className="section-sub">
-              The latest roles from the Quantum Jobs Universe.
-            </div>
+            <div className="section-sub">The latest roles from the Quantum Jobs Universe.</div>
           </div>
           <a
             href="/jobs"
@@ -305,12 +228,8 @@ export default function Home() {
       <section className="section" id="products">
         <div className="section-header">
           <div>
-            <div className="section-title">
-              Highlighted quantum tools &amp; products
-            </div>
-            <div className="section-sub">
-              The newest entries from the Quantum Products Lab.
-            </div>
+            <div className="section-title">Highlighted quantum tools &amp; products</div>
+            <div className="section-sub">The newest entries from the Quantum Products Lab.</div>
           </div>
           <a
             href="/products"
@@ -397,9 +316,7 @@ export default function Home() {
                       <div className="card-title">{p.name}</div>
                       <div className="card-pill">{p.category || "Product"}</div>
                     </div>
-                    <div className="card-meta">
-                      {formatProductMeta(p) || "Quantum product"}
-                    </div>
+                    <div className="card-meta">{formatProductMeta(p) || "Quantum product"}</div>
                     {p.short_description && (
                       <div className="card-tags">
                         {formatProductTags(p).map((tag) => (
@@ -425,9 +342,7 @@ export default function Home() {
         <div className="section-header">
           <div>
             <div className="section-title">Featured community members</div>
-            <div className="section-sub">
-              Recently joined profiles from the Quantum Community.
-            </div>
+            <div className="section-sub">Recently joined profiles from the Quantum Community.</div>
           </div>
           <a
             href="/community"
@@ -506,7 +421,11 @@ export default function Home() {
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="card-title">{name}</div>
-                      {meta && <div className="card-meta" style={{ marginTop: 2 }}>{meta}</div>}
+                      {meta && (
+                        <div className="card-meta" style={{ marginTop: 2 }}>
+                          {meta}
+                        </div>
+                      )}
                       {bio && (
                         <div className="card-footer-text" style={{ marginTop: 6 }}>
                           {bio.length > 80 ? bio.slice(0, 77) + "..." : bio}
@@ -552,8 +471,7 @@ export default function Home() {
               <li>Complete your profile → gain QP and visibility</li>
               <li>Post roles or products → earn vendor &amp; mentor badges</li>
               <li>
-                Explore and engage → unlock levels like Superposition, Entangled,
-                Resonant
+                Explore and engage → unlock levels like Superposition, Entangled, Resonant
               </li>
             </ul>
           </div>
@@ -590,8 +508,8 @@ export default function Home() {
               <span className="who-title">Students &amp; early-career</span>
             </div>
             <p className="who-text">
-              Explore internships, MSc/PhD projects, and your first postdoc or
-              industry role. Build your profile as you grow into the field.
+              Explore internships, MSc/PhD projects, and your first postdoc or industry role.
+              Build your profile as you grow into the field.
             </p>
           </div>
 
@@ -601,8 +519,8 @@ export default function Home() {
               <span className="who-title">Researchers &amp; labs</span>
             </div>
             <p className="who-text">
-              Showcase your group, attract collaborators, and make it easier to
-              find the right candidates for your quantum projects.
+              Showcase your group, attract collaborators, and make it easier to find the right
+              candidates for your quantum projects.
             </p>
           </div>
 
@@ -612,8 +530,8 @@ export default function Home() {
               <span className="who-title">Companies &amp; startups</span>
             </div>
             <p className="who-text">
-              Post jobs, list your hero products, and reach a focused audience
-              that already cares about quantum technologies.
+              Post jobs, list your hero products, and reach a focused audience that already
+              cares about quantum technologies.
             </p>
           </div>
         </div>
@@ -622,19 +540,22 @@ export default function Home() {
   );
 }
 
-// ✅ Use global layout: left sidebar default, right sidebar custom, 3-col layout
+/**
+ * Layout: 3 columns
+ * - Left: default global sidebar from AppLayout
+ * - Middle: this page
+ * - Right: homepage shortcuts tiles
+ */
 Home.getLayout = function getLayout(page: React.ReactElement) {
-  // IMPORTANT: keep this in the same file; no extra imports needed
-  // We pass the RIGHT sidebar here; left is default in AppLayout
   return (
-    <AppLayout variant="three" right={<RightSidebarShim />}>
+    <AppLayout variant="three" right={<HomeRightSidebar />}>
       {page}
     </AppLayout>
   );
 };
 
-// Shim so we can pass RightSidebar without redefining inside getLayout scope
-function RightSidebarShim() {
+// Right sidebar is a real component (no duplication, no scope hacks)
+function HomeRightSidebar() {
   return (
     <div className="hero-tiles hero-tiles-vertical">
       <Link href="/jobs" className="hero-tile">
@@ -645,8 +566,7 @@ function RightSidebarShim() {
             <div className="tile-icon-orbit">🧪</div>
           </div>
           <p className="tile-text">
-            Browse internships, MSc/PhD positions, postdocs, and industry roles
-            from labs and companies worldwide.
+            Browse internships, MSc/PhD positions, postdocs, and industry roles from labs and companies worldwide.
           </p>
           <div className="tile-pill-row">
             <span className="tile-pill">MSc / PhD</span>
@@ -667,8 +587,7 @@ function RightSidebarShim() {
             <div className="tile-icon-orbit">🔧</div>
           </div>
           <p className="tile-text">
-            Discover quantum hardware, control electronics, software tools, and
-            services from specialized vendors.
+            Discover quantum hardware, control electronics, software tools, and services from specialized vendors.
           </p>
           <div className="tile-pill-row">
             <span className="tile-pill">Hardware</span>
@@ -689,8 +608,7 @@ function RightSidebarShim() {
             <div className="tile-icon-orbit">🤝</div>
           </div>
           <p className="tile-text">
-            Discover people working in quantum technology – students,
-            researchers, and industry professionals across the world.
+            Discover people working in quantum technology – students, researchers, and industry professionals across the world.
           </p>
           <div className="tile-pill-row">
             <span className="tile-pill">Profiles</span>
