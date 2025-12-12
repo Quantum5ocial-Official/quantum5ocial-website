@@ -764,13 +764,26 @@ function JobsTwoColumnShell() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 280px",
-        gap: 16,
+        gridTemplateColumns: "minmax(0, 1fr) 280px", // ✅ same as global left
+        gap: 0, // ✅ so divider sits between columns
         alignItems: "start",
       }}
     >
-      <JobsMiddle />
-      <div style={{ position: "sticky", top: 16 }}>
+      {/* MIDDLE */}
+      <div style={{ paddingRight: 16 }}>
+        <JobsMiddle />
+      </div>
+
+      {/* RIGHT (FILTERS) */}
+      <div
+        style={{
+          borderLeft: "1px solid rgba(148,163,184,0.35)", // ✅ divider between columns
+          paddingLeft: 16,
+          position: "sticky",
+          top: 16,
+          alignSelf: "start",
+        }}
+      >
         <JobsRightSidebar />
       </div>
     </div>
