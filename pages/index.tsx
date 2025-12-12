@@ -44,12 +44,65 @@ type CommunityProfile = {
 export default function Home() {
   const [featuredJobs, setFeaturedJobs] = useState<Job[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>([]);
+  const [featuredMembers, setFeaturedMembers] = useState<CommunityProfile[]>(
+    []
+  );
 
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
+  // ===== MOBILE DRAWERS =====
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= 900;
+  });
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
+
+  const anyOpen = leftOpen || rightOpen;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => setIsMobile(window.innerWidth <= 900);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = anyOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [anyOpen]);
+
+  useEffect(() => {
+    if (!anyOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLeftOpen(false);
+        setRightOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [anyOpen]);
+
+  useEffect(() => {
+    if (leftOpen) setRightOpen(false);
+  }, [leftOpen]);
+
+  useEffect(() => {
+    if (rightOpen) setLeftOpen(false);
+  }, [rightOpen]);
+
+  const closeAll = () => {
+    setLeftOpen(false);
+    setRightOpen(false);
+  };
+
+  // ===== DATA LOADS =====
   useEffect(() => {
     const loadJobs = async () => {
       setLoadingJobs(true);
@@ -111,6 +164,7 @@ export default function Home() {
     loadMembers();
   }, []);
 
+  // ===== FORMATTERS =====
   const formatJobMeta = (job: Job) =>
     [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
 
@@ -137,15 +191,91 @@ export default function Home() {
 
   const formatMemberMeta = (m: CommunityProfile) => {
     const highestEdu =
-      (m as any).highest_education ||
-      (m as any).education_level ||
-      "" ||
-      undefined;
+      (m as any).highest_education || (m as any).education_level || "" || undefined;
     const role = (m as any).role || (m as any).describes_you || undefined;
     const aff = (m as any).affiliation || (m as any).current_org || undefined;
 
     return [highestEdu, role, aff].filter(Boolean).join(" · ");
   };
+
+  // ===== RIGHT SIDEBAR CONTENT (reuse for desktop + mobile drawer) =====
+  const RightSidebar = () => (
+    <aside
+      className="layout-right sticky-col"
+      style={{ display: "flex", flexDirection: "column" }}
+    >
+      <div className="hero-tiles hero-tiles-vertical">
+        {/* Jobs tile */}
+        <Link href="/jobs" className="hero-tile">
+          <div className="hero-tile-inner">
+            <div className="tile-label">Explore</div>
+            <div className="tile-title-row">
+              <div className="tile-title">Quantum Jobs Universe</div>
+              <div className="tile-icon-orbit">🧪</div>
+            </div>
+            <p className="tile-text">
+              Browse internships, MSc/PhD positions, postdocs, and industry roles
+              from labs and companies worldwide.
+            </p>
+            <div className="tile-pill-row">
+              <span className="tile-pill">MSc / PhD</span>
+              <span className="tile-pill">Postdoc</span>
+              <span className="tile-pill">Industry</span>
+            </div>
+            <div className="tile-cta">
+              Browse jobs <span>›</span>
+            </div>
+          </div>
+        </Link>
+
+        {/* Products tile */}
+        <Link href="/products" className="hero-tile">
+          <div className="hero-tile-inner">
+            <div className="tile-label">Discover</div>
+            <div className="tile-title-row">
+              <div className="tile-title">Quantum Products Lab</div>
+              <div className="tile-icon-orbit">🔧</div>
+            </div>
+            <p className="tile-text">
+              Discover quantum hardware, control electronics, software tools, and
+              services from specialized vendors.
+            </p>
+            <div className="tile-pill-row">
+              <span className="tile-pill">Hardware</span>
+              <span className="tile-pill">Control &amp; readout</span>
+              <span className="tile-pill">Software &amp; services</span>
+            </div>
+            <div className="tile-cta">
+              Browse products <span>›</span>
+            </div>
+          </div>
+        </Link>
+
+        {/* Community tile */}
+        <Link href="/community" className="hero-tile">
+          <div className="hero-tile-inner">
+            <div className="tile-label">Connect</div>
+            <div className="tile-title-row">
+              <div className="tile-title">Quantum Community</div>
+              <div className="tile-icon-orbit">🤝</div>
+            </div>
+            <p className="tile-text">
+              Discover people working in quantum technology – students,
+              researchers, and industry professionals across the world.
+            </p>
+            <div className="tile-pill-row">
+              <span className="tile-pill">Profiles</span>
+              <span className="tile-pill">Labs &amp; companies</span>
+              <span className="tile-pill">Entangle connections</span>
+            </div>
+            <div className="tile-cta">
+              Browse community <span>›</span>
+            </div>
+          </div>
+        </Link>
+      </div>
+    </aside>
+  );
 
   return (
     <>
@@ -153,9 +283,218 @@ export default function Home() {
       <div className="page">
         <Navbar />
 
-        <main className="layout-3col">
-          {/* LEFT SIDEBAR */}
-          <LeftSidebar />
+        {/* ===== MOBILE DRAWERS + EDGE BUTTONS ===== */}
+        {isMobile && anyOpen && (
+          <div
+            onClick={closeAll}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              zIndex: 9998,
+            }}
+          />
+        )}
+
+        {isMobile && !anyOpen && (
+          <>
+            {/* Left edge button */}
+            <button
+              type="button"
+              aria-label="Open left drawer"
+              onClick={() => setLeftOpen(true)}
+              style={{
+                position: "fixed",
+                top: "50%",
+                transform: "translateY(-50%)",
+                left: 6,
+                zIndex: 9997,
+                width: 28,
+                height: 64,
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.55)",
+                background: "rgba(15,23,42,0.75)",
+                color: "rgba(226,232,240,0.95)",
+                fontSize: 22,
+                cursor: "pointer",
+              }}
+            >
+              ‹
+            </button>
+
+            {/* Right edge button */}
+            <button
+              type="button"
+              aria-label="Open right drawer"
+              onClick={() => setRightOpen(true)}
+              style={{
+                position: "fixed",
+                top: "50%",
+                transform: "translateY(-50%)",
+                right: 6,
+                zIndex: 9997,
+                width: 28,
+                height: 64,
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.55)",
+                background: "rgba(15,23,42,0.75)",
+                color: "rgba(226,232,240,0.95)",
+                fontSize: 22,
+                cursor: "pointer",
+              }}
+            >
+              ›
+            </button>
+          </>
+        )}
+
+        {/* Left drawer */}
+        {isMobile && (
+          <aside
+            aria-hidden={!leftOpen}
+            style={{
+              position: "fixed",
+              top: 84, // matches your NAV_HEADER_HEIGHT
+              bottom: 0,
+              left: 0,
+              width: "86vw",
+              maxWidth: 380,
+              background: "rgba(10,15,30,0.98)",
+              borderRight: "1px solid rgba(148,163,184,0.25)",
+              zIndex: 9999,
+              transform: leftOpen ? "translateX(0)" : "translateX(-105%)",
+              transition: "transform 180ms ease-out",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                height: 52,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 14px",
+                borderBottom: "1px solid rgba(148,163,184,0.25)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                Menu
+              </div>
+              <button
+                type="button"
+                aria-label="Close left drawer"
+                onClick={() => setLeftOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  color: "rgba(226,232,240,0.9)",
+                  borderRadius: 999,
+                  width: 34,
+                  height: 34,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                padding: 12,
+              }}
+            >
+              <LeftSidebar />
+            </div>
+          </aside>
+        )}
+
+        {/* Right drawer */}
+        {isMobile && (
+          <aside
+            aria-hidden={!rightOpen}
+            style={{
+              position: "fixed",
+              top: 84,
+              bottom: 0,
+              right: 0,
+              width: "86vw",
+              maxWidth: 380,
+              background: "rgba(10,15,30,0.98)",
+              borderLeft: "1px solid rgba(148,163,184,0.25)",
+              zIndex: 9999,
+              transform: rightOpen ? "translateX(0)" : "translateX(105%)",
+              transition: "transform 180ms ease-out",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div
+              style={{
+                height: 52,
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 14px",
+                borderBottom: "1px solid rgba(148,163,184,0.25)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 14,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                Shortcuts
+              </div>
+              <button
+                type="button"
+                aria-label="Close right drawer"
+                onClick={() => setRightOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  color: "rgba(226,232,240,0.9)",
+                  borderRadius: 999,
+                  width: 34,
+                  height: 34,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                WebkitOverflowScrolling: "touch",
+                padding: 12,
+              }}
+            >
+              <RightSidebar />
+            </div>
+          </aside>
+        )}
+
+        {/* ===== DESKTOP: original 3-col layout | MOBILE: middle only ===== */}
+        <main className={isMobile ? "" : "layout-3col"}>
+          {!isMobile && <LeftSidebar />}
 
           {/* MIDDLE MAIN COLUMN */}
           <section className="layout-main">
@@ -181,9 +520,7 @@ export default function Home() {
                     Intern, PhD, Postdoc, and Industry roles
                   </span>
                   <span className="tag-chip">Startups, Vendors, and Labs</span>
-                  <span className="tag-chip">
-                    Hardware · Software · Services
-                  </span>
+                  <span className="tag-chip">Hardware · Software · Services</span>
                 </div>
               </div>
             </section>
@@ -403,9 +740,7 @@ export default function Home() {
             <section className="section" id="community">
               <div className="section-header">
                 <div>
-                  <div className="section-title">
-                    Featured community members
-                  </div>
+                  <div className="section-title">Featured community members</div>
                   <div className="section-sub">
                     Recently joined profiles from the Quantum Community.
                   </div>
@@ -450,9 +785,7 @@ export default function Home() {
                         : "Member";
                     const meta = formatMemberMeta(m);
                     const bio =
-                      (m as any).short_bio ||
-                      (m as any).short_description ||
-                      "";
+                      (m as any).short_bio || (m as any).short_description || "";
 
                     return (
                       <div key={m.id} className="card">
@@ -502,10 +835,7 @@ export default function Home() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div className="card-title">{name}</div>
                             {meta && (
-                              <div
-                                className="card-meta"
-                                style={{ marginTop: 2 }}
-                              >
+                              <div className="card-meta" style={{ marginTop: 2 }}>
                                 {meta}
                               </div>
                             )}
@@ -514,9 +844,7 @@ export default function Home() {
                                 className="card-footer-text"
                                 style={{ marginTop: 6 }}
                               >
-                                {bio.length > 80
-                                  ? bio.slice(0, 77) + "..."
-                                  : bio}
+                                {bio.length > 80 ? bio.slice(0, 77) + "..." : bio}
                               </div>
                             )}
                             <button
@@ -525,8 +853,7 @@ export default function Home() {
                                 marginTop: 10,
                                 padding: "5px 10px",
                                 borderRadius: 999,
-                                border:
-                                  "1px solid rgba(148,163,184,0.7)",
+                                border: "1px solid rgba(148,163,184,0.7)",
                                 background: "transparent",
                                 color: "#7dd3fc",
                                 fontSize: 12,
@@ -558,7 +885,9 @@ export default function Home() {
                   </p>
                   <ul className="gamify-list">
                     <li>Complete your profile → gain QP and visibility</li>
-                    <li>Post roles or products → earn vendor &amp; mentor badges</li>
+                    <li>
+                      Post roles or products → earn vendor &amp; mentor badges
+                    </li>
                     <li>
                       Explore and engage → unlock levels like Superposition,
                       Entangled, Resonant
@@ -570,16 +899,13 @@ export default function Home() {
                     <span className="badge-dot" /> Superposition · New member
                   </div>
                   <div className="badge-pill">
-                    <span className="badge-dot" /> Entangled · Connected with
-                    labs
+                    <span className="badge-dot" /> Entangled · Connected with labs
                   </div>
                   <div className="badge-pill">
-                    <span className="badge-dot" /> Quantum Vendor · Active
-                    startup
+                    <span className="badge-dot" /> Quantum Vendor · Active startup
                   </div>
                   <div className="badge-pill">
-                    <span className="badge-dot" /> Resonant · Highly active
-                    profile
+                    <span className="badge-dot" /> Resonant · Highly active profile
                   </div>
                 </div>
               </div>
@@ -602,14 +928,12 @@ export default function Home() {
                 <div className="who-card">
                   <div className="who-title-row">
                     <span className="who-emoji">👨‍🎓</span>
-                    <span className="who-title">
-                      Students &amp; early-career
-                    </span>
+                    <span className="who-title">Students &amp; early-career</span>
                   </div>
                   <p className="who-text">
-                    Explore internships, MSc/PhD projects, and your first
-                    postdoc or industry role. Build your profile as you grow
-                    into the field.
+                    Explore internships, MSc/PhD projects, and your first postdoc
+                    or industry role. Build your profile as you grow into the
+                    field.
                   </p>
                 </div>
 
@@ -620,17 +944,14 @@ export default function Home() {
                   </div>
                   <p className="who-text">
                     Showcase your group, attract collaborators, and make it
-                    easier to find the right candidates for your quantum
-                    projects.
+                    easier to find the right candidates for your quantum projects.
                   </p>
                 </div>
 
                 <div className="who-card">
                   <div className="who-title-row">
                     <span className="who-emoji">🏢</span>
-                    <span className="who-title">
-                      Companies &amp; startups
-                    </span>
+                    <span className="who-title">Companies &amp; startups</span>
                   </div>
                   <p className="who-text">
                     Post jobs, list your hero products, and reach a focused
@@ -641,84 +962,7 @@ export default function Home() {
             </section>
           </section>
 
-          {/* RIGHT SIDEBAR – STACKED HERO TILES */}
-          <aside
-            className="layout-right sticky-col"
-            style={{ display: "flex", flexDirection: "column" }}
-          >
-            <div className="hero-tiles hero-tiles-vertical">
-              {/* Jobs tile */}
-              <Link href="/jobs" className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Explore</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Quantum Jobs Universe</div>
-                    <div className="tile-icon-orbit">🧪</div>
-                  </div>
-                  <p className="tile-text">
-                    Browse internships, MSc/PhD positions, postdocs, and
-                    industry roles from labs and companies worldwide.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">MSc / PhD</span>
-                    <span className="tile-pill">Postdoc</span>
-                    <span className="tile-pill">Industry</span>
-                  </div>
-                  <div className="tile-cta">
-                    Browse jobs <span>›</span>
-                  </div>
-                </div>
-              </Link>
-
-              {/* Products tile */}
-              <Link href="/products" className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Discover</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Quantum Products Lab</div>
-                    <div className="tile-icon-orbit">🔧</div>
-                  </div>
-                  <p className="tile-text">
-                    Discover quantum hardware, control electronics, software
-                    tools, and services from specialized vendors.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Hardware</span>
-                    <span className="tile-pill">Control &amp; readout</span>
-                    <span className="tile-pill">Software &amp; services</span>
-                  </div>
-                  <div className="tile-cta">
-                    Browse products <span>›</span>
-                  </div>
-                </div>
-              </Link>
-
-              {/* Community tile */}
-              <Link href="/community" className="hero-tile">
-                <div className="hero-tile-inner">
-                  <div className="tile-label">Connect</div>
-                  <div className="tile-title-row">
-                    <div className="tile-title">Quantum Community</div>
-                    <div className="tile-icon-orbit">🤝</div>
-                  </div>
-                  <p className="tile-text">
-                    Discover people working in quantum technology – students,
-                    researchers, and industry professionals across the world.
-                  </p>
-                  <div className="tile-pill-row">
-                    <span className="tile-pill">Profiles</span>
-                    <span className="tile-pill">
-                      Labs &amp; companies
-                    </span>
-                    <span className="tile-pill">Entangle connections</span>
-                  </div>
-                  <div className="tile-cta">
-                    Browse community <span>›</span>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </aside>
+          {!isMobile && <RightSidebar />}
         </main>
       </div>
     </>
