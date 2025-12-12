@@ -94,18 +94,15 @@ const SENIORITY_FILTERS = [
 ];
 
 type JobsCtx = {
-  // data
   jobs: Job[];
   loading: boolean;
   error: string | null;
 
-  // saved
   savedJobIds: string[];
   savingId: string | null;
   isSaved: (id: string) => boolean;
   handleToggleSave: (jobId: string) => Promise<void>;
 
-  // filters
   search: string;
   setSearch: (v: string) => void;
 
@@ -132,7 +129,6 @@ type JobsCtx = {
 
   resetFilters: () => void;
 
-  // derived
   filteredJobs: Job[];
   recommendedJobs: Job[];
   remainingJobs: Job[];
@@ -167,7 +163,6 @@ function JobsProvider({ children }: { children: ReactNode }) {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // ---- Load jobs ----
   useEffect(() => {
     const loadJobs = async () => {
       setLoading(true);
@@ -192,7 +187,6 @@ function JobsProvider({ children }: { children: ReactNode }) {
     loadJobs();
   }, []);
 
-  // ---- Load saved jobs for current user (ids only) ----
   useEffect(() => {
     const loadSaved = async () => {
       if (!user) {
@@ -236,29 +230,22 @@ function JobsProvider({ children }: { children: ReactNode }) {
           .eq("user_id", user.id)
           .eq("job_id", jobId);
 
-        if (error) {
-          console.error("Error unsaving job", error);
-        } else {
-          setSavedJobIds((prev) => prev.filter((id) => id !== jobId));
-        }
+        if (error) console.error("Error unsaving job", error);
+        else setSavedJobIds((prev) => prev.filter((id) => id !== jobId));
       } else {
         const { error } = await supabase.from("saved_jobs").insert({
           user_id: user.id,
           job_id: jobId,
         });
 
-        if (error) {
-          console.error("Error saving job", error);
-        } else {
-          setSavedJobIds((prev) => [...prev, jobId]);
-        }
+        if (error) console.error("Error saving job", error);
+        else setSavedJobIds((prev) => [...prev, jobId]);
       }
     } finally {
       setSavingId(null);
     }
   };
 
-  // ---- Filtering ----
   const filteredJobs = useMemo(() => {
     const q = search.toLowerCase().trim();
 
@@ -513,8 +500,8 @@ function JobsMiddle() {
               )}
             </div>
             <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
-              Browse internships, PhD positions, postdocs, and industry roles across labs
-              and companies.
+              Browse internships, PhD positions, postdocs, and industry roles across
+              labs and companies.
             </div>
           </div>
 
@@ -622,7 +609,13 @@ function JobsMiddle() {
                   </div>
                 </div>
 
-                <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    textAlign: "right",
+                  }}
+                >
                   For now based on your filters. <br />
                   Later: AI profile matching.
                 </div>
@@ -635,7 +628,9 @@ function JobsMiddle() {
                     <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
                       <div className="job-card-header">
                         <div>
-                          <div className="job-card-title">{job.title || "Untitled role"}</div>
+                          <div className="job-card-title">
+                            {job.title || "Untitled role"}
+                          </div>
                           <div className="job-card-meta">
                             {job.company_name && `${job.company_name} · `}
                             {job.location}
@@ -718,7 +713,9 @@ function JobsMiddle() {
                     <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
                       <div className="job-card-header">
                         <div>
-                          <div className="job-card-title">{job.title || "Untitled role"}</div>
+                          <div className="job-card-title">
+                            {job.title || "Untitled role"}
+                          </div>
                           <div className="job-card-meta">
                             {job.company_name && `${job.company_name} · `}
                             {job.location}
@@ -762,53 +759,32 @@ function JobsMiddle() {
   );
 }
 
-function JobsPageInner() {
-  return <JobsMiddle />;
-}
-
-export default function JobsIndexPage() {
-  // Provider is inside the page so BOTH middle + right can share state,
-  // but AppLayout is NOT used here (handled by _app.tsx).
+function JobsTwoColumnShell() {
   return (
-    <JobsProvider>
-      <JobsPageInner />
-    </JobsProvider>
-  );
-}
-
-// Right sidebar needs the provider too — so we wrap it with JobsProvider again,
-// but ONLY for the sidebar tree. To keep it synced with the middle, we pass the
-// SAME provider instance by rendering sidebar inside the same page provider:
-//
-// -> We do that by exposing a sidebar component that is rendered as a child of the page.
-// However layoutProps.right is rendered by AppLayout outside the page tree.
-// So the simplest correct approach is: DO NOT rely on context across layout boundary.
-// Instead, keep filters in URL OR lift provider above layout.
-//
-// ✅ Best fix: lift provider above AppLayout in _app.tsx (next step).
-//
-// For now (to match your current architecture), we keep the right sidebar as a static CTA,
-// or move filters into middle.
-//
-// --- TEMP: keep right sidebar as non-context until provider is lifted above AppLayout ---
-function JobsRightSidebarStatic() {
-  return (
-    <div className="sidebar-card">
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Filters</div>
-      <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.45 }}>
-        Filters will appear here once we lift JobsProvider above AppLayout so the right
-        column can control the middle.
-      </div>
-      <div style={{ marginTop: 12 }}>
-        <Link href="/jobs" className="nav-ghost-btn" style={{ width: "100%", display: "block" }}>
-          Refresh jobs
-        </Link>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) 320px",
+        gap: 16,
+        alignItems: "start",
+      }}
+    >
+      <JobsMiddle />
+      <div style={{ position: "sticky", top: 16 }}>
+        <JobsRightSidebar />
       </div>
     </div>
   );
 }
 
+export default function JobsIndexPage() {
+  return <JobsTwoColumnShell />;
+}
+
+// ✅ Tell _app.tsx to use a left-only global layout,
+// and wrap the whole page with JobsProvider so middle+right share state.
 (JobsIndexPage as any).layoutProps = {
-  variant: "three",
-  right: <JobsRightSidebarStatic />,
+  variant: "two-left",
+  right: null,
+  wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
 };
