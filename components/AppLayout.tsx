@@ -93,7 +93,7 @@ export default function AppLayout({
   const gridTemplateColumns = (() => {
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
-    if (variant === "three") return "280px minmax(0, 1fr) 340px";
+    if (variant === "three") return "280px minmax(0, 1fr) 280px";
     if (variant === "two-left") return "280px minmax(0, 1fr)";
     if (variant === "two-right") return "minmax(0, 1fr) 340px";
     return "minmax(0, 1fr)";
