@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import LeftSidebar from "../components/LeftSidebar";
+import { useEffect, useState, useRef } from "react";
 
 const Navbar = dynamic(() => import("../components/NavbarIcons"), {
   ssr: false,
@@ -51,7 +52,11 @@ export default function Home() {
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingMembers, setLoadingMembers] = useState(true);
-
+  // ===== SWIPE (mobile) =====
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchLastX = useRef<number | null>(null);
+  const touchLastY = useRef<number | null>(null);
   // ===== MOBILE DRAWERS =====
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -163,6 +168,91 @@ export default function Home() {
 
     loadMembers();
   }, []);
+    // ===== MOBILE EDGE SWIPE HANDLING =====
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const EDGE_PX = 24;
+    const MIN_SWIPE_PX = 70;
+    const MAX_VERTICAL_PX = 60;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      touchStartX.current = t.clientX;
+      touchStartY.current = t.clientY;
+      touchLastX.current = t.clientX;
+      touchLastY.current = t.clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      touchLastX.current = t.clientX;
+      touchLastY.current = t.clientY;
+    };
+
+    const onTouchEnd = () => {
+      if (
+        touchStartX.current === null ||
+        touchLastX.current === null ||
+        touchStartY.current === null ||
+        touchLastY.current === null
+      ) {
+        return;
+      }
+
+      const dx = touchLastX.current - touchStartX.current;
+      const dy = touchLastY.current - touchStartY.current;
+
+      touchStartX.current = null;
+      touchLastX.current = null;
+      touchStartY.current = null;
+      touchLastY.current = null;
+
+      // Ignore vertical scroll
+      if (Math.abs(dy) > MAX_VERTICAL_PX) return;
+
+      const screenWidth = window.innerWidth;
+
+      // Close gestures
+      if (leftOpen && dx < -MIN_SWIPE_PX) {
+        setLeftOpen(false);
+        return;
+      }
+
+      if (rightOpen && dx > MIN_SWIPE_PX) {
+        setRightOpen(false);
+        return;
+      }
+
+      // Open gestures (from edges only)
+      if (!leftOpen && !rightOpen) {
+        if (touchStartX.current! <= EDGE_PX && dx > MIN_SWIPE_PX) {
+          setLeftOpen(true);
+          return;
+        }
+
+        if (
+          touchStartX.current! >= screenWidth - EDGE_PX &&
+          dx < -MIN_SWIPE_PX
+        ) {
+          setRightOpen(true);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener("touchstart", onTouchStart as any);
+      window.removeEventListener("touchmove", onTouchMove as any);
+      window.removeEventListener("touchend", onTouchEnd as any);
+    };
+  }, [isMobile, leftOpen, rightOpen]);
 
   // ===== FORMATTERS =====
   const formatJobMeta = (job: Job) =>
