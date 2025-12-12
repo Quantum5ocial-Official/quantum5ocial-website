@@ -613,7 +613,7 @@ function HomeRightSidebar() {
 }
 
 // Tell _app.tsx to render the right sidebar for this page (no page-level AppLayout)
-(Home as any).layoutOptions = {
+(Home as any).layoutProps = {
   variant: "three",
   right: <HomeRightSidebar />,
 };
