@@ -7,8 +7,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import AppLayout from "../components/AppLayout";
 
-const PUBLIC_ROUTES = ["/auth"];
-
 export type LayoutProps = {
   variant?: "three" | "two-left" | "two-right" | "center";
   left?: React.ReactNode | null;
@@ -30,11 +28,18 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
+  const isPublicRoute =
+    router.pathname === "/auth" || router.pathname.startsWith("/auth/");
+
   useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
-      if (PUBLIC_ROUTES.includes(router.pathname)) {
-        setAllowed(true);
-        setCheckingAuth(false);
+      if (isPublicRoute) {
+        if (!cancelled) {
+          setAllowed(true);
+          setCheckingAuth(false);
+        }
         return;
       }
 
@@ -42,18 +47,25 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       const user = data?.user;
 
       if (!user) {
-        setAllowed(false);
-        setCheckingAuth(false);
+        if (!cancelled) {
+          setAllowed(false);
+          setCheckingAuth(false);
+        }
         router.replace("/auth");
         return;
       }
 
-      setAllowed(true);
-      setCheckingAuth(false);
+      if (!cancelled) {
+        setAllowed(true);
+        setCheckingAuth(false);
+      }
     };
 
     checkAuth();
-  }, [router.pathname]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isPublicRoute, router.pathname]);
 
   if (checkingAuth) {
     return (
@@ -75,10 +87,9 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     );
   }
 
-  if (!allowed && router.pathname !== "/auth") return null;
+  if (!allowed && !isPublicRoute) return null;
 
-  // No layout on /auth
-  if (router.pathname === "/auth") return <Component {...pageProps} />;
+  if (isPublicRoute) return <Component {...pageProps} />;
 
   const lp = Component.layoutProps ?? {};
 
