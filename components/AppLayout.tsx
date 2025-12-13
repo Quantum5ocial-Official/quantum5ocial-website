@@ -90,7 +90,14 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
-  // Divider element (same style everywhere)
+  // ✅ IMPORTANT:
+  // Your default <LeftSidebar /> already has a right border/line.
+  // So we only inject a left divider if the page provides a CUSTOM left sidebar.
+  const useLeftInjectedDivider = showLeft && left !== undefined;
+
+  // Right divider is safe to inject (your right column does not draw its own divider).
+  const useRightInjectedDivider = showRight;
+
   const Divider = () => (
     <div
       aria-hidden="true"
@@ -102,7 +109,6 @@ export default function AppLayout({
     />
   );
 
-  // Build grid columns dynamically, including divider columns
   const gridTemplateColumns = (() => {
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
@@ -111,8 +117,7 @@ export default function AppLayout({
     // LEFT
     if (showLeft) {
       cols.push("280px");
-      // divider between LEFT and MIDDLE
-      cols.push("1px");
+      if (useLeftInjectedDivider) cols.push("1px");
     }
 
     // MIDDLE (always)
@@ -120,8 +125,7 @@ export default function AppLayout({
 
     // RIGHT
     if (showRight) {
-      // divider between MIDDLE and RIGHT
-      cols.push("1px");
+      if (useRightInjectedDivider) cols.push("1px");
       cols.push("280px");
     }
 
@@ -147,7 +151,7 @@ export default function AppLayout({
           {showLeft && (
             <>
               {resolvedLeft}
-              <Divider />
+              {useLeftInjectedDivider && <Divider />}
             </>
           )}
 
@@ -161,7 +165,7 @@ export default function AppLayout({
           {/* RIGHT */}
           {showRight && (
             <>
-              <Divider />
+              {useRightInjectedDivider && <Divider />}
               <aside
                 className="layout-right sticky-col"
                 style={{ display: "flex", flexDirection: "column" }}
