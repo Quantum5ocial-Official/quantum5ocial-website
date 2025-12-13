@@ -10,9 +10,9 @@ type EntangledProfile = {
   full_name: string | null;
   avatar_url: string | null;
   affiliation: string | null;
-  current_org: string | null;
+  current_org?: string | null; // keep optional (may or may not exist)
   role: string | null;
-  describes_you: string | null;
+  describes_you?: string | null; // keep optional (may or may not exist)
 };
 
 type EcosystemOrg = {
@@ -28,7 +28,7 @@ type EcosystemOrg = {
   focus_areas: string | null;
 };
 
-function EcosystemMiddle() {
+export default function MyEcosystemPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
@@ -76,9 +76,10 @@ function EcosystemMiddle() {
           );
 
           if (otherIds.length > 0) {
+            // ✅ IMPORTANT: only select columns that definitely exist
             const { data: profData, error: profError } = await supabase
               .from("profiles")
-              .select("id, full_name, avatar_url, affiliation, current_org, role, describes_you")
+              .select("id, full_name, avatar_url, affiliation, role")
               .in("id", otherIds);
 
             if (profError) throw profError;
@@ -129,12 +130,12 @@ function EcosystemMiddle() {
 
   return (
     <section className="section">
-      {/* HERO CARD (FULL WIDTH) */}
+      {/* HERO CARD */}
       <div
         className="card"
         style={{
           padding: 20,
-          marginBottom: 18,
+          marginBottom: 24,
           background:
             "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.95))",
           border: "1px solid rgba(148,163,184,0.35)",
@@ -152,10 +153,8 @@ function EcosystemMiddle() {
           <div>
             <div className="section-title">My ecosystem</div>
             <div className="section-sub">
-              A snapshot of your quantum network – the people you&apos;re
-              entangled with and the organizations you follow.
+              A snapshot of your quantum network – the people you&apos;re entangled with and the organizations you follow.
             </div>
-
             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
               <span className="pill pill-soft">
                 🧬 Entangled members: <strong style={{ marginLeft: 4 }}>{entangledTotal}</strong>
@@ -166,15 +165,7 @@ function EcosystemMiddle() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 8,
-              minWidth: 160,
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, minWidth: 160 }}>
             <Link href="/community" className="section-link" style={{ fontSize: 13 }}>
               Explore community →
             </Link>
@@ -190,25 +181,10 @@ function EcosystemMiddle() {
       ) : errorMsg ? (
         <p className="profile-muted">{errorMsg}</p>
       ) : (
-        // BELOW HERO: 2 columns
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-            gap: 18,
-            alignItems: "start",
-          }}
-        >
-          {/* COLUMN 1: Entangled people */}
-          <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginBottom: 8,
-              }}
-            >
+        <>
+          {/* Entangled people */}
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
               <div className="section-subtitle">
                 🧬 Entangled members
                 <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(148,163,184,0.9)", fontWeight: 400 }}>
@@ -226,12 +202,10 @@ function EcosystemMiddle() {
                 and start connecting with quantum people.
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                 {entangledProfiles.map((p) => {
                   const name = p.full_name || "Quantum member";
-                  const meta = [p.role || p.describes_you || null, p.affiliation || p.current_org || null]
-                    .filter(Boolean)
-                    .join(" · ");
+                  const meta = [p.role || null, p.affiliation || null].filter(Boolean).join(" · ");
 
                   return (
                     <div
@@ -299,16 +273,9 @@ function EcosystemMiddle() {
             )}
           </div>
 
-          {/* COLUMN 2: Followed orgs */}
+          {/* Followed orgs */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginBottom: 8,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
               <div className="section-subtitle">
                 🏢 Followed organizations
                 <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(148,163,184,0.9)", fontWeight: 400 }}>
@@ -326,7 +293,7 @@ function EcosystemMiddle() {
                 and follow the ones you care about.
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                 {followedOrgs.map((org) => {
                   const subtitle =
                     org.kind === "company"
@@ -409,17 +376,12 @@ function EcosystemMiddle() {
               </div>
             )}
           </div>
-        </div>
+        </>
       )}
     </section>
   );
 }
 
-export default function MyEcosystemPage() {
-  return <EcosystemMiddle />;
-}
-
-// ✅ Global layout: ONLY left sidebar globally, no global right.
 (MyEcosystemPage as any).layoutProps = {
   variant: "two-left",
   right: null,
