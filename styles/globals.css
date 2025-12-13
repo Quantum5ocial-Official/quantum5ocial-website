@@ -2882,18 +2882,9 @@ html.theme-light footer {
   border-radius: 999px;
   pointer-events: none;
 }
-
-/* RIGHT divider – halfway in the 24px gap (12px from middle column) */
+/* Only show the RIGHT divider when a right column exists */
 .layout-main::after {
-  content: "";
-  position: absolute;
-  right: -12px;             /* half of the column gap */
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(148, 163, 184, 0.28);
-  border-radius: 999px;
-  pointer-events: none;
+  display: none;
 }
 
 @media (max-width: 900px) {
@@ -2976,7 +2967,13 @@ html.theme-light footer {
   cursor: pointer;
   white-space: nowrap;
 }
+/* default: no right divider */
+.layout-main::after { display: none; }
 
+/* show right divider only when layout is 3 columns */
+.layout-3col:not([data-variant="two-left"]):not([data-variant="center"]) .layout-main::after {
+  display: block;
+}
 /* hide search in navbar on small screens */
 @media (max-width: 768px) {
   .nav-search-desktop {
