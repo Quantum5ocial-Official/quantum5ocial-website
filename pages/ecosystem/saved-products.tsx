@@ -5,6 +5,14 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
+// ✅ IMPORTANT: use the SAME shopping cart icon component used in the tile.
+// Replace the import below with your actual path.
+// Examples (pick the real one in your repo):
+// import CartIcon from "../../components/icons/CartIcon";
+// import { CartIcon } from "../../components/icons";
+// import ShoppingCartIcon from "../../components/icons/ShoppingCartIcon";
+import CartIcon from "../../components/icons/CartIcon";
+
 type SavedRow = {
   id: string;
   product: any; // Supabase nested product
@@ -18,7 +26,7 @@ export default function EcosystemSavedProductsPage() {
   const [loadingSaved, setLoadingSaved] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Search
+  // search
   const [search, setSearch] = useState("");
 
   // Redirect if not logged in
@@ -79,21 +87,20 @@ export default function EcosystemSavedProductsPage() {
     });
   }, [saved, search]);
 
-  if (!user && !loading) return null;
-
   const total = saved.length;
-  const showList = !loadingSaved && !error && total > 0;
+
+  if (!user && !loading) return null;
 
   return (
     <section className="section">
-      {/* Header card — matches /ecosystem/following */}
+      {/* Header card — matches the ecosystem style */}
       <div
         className="card"
         style={{
           padding: 18,
           marginBottom: 14,
           background:
-            "radial-gradient(circle at 0% 0%, rgba(34,211,238,0.12), rgba(15,23,42,0.96))",
+            "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.96))",
           border: "1px solid rgba(148,163,184,0.35)",
         }}
       >
@@ -109,9 +116,28 @@ export default function EcosystemSavedProductsPage() {
           <div>
             <div
               className="section-title"
-              style={{ display: "flex", gap: 10, alignItems: "center" }}
+              style={{ display: "flex", gap: 12, alignItems: "center" }}
             >
-              🔧 Saved products
+              {/* Icon bubble — SAME shopping cart icon as tile */}
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#0f172a",
+                  flexShrink: 0,
+                }}
+                aria-hidden="true"
+              >
+                <CartIcon />
+              </div>
+
+              <span>Saved products</span>
+
               {!loadingSaved && !error && (
                 <span
                   style={{
@@ -119,7 +145,7 @@ export default function EcosystemSavedProductsPage() {
                     padding: "2px 10px",
                     borderRadius: 999,
                     background: "rgba(15,23,42,0.9)",
-                    border: "1px solid rgba(34,211,238,0.45)",
+                    border: "1px solid rgba(56,189,248,0.45)",
                     color: "#7dd3fc",
                     whiteSpace: "nowrap",
                   }}
@@ -142,30 +168,22 @@ export default function EcosystemSavedProductsPage() {
               gap: 6,
             }}
           >
-            <Link
-              href="/ecosystem"
-              className="section-link"
-              style={{ fontSize: 13 }}
-            >
+            <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
               ← Back to ecosystem
             </Link>
-            <Link
-              href="/products"
-              className="section-link"
-              style={{ fontSize: 13 }}
-            >
-              Discover products →
+            <Link href="/products" className="section-link" style={{ fontSize: 13 }}>
+              Browse marketplace →
             </Link>
           </div>
         </div>
 
-        {/* Search (inside header card) */}
-        {showList && (
-          <div style={{ marginTop: 12, display: "flex", gap: 10, maxWidth: 720 }}>
+        {/* Search (pill style, like following page) */}
+        {!loadingSaved && !error && total > 0 && (
+          <div style={{ marginTop: 12, display: "flex", gap: 10, maxWidth: 640 }}>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search saved products… (name, vendor, category)"
+              placeholder="Search saved products…"
               style={{
                 flex: 1,
                 padding: "10px 14px",
@@ -189,7 +207,6 @@ export default function EcosystemSavedProductsPage() {
                 fontWeight: 700,
                 fontSize: 14,
                 cursor: "pointer",
-                whiteSpace: "nowrap",
               }}
             >
               Search
@@ -197,7 +214,7 @@ export default function EcosystemSavedProductsPage() {
           </div>
         )}
 
-        {showList && search.trim() && (
+        {!loadingSaved && !error && total > 0 && search.trim() && (
           <div style={{ marginTop: 10, fontSize: 12, color: "rgba(148,163,184,0.95)" }}>
             Showing {filtered.length} result{filtered.length === 1 ? "" : "s"} for{" "}
             <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
@@ -215,10 +232,10 @@ export default function EcosystemSavedProductsPage() {
           {error}
         </p>
       ) : total === 0 ? (
-        <div className="products-empty">
+        <p className="profile-muted">
           You haven&apos;t saved any products yet. Tap the heart on a product to add
           it here.
-        </div>
+        </p>
       ) : filtered.length === 0 ? (
         <div className="products-empty">
           No saved products matched{" "}
@@ -235,18 +252,12 @@ export default function EcosystemSavedProductsPage() {
             const company = p.company_name || "Unknown vendor";
 
             return (
-              <Link
-                key={p.id}
-                href={`/products/${p.id}`}
-                className="products-card"
-              >
+              <Link key={p.id} href={`/products/${p.id}`} className="products-card">
                 <div className="products-card-image">
                   {hasImage ? (
                     <img src={p.image1_url} alt={p.name} />
                   ) : (
-                    <div className="products-card-image-placeholder">
-                      No image
-                    </div>
+                    <div className="products-card-image-placeholder">No image</div>
                   )}
                 </div>
 
@@ -260,9 +271,7 @@ export default function EcosystemSavedProductsPage() {
                   </div>
 
                   {p.short_description && (
-                    <div className="products-card-description">
-                      {p.short_description}
-                    </div>
+                    <div className="products-card-description">{p.short_description}</div>
                   )}
 
                   <div className="products-card-footer">
