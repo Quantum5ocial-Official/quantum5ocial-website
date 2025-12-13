@@ -594,3 +594,9 @@ export default function CreateCompanyPage() {
     </>
   );
 }
+
+// ✅ global layout: left sidebar + middle only, no right column
+(CreateCompanyPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
