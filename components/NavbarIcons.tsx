@@ -165,35 +165,56 @@ export default function NavbarIcons() {
 
 // ----- NOTIFICATIONS -----
 useEffect(() => {
+  if (!user) {
+    setNotificationsCount(0);
+    return;
+  }
+
+  // ✅ auto-clear badge when opening notifications page
+  if (router.pathname === "/notifications") {
+    try {
+      window.localStorage.setItem("q5_notifications_seen_at", Date.now().toString());
+    } catch {}
+    setNotificationsCount(0);
+    return;
+  }
+
   let cancelled = false;
 
   const loadNotifications = async () => {
-    if (!user) {
-      setNotificationsCount(0);
-      return;
-    }
-
     try {
-      // 1) Pending incoming entanglement requests
+      // last seen timestamp
+      let seenAt = 0;
+      try {
+        const raw = window.localStorage.getItem("q5_notifications_seen_at");
+        seenAt = raw ? Number(raw) : 0;
+      } catch {}
+
+      // 1) Pending incoming requests (reliable count-only query)
       const { count: pendingCount, error: pendingErr } = await supabase
         .from("connections")
         .select("id", { count: "exact", head: true })
         .eq("target_user_id", user.id)
         .eq("status", "pending");
 
-      // 2) Unread notifications (accepted updates, etc.)
-      const { count: unreadCount, error: unreadErr } = await supabase
-        .from("notifications")
+      // 2) Outgoing requests that were accepted since last seen
+      //    (this is what you want when YOU send a req and they accept)
+      const { count: acceptedSinceSeenCount, error: acceptedErr } = await supabase
+        .from("connections")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
+        .eq("user_id", user.id)          // you were the requester
+        .eq("status", "accepted")
+        .gt("updated_at", new Date(seenAt).toISOString());
 
       if (cancelled) return;
 
       const p = !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
-      const u = !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
+      const a =
+        !acceptedErr && typeof acceptedSinceSeenCount === "number"
+          ? acceptedSinceSeenCount
+          : 0;
 
-      setNotificationsCount(p + u);
+      setNotificationsCount(p + a);
     } catch (e) {
       if (!cancelled) {
         console.error("Error loading notifications", e);
@@ -208,7 +229,7 @@ useEffect(() => {
     cancelled = true;
   };
 }, [user, router.pathname]);
-
+  
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
