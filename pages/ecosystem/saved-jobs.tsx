@@ -184,7 +184,7 @@ export default function EcosystemSavedJobsPage() {
               className="section-title"
               style={{ display: "flex", gap: 10, alignItems: "center" }}
             >
-              ❤️ Saved jobs
+              💼 Saved jobs
               {!status && !error && (
                 <span
                   style={{
