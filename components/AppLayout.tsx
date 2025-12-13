@@ -10,38 +10,12 @@ type LayoutVariant = "three" | "two-left" | "two-right" | "center";
 type AppLayoutProps = {
   children: ReactNode;
 
-  /**
-   * left:
-   * - undefined => default left sidebar (<LeftSidebar />)
-   * - null      => no left sidebar
-   * - ReactNode => custom left sidebar
-   */
   left?: ReactNode | null;
-
-  /**
-   * right:
-   * - undefined => empty right column (keeps 3-col symmetry)
-   * - null      => no right column at all (use variant "two-left" / "center")
-   * - ReactNode => custom right sidebar
-   */
   right?: ReactNode | null;
 
   variant?: LayoutVariant;
-
-  /** show navbar globally (usually true) */
   showNavbar?: boolean;
-
-  /**
-   * For now, on mobile we show only the middle content (no left/right).
-   * Later we’ll implement drawers.
-   */
   mobileMode?: "middle-only" | "keep-columns";
-
-  /**
-   * If true, AppLayout will wrap children in <section className="layout-main" />.
-   * Set to false for pages that already include their own layout wrappers.
-   * Default: true (recommended style: pages return middle content only).
-   */
   wrapMiddle?: boolean;
 };
 
@@ -88,19 +62,18 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
-  // ✅ Use real divider columns in "three" layout
+  // ✅ Only ONE divider: between LEFT and MIDDLE (only in "three" layout)
   const hasLeftDivider = !hideSidebarsOnMobile && variant === "three" && showLeft;
-  const hasRightDivider = !hideSidebarsOnMobile && variant === "three" && showRight;
 
   const gridTemplateColumns = (() => {
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
     if (variant === "three") {
-      // LEFT | divider | MIDDLE | divider | RIGHT
-      // (if left/right are missing we collapse accordingly)
-      if (hasLeftDivider && hasRightDivider) return "280px 1px minmax(0, 1fr) 1px 280px";
-      if (hasLeftDivider && !hasRightDivider) return "280px 1px minmax(0, 1fr)";
-      if (!hasLeftDivider && hasRightDivider) return "minmax(0, 1fr) 1px 280px";
+      // LEFT | divider | MIDDLE | RIGHT   (NO divider between middle and right)
+      if (hasLeftDivider && showRight) return "280px 1px minmax(0, 1fr) 280px";
+      if (hasLeftDivider && !showRight) return "280px 1px minmax(0, 1fr)";
+      // if left is hidden, fall back to normal 2-col right layout
+      if (!showLeft && showRight) return "minmax(0, 1fr) 280px";
       return "minmax(0, 1fr)";
     }
 
@@ -109,14 +82,14 @@ export default function AppLayout({
     return "minmax(0, 1fr)";
   })();
 
-  // When using divider columns, we must not use grid gap
-  const useDividerCols = hasLeftDivider || hasRightDivider;
-  const gridGap = useDividerCols ? 0 : 24;
-
   const dividerStyle = {
     background: "rgba(148,163,184,0.35)",
     width: 1,
   } as const;
+
+  // ✅ gap must be 0 so divider sits exactly between left and middle.
+  // We recreate spacing with padding inside middle/right.
+  const useDivider = hasLeftDivider;
 
   return (
     <>
@@ -129,15 +102,14 @@ export default function AppLayout({
           style={{
             display: "grid",
             gridTemplateColumns,
-            gap: gridGap,
-            // stretch so divider columns run full height
-            alignItems: useDividerCols ? "stretch" : "start",
+            gap: useDivider ? 0 : 24,
+            alignItems: useDivider ? "stretch" : "start",
           }}
         >
           {/* LEFT */}
           {showLeft && <>{resolvedLeft}</>}
 
-          {/* ✅ LEFT DIVIDER */}
+          {/* ✅ ONLY DIVIDER (LEFT ↔ MIDDLE) */}
           {hasLeftDivider && <div aria-hidden style={dividerStyle} />}
 
           {/* MIDDLE */}
@@ -145,10 +117,10 @@ export default function AppLayout({
             <section
               className="layout-main"
               style={
-                useDividerCols
+                useDivider
                   ? {
                       paddingLeft: hasLeftDivider ? 24 : undefined,
-                      paddingRight: hasRightDivider ? 24 : undefined,
+                      paddingRight: showRight ? 24 : undefined, // spacing before right column
                     }
                   : undefined
               }
@@ -158,10 +130,10 @@ export default function AppLayout({
           ) : (
             <div
               style={
-                useDividerCols
+                useDivider
                   ? {
                       paddingLeft: hasLeftDivider ? 24 : undefined,
-                      paddingRight: hasRightDivider ? 24 : undefined,
+                      paddingRight: showRight ? 24 : undefined,
                     }
                   : undefined
               }
@@ -170,17 +142,14 @@ export default function AppLayout({
             </div>
           )}
 
-          {/* ✅ RIGHT DIVIDER */}
-          {hasRightDivider && <div aria-hidden style={dividerStyle} />}
-
-          {/* RIGHT */}
+          {/* RIGHT (no divider before it) */}
           {showRight && (
             <aside
               className="layout-right sticky-col"
               style={{
                 display: "flex",
                 flexDirection: "column",
-                ...(useDividerCols ? { paddingLeft: 24 } : null),
+                ...(useDivider ? { paddingLeft: 24 } : null), // spacing from middle
               }}
             >
               {resolvedRight}
