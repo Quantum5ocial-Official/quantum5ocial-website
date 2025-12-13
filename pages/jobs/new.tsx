@@ -417,3 +417,9 @@ export default function NewJobPage() {
     </>
   );
 }
+
+// ✅ global layout: left sidebar + middle only, no right column
+(NewJobPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
