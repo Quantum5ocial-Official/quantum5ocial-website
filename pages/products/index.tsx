@@ -720,4 +720,6 @@ export default function ProductsIndexPage() {
 (ProductsIndexPage as any).layoutProps = {
   variant: "two-left",
   right: null,
+  wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
+  mobileMain: <JobsMiddle />, // ✅ now it WILL be wrapped via _app.tsx
 };
