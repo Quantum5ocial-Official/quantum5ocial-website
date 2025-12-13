@@ -1,13 +1,10 @@
 // pages/profile.tsx
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { useEntanglements } from "../lib/useEntanglements";
-
-const Navbar = dynamic(() => import("../components/NavbarIcons"), { ssr: false });
 
 type Profile = {
   id: string;
@@ -173,239 +170,192 @@ export default function ProfileViewPage() {
     whiteSpace: "nowrap",
   };
 
+  if (!user && !loading) return null;
+
   return (
-    <>
-      <div className="bg-layer" />
-      <div className="page">
-        <Navbar />
-
-        <section className="section">
-          <div className="profile-container">
-            {/* Page header */}
-            <div className="section-header" style={{ marginBottom: 18 }}>
-              <div>
-                <div className="section-title">My profile</div>
-                <div className="section-sub">
-                  This is how you appear inside Quantum5ocial.
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  flex: 1,
-                }}
-              >
-                <Link
-                  href="/profile/edit"
-                  className="nav-ghost-btn"
-                  style={{
-                    ...editLinkStyle,
-                    maxWidth: "200px",
-                    width: "auto",
-                    textAlign: "center",
-                    padding: "8px 20px",
-                  }}
-                >
-                  Edit / complete profile
-                </Link>
-              </div>
-            </div>
-
-            <div className="profile-summary-card">
-              {profileLoading ? (
-                <p className="profile-muted">Loading your profile…</p>
-              ) : !hasAnyProfileInfo ? (
-                <div>
-                  <p
-                    className="profile-muted"
-                    style={{ marginBottom: 12 }}
-                  >
-                    You haven&apos;t filled in your profile yet. A complete
-                    profile helps labs, companies, and collaborators know who
-                    you are in the quantum ecosystem.
-                  </p>
-                  <Link href="/profile/edit" className="nav-cta">
-                    Complete your profile
-                  </Link>
-                </div>
-              ) : (
-                <>
-                  {/* Top identity */}
-                  <div className="profile-header">
-                    <div className="profile-avatar">
-                      {profile?.avatar_url ? (
-                        <img
-                          src={profile.avatar_url}
-                          alt={displayName}
-                          className="profile-avatar-img"
-                        />
-                      ) : (
-                        <span>{initials || "Q5"}</span>
-                      )}
-                    </div>
-
-                    <div className="profile-header-text">
-                      <div className="profile-name">{displayName}</div>
-
-                      {(profile?.role || profile?.affiliation) && (
-                        <div className="profile-role">
-                          {[profile?.role, profile?.affiliation]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </div>
-                      )}
-
-                      {(profile?.city || profile?.country) && (
-                        <div className="profile-location">
-                          {[profile?.city, profile?.country]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </div>
-                      )}
-
-                      {profile?.institutional_email && (
-                        <div className="profile-location">
-                          Verified email: {profile.institutional_email}
-                        </div>
-                      )}
-
-                      <div style={{ marginTop: 12 }}>
-                        <Link
-                          href="/profile/edit"
-                          className="nav-ghost-btn"
-                          style={editLinkStyle}
-                        >
-                          Edit / complete your profile
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Short bio */}
-                  {profile?.short_bio && (
-                    <p className="profile-bio">{profile.short_bio}</p>
-                  )}
-
-                  {/* Experience inline */}
-                  {profile?.key_experience && (
-                    <p className="profile-bio">
-                      <span className="profile-section-label-inline">
-                        Experience:
-                      </span>{" "}
-                      {profile.key_experience}
-                    </p>
-                  )}
-
-                  {/* Two-column layout */}
-                  <div className="profile-two-columns">
-                    {/* LEFT COLUMN */}
-                    <div className="profile-col">
-                      {/* Affiliation */}
-                      {profile?.affiliation && (
-                        <div className="profile-summary-item">
-                          <div className="profile-section-label">
-                            Affiliation
-                          </div>
-                          <div className="profile-summary-text">
-                            {profile.affiliation}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Focus areas */}
-                      {focusTags.length > 0 && (
-                        <div className="profile-summary-item">
-                          <div className="profile-section-label">
-                            Focus areas
-                          </div>
-                          <div className="profile-tags">
-                            {focusTags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="profile-tag-chip"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Links */}
-                      {links.length > 0 && (
-                        <div
-                          className="profile-summary-item"
-                          style={{ marginTop: 18 }}
-                        >
-                          <div className="profile-section-label">
-                            Links
-                          </div>
-                          <ul
-                            style={{
-                              paddingLeft: 16,
-                              fontSize: 13,
-                              marginTop: 4,
-                            }}
-                          >
-                            {links.map((l) => (
-                              <li key={l.label}>
-                                <a
-                                  href={l.value as string}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  style={{ color: "#7dd3fc" }}
-                                >
-                                  {l.label}
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* RIGHT COLUMN */}
-                    <div className="profile-col">
-                      {/* Highest education */}
-                      {profile?.highest_education && (
-                        <div className="profile-summary-item">
-                          <div className="profile-section-label">
-                            Highest education
-                          </div>
-                          <div className="profile-summary-text">
-                            {profile.highest_education}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Skills */}
-                      {skillTags.length > 0 && (
-                        <div className="profile-summary-item">
-                          <div className="profile-section-label">
-                            Skills
-                          </div>
-                          <div className="profile-tags">
-                            {skillTags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="profile-tag-chip"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+    <section className="section">
+      <div className="profile-container">
+        {/* Page header */}
+        <div className="section-header" style={{ marginBottom: 18 }}>
+          <div>
+            <div className="section-title">My profile</div>
+            <div className="section-sub">
+              This is how you appear inside Quantum5ocial.
             </div>
           </div>
-        </section>
+
+          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
+            <Link
+              href="/profile/edit"
+              className="nav-ghost-btn"
+              style={{
+                ...editLinkStyle,
+                maxWidth: "200px",
+                width: "auto",
+                textAlign: "center",
+                padding: "8px 20px",
+              }}
+            >
+              Edit / complete profile
+            </Link>
+          </div>
+        </div>
+
+        <div className="profile-summary-card">
+          {profileLoading ? (
+            <p className="profile-muted">Loading your profile…</p>
+          ) : !hasAnyProfileInfo ? (
+            <div>
+              <p className="profile-muted" style={{ marginBottom: 12 }}>
+                You haven&apos;t filled in your profile yet. A complete profile
+                helps labs, companies, and collaborators know who you are in the
+                quantum ecosystem.
+              </p>
+              <Link href="/profile/edit" className="nav-cta">
+                Complete your profile
+              </Link>
+            </div>
+          ) : (
+            <>
+              {/* Top identity */}
+              <div className="profile-header">
+                <div className="profile-avatar">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={displayName}
+                      className="profile-avatar-img"
+                    />
+                  ) : (
+                    <span>{initials || "Q5"}</span>
+                  )}
+                </div>
+
+                <div className="profile-header-text">
+                  <div className="profile-name">{displayName}</div>
+
+                  {(profile?.role || profile?.affiliation) && (
+                    <div className="profile-role">
+                      {[profile?.role, profile?.affiliation]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                  )}
+
+                  {(profile?.city || profile?.country) && (
+                    <div className="profile-location">
+                      {[profile?.city, profile?.country]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </div>
+                  )}
+
+                  {profile?.institutional_email && (
+                    <div className="profile-location">
+                      Verified email: {profile.institutional_email}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 12 }}>
+                    <Link
+                      href="/profile/edit"
+                      className="nav-ghost-btn"
+                      style={editLinkStyle}
+                    >
+                      Edit / complete your profile
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* Short bio */}
+              {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
+
+              {/* Experience inline */}
+              {profile?.key_experience && (
+                <p className="profile-bio">
+                  <span className="profile-section-label-inline">Experience:</span>{" "}
+                  {profile.key_experience}
+                </p>
+              )}
+
+              {/* Two-column layout */}
+              <div className="profile-two-columns">
+                {/* LEFT COLUMN */}
+                <div className="profile-col">
+                  {profile?.affiliation && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Affiliation</div>
+                      <div className="profile-summary-text">{profile.affiliation}</div>
+                    </div>
+                  )}
+
+                  {focusTags.length > 0 && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Focus areas</div>
+                      <div className="profile-tags">
+                        {focusTags.map((tag) => (
+                          <span key={tag} className="profile-tag-chip">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {links.length > 0 && (
+                    <div className="profile-summary-item" style={{ marginTop: 18 }}>
+                      <div className="profile-section-label">Links</div>
+                      <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
+                        {links.map((l) => (
+                          <li key={l.label}>
+                            <a
+                              href={l.value as string}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: "#7dd3fc" }}
+                            >
+                              {l.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="profile-col">
+                  {profile?.highest_education && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Highest education</div>
+                      <div className="profile-summary-text">{profile.highest_education}</div>
+                    </div>
+                  )}
+
+                  {skillTags.length > 0 && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Skills</div>
+                      <div className="profile-tags">
+                        {skillTags.map((tag) => (
+                          <span key={tag} className="profile-tag-chip">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </>
+    </section>
   );
 }
+
+(ProfileViewPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
