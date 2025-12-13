@@ -1,12 +1,9 @@
 // pages/jobs/[id].tsx
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-
-const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Job = {
   id: string;
@@ -99,173 +96,161 @@ export default function JobDetailPage() {
       .filter(Boolean) || [];
 
   return (
-    <>
-      <div className="bg-layer" />
-      <Navbar />
-      <div className="page">
-        <section className="section">
-          <div className="job-detail-shell">
-            {/* Header row (same width as card) */}
-            <div className="section-header job-detail-header">
-              <div>
-                <div className="section-title">Job details</div>
-                <div className="section-sub">
-                  A role inside the quantum ecosystem listed on Quantum5ocial.
-                </div>
-              </div>
-
-              <Link href="/jobs" className="nav-ghost-btn">
-                ← Back to jobs
-              </Link>
+    <section className="section">
+      <div className="job-detail-shell">
+        {/* Header row (same width as card) */}
+        <div className="section-header job-detail-header">
+          <div>
+            <div className="section-title">Job details</div>
+            <div className="section-sub">
+              A role inside the quantum ecosystem listed on Quantum5ocial.
             </div>
+          </div>
 
-            {loading && <p className="products-status">Loading job…</p>}
-            {loadError && (
-              <p className="products-status error" style={{ marginTop: 8 }}>
-                {loadError}
-              </p>
-            )}
+          <Link href="/jobs" className="nav-ghost-btn">
+            ← Back to jobs
+          </Link>
+        </div>
 
-            {!loading && !loadError && job && (
-              <div className="product-detail-card">
-                {/* Top area */}
-                <div className="product-detail-top">
-                  <div className="product-detail-main">
-                    <h1 className="product-detail-title">
-                      {job.title || "Untitled job"}
-                    </h1>
+        {loading && <p className="products-status">Loading job…</p>}
+        {loadError && (
+          <p className="products-status error" style={{ marginTop: 8 }}>
+            {loadError}
+          </p>
+        )}
 
-                    {job.company_name && (
-                      <div className="product-detail-company">
-                        {job.company_name}
-                      </div>
-                    )}
+        {!loading && !loadError && job && (
+          <div className="product-detail-card">
+            {/* Top area */}
+            <div className="product-detail-top">
+              <div className="product-detail-main">
+                <h1 className="product-detail-title">
+                  {job.title || "Untitled job"}
+                </h1>
 
-                    {(job.location ||
-                      job.employment_type ||
-                      job.remote_type) && (
-                      <div
-                        style={{
-                          marginTop: 8,
-                          fontSize: 13,
-                          color: "rgba(148,163,184,0.95)",
-                        }}
-                      >
-                        {[job.location, job.employment_type, job.remote_type]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </div>
-                    )}
-
-                    {formattedDate && (
-                      <div
-                        style={{
-                          marginTop: 4,
-                          fontSize: 12,
-                          color: "rgba(148,163,184,0.75)",
-                        }}
-                      >
-                        Posted on {formattedDate}
-                      </div>
-                    )}
-
-                    {job.salary_display && (
-                      <div className="product-detail-price">
-                        {job.salary_display}
-                      </div>
-                    )}
-
-                    {job.apply_url && (
-                      <div style={{ marginTop: 14 }}>
-                        <a
-                          href={job.apply_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="nav-cta"
-                        >
-                          Apply / learn more
-                        </a>
-                      </div>
-                    )}
-
-                    {isOwner && (
-                      <div
-                        style={{
-                          marginTop: 18,
-                          display: "flex",
-                          gap: 10,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          className="nav-ghost-btn"
-                          onClick={() =>
-                            router.push(`/jobs/new?id=${job.id}`)
-                          }
-                        >
-                          Edit job
-                        </button>
-                        <button
-                          type="button"
-                          className="nav-cta"
-                          style={{
-                            borderColor: "rgba(248,113,113,0.7)",
-                            color: "#fecaca",
-                          }}
-                          onClick={handleDelete}
-                          disabled={deleting}
-                        >
-                          {deleting ? "Deleting…" : "Delete job"}
-                        </button>
-                      </div>
-                    )}
+                {job.company_name && (
+                  <div className="product-detail-company">
+                    {job.company_name}
                   </div>
+                )}
 
-                  {/* Short description / summary box */}
-                  <div className="product-detail-body">
-                    {job.short_description && (
-                      <div className="product-detail-section">
-                        <div className="profile-section-label">Summary</div>
-                        <div className="profile-summary-text">
-                          {job.short_description}
-                        </div>
-                      </div>
-                    )}
-
-                    {keywordList.length > 0 && (
-                      <div className="product-detail-section">
-                        <div className="profile-section-label">Keywords</div>
-                        <div className="profile-tags">
-                          {keywordList.map((k) => (
-                            <span key={k} className="profile-tag-chip">
-                              {k}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                {(job.location || job.employment_type || job.remote_type) && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 13,
+                      color: "rgba(148,163,184,0.95)",
+                    }}
+                  >
+                    {[job.location, job.employment_type, job.remote_type]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
-                </div>
+                )}
 
-                {/* Full description below */}
-                {job.description && (
-                  <div style={{ marginTop: 24 }}>
-                    <div className="profile-section-label">
-                      Full description
-                    </div>
-                    <p
-                      className="profile-summary-text"
-                      style={{ whiteSpace: "pre-wrap", fontSize: 13 }}
+                {formattedDate && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      color: "rgba(148,163,184,0.75)",
+                    }}
+                  >
+                    Posted on {formattedDate}
+                  </div>
+                )}
+
+                {job.salary_display && (
+                  <div className="product-detail-price">
+                    {job.salary_display}
+                  </div>
+                )}
+
+                {job.apply_url && (
+                  <div style={{ marginTop: 14 }}>
+                    <a
+                      href={job.apply_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="nav-cta"
                     >
-                      {job.description}
-                    </p>
+                      Apply / learn more
+                    </a>
+                  </div>
+                )}
+
+                {isOwner && (
+                  <div
+                    style={{
+                      marginTop: 18,
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="nav-ghost-btn"
+                      onClick={() => router.push(`/jobs/new?id=${job.id}`)}
+                    >
+                      Edit job
+                    </button>
+                    <button
+                      type="button"
+                      className="nav-cta"
+                      style={{
+                        borderColor: "rgba(248,113,113,0.7)",
+                        color: "#fecaca",
+                      }}
+                      onClick={handleDelete}
+                      disabled={deleting}
+                    >
+                      {deleting ? "Deleting…" : "Delete job"}
+                    </button>
                   </div>
                 )}
               </div>
+
+              {/* Short description / summary box */}
+              <div className="product-detail-body">
+                {job.short_description && (
+                  <div className="product-detail-section">
+                    <div className="profile-section-label">Summary</div>
+                    <div className="profile-summary-text">
+                      {job.short_description}
+                    </div>
+                  </div>
+                )}
+
+                {keywordList.length > 0 && (
+                  <div className="product-detail-section">
+                    <div className="profile-section-label">Keywords</div>
+                    <div className="profile-tags">
+                      {keywordList.map((k) => (
+                        <span key={k} className="profile-tag-chip">
+                          {k}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Full description below */}
+            {job.description && (
+              <div style={{ marginTop: 24 }}>
+                <div className="profile-section-label">Full description</div>
+                <p
+                  className="profile-summary-text"
+                  style={{ whiteSpace: "pre-wrap", fontSize: 13 }}
+                >
+                  {job.description}
+                </p>
+              </div>
             )}
           </div>
-        </section>
+        )}
       </div>
 
       <style jsx>{`
@@ -280,6 +265,12 @@ export default function JobDetailPage() {
           margin-bottom: 18px;
         }
       `}</style>
-    </>
+    </section>
   );
 }
+
+// ✅ global layout: left sidebar + middle only, no right column
+(JobDetailPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
