@@ -1,5 +1,12 @@
 // pages/products/index.tsx
-import { useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -16,7 +23,14 @@ const CATEGORIES = [
   "Other",
 ];
 
-const PRODUCT_TYPE_FILTERS = ["All", "Hardware", "Software", "Service", "Consulting", "Other"];
+const PRODUCT_TYPE_FILTERS = [
+  "All",
+  "Hardware",
+  "Software",
+  "Service",
+  "Consulting",
+  "Other",
+];
 
 const TECH_TYPE_FILTERS = [
   "All",
@@ -67,8 +81,7 @@ type Product = {
   quantum_domain: string | null;
 };
 
-type ProductsUIProps = {
-  router: ReturnType<typeof useRouter>;
+type ProductsCtx = {
   products: Product[];
   loadingProducts: boolean;
   error: string | null;
@@ -76,7 +89,6 @@ type ProductsUIProps = {
   savedIds: Set<string>;
   loadingSaved: boolean;
 
-  // Filters
   searchText: string;
   setSearchText: (v: string) => void;
 
@@ -106,22 +118,278 @@ type ProductsUIProps = {
   remainingProducts: Product[];
 
   toggleSaved: (productId: string) => Promise<void>;
-
   resetFilters: () => void;
 
   formatPrice: (p: Product) => string;
   formatStock: (p: Product) => string;
 };
 
-function ProductsRightSidebar(props: ProductsUIProps) {
+const ProductsContext = createContext<ProductsCtx | null>(null);
+
+function useProductsCtx() {
+  const ctx = useContext(ProductsContext);
+  if (!ctx) throw new Error("useProductsCtx must be used inside <ProductsProvider />");
+  return ctx;
+}
+
+function ProductsProvider({ children }: { children: ReactNode }) {
+  const { user } = useSupabaseUser();
+  const router = useRouter();
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  // Filters
+  const [searchText, setSearchText] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [productTypeFilter, setProductTypeFilter] = useState<string>("All");
+  const [techTypeFilter, setTechTypeFilter] = useState<string>("All");
+  const [orgTypeFilter, setOrgTypeFilter] = useState<string>("All");
+  const [domainFilter, setDomainFilter] = useState<string>("All");
+  const [priceFilter, setPriceFilter] = useState<"all" | "fixed" | "contact">("all");
+  const [stockFilter, setStockFilter] = useState<"all" | "in" | "out">("all");
+
+  // --- Load products ---
+  useEffect(() => {
+    const loadProducts = async () => {
+      setLoadingProducts(true);
+      setError(null);
+
+      const { data, error: err } = await supabase
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (err) {
+        console.error("Error loading products", err);
+        setError("Could not load products. Please try again.");
+        setProducts([]);
+      } else {
+        setProducts((data || []) as Product[]);
+      }
+
+      setLoadingProducts(false);
+    };
+
+    loadProducts();
+  }, []);
+
+  // --- Load saved products for current user ---
+  useEffect(() => {
+    const loadSaved = async () => {
+      if (!user) {
+        setSavedIds(new Set());
+        return;
+      }
+      setLoadingSaved(true);
+
+      const { data, error: err } = await supabase
+        .from("saved_products")
+        .select("product_id")
+        .eq("user_id", user.id);
+
+      if (err) {
+        console.error("Error loading saved products", err);
+        setSavedIds(new Set());
+      } else {
+        const idsArray = (data || []).map((row: any) => String(row.product_id));
+        setSavedIds(new Set<string>(idsArray));
+      }
+
+      setLoadingSaved(false);
+    };
+
+    loadSaved();
+  }, [user]);
+
+  const toggleSaved = async (productId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/products");
+      return;
+    }
+
+    const isSaved = savedIds.has(productId);
+
+    if (isSaved) {
+      const { error: err } = await supabase
+        .from("saved_products")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("product_id", productId);
+
+      if (err) {
+        console.error("Error removing saved product", err);
+        return;
+      }
+
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(productId);
+        return next;
+      });
+    } else {
+      const { error: err } = await supabase
+        .from("saved_products")
+        .insert({ user_id: user.id, product_id: productId });
+
+      if (err) {
+        console.error("Error saving product", err);
+        return;
+      }
+
+      setSavedIds((prev) => new Set(prev).add(productId));
+    }
+  };
+
+  const normalize = (v: string | null) => (v || "").toLowerCase();
+  const matchesCategoryFilter = (filterValue: string, fieldValue: string | null) => {
+    if (filterValue === "All") return true;
+    return normalize(fieldValue) === filterValue.toLowerCase();
+  };
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const q = searchText.trim().toLowerCase();
+      if (q) {
+        const haystack = [
+          p.name,
+          p.company_name,
+          p.short_description,
+          p.category,
+          p.product_type,
+          p.technology_type,
+          p.quantum_domain,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+
+      if (categoryFilter !== "all") {
+        if (!p.category || p.category !== categoryFilter) return false;
+      }
+
+      if (!matchesCategoryFilter(productTypeFilter, p.product_type)) return false;
+      if (!matchesCategoryFilter(techTypeFilter, p.technology_type)) return false;
+      if (!matchesCategoryFilter(orgTypeFilter, p.organisation_type)) return false;
+      if (!matchesCategoryFilter(domainFilter, p.quantum_domain)) return false;
+
+      if (priceFilter !== "all") {
+        const pt = p.price_type || "contact";
+        if (priceFilter === "fixed" && pt !== "fixed") return false;
+        if (priceFilter === "contact" && pt !== "contact") return false;
+      }
+
+      if (stockFilter !== "all") {
+        const inStock = !!p.in_stock;
+        if (stockFilter === "in" && !inStock) return false;
+        if (stockFilter === "out" && inStock) return false;
+      }
+
+      return true;
+    });
+  }, [
+    products,
+    searchText,
+    categoryFilter,
+    productTypeFilter,
+    techTypeFilter,
+    orgTypeFilter,
+    domainFilter,
+    priceFilter,
+    stockFilter,
+  ]);
+
+  const heroProducts = filteredProducts.slice(0, 2);
+  const remainingProducts = filteredProducts.slice(heroProducts.length);
+
+  const resetFilters = () => {
+    setSearchText("");
+    setCategoryFilter("all");
+    setProductTypeFilter("All");
+    setTechTypeFilter("All");
+    setOrgTypeFilter("All");
+    setDomainFilter("All");
+    setPriceFilter("all");
+    setStockFilter("all");
+  };
+
+  const formatPrice = (p: Product) => {
+    if (p.price_type === "fixed" && p.price_value) return p.price_value;
+    return "Contact for price";
+  };
+
+  const formatStock = (p: Product) => {
+    if (p.in_stock) {
+      if (p.stock_quantity != null) return `In stock · ${p.stock_quantity} pcs`;
+      return "In stock";
+    }
+    if (p.in_stock === false) return "Out of stock";
+    return "Stock not specified";
+  };
+
+  const value: ProductsCtx = {
+    products,
+    loadingProducts,
+    error,
+
+    savedIds,
+    loadingSaved,
+
+    searchText,
+    setSearchText,
+
+    categoryFilter,
+    setCategoryFilter,
+
+    productTypeFilter,
+    setProductTypeFilter,
+
+    techTypeFilter,
+    setTechTypeFilter,
+
+    orgTypeFilter,
+    setOrgTypeFilter,
+
+    domainFilter,
+    setDomainFilter,
+
+    priceFilter,
+    setPriceFilter,
+
+    stockFilter,
+    setStockFilter,
+
+    filteredProducts,
+    heroProducts,
+    remainingProducts,
+
+    toggleSaved,
+    resetFilters,
+
+    formatPrice,
+    formatStock,
+  };
+
+  return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;
+}
+
+function ProductsRightSidebar() {
+  const ctx = useProductsCtx();
+
   return (
     <div className="sidebar-card">
       <div className="products-filters-section">
         <div className="products-filters-title">Category</div>
         <select
           className="products-filters-input"
-          value={props.categoryFilter}
-          onChange={(e) => props.setCategoryFilter(e.target.value)}
+          value={ctx.categoryFilter}
+          onChange={(e) => ctx.setCategoryFilter(e.target.value)}
         >
           <option value="all">All categories</option>
           {CATEGORIES.map((c) => (
@@ -136,8 +404,8 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         <div className="products-filters-title">Product type</div>
         <select
           className="products-filters-input"
-          value={props.productTypeFilter}
-          onChange={(e) => props.setProductTypeFilter(e.target.value)}
+          value={ctx.productTypeFilter}
+          onChange={(e) => ctx.setProductTypeFilter(e.target.value)}
         >
           {PRODUCT_TYPE_FILTERS.map((t) => (
             <option key={t} value={t}>
@@ -151,8 +419,8 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         <div className="products-filters-title">Technology</div>
         <select
           className="products-filters-input"
-          value={props.techTypeFilter}
-          onChange={(e) => props.setTechTypeFilter(e.target.value)}
+          value={ctx.techTypeFilter}
+          onChange={(e) => ctx.setTechTypeFilter(e.target.value)}
         >
           {TECH_TYPE_FILTERS.map((t) => (
             <option key={t} value={t}>
@@ -166,8 +434,8 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         <div className="products-filters-title">Organisation</div>
         <select
           className="products-filters-input"
-          value={props.orgTypeFilter}
-          onChange={(e) => props.setOrgTypeFilter(e.target.value)}
+          value={ctx.orgTypeFilter}
+          onChange={(e) => ctx.setOrgTypeFilter(e.target.value)}
         >
           {ORG_TYPE_FILTERS.map((t) => (
             <option key={t} value={t}>
@@ -181,8 +449,8 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         <div className="products-filters-title">Quantum domain</div>
         <select
           className="products-filters-input"
-          value={props.domainFilter}
-          onChange={(e) => props.setDomainFilter(e.target.value)}
+          value={ctx.domainFilter}
+          onChange={(e) => ctx.setDomainFilter(e.target.value)}
         >
           {DOMAIN_FILTERS.map((t) => (
             <option key={t} value={t}>
@@ -196,9 +464,9 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         <div className="products-filters-title">Price</div>
         <select
           className="products-filters-input"
-          value={props.priceFilter}
+          value={ctx.priceFilter}
           onChange={(e) =>
-            props.setPriceFilter(e.target.value as "all" | "fixed" | "contact")
+            ctx.setPriceFilter(e.target.value as "all" | "fixed" | "contact")
           }
         >
           <option value="all">All</option>
@@ -211,10 +479,8 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         <div className="products-filters-title">Stock</div>
         <select
           className="products-filters-input"
-          value={props.stockFilter}
-          onChange={(e) =>
-            props.setStockFilter(e.target.value as "all" | "in" | "out")
-          }
+          value={ctx.stockFilter}
+          onChange={(e) => ctx.setStockFilter(e.target.value as "all" | "in" | "out")}
         >
           <option value="all">All</option>
           <option value="in">In stock</option>
@@ -226,7 +492,7 @@ function ProductsRightSidebar(props: ProductsUIProps) {
         type="button"
         className="nav-ghost-btn"
         style={{ width: "100%", marginTop: 8 }}
-        onClick={props.resetFilters}
+        onClick={ctx.resetFilters}
       >
         Reset filters
       </button>
@@ -234,17 +500,9 @@ function ProductsRightSidebar(props: ProductsUIProps) {
   );
 }
 
-function ProductsMiddle(props: ProductsUIProps) {
-  const {
-    router,
-    loadingProducts,
-    error,
-    filteredProducts,
-    heroProducts,
-    remainingProducts,
-    savedIds,
-    loadingSaved,
-  } = props;
+function ProductsMiddle() {
+  const router = useRouter();
+  const ctx = useProductsCtx();
 
   return (
     <section className="section">
@@ -256,7 +514,7 @@ function ProductsMiddle(props: ProductsUIProps) {
               style={{ display: "flex", alignItems: "center", gap: 10 }}
             >
               Quantum Marketplace
-              {!loadingProducts && !error && (
+              {!ctx.loadingProducts && !ctx.error && (
                 <span
                   style={{
                     fontSize: 12,
@@ -267,16 +525,12 @@ function ProductsMiddle(props: ProductsUIProps) {
                     color: "#7dd3fc",
                   }}
                 >
-                  {filteredProducts.length} products
+                  {ctx.filteredProducts.length} products
                 </span>
               )}
             </div>
-            <div
-              className="section-sub"
-              style={{ maxWidth: 480, lineHeight: 1.45 }}
-            >
-              Browse quantum hardware, software, and services from startups, labs,
-              and companies.
+            <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
+              Browse quantum hardware, software, and services from startups, labs, and companies.
             </div>
           </div>
 
@@ -320,8 +574,8 @@ function ProductsMiddle(props: ProductsUIProps) {
                   width: "100%",
                 }}
                 placeholder="Search by name, company, keywords…"
-                value={props.searchText}
-                onChange={(e) => props.setSearchText(e.target.value)}
+                value={ctx.searchText}
+                onChange={(e) => ctx.setSearchText(e.target.value)}
               />
             </div>
           </div>
@@ -330,29 +584,26 @@ function ProductsMiddle(props: ProductsUIProps) {
 
       <div className="products-results-header">
         <div className="products-status">
-          {loadingProducts
+          {ctx.loadingProducts
             ? "Loading products…"
-            : `${filteredProducts.length} product${
-                filteredProducts.length === 1 ? "" : "s"
+            : `${ctx.filteredProducts.length} product${
+                ctx.filteredProducts.length === 1 ? "" : "s"
               }`}
-          {loadingSaved && " · updating saved…"}
+          {ctx.loadingSaved && " · updating saved…"}
         </div>
       </div>
 
-      {error && (
-        <div
-          className="products-status"
-          style={{ marginBottom: 8, color: "#f97373" }}
-        >
-          {error}
+      {ctx.error && (
+        <div className="products-status" style={{ marginBottom: 8, color: "#f97373" }}>
+          {ctx.error}
         </div>
       )}
 
-      {filteredProducts.length === 0 && !loadingProducts ? (
+      {ctx.filteredProducts.length === 0 && !ctx.loadingProducts ? (
         <div className="products-empty">No products match these filters yet.</div>
       ) : (
         <>
-          {heroProducts.length > 0 && (
+          {ctx.heroProducts.length > 0 && (
             <div
               style={{
                 marginBottom: 32,
@@ -397,34 +648,22 @@ function ProductsMiddle(props: ProductsUIProps) {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    textAlign: "right",
-                  }}
-                >
+                <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
                   For now based on your filters. <br />
                   Later: AI-driven ranking.
                 </div>
               </div>
 
               <div className="products-grid products-grid-market">
-                {heroProducts.map((p) => {
-                  const isSaved = savedIds.has(p.id);
+                {ctx.heroProducts.map((p) => {
+                  const isSaved = ctx.savedIds.has(p.id);
                   return (
-                    <Link
-                      key={p.id}
-                      href={`/products/${p.id}`}
-                      className="products-card"
-                    >
+                    <Link key={p.id} href={`/products/${p.id}`} className="products-card">
                       <div className="products-card-image">
                         {p.image1_url ? (
                           <img src={p.image1_url} alt={p.name} />
                         ) : (
-                          <div className="products-card-image-placeholder">
-                            No image
-                          </div>
+                          <div className="products-card-image-placeholder">No image</div>
                         )}
                       </div>
 
@@ -433,9 +672,7 @@ function ProductsMiddle(props: ProductsUIProps) {
                           <div>
                             <div className="products-card-name">{p.name}</div>
                             {p.company_name && (
-                              <div className="products-card-vendor">
-                                {p.company_name}
-                              </div>
+                              <div className="products-card-vendor">{p.company_name}</div>
                             )}
                           </div>
 
@@ -445,43 +682,25 @@ function ProductsMiddle(props: ProductsUIProps) {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              props.toggleSaved(p.id);
+                              ctx.toggleSaved(p.id);
                             }}
-                            aria-label={
-                              isSaved
-                                ? "Remove from saved products"
-                                : "Save product"
-                            }
+                            aria-label={isSaved ? "Remove from saved products" : "Save product"}
                           >
                             {isSaved ? "❤️" : "🤍"}
                           </button>
                         </div>
 
                         {p.short_description && (
-                          <div className="products-card-description">
-                            {p.short_description}
-                          </div>
+                          <div className="products-card-description">{p.short_description}</div>
                         )}
 
                         <div className="products-card-footer">
-                          <span className="products-card-price">
-                            {props.formatPrice(p)}
-                          </span>
-                          {p.category && (
-                            <span className="products-card-category">
-                              {p.category}
-                            </span>
-                          )}
+                          <span className="products-card-price">{ctx.formatPrice(p)}</span>
+                          {p.category && <span className="products-card-category">{p.category}</span>}
                         </div>
 
-                        <div
-                          style={{
-                            marginTop: 2,
-                            fontSize: 11,
-                            color: "#9ca3af",
-                          }}
-                        >
-                          {props.formatStock(p)}
+                        <div style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>
+                          {ctx.formatStock(p)}
                         </div>
                       </div>
                     </Link>
@@ -491,9 +710,9 @@ function ProductsMiddle(props: ProductsUIProps) {
             </div>
           )}
 
-          {remainingProducts.length > 0 && (
+          {ctx.remainingProducts.length > 0 && (
             <div style={{ marginTop: 8 }}>
-              {heroProducts.length > 0 && (
+              {ctx.heroProducts.length > 0 && (
                 <div
                   style={{
                     height: 1,
@@ -504,14 +723,7 @@ function ProductsMiddle(props: ProductsUIProps) {
                 />
               )}
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  marginBottom: 10,
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
                 <div>
                   <div
                     style={{
@@ -524,28 +736,20 @@ function ProductsMiddle(props: ProductsUIProps) {
                   >
                     Browse everything
                   </div>
-                  <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
-                    All products
-                  </div>
+                  <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>All products</div>
                 </div>
               </div>
 
               <div className="products-grid products-grid-market">
-                {remainingProducts.map((p) => {
-                  const isSaved = savedIds.has(p.id);
+                {ctx.remainingProducts.map((p) => {
+                  const isSaved = ctx.savedIds.has(p.id);
                   return (
-                    <Link
-                      key={p.id}
-                      href={`/products/${p.id}`}
-                      className="products-card"
-                    >
+                    <Link key={p.id} href={`/products/${p.id}`} className="products-card">
                       <div className="products-card-image">
                         {p.image1_url ? (
                           <img src={p.image1_url} alt={p.name} />
                         ) : (
-                          <div className="products-card-image-placeholder">
-                            No image
-                          </div>
+                          <div className="products-card-image-placeholder">No image</div>
                         )}
                       </div>
 
@@ -554,9 +758,7 @@ function ProductsMiddle(props: ProductsUIProps) {
                           <div>
                             <div className="products-card-name">{p.name}</div>
                             {p.company_name && (
-                              <div className="products-card-vendor">
-                                {p.company_name}
-                              </div>
+                              <div className="products-card-vendor">{p.company_name}</div>
                             )}
                           </div>
 
@@ -566,43 +768,25 @@ function ProductsMiddle(props: ProductsUIProps) {
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              props.toggleSaved(p.id);
+                              ctx.toggleSaved(p.id);
                             }}
-                            aria-label={
-                              isSaved
-                                ? "Remove from saved products"
-                                : "Save product"
-                            }
+                            aria-label={isSaved ? "Remove from saved products" : "Save product"}
                           >
                             {isSaved ? "❤️" : "🤍"}
                           </button>
                         </div>
 
                         {p.short_description && (
-                          <div className="products-card-description">
-                            {p.short_description}
-                          </div>
+                          <div className="products-card-description">{p.short_description}</div>
                         )}
 
                         <div className="products-card-footer">
-                          <span className="products-card-price">
-                            {props.formatPrice(p)}
-                          </span>
-                          {p.category && (
-                            <span className="products-card-category">
-                              {p.category}
-                            </span>
-                          )}
+                          <span className="products-card-price">{ctx.formatPrice(p)}</span>
+                          {p.category && <span className="products-card-category">{p.category}</span>}
                         </div>
 
-                        <div
-                          style={{
-                            marginTop: 2,
-                            fontSize: 11,
-                            color: "#9ca3af",
-                          }}
-                        >
-                          {props.formatStock(p)}
+                        <div style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>
+                          {ctx.formatStock(p)}
                         </div>
                       </div>
                     </Link>
@@ -617,7 +801,7 @@ function ProductsMiddle(props: ProductsUIProps) {
   );
 }
 
-function ProductsTwoColumnShell(props: ProductsUIProps) {
+function ProductsTwoColumnShell() {
   return (
     <div
       style={{
@@ -628,7 +812,7 @@ function ProductsTwoColumnShell(props: ProductsUIProps) {
     >
       {/* MIDDLE */}
       <div style={{ paddingRight: 16 }}>
-        <ProductsMiddle {...props} />
+        <ProductsMiddle />
       </div>
 
       {/* FULL-HEIGHT DIVIDER (viewport height) */}
@@ -652,508 +836,22 @@ function ProductsTwoColumnShell(props: ProductsUIProps) {
           alignSelf: "start",
         }}
       >
-        <ProductsRightSidebar {...props} />
+        <ProductsRightSidebar />
       </div>
     </div>
   );
 }
 
 export default function ProductsIndexPage() {
-  const { user } = useSupabaseUser();
-  const router = useRouter();
-
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [loadingSaved, setLoadingSaved] = useState(false);
-
-  // Filters
-  const [searchText, setSearchText] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [productTypeFilter, setProductTypeFilter] = useState<string>("All");
-  const [techTypeFilter, setTechTypeFilter] = useState<string>("All");
-  const [orgTypeFilter, setOrgTypeFilter] = useState<string>("All");
-  const [domainFilter, setDomainFilter] = useState<string>("All");
-  const [priceFilter, setPriceFilter] = useState<"all" | "fixed" | "contact">(
-    "all"
-  );
-  const [stockFilter, setStockFilter] = useState<"all" | "in" | "out">("all");
-
-  // --- Load products ---
-  useEffect(() => {
-    const loadProducts = async () => {
-      setLoadingProducts(true);
-      setError(null);
-
-      const { data, error: err } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (err) {
-        console.error("Error loading products", err);
-        setError("Could not load products. Please try again.");
-        setProducts([]);
-      } else {
-        setProducts((data || []) as Product[]);
-      }
-
-      setLoadingProducts(false);
-    };
-
-    loadProducts();
-  }, []);
-
-  // --- Load saved products for current user ---
-  useEffect(() => {
-    const loadSaved = async () => {
-      if (!user) {
-        setSavedIds(new Set());
-        return;
-      }
-      setLoadingSaved(true);
-
-      const { data, error: err } = await supabase
-        .from("saved_products")
-        .select("product_id")
-        .eq("user_id", user.id);
-
-      if (err) {
-        console.error("Error loading saved products", err);
-        setSavedIds(new Set());
-      } else {
-        const idsArray = (data || []).map((row: any) => String(row.product_id));
-        setSavedIds(new Set<string>(idsArray));
-      }
-
-      setLoadingSaved(false);
-    };
-
-    loadSaved();
-  }, [user]);
-
-  const toggleSaved = async (productId: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/products");
-      return;
-    }
-
-    const isSaved = savedIds.has(productId);
-
-    if (isSaved) {
-      const { error: err } = await supabase
-        .from("saved_products")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("product_id", productId);
-
-      if (err) {
-        console.error("Error removing saved product", err);
-        return;
-      }
-
-      setSavedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(productId);
-        return next;
-      });
-    } else {
-      const { error: err } = await supabase
-        .from("saved_products")
-        .insert({ user_id: user.id, product_id: productId });
-
-      if (err) {
-        console.error("Error saving product", err);
-        return;
-      }
-
-      setSavedIds((prev) => new Set(prev).add(productId));
-    }
-  };
-
-  const normalize = (v: string | null) => (v || "").toLowerCase();
-  const matchesCategoryFilter = (filterValue: string, fieldValue: string | null) => {
-    if (filterValue === "All") return true;
-    return normalize(fieldValue) === filterValue.toLowerCase();
-  };
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const q = searchText.trim().toLowerCase();
-      if (q) {
-        const haystack = [
-          p.name,
-          p.company_name,
-          p.short_description,
-          p.category,
-          p.product_type,
-          p.technology_type,
-          p.quantum_domain,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-
-      if (categoryFilter !== "all") {
-        if (!p.category || p.category !== categoryFilter) return false;
-      }
-
-      if (!matchesCategoryFilter(productTypeFilter, p.product_type)) return false;
-      if (!matchesCategoryFilter(techTypeFilter, p.technology_type)) return false;
-      if (!matchesCategoryFilter(orgTypeFilter, p.organisation_type)) return false;
-      if (!matchesCategoryFilter(domainFilter, p.quantum_domain)) return false;
-
-      if (priceFilter !== "all") {
-        const pt = p.price_type || "contact";
-        if (priceFilter === "fixed" && pt !== "fixed") return false;
-        if (priceFilter === "contact" && pt !== "contact") return false;
-      }
-
-      if (stockFilter !== "all") {
-        const inStock = !!p.in_stock;
-        if (stockFilter === "in" && !inStock) return false;
-        if (stockFilter === "out" && inStock) return false;
-      }
-
-      return true;
-    });
-  }, [
-    products,
-    searchText,
-    categoryFilter,
-    productTypeFilter,
-    techTypeFilter,
-    orgTypeFilter,
-    domainFilter,
-    priceFilter,
-    stockFilter,
-  ]);
-
-  const heroProducts = filteredProducts.slice(0, 2);
-  const remainingProducts = filteredProducts.slice(heroProducts.length);
-
-  const resetFilters = () => {
-    setSearchText("");
-    setCategoryFilter("all");
-    setProductTypeFilter("All");
-    setTechTypeFilter("All");
-    setOrgTypeFilter("All");
-    setDomainFilter("All");
-    setPriceFilter("all");
-    setStockFilter("all");
-  };
-
-  const formatPrice = (p: Product) => {
-    if (p.price_type === "fixed" && p.price_value) return p.price_value;
-    return "Contact for price";
-  };
-
-  const formatStock = (p: Product) => {
-    if (p.in_stock) {
-      if (p.stock_quantity != null) return `In stock · ${p.stock_quantity} pcs`;
-      return "In stock";
-    }
-    if (p.in_stock === false) return "Out of stock";
-    return "Stock not specified";
-  };
-
-  const uiProps: ProductsUIProps = {
-    router,
-    products,
-    loadingProducts,
-    error,
-    savedIds,
-    loadingSaved,
-
-    searchText,
-    setSearchText,
-    categoryFilter,
-    setCategoryFilter,
-    productTypeFilter,
-    setProductTypeFilter,
-    techTypeFilter,
-    setTechTypeFilter,
-    orgTypeFilter,
-    setOrgTypeFilter,
-    domainFilter,
-    setDomainFilter,
-    priceFilter,
-    setPriceFilter,
-    stockFilter,
-    setStockFilter,
-
-    filteredProducts,
-    heroProducts,
-    remainingProducts,
-
-    toggleSaved,
-    resetFilters,
-    formatPrice,
-    formatStock,
-  };
-
-  return <ProductsTwoColumnShell {...uiProps} />;
+  return <ProductsTwoColumnShell />;
 }
 
 // ✅ global layout: left-only; page handles middle+filters internally
+// ✅ mobile: show only the middle part (NO internal filters column)
+// ✅ wrap: provider so middle/right/mobileMain share the exact same state
 (ProductsIndexPage as any).layoutProps = {
   variant: "two-left",
   right: null,
-  mobileMain: <ProductsIndexMobileMain />,
+  wrap: (children: React.ReactNode) => <ProductsProvider>{children}</ProductsProvider>,
+  mobileMain: <ProductsMiddle />,
 };
-
-// ✅ Mobile should show only the middle content (no internal filters column)
-function ProductsIndexMobileMain() {
-  // NOTE: This component is rendered inside AppLayout and needs to re-create state,
-  // so we just render the same page but only the middle UI by duplicating the hooks.
-  // To avoid duplication, we instead rely on ProductsIndexPage's hooks by exporting a
-  // dedicated Mobile component below.
-  return <ProductsIndexPageMobileOnly />;
-}
-
-// ✅ A dedicated mobile-only component that reuses the same logic but renders only the middle.
-// This avoids AppLayout rendering the internal 3-split on mobile.
-function ProductsIndexPageMobileOnly() {
-  const { user } = useSupabaseUser();
-  const router = useRouter();
-
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-  const [loadingSaved, setLoadingSaved] = useState(false);
-
-  // Filters
-  const [searchText, setSearchText] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [productTypeFilter, setProductTypeFilter] = useState<string>("All");
-  const [techTypeFilter, setTechTypeFilter] = useState<string>("All");
-  const [orgTypeFilter, setOrgTypeFilter] = useState<string>("All");
-  const [domainFilter, setDomainFilter] = useState<string>("All");
-  const [priceFilter, setPriceFilter] = useState<"all" | "fixed" | "contact">(
-    "all"
-  );
-  const [stockFilter, setStockFilter] = useState<"all" | "in" | "out">("all");
-
-  // --- Load products ---
-  useEffect(() => {
-    const loadProducts = async () => {
-      setLoadingProducts(true);
-      setError(null);
-
-      const { data, error: err } = await supabase
-        .from("products")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (err) {
-        console.error("Error loading products", err);
-        setError("Could not load products. Please try again.");
-        setProducts([]);
-      } else {
-        setProducts((data || []) as Product[]);
-      }
-
-      setLoadingProducts(false);
-    };
-
-    loadProducts();
-  }, []);
-
-  // --- Load saved products for current user ---
-  useEffect(() => {
-    const loadSaved = async () => {
-      if (!user) {
-        setSavedIds(new Set());
-        return;
-      }
-      setLoadingSaved(true);
-
-      const { data, error: err } = await supabase
-        .from("saved_products")
-        .select("product_id")
-        .eq("user_id", user.id);
-
-      if (err) {
-        console.error("Error loading saved products", err);
-        setSavedIds(new Set());
-      } else {
-        const idsArray = (data || []).map((row: any) => String(row.product_id));
-        setSavedIds(new Set<string>(idsArray));
-      }
-
-      setLoadingSaved(false);
-    };
-
-    loadSaved();
-  }, [user]);
-
-  const toggleSaved = async (productId: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/products");
-      return;
-    }
-
-    const isSaved = savedIds.has(productId);
-
-    if (isSaved) {
-      const { error: err } = await supabase
-        .from("saved_products")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("product_id", productId);
-
-      if (err) {
-        console.error("Error removing saved product", err);
-        return;
-      }
-
-      setSavedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(productId);
-        return next;
-      });
-    } else {
-      const { error: err } = await supabase
-        .from("saved_products")
-        .insert({ user_id: user.id, product_id: productId });
-
-      if (err) {
-        console.error("Error saving product", err);
-        return;
-      }
-
-      setSavedIds((prev) => new Set(prev).add(productId));
-    }
-  };
-
-  const normalize = (v: string | null) => (v || "").toLowerCase();
-  const matchesCategoryFilter = (filterValue: string, fieldValue: string | null) => {
-    if (filterValue === "All") return true;
-    return normalize(fieldValue) === filterValue.toLowerCase();
-  };
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const q = searchText.trim().toLowerCase();
-      if (q) {
-        const haystack = [
-          p.name,
-          p.company_name,
-          p.short_description,
-          p.category,
-          p.product_type,
-          p.technology_type,
-          p.quantum_domain,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!haystack.includes(q)) return false;
-      }
-
-      if (categoryFilter !== "all") {
-        if (!p.category || p.category !== categoryFilter) return false;
-      }
-
-      if (!matchesCategoryFilter(productTypeFilter, p.product_type)) return false;
-      if (!matchesCategoryFilter(techTypeFilter, p.technology_type)) return false;
-      if (!matchesCategoryFilter(orgTypeFilter, p.organisation_type)) return false;
-      if (!matchesCategoryFilter(domainFilter, p.quantum_domain)) return false;
-
-      if (priceFilter !== "all") {
-        const pt = p.price_type || "contact";
-        if (priceFilter === "fixed" && pt !== "fixed") return false;
-        if (priceFilter === "contact" && pt !== "contact") return false;
-      }
-
-      if (stockFilter !== "all") {
-        const inStock = !!p.in_stock;
-        if (stockFilter === "in" && !inStock) return false;
-        if (stockFilter === "out" && inStock) return false;
-      }
-
-      return true;
-    });
-  }, [
-    products,
-    searchText,
-    categoryFilter,
-    productTypeFilter,
-    techTypeFilter,
-    orgTypeFilter,
-    domainFilter,
-    priceFilter,
-    stockFilter,
-  ]);
-
-  const heroProducts = filteredProducts.slice(0, 2);
-  const remainingProducts = filteredProducts.slice(heroProducts.length);
-
-  const resetFilters = () => {
-    setSearchText("");
-    setCategoryFilter("all");
-    setProductTypeFilter("All");
-    setTechTypeFilter("All");
-    setOrgTypeFilter("All");
-    setDomainFilter("All");
-    setPriceFilter("all");
-    setStockFilter("all");
-  };
-
-  const formatPrice = (p: Product) => {
-    if (p.price_type === "fixed" && p.price_value) return p.price_value;
-    return "Contact for price";
-  };
-
-  const formatStock = (p: Product) => {
-    if (p.in_stock) {
-      if (p.stock_quantity != null) return `In stock · ${p.stock_quantity} pcs`;
-      return "In stock";
-    }
-    if (p.in_stock === false) return "Out of stock";
-    return "Stock not specified";
-  };
-
-  const uiProps: ProductsUIProps = {
-    router,
-    products,
-    loadingProducts,
-    error,
-    savedIds,
-    loadingSaved,
-
-    searchText,
-    setSearchText,
-    categoryFilter,
-    setCategoryFilter,
-    productTypeFilter,
-    setProductTypeFilter,
-    techTypeFilter,
-    setTechTypeFilter,
-    orgTypeFilter,
-    setOrgTypeFilter,
-    domainFilter,
-    setDomainFilter,
-    priceFilter,
-    setPriceFilter,
-    stockFilter,
-    setStockFilter,
-
-    filteredProducts,
-    heroProducts,
-    remainingProducts,
-
-    toggleSaved,
-    resetFilters,
-    formatPrice,
-    formatStock,
-  };
-
-  return <ProductsMiddle {...uiProps} />;
-}
