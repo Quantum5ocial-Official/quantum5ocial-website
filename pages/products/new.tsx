@@ -132,24 +132,16 @@ export default function NewProductPage() {
         price_value: product.price_value ? String(product.price_value) : "",
         in_stock: product.in_stock === false ? "no" : "yes",
         stock_quantity:
-          product.stock_quantity != null
-            ? String(product.stock_quantity)
-            : "",
+          product.stock_quantity != null ? String(product.stock_quantity) : "",
       });
 
-      setExistingImages([
-        product.image1_url,
-        product.image2_url,
-        product.image3_url,
-      ]);
+      setExistingImages([product.image1_url, product.image2_url, product.image3_url]);
       setExistingDatasheetUrl(product.datasheet_url);
 
       setLoadingExisting(false);
     };
 
-    if (isEditMode) {
-      loadExisting();
-    }
+    if (isEditMode) loadExisting();
   }, [isEditMode, id, user]);
 
   const handleFormChange =
@@ -178,11 +170,9 @@ export default function NewProductPage() {
     path: string,
     file: File
   ): Promise<string | null> => {
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(path, file, {
-        upsert: true,
-      });
+    const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+      upsert: true,
+    });
 
     if (uploadError) {
       console.error(`Error uploading to ${bucket}`, uploadError);
@@ -283,42 +273,30 @@ export default function NewProductPage() {
       }
 
       // --- FILES ---
+      let imageUrls: (string | null)[] = isEditMode ? [...existingImages] : [null, null, null];
+      let datasheetUrl: string | null = isEditMode ? existingDatasheetUrl : null;
 
-      // Start with existing URLs if we’re editing; otherwise empty.
-      let imageUrls: (string | null)[] = isEditMode
-        ? [...existingImages]
-        : [null, null, null];
-      let datasheetUrl: string | null = isEditMode
-        ? existingDatasheetUrl
-        : null;
-
-      // If user selected new images, we overwrite the old ones with only the new ones.
+      // Overwrite images if new ones provided
       if (imageFiles.length > 0) {
         imageUrls = [null, null, null];
         for (let i = 0; i < imageFiles.length; i++) {
           const file = imageFiles[i];
           const ext = file.name.split(".").pop() || "jpg";
-          const path = `${user.id}/${productId}/image-${
-            i + 1
-          }-${Date.now()}.${ext}`;
+          const path = `${user.id}/${productId}/image-${i + 1}-${Date.now()}.${ext}`;
           const url = await uploadFileAndGetUrl("product-images", path, file);
           imageUrls[i] = url;
         }
       }
 
-      // If user selected a new datasheet, overwrite; otherwise keep existing.
+      // Overwrite datasheet if new one provided
       if (datasheetFile) {
         const ext = datasheetFile.name.split(".").pop() || "pdf";
         const path = `${user.id}/${productId}/datasheet-${Date.now()}.${ext}`;
-        const url = await uploadFileAndGetUrl(
-          "product-datasheets",
-          path,
-          datasheetFile
-        );
+        const url = await uploadFileAndGetUrl("product-datasheets", path, datasheetFile);
         datasheetUrl = url;
       }
 
-      // Update URLs (for both create and edit)
+      // Update URLs
       const { error: updateFilesError } = await supabase
         .from("products")
         .update({
@@ -331,10 +309,8 @@ export default function NewProductPage() {
 
       if (updateFilesError) {
         console.error("Error updating product with file URLs", updateFilesError);
-        // Non-fatal; we still continue.
       }
 
-      // Redirect to product detail after save
       router.push(`/products/${productId}`);
     } catch (err) {
       console.error("Unexpected error", err);
@@ -366,9 +342,7 @@ export default function NewProductPage() {
               <button
                 type="button"
                 onClick={() =>
-                  isEditMode
-                    ? router.push(`/products/${id}`)
-                    : router.push("/products")
+                  isEditMode ? router.push(`/products/${id}`) : router.push("/products")
                 }
                 className="nav-ghost-btn"
                 style={{ cursor: "pointer" }}
@@ -392,20 +366,14 @@ export default function NewProductPage() {
                       <div className="products-section-header">
                         <h4 className="products-section-title">Basics</h4>
                         <p className="products-section-sub">
-                          The core information that appears on the product
-                          card.
+                          The core information that appears on the product card.
                         </p>
                       </div>
 
                       <div className="products-grid">
                         <div className="products-field">
                           <label>Product name *</label>
-                          <input
-                            type="text"
-                            value={form.name}
-                            onChange={handleFormChange("name")}
-                            required
-                          />
+                          <input type="text" value={form.name} onChange={handleFormChange("name")} required />
                         </div>
 
                         <div className="products-field">
@@ -420,10 +388,7 @@ export default function NewProductPage() {
 
                         <div className="products-field">
                           <label>Category</label>
-                          <select
-                            value={form.category}
-                            onChange={handleFormChange("category")}
-                          >
+                          <select value={form.category} onChange={handleFormChange("category")}>
                             <option value="">Select…</option>
                             {CATEGORIES.map((c) => (
                               <option key={c} value={c}>
@@ -458,12 +423,9 @@ export default function NewProductPage() {
                     {/* SECTION: Technical details */}
                     <div className="products-section">
                       <div className="products-section-header">
-                        <h4 className="products-section-title">
-                          Technical details
-                        </h4>
+                        <h4 className="products-section-title">Technical details</h4>
                         <p className="products-section-sub">
-                          Specifications and keywords used for discovery and
-                          matching.
+                          Specifications and keywords used for discovery and matching.
                         </p>
                       </div>
 
@@ -493,25 +455,16 @@ export default function NewProductPage() {
                     {/* SECTION: Price & stock */}
                     <div className="products-section">
                       <div className="products-section-header">
-                        <h4 className="products-section-title">
-                          Price & stock
-                        </h4>
+                        <h4 className="products-section-title">Price & stock</h4>
                         <p className="products-section-sub">
-                          You can either show a fixed price or let users
-                          contact you for a quote.
+                          You can either show a fixed price or let users contact you for a quote.
                         </p>
                       </div>
 
                       <div className="products-grid">
                         <div className="products-field">
                           <label>Price</label>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 6,
-                            }}
-                          >
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                             <label style={{ fontSize: 13 }}>
                               <input
                                 type="radio"
@@ -550,10 +503,7 @@ export default function NewProductPage() {
 
                         <div className="products-field">
                           <label>In stock?</label>
-                          <select
-                            value={form.in_stock}
-                            onChange={handleFormChange("in_stock")}
-                          >
+                          <select value={form.in_stock} onChange={handleFormChange("in_stock")}>
                             <option value="yes">In stock</option>
                             <option value="no">Out of stock</option>
                           </select>
@@ -578,61 +528,40 @@ export default function NewProductPage() {
                       <div className="products-section-header">
                         <h4 className="products-section-title">Media</h4>
                         <p className="products-section-sub">
-                          Good images and a clear datasheet make your product
-                          easier to evaluate.
+                          Good images and a clear datasheet make your product easier to evaluate.
                         </p>
                       </div>
 
                       <div className="products-grid">
                         <div className="products-field products-field-full">
                           <label>Product images (up to 3)</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleImagesChange}
-                          />
+                          <input type="file" accept="image/*" multiple onChange={handleImagesChange} />
                           {imageFiles.length > 0 ? (
-                            <span
-                              style={{ fontSize: 12, color: "#9ca3af" }}
-                            >
-                              Selected:{" "}
-                              {imageFiles.map((f) => f.name).join(", ")}
+                            <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                              Selected: {imageFiles.map((f) => f.name).join(", ")}
                             </span>
                           ) : (
                             isEditMode &&
-                            (existingImages.some(Boolean) && (
-                              <span
-                                style={{ fontSize: 12, color: "#9ca3af" }}
-                              >
-                                Existing images will be kept unless you upload
-                                new ones.
+                            existingImages.some(Boolean) && (
+                              <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                                Existing images will be kept unless you upload new ones.
                               </span>
-                            ))
+                            )
                           )}
                         </div>
 
                         <div className="products-field products-field-full">
                           <label>Datasheet (PDF)</label>
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={handleDatasheetChange}
-                          />
+                          <input type="file" accept="application/pdf" onChange={handleDatasheetChange} />
                           {datasheetFile ? (
-                            <span
-                              style={{ fontSize: 12, color: "#9ca3af" }}
-                            >
+                            <span style={{ fontSize: 12, color: "#9ca3af" }}>
                               Selected: {datasheetFile.name}
                             </span>
                           ) : (
                             isEditMode &&
                             existingDatasheetUrl && (
-                              <span
-                                style={{ fontSize: 12, color: "#9ca3af" }}
-                              >
-                                Existing datasheet will be kept unless you
-                                upload a new one.
+                              <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                                Existing datasheet will be kept unless you upload a new one.
                               </span>
                             )
                           )}
@@ -641,25 +570,11 @@ export default function NewProductPage() {
                     </div>
 
                     <div className="products-create-actions">
-                      <button
-                        type="submit"
-                        className="nav-cta"
-                        disabled={creating}
-                      >
-                        {creating
-                          ? isEditMode
-                            ? "Saving…"
-                            : "Publishing…"
-                          : isEditMode
-                          ? "Save changes"
-                          : "Publish product"}
+                      <button type="submit" className="nav-cta" disabled={creating}>
+                        {creating ? (isEditMode ? "Saving…" : "Publishing…") : isEditMode ? "Save changes" : "Publish product"}
                       </button>
 
-                      {createError && (
-                        <span className="products-status error">
-                          {createError}
-                        </span>
-                      )}
+                      {createError && <span className="products-status error">{createError}</span>}
                     </div>
                   </form>
                 </div>
@@ -668,14 +583,10 @@ export default function NewProductPage() {
               {/* Right-hand tips panel */}
               <aside className="products-create-aside">
                 <div className="products-tips-card">
-                  <h4 className="products-tips-title">
-                    Tips for a strong listing
-                  </h4>
+                  <h4 className="products-tips-title">Tips for a strong listing</h4>
                   <ul className="products-tips-list">
                     <li>Use a clear, specific product name.</li>
-                    <li>
-                      Mention key specs (frequency range, noise, temp, etc.).
-                    </li>
+                    <li>Mention key specs (frequency range, noise, temp, etc.).</li>
                     <li>Add relevant keywords for better discovery.</li>
                     <li>Upload at least one clean product image.</li>
                     <li>Add a datasheet so people can evaluate quickly.</li>
@@ -689,3 +600,9 @@ export default function NewProductPage() {
     </>
   );
 }
+
+// ✅ keep global layout consistent
+(NewProductPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
