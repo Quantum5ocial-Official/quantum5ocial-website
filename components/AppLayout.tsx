@@ -32,15 +32,23 @@ type AppLayoutProps = {
   showNavbar?: boolean;
 
   /**
-   * For now, on mobile we show only the middle content (no left/right).
-   * We implement a left drawer trigger globally.
+   * On mobile:
+   * - "middle-only" => AppLayout collapses to 1 column (default)
+   * - "keep-columns" => keeps desktop columns (rare)
    */
   mobileMode?: "middle-only" | "keep-columns";
 
   /**
-   * If true, AppLayout will wrap children in <section className="layout-main" />.
-   * Set to false for pages that already include their own layout wrappers.
-   * Default: true (recommended style: pages return middle content only).
+   * Optional: For pages that render their own "middle + right" split INSIDE children
+   * (like Jobs), provide what should be shown on mobile instead of children.
+   *
+   * Example for Jobs: mobileMain = <JobsMiddle />
+   */
+  mobileMain?: ReactNode;
+
+  /**
+   * If true, AppLayout will wrap content in <section className="layout-main" />.
+   * Default: true.
    */
   wrapMiddle?: boolean;
 };
@@ -52,6 +60,7 @@ export default function AppLayout({
   variant = "three",
   showNavbar = true,
   mobileMode = "middle-only",
+  mobileMain,
   wrapMiddle = true,
 }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
@@ -83,13 +92,11 @@ export default function AppLayout({
   }, [mobileLeftOpen]);
 
   const resolvedLeft = useMemo(() => {
-    // undefined => default
     if (left === undefined) return <LeftSidebar />;
     return left;
   }, [left]);
 
   const resolvedRight = useMemo(() => {
-    // undefined => keep column but empty (symmetry)
     if (right === undefined) return <div />;
     return right;
   }, [right]);
@@ -109,11 +116,11 @@ export default function AppLayout({
     resolvedRight !== null;
 
   // ✅ IMPORTANT:
-  // Your default <LeftSidebar /> already has a right border/line.
-  // So we only inject a left divider if the page provides a CUSTOM left sidebar.
+  // Default <LeftSidebar /> already draws its own right border.
+  // Inject a divider only if the page provides a CUSTOM left sidebar.
   const useLeftInjectedDivider = showLeft && left !== undefined;
 
-  // Right divider is safe to inject (your right column does not draw its own divider).
+  // Right divider is safe to inject
   const useRightInjectedDivider = showRight;
 
   const Divider = () => (
@@ -128,21 +135,18 @@ export default function AppLayout({
   );
 
   const gridTemplateColumns = (() => {
-    // ✅ Mobile: show only middle (children)
+    // ✅ Mobile collapsed to 1 column
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
     const cols: string[] = [];
 
-    // LEFT
     if (showLeft) {
       cols.push("280px");
       if (useLeftInjectedDivider) cols.push("1px");
     }
 
-    // MIDDLE (always)
     cols.push("minmax(0, 1fr)");
 
-    // RIGHT
     if (showRight) {
       if (useRightInjectedDivider) cols.push("1px");
       cols.push("280px");
@@ -158,16 +162,20 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedLeft !== null;
 
+  // ✅ What to render in the main (middle) column
+  // If a page provides mobileMain, use it on mobile (middle-only mode).
+  const mainContent =
+    hideSidebarsOnMobile && mobileMain !== undefined ? mobileMain : children;
+
   return (
     <>
       <div className="bg-layer" />
       <div className="page">
         {showNavbar && <Navbar />}
 
-        {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer */}
+        {/* ✅ MOBILE: mid-left arrow tab + drawer */}
         {canOpenMobileLeftDrawer && (
           <>
-            {/* Arrow tab trigger (middle-left edge) */}
             <button
               type="button"
               aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
@@ -178,8 +186,8 @@ export default function AppLayout({
                 top: "50%",
                 transform: "translateY(-50%)",
                 zIndex: 60,
-                width: 30,
-                height: 80,
+                width: 44,
+                height: 84,
                 border: "1px solid rgba(148,163,184,0.35)",
                 borderLeft: "none",
                 borderTopRightRadius: 16,
@@ -209,7 +217,6 @@ export default function AppLayout({
               </span>
             </button>
 
-            {/* Backdrop */}
             {mobileLeftOpen && (
               <div
                 aria-hidden="true"
@@ -223,7 +230,6 @@ export default function AppLayout({
               />
             )}
 
-            {/* Drawer panel */}
             <aside
               aria-label="Sidebar drawer"
               style={{
@@ -266,9 +272,9 @@ export default function AppLayout({
 
           {/* MIDDLE */}
           {wrapMiddle ? (
-            <section className="layout-main">{children}</section>
+            <section className="layout-main">{mainContent}</section>
           ) : (
-            <>{children}</>
+            <>{mainContent}</>
           )}
 
           {/* RIGHT */}
