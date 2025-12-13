@@ -14,6 +14,13 @@ export type LayoutProps = {
   showNavbar?: boolean;
   mobileMode?: "middle-only" | "keep-columns";
 
+  // ✅ NEW: allow AppLayout to decide what to render as "main" on mobile
+  // Useful for pages that have their own internal split inside children (e.g. Jobs)
+  mobileMain?: React.ReactNode;
+
+  // ✅ NEW: forward wrapMiddle (some pages may want to disable wrapper)
+  wrapMiddle?: boolean;
+
   // ✅ allows per-page provider wrapping (right + middle share state)
   // IMPORTANT: wraps ONLY the page content, NOT the whole AppLayout (prevents sidebar flicker)
   wrap?: (children: React.ReactNode) => React.ReactNode;
@@ -108,6 +115,8 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       right={lp.right}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
+      mobileMain={lp.mobileMain} // ✅ IMPORTANT: forward override
+      wrapMiddle={lp.wrapMiddle ?? true} // ✅ forward wrapper preference
     >
       {page}
     </AppLayout>
