@@ -5,14 +5,6 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-// ✅ IMPORTANT: use the SAME shopping cart icon component used in the tile.
-// Replace the import below with your actual path.
-// Examples (pick the real one in your repo):
-// import CartIcon from "../../components/icons/CartIcon";
-// import { CartIcon } from "../../components/icons";
-// import ShoppingCartIcon from "../../components/icons/ShoppingCartIcon";
-import CartIcon from "../../components/icons/CartIcon";
-
 type SavedRow = {
   id: string;
   product: any; // Supabase nested product
@@ -93,14 +85,14 @@ export default function EcosystemSavedProductsPage() {
 
   return (
     <section className="section">
-      {/* Header card — matches the ecosystem style */}
+      {/* Header — match "Following" style */}
       <div
         className="card"
         style={{
           padding: 18,
           marginBottom: 14,
           background:
-            "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.96))",
+            "radial-gradient(circle at 0% 0%, rgba(245,158,11,0.18), rgba(15,23,42,0.96))",
           border: "1px solid rgba(148,163,184,0.35)",
         }}
       >
@@ -116,28 +108,9 @@ export default function EcosystemSavedProductsPage() {
           <div>
             <div
               className="section-title"
-              style={{ display: "flex", gap: 12, alignItems: "center" }}
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
             >
-              {/* Icon bubble — SAME shopping cart icon as tile */}
-              <div
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#0f172a",
-                  flexShrink: 0,
-                }}
-                aria-hidden="true"
-              >
-                <CartIcon />
-              </div>
-
-              <span>Saved products</span>
-
+              🛒 Saved products
               {!loadingSaved && !error && (
                 <span
                   style={{
@@ -145,8 +118,8 @@ export default function EcosystemSavedProductsPage() {
                     padding: "2px 10px",
                     borderRadius: 999,
                     background: "rgba(15,23,42,0.9)",
-                    border: "1px solid rgba(56,189,248,0.45)",
-                    color: "#7dd3fc",
+                    border: "1px solid rgba(245,158,11,0.45)",
+                    color: "#fbbf24",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -177,13 +150,13 @@ export default function EcosystemSavedProductsPage() {
           </div>
         </div>
 
-        {/* Search (pill style, like following page) */}
+        {/* Search — same pattern as following */}
         {!loadingSaved && !error && total > 0 && (
           <div style={{ marginTop: 12, display: "flex", gap: 10, maxWidth: 640 }}>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search saved products…"
+              placeholder="Search products…"
               style={{
                 flex: 1,
                 padding: "10px 14px",
@@ -202,9 +175,9 @@ export default function EcosystemSavedProductsPage() {
                 padding: "10px 16px",
                 borderRadius: 999,
                 border: "none",
-                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                background: "linear-gradient(135deg,#f59e0b,#fbbf24)",
                 color: "#0f172a",
-                fontWeight: 700,
+                fontWeight: 800,
                 fontSize: 14,
                 cursor: "pointer",
               }}
@@ -233,8 +206,7 @@ export default function EcosystemSavedProductsPage() {
         </p>
       ) : total === 0 ? (
         <p className="profile-muted">
-          You haven&apos;t saved any products yet. Tap the heart on a product to add
-          it here.
+          You haven&apos;t saved any products yet. Tap the heart on a product to add it here.
         </p>
       ) : filtered.length === 0 ? (
         <div className="products-empty">
@@ -278,9 +250,7 @@ export default function EcosystemSavedProductsPage() {
                     <div className="products-card-price">
                       {showFixedPrice ? p.price_value : "Contact for price"}
                     </div>
-                    {p.category && (
-                      <div className="products-card-category">{p.category}</div>
-                    )}
+                    {p.category && <div className="products-card-category">{p.category}</div>}
                   </div>
                 </div>
               </Link>
