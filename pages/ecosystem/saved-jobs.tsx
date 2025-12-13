@@ -29,7 +29,6 @@ export default function EcosystemSavedJobsPage() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // NEW: local search
   const [search, setSearch] = useState("");
 
   // redirect if not logged in
@@ -47,7 +46,6 @@ export default function EcosystemSavedJobsPage() {
       setStatus("Loading saved jobs…");
       setError(null);
 
-      // 1) fetch ids from saved_jobs
       const { data: savedRows, error: savedErr } = await supabase
         .from("saved_jobs")
         .select("job_id")
@@ -65,11 +63,10 @@ export default function EcosystemSavedJobsPage() {
       if (ids.length === 0) {
         setJobs([]);
         setSavedJobIds([]);
-        setStatus("You have not saved any jobs yet.");
+        setStatus("");
         return;
       }
 
-      // 2) fetch job records
       const { data: jobsData, error: jobsErr } = await supabase
         .from("jobs")
         .select("*")
@@ -157,70 +154,174 @@ export default function EcosystemSavedJobsPage() {
 
   if (!user && !loading) return null;
 
+  const total = jobs.length;
+  const showList = !status && !error && total > 0;
+
   return (
     <section className="section">
-      <div className="section-header" style={{ alignItems: "flex-start" }}>
-        <div>
-          <div className="section-title">Saved jobs</div>
-          <div className="section-sub" style={{ maxWidth: 560 }}>
-            Jobs you&apos;ve liked. Search and manage them here.
+      {/* Header card — matches /ecosystem/following */}
+      <div
+        className="card"
+        style={{
+          padding: 18,
+          marginBottom: 14,
+          background:
+            "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
+          border: "1px solid rgba(148,163,184,0.35)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 16,
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div
+              className="section-title"
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
+              ❤️ Saved jobs
+              {!status && !error && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    background: "rgba(15,23,42,0.9)",
+                    border: "1px solid rgba(56,189,248,0.45)",
+                    color: "#7dd3fc",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {total} total
+                </span>
+              )}
+            </div>
+
+            <div className="section-sub" style={{ maxWidth: 560 }}>
+              Jobs you&apos;ve liked. Search and manage them here.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 6,
+            }}
+          >
+            <Link
+              href="/ecosystem"
+              className="section-link"
+              style={{ fontSize: 13 }}
+            >
+              ← Back to ecosystem
+            </Link>
+            <Link
+              href="/jobs"
+              className="section-link"
+              style={{ fontSize: 13 }}
+            >
+              Discover jobs →
+            </Link>
           </div>
         </div>
 
-        {!status && (
-          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-            {jobs.length} job{jobs.length === 1 ? "" : "s"} saved
+        {/* Search (inside header card) */}
+        {showList && (
+          <div
+            style={{
+              marginTop: 12,
+              display: "flex",
+              gap: 10,
+              maxWidth: 720,
+            }}
+          >
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search saved jobs… (title, company, location, keywords)"
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.5)",
+                background: "rgba(15,23,42,0.95)",
+                color: "#e5e7eb",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setSearch((s) => s.trim())}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "none",
+                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                color: "#0f172a",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Search
+            </button>
+          </div>
+        )}
+
+        {showList && search.trim() && (
+          <div
+            style={{
+              marginTop: 10,
+              fontSize: 12,
+              color: "rgba(148,163,184,0.95)",
+            }}
+          >
+            Showing {filteredJobs.length} result
+            {filteredJobs.length === 1 ? "" : "s"} for{" "}
+            <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
+              &quot;{search.trim()}&quot;
+            </span>
           </div>
         )}
       </div>
 
-      {/* Search bar */}
-      {!status && jobs.length > 0 && (
-        <div style={{ marginTop: 12, marginBottom: 18, maxWidth: 640 }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search saved jobs… (title, company, location, keywords)"
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: "1px solid rgba(148,163,184,0.5)",
-              background: "rgba(15,23,42,0.95)",
-              color: "#e5e7eb",
-              fontSize: 14,
-              outline: "none",
-            }}
-          />
-          {search.trim() && (
-            <div style={{ marginTop: 8, fontSize: 12, color: "rgba(148,163,184,0.95)" }}>
-              Showing {filteredJobs.length} result{filteredJobs.length === 1 ? "" : "s"} for{" "}
-              <span style={{ color: "#e5e7eb", fontWeight: 600 }}>&quot;{search.trim()}&quot;</span>
-            </div>
-          )}
+      {/* States */}
+      {status && (
+        <div className={error ? "dashboard-status error" : "dashboard-status"}>
+          {status}
         </div>
       )}
 
-      {status && (
-        <p className={error ? "dashboard-status error" : "dashboard-status"}>
-          {status}
-        </p>
+      {!status && error && (
+        <div className="products-status" style={{ color: "#f87171" }}>
+          {error}
+        </div>
       )}
 
-      {!status && jobs.length === 0 && !error && (
-        <p className="dashboard-status">
+      {!status && !error && total === 0 && (
+        <div className="products-empty">
           You haven&apos;t saved any roles yet. Explore jobs and tap the heart
           to keep them here.
-        </p>
+        </div>
       )}
 
-      {!status && jobs.length > 0 && filteredJobs.length === 0 && (
+      {!status && !error && total > 0 && filteredJobs.length === 0 && (
         <div className="products-empty">
           No saved jobs matched{" "}
           <span style={{ fontWeight: 600 }}>&quot;{search.trim()}&quot;</span>.
         </div>
       )}
 
+      {/* Cards */}
       {filteredJobs.length > 0 && (
         <div className="jobs-grid">
           {filteredJobs.map((job) => {
