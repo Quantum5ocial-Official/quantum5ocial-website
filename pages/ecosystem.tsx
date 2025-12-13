@@ -10,9 +10,9 @@ type EntangledProfile = {
   full_name: string | null;
   avatar_url: string | null;
   affiliation: string | null;
-  current_org: string | null;
+  current_org?: string | null; // keep optional (may or may not exist)
   role: string | null;
-  describes_you: string | null;
+  describes_you?: string | null; // keep optional (may or may not exist)
 };
 
 type EcosystemOrg = {
@@ -32,9 +32,7 @@ export default function MyEcosystemPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  const [entangledProfiles, setEntangledProfiles] = useState<EntangledProfile[]>(
-    []
-  );
+  const [entangledProfiles, setEntangledProfiles] = useState<EntangledProfile[]>([]);
   const [followedOrgs, setFollowedOrgs] = useState<EcosystemOrg[]>([]);
   const [mainLoading, setMainLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -78,11 +76,10 @@ export default function MyEcosystemPage() {
           );
 
           if (otherIds.length > 0) {
+            // ✅ IMPORTANT: only select columns that definitely exist
             const { data: profData, error: profError } = await supabase
               .from("profiles")
-              .select(
-                "id, full_name, avatar_url, affiliation, current_org, role, describes_you"
-              )
+              .select("id, full_name, avatar_url, affiliation, role")
               .in("id", otherIds);
 
             if (profError) throw profError;
@@ -99,17 +96,13 @@ export default function MyEcosystemPage() {
 
         if (followError) throw followError;
 
-        const orgIds = Array.from(
-          new Set((followRows || []).map((r: any) => r.org_id))
-        );
+        const orgIds = Array.from(new Set((followRows || []).map((r: any) => r.org_id)));
 
         let orgList: EcosystemOrg[] = [];
         if (orgIds.length > 0) {
           const { data: orgData, error: orgErr } = await supabase
             .from("organizations")
-            .select(
-              "id, name, slug, kind, logo_url, tagline, city, country, industry, focus_areas"
-            )
+            .select("id, name, slug, kind, logo_url, tagline, city, country, industry, focus_areas")
             .in("id", orgIds);
 
           if (orgErr) throw orgErr;
@@ -160,30 +153,19 @@ export default function MyEcosystemPage() {
           <div>
             <div className="section-title">My ecosystem</div>
             <div className="section-sub">
-              A snapshot of your quantum network – the people you&apos;re
-              entangled with and the organizations you follow.
+              A snapshot of your quantum network – the people you&apos;re entangled with and the organizations you follow.
             </div>
             <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
               <span className="pill pill-soft">
-                🧬 Entangled members:{" "}
-                <strong style={{ marginLeft: 4 }}>{entangledTotal}</strong>
+                🧬 Entangled members: <strong style={{ marginLeft: 4 }}>{entangledTotal}</strong>
               </span>
               <span className="pill pill-soft">
-                🏢 Followed organizations:{" "}
-                <strong style={{ marginLeft: 4 }}>{orgsTotal}</strong>
+                🏢 Followed organizations: <strong style={{ marginLeft: 4 }}>{orgsTotal}</strong>
               </span>
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 8,
-              minWidth: 160,
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, minWidth: 160 }}>
             <Link href="/community" className="section-link" style={{ fontSize: 13 }}>
               Explore community →
             </Link>
@@ -202,24 +184,10 @@ export default function MyEcosystemPage() {
         <>
           {/* Entangled people */}
           <div style={{ marginBottom: 32 }}>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginBottom: 8,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
               <div className="section-subtitle">
                 🧬 Entangled members
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 12,
-                    color: "rgba(148,163,184,0.9)",
-                    fontWeight: 400,
-                  }}
-                >
+                <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(148,163,184,0.9)", fontWeight: 400 }}>
                   {entangledTotal} connection{entangledTotal === 1 ? "" : "s"}
                 </span>
               </div>
@@ -234,21 +202,10 @@ export default function MyEcosystemPage() {
                 and start connecting with quantum people.
               </div>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
-                }}
-              >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                 {entangledProfiles.map((p) => {
                   const name = p.full_name || "Quantum member";
-                  const meta = [
-                    p.role || p.describes_you || null,
-                    p.affiliation || p.current_org || null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ");
+                  const meta = [p.role || null, p.affiliation || null].filter(Boolean).join(" · ");
 
                   return (
                     <div
@@ -261,8 +218,7 @@ export default function MyEcosystemPage() {
                         flexDirection: "column",
                         justifyContent: "space-between",
                         border: "1px solid rgba(148,163,184,0.28)",
-                        background:
-                          "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,64,175,0.45))",
+                        background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,64,175,0.45))",
                       }}
                     >
                       <div className="card-inner" style={{ display: "flex", gap: 14 }}>
@@ -271,8 +227,7 @@ export default function MyEcosystemPage() {
                             width: 44,
                             height: 44,
                             borderRadius: "999px",
-                            background:
-                              "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                            background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -281,11 +236,7 @@ export default function MyEcosystemPage() {
                           }}
                         >
                           {p.avatar_url ? (
-                            <img
-                              src={p.avatar_url}
-                              alt={name}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
+                            <img src={p.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           ) : (
                             <span style={{ fontWeight: 600, color: "white", fontSize: 16 }}>
                               {name
@@ -299,28 +250,11 @@ export default function MyEcosystemPage() {
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 15,
-                              marginBottom: 4,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
+                          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {name}
                           </div>
                           {meta && (
-                            <div
-                              style={{
-                                fontSize: 13,
-                                color: "rgba(191,219,254,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
+                            <div style={{ fontSize: 13, color: "rgba(191,219,254,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {meta}
                             </div>
                           )}
@@ -341,24 +275,10 @@ export default function MyEcosystemPage() {
 
           {/* Followed orgs */}
           <div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "baseline",
-                marginBottom: 8,
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
               <div className="section-subtitle">
                 🏢 Followed organizations
-                <span
-                  style={{
-                    marginLeft: 8,
-                    fontSize: 12,
-                    color: "rgba(148,163,184,0.9)",
-                    fontWeight: 400,
-                  }}
-                >
+                <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(148,163,184,0.9)", fontWeight: 400 }}>
                   {orgsTotal} organization{orgsTotal === 1 ? "" : "s"}
                 </span>
               </div>
@@ -373,13 +293,7 @@ export default function MyEcosystemPage() {
                 and follow the ones you care about.
               </div>
             ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                  gap: 16,
-                }}
-              >
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                 {followedOrgs.map((org) => {
                   const subtitle =
                     org.kind === "company"
@@ -397,8 +311,7 @@ export default function MyEcosystemPage() {
                         textDecoration: "none",
                         color: "inherit",
                         border: "1px solid rgba(148,163,184,0.28)",
-                        background:
-                          "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(147,51,234,0.4))",
+                        background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(147,51,234,0.4))",
                       }}
                     >
                       <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
@@ -416,11 +329,7 @@ export default function MyEcosystemPage() {
                           }}
                         >
                           {org.logo_url ? (
-                            <img
-                              src={org.logo_url}
-                              alt={org.name}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                            />
+                            <img src={org.logo_url} alt={org.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           ) : (
                             <span style={{ fontWeight: 600, color: "white", fontSize: 16 }}>
                               {org.name
@@ -434,28 +343,11 @@ export default function MyEcosystemPage() {
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 15,
-                              marginBottom: 2,
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
+                          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {org.name}
                           </div>
                           {subtitle && (
-                            <div
-                              style={{
-                                fontSize: 13,
-                                color: "rgba(191,219,254,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
+                            <div style={{ fontSize: 13, color: "rgba(191,219,254,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                               {subtitle}
                             </div>
                           )}
