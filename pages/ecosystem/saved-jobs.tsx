@@ -159,14 +159,14 @@ export default function EcosystemSavedJobsPage() {
 
   return (
     <section className="section">
-      {/* Header card — matches /ecosystem/following */}
+      {/* Header card — matches /ecosystem/following + green theme (saved jobs tile) */}
       <div
         className="card"
         style={{
           padding: 18,
           marginBottom: 14,
           background:
-            "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
+            "radial-gradient(circle at 0% 0%, rgba(34,197,94,0.18), rgba(15,23,42,0.96))",
           border: "1px solid rgba(148,163,184,0.35)",
         }}
       >
@@ -192,8 +192,8 @@ export default function EcosystemSavedJobsPage() {
                     padding: "2px 10px",
                     borderRadius: 999,
                     background: "rgba(15,23,42,0.9)",
-                    border: "1px solid rgba(56,189,248,0.45)",
-                    color: "#7dd3fc",
+                    border: "1px solid rgba(34,197,94,0.55)",
+                    color: "#86efac",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -264,9 +264,9 @@ export default function EcosystemSavedJobsPage() {
                 padding: "10px 16px",
                 borderRadius: 999,
                 border: "none",
-                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                background: "linear-gradient(135deg,#22c55e,#86efac)",
                 color: "#0f172a",
-                fontWeight: 700,
+                fontWeight: 800,
                 fontSize: 14,
                 cursor: "pointer",
                 whiteSpace: "nowrap",
