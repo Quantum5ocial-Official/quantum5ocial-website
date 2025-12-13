@@ -1,12 +1,9 @@
 // pages/profile/edit.tsx
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-
-const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Profile = {
   id: string;
@@ -29,7 +26,6 @@ type Profile = {
   lab_website: string | null;
   institutional_email: string | null;
 
-  // extra columns in table (not edited here, but good to type)
   institutional_email_verified?: boolean | null;
   email?: string | null;
   provider?: string | null;
@@ -187,17 +183,15 @@ export default function ProfileEditPage() {
       console.error("Error saving profile", error);
       setSaveMessage(`Error: ${error.message}`);
       setSaving(false);
-    } else {
-      setSaveMessage("Profile updated ✅");
-      router.push("/profile");
+      return;
     }
 
+    setSaveMessage("Profile updated ✅");
     setSaving(false);
+    router.push("/profile");
   };
 
-  const handleAvatarChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user) return;
     const file = e.target.files?.[0];
     if (!file) return;
@@ -206,7 +200,7 @@ export default function ProfileEditPage() {
       setUploadingAvatar(true);
       setSaveMessage(null);
 
-      const ext = file.name.split(".").pop();
+      const ext = file.name.split(".").pop() || "png";
       const filePath = `${user.id}/avatar-${Date.now()}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
@@ -244,348 +238,328 @@ export default function ProfileEditPage() {
 
   return (
     <>
-      <div className="bg-layer" />
-      <div className="page">
-        <Navbar />
-
-        <section className="section">
-          <div className="section-header" style={{ marginBottom: 14 }}>
-            <div>
-              <div className="section-title">Edit profile</div>
-              <div className="section-sub">
-                Update your information so others see an accurate profile.
-              </div>
+      <section className="section">
+        <div className="section-header" style={{ marginBottom: 14 }}>
+          <div>
+            <div className="section-title">Edit profile</div>
+            <div className="section-sub">
+              Update your information so others see an accurate profile.
             </div>
-
-            <Link href="/profile" className="nav-ghost-btn">
-              ← Back to profile
-            </Link>
           </div>
 
-          <div className="profile-edit-card">
-            {profileLoading ? (
-              <p className="profile-muted">Loading your profile…</p>
-            ) : (
-              <>
-                <h3 className="profile-edit-title">Profile details</h3>
-                <p className="profile-edit-sub">
-                  These fields power recommendations and discovery inside
-                  Quantum5ocial.
-                </p>
+          <Link href="/profile" className="nav-ghost-btn">
+            ← Back to profile
+          </Link>
+        </div>
 
-                <form onSubmit={handleSave} className="profile-form">
-                  {/* Basics */}
-                  <div className="profile-section">
-                    <div className="profile-section-header">
-                      <h4 className="profile-section-title">
-                        Basic information
-                      </h4>
-                      <p className="profile-section-sub">
-                        Your name, headline, and where you are based.
-                      </p>
-                    </div>
+        <div className="profile-edit-card">
+          {profileLoading ? (
+            <p className="profile-muted">Loading your profile…</p>
+          ) : (
+            <>
+              <h3 className="profile-edit-title">Profile details</h3>
+              <p className="profile-edit-sub">
+                These fields power recommendations and discovery inside
+                Quantum5ocial.
+              </p>
 
-                    <div className="profile-grid">
-                      {/* Avatar */}
-                      <div className="profile-field profile-field-full">
-                        <label>Profile photo (optional)</label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                          }}
-                        >
-                          <div
-                            className="profile-avatar"
-                            style={{ flexShrink: 0 }}
-                          >
-                            {form.avatar_url ? (
-                              <img
-                                src={form.avatar_url}
-                                alt="Avatar"
-                                className="profile-avatar-img"
-                              />
-                            ) : (
-                              <span>{initials}</span>
-                            )}
-                          </div>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleAvatarChange}
-                            disabled={uploadingAvatar}
-                          />
+              <form onSubmit={handleSave} className="profile-form">
+                {/* Basics */}
+                <div className="profile-section">
+                  <div className="profile-section-header">
+                    <h4 className="profile-section-title">Basic information</h4>
+                    <p className="profile-section-sub">
+                      Your name, headline, and where you are based.
+                    </p>
+                  </div>
+
+                  <div className="profile-grid">
+                    {/* Avatar */}
+                    <div className="profile-field profile-field-full">
+                      <label>Profile photo (optional)</label>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <div className="profile-avatar" style={{ flexShrink: 0 }}>
+                          {form.avatar_url ? (
+                            <img
+                              src={form.avatar_url}
+                              alt="Avatar"
+                              className="profile-avatar-img"
+                            />
+                          ) : (
+                            <span>{initials}</span>
+                          )}
                         </div>
-                        {uploadingAvatar && (
-                          <span className="profile-status">
-                            Uploading image…
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="profile-field">
-                        <label>Full name</label>
                         <input
-                          type="text"
-                          value={form.full_name}
-                          onChange={handleChange("full_name")}
-                          placeholder="Your full name"
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarChange}
+                          disabled={uploadingAvatar}
                         />
                       </div>
+                      {uploadingAvatar && (
+                        <span className="profile-status">Uploading image…</span>
+                      )}
+                    </div>
 
-                      <div className="profile-field profile-field-full">
-                        <label>Short bio</label>
-                        <textarea
-                          rows={3}
-                          value={form.short_bio}
-                          onChange={handleChange("short_bio")}
-                          placeholder="1–2 sentences about what you work on."
-                        />
-                      </div>
+                    <div className="profile-field">
+                      <label>Full name</label>
+                      <input
+                        type="text"
+                        value={form.full_name}
+                        onChange={handleChange("full_name")}
+                        placeholder="Your full name"
+                      />
+                    </div>
 
-                      <div className="profile-field">
-                        <label>What best describes you?</label>
-                        <select
-                          value={form.role}
-                          onChange={handleChange("role")}
-                        >
-                          <option value="">Select…</option>
-                          <option value="Bachelor student">
-                            Bachelor student
-                          </option>
-                          <option value="Master student">Master student</option>
-                          <option value="PhD student">PhD student</option>
-                          <option value="Postdoc">Postdoc</option>
-                          <option value="Researcher / Scientist">
-                            Researcher / Scientist
-                          </option>
-                          <option value="Professor / Group Leader">
-                            Professor / Group Leader
-                          </option>
-                          <option value="Engineer / Technician">
-                            Engineer / Technician
-                          </option>
-                          <option value="Industry Professional">
-                            Industry Professional
-                          </option>
-                          <option value="CEO / Founder">CEO / Founder</option>
-                          <option value="Product / Business role">
-                            Product / Business role
-                          </option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
+                    <div className="profile-field profile-field-full">
+                      <label>Short bio</label>
+                      <textarea
+                        rows={3}
+                        value={form.short_bio}
+                        onChange={handleChange("short_bio")}
+                        placeholder="1–2 sentences about what you work on."
+                      />
+                    </div>
 
-                      <div className="profile-field">
-                        <label>Affiliation / workplace</label>
-                        <input
-                          type="text"
-                          value={form.affiliation}
-                          onChange={handleChange("affiliation")}
-                          placeholder="University, lab, or company"
-                        />
-                      </div>
+                    <div className="profile-field">
+                      <label>What best describes you?</label>
+                      <select value={form.role} onChange={handleChange("role")}>
+                        <option value="">Select…</option>
+                        <option value="Bachelor student">Bachelor student</option>
+                        <option value="Master student">Master student</option>
+                        <option value="PhD student">PhD student</option>
+                        <option value="Postdoc">Postdoc</option>
+                        <option value="Researcher / Scientist">
+                          Researcher / Scientist
+                        </option>
+                        <option value="Professor / Group Leader">
+                          Professor / Group Leader
+                        </option>
+                        <option value="Engineer / Technician">
+                          Engineer / Technician
+                        </option>
+                        <option value="Industry Professional">
+                          Industry Professional
+                        </option>
+                        <option value="CEO / Founder">CEO / Founder</option>
+                        <option value="Product / Business role">
+                          Product / Business role
+                        </option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
 
-                      <div className="profile-field">
-                        <label>Country</label>
-                        <input
-                          type="text"
-                          value={form.country}
-                          onChange={handleChange("country")}
-                          placeholder="Switzerland, Germany, India…"
-                        />
-                      </div>
+                    <div className="profile-field">
+                      <label>Affiliation / workplace</label>
+                      <input
+                        type="text"
+                        value={form.affiliation}
+                        onChange={handleChange("affiliation")}
+                        placeholder="University, lab, or company"
+                      />
+                    </div>
 
-                      <div className="profile-field">
-                        <label>City</label>
-                        <input
-                          type="text"
-                          value={form.city}
-                          onChange={handleChange("city")}
-                          placeholder="Basel, Zurich, Berlin…"
-                        />
-                      </div>
+                    <div className="profile-field">
+                      <label>Country</label>
+                      <input
+                        type="text"
+                        value={form.country}
+                        onChange={handleChange("country")}
+                        placeholder="Switzerland, Germany, India…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>City</label>
+                      <input
+                        type="text"
+                        value={form.city}
+                        onChange={handleChange("city")}
+                        placeholder="Basel, Zurich, Berlin…"
+                      />
                     </div>
                   </div>
+                </div>
 
-                  {/* Expertise */}
-                  <div className="profile-section">
-                    <div className="profile-section-header">
-                      <h4 className="profile-section-title">Expertise</h4>
-                      <p className="profile-section-sub">
-                        Focus areas and skills help with matching and discovery.
-                      </p>
-                    </div>
-
-                    <div className="profile-grid">
-                      <div className="profile-field profile-field-full">
-                        <label>
-                          Research / work focus areas (comma-separated)
-                        </label>
-                        <input
-                          type="text"
-                          value={form.focus_areas}
-                          onChange={handleChange("focus_areas")}
-                          placeholder="Superconducting qubits, spin qubits, cryogenics…"
-                        />
-                      </div>
-
-                      <div className="profile-field profile-field-full">
-                        <label>Skills (comma-separated)</label>
-                        <input
-                          type="text"
-                          value={form.skills}
-                          onChange={handleChange("skills")}
-                          placeholder="Python, Qiskit, microwave design, nanofabrication…"
-                        />
-                      </div>
-                    </div>
+                {/* Expertise */}
+                <div className="profile-section">
+                  <div className="profile-section-header">
+                    <h4 className="profile-section-title">Expertise</h4>
+                    <p className="profile-section-sub">
+                      Focus areas and skills help with matching and discovery.
+                    </p>
                   </div>
 
-                  {/* Background */}
-                  <div className="profile-section">
-                    <div className="profile-section-header">
-                      <h4 className="profile-section-title">Background</h4>
-                      <p className="profile-section-sub">
-                        A quick overview of your academic and work background.
-                      </p>
+                  <div className="profile-grid">
+                    <div className="profile-field profile-field-full">
+                      <label>Research / work focus areas (comma-separated)</label>
+                      <input
+                        type="text"
+                        value={form.focus_areas}
+                        onChange={handleChange("focus_areas")}
+                        placeholder="Superconducting qubits, spin qubits, cryogenics…"
+                      />
                     </div>
 
-                    <div className="profile-grid">
-                      <div className="profile-field">
-                        <label>Highest education level</label>
-                        <select
-                          value={form.highest_education}
-                          onChange={handleChange("highest_education")}
-                        >
-                          <option value="">Select…</option>
-                          <option value="Bachelor">Bachelor</option>
-                          <option value="Master">Master</option>
-                          <option value="PhD">PhD</option>
-                          <option value="Postdoc">Postdoc</option>
-                          <option value="Other / not applicable">
-                            Other / not applicable
-                          </option>
-                        </select>
-                      </div>
-
-                      <div className="profile-field profile-field-full">
-                        <label>Key experience (optional)</label>
-                        <textarea
-                          rows={2}
-                          value={form.key_experience}
-                          onChange={handleChange("key_experience")}
-                          placeholder="e.g. 2 years working with nanofabrication and cQED measurements."
-                        />
-                      </div>
+                    <div className="profile-field profile-field-full">
+                      <label>Skills (comma-separated)</label>
+                      <input
+                        type="text"
+                        value={form.skills}
+                        onChange={handleChange("skills")}
+                        placeholder="Python, microwave design, nanofabrication…"
+                      />
                     </div>
                   </div>
+                </div>
 
-                  {/* Links & verification */}
-                  <div className="profile-section">
-                    <div className="profile-section-header">
-                      <h4 className="profile-section-title">
-                        Links & verification
-                      </h4>
-                      <p className="profile-section-sub">
-                        Optional external links for credibility and blue ticks
-                        later.
-                      </p>
-                    </div>
-
-                    <div className="profile-grid">
-                      <div className="profile-field">
-                        <label>Institutional email</label>
-                        <input
-                          type="email"
-                          value={form.institutional_email}
-                          onChange={handleChange("institutional_email")}
-                          placeholder="your.name@ethz.ch"
-                        />
-                      </div>
-
-                      <div className="profile-field">
-                        <label>ORCID</label>
-                        <input
-                          type="text"
-                          value={form.orcid}
-                          onChange={handleChange("orcid")}
-                          placeholder="https://orcid.org/…"
-                        />
-                      </div>
-
-                      <div className="profile-field">
-                        <label>Google Scholar</label>
-                        <input
-                          type="text"
-                          value={form.google_scholar}
-                          onChange={handleChange("google_scholar")}
-                          placeholder="https://scholar.google.com/…"
-                        />
-                      </div>
-
-                      <div className="profile-field">
-                        <label>LinkedIn</label>
-                        <input
-                          type="text"
-                          value={form.linkedin_url}
-                          onChange={handleChange("linkedin_url")}
-                          placeholder="https://linkedin.com/in/…"
-                        />
-                      </div>
-
-                      <div className="profile-field">
-                        <label>GitHub</label>
-                        <input
-                          type="text"
-                          value={form.github_url}
-                          onChange={handleChange("github_url")}
-                          placeholder="https://github.com/…"
-                        />
-                      </div>
-
-                      <div className="profile-field">
-                        <label>Personal website</label>
-                        <input
-                          type="text"
-                          value={form.personal_website}
-                          onChange={handleChange("personal_website")}
-                          placeholder="https://yourname.dev"
-                        />
-                      </div>
-
-                      <div className="profile-field">
-                        <label>Lab website</label>
-                        <input
-                          type="text"
-                          value={form.lab_website}
-                          onChange={handleChange("lab_website")}
-                          placeholder="https://yourlab.org"
-                        />
-                      </div>
-                    </div>
+                {/* Background */}
+                <div className="profile-section">
+                  <div className="profile-section-header">
+                    <h4 className="profile-section-title">Background</h4>
+                    <p className="profile-section-sub">
+                      A quick overview of your academic and work background.
+                    </p>
                   </div>
 
-                  <div className="profile-actions">
-                    <button
-                      type="submit"
-                      className="nav-cta"
-                      disabled={saving}
-                    >
-                      {saving ? "Saving…" : "Save profile"}
-                    </button>
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>Highest education level</label>
+                      <select
+                        value={form.highest_education}
+                        onChange={handleChange("highest_education")}
+                      >
+                        <option value="">Select…</option>
+                        <option value="Bachelor">Bachelor</option>
+                        <option value="Master">Master</option>
+                        <option value="PhD">PhD</option>
+                        <option value="Postdoc">Postdoc</option>
+                        <option value="Other / not applicable">
+                          Other / not applicable
+                        </option>
+                      </select>
+                    </div>
 
-                    {saveMessage && (
-                      <span className="profile-status">{saveMessage}</span>
-                    )}
+                    <div className="profile-field profile-field-full">
+                      <label>Key experience (optional)</label>
+                      <textarea
+                        rows={2}
+                        value={form.key_experience}
+                        onChange={handleChange("key_experience")}
+                        placeholder="e.g. 2 years working with nanofabrication and cQED measurements."
+                      />
+                    </div>
                   </div>
-                </form>
-              </>
-            )}
-          </div>
-        </section>
-      </div>
+                </div>
+
+                {/* Links */}
+                <div className="profile-section">
+                  <div className="profile-section-header">
+                    <h4 className="profile-section-title">Links & verification</h4>
+                    <p className="profile-section-sub">
+                      Optional external links for credibility and blue ticks later.
+                    </p>
+                  </div>
+
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>Institutional email</label>
+                      <input
+                        type="email"
+                        value={form.institutional_email}
+                        onChange={handleChange("institutional_email")}
+                        placeholder="your.name@ethz.ch"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>ORCID</label>
+                      <input
+                        type="text"
+                        value={form.orcid}
+                        onChange={handleChange("orcid")}
+                        placeholder="https://orcid.org/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Google Scholar</label>
+                      <input
+                        type="text"
+                        value={form.google_scholar}
+                        onChange={handleChange("google_scholar")}
+                        placeholder="https://scholar.google.com/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>LinkedIn</label>
+                      <input
+                        type="text"
+                        value={form.linkedin_url}
+                        onChange={handleChange("linkedin_url")}
+                        placeholder="https://linkedin.com/in/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>GitHub</label>
+                      <input
+                        type="text"
+                        value={form.github_url}
+                        onChange={handleChange("github_url")}
+                        placeholder="https://github.com/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Personal website</label>
+                      <input
+                        type="text"
+                        value={form.personal_website}
+                        onChange={handleChange("personal_website")}
+                        placeholder="https://yourname.dev"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Lab website</label>
+                      <input
+                        type="text"
+                        value={form.lab_website}
+                        onChange={handleChange("lab_website")}
+                        placeholder="https://yourlab.org"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="profile-actions">
+                  <button type="submit" className="nav-cta" disabled={saving}>
+                    {saving ? "Saving…" : "Save profile"}
+                  </button>
+
+                  {saveMessage && (
+                    <span className="profile-status">{saveMessage}</span>
+                  )}
+                </div>
+              </form>
+            </>
+          )}
+        </div>
+      </section>
     </>
   );
 }
+
+// ✅ global layout: left sidebar + middle only, no right column
+(ProfileEditPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
