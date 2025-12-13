@@ -806,4 +806,5 @@ export default function JobsIndexPage() {
   variant: "two-left",
   right: null,
   wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
+  mobileMain: <JobsMiddle />, // 👈 ADD THIS LINE
 };
