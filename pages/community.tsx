@@ -1,5 +1,12 @@
 // pages/community.tsx
-import { useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -58,97 +65,58 @@ type CommunityItem = {
   created_at: string | null;
 };
 
-function CommunityRightSidebar() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
-      <div className="hero-tiles hero-tiles-vertical">
-        {/* Highlighted jobs */}
-        <div className="hero-tile">
-          <div className="hero-tile-inner">
-            <div className="tile-label">Highlighted</div>
-            <div className="tile-title-row">
-              <div className="tile-title">Quantum roles spotlight</div>
-              <div className="tile-icon-orbit">🧪</div>
-            </div>
-            <p className="tile-text">
-              This tile will later showcase a curated quantum job or role from the
-              marketplace – ideal to show during demos.
-            </p>
-            <div className="tile-pill-row">
-              <span className="tile-pill">Example: PhD position</span>
-              <span className="tile-pill">Location</span>
-              <span className="tile-pill">Lab / company</span>
-            </div>
-            <div className="tile-cta">
-              Jobs spotlight <span>›</span>
-            </div>
-          </div>
-        </div>
+type CommunityCtx = {
+  // data
+  profiles: CommunityProfile[];
+  orgs: CommunityOrg[];
 
-        {/* Highlighted products */}
-        <div className="hero-tile">
-          <div className="hero-tile-inner">
-            <div className="tile-label">Highlighted</div>
-            <div className="tile-title-row">
-              <div className="tile-title">Quantum product of the week</div>
-              <div className="tile-icon-orbit">🔧</div>
-            </div>
-            <p className="tile-text">
-              This tile will highlight one selected hardware, software, or service
-              from the Quantum Products Lab.
-            </p>
-            <div className="tile-pill-row">
-              <span className="tile-pill">Example: Cryo system</span>
-              <span className="tile-pill">Control electronics</span>
-              <span className="tile-pill">Software suite</span>
-            </div>
-            <div className="tile-cta">
-              Product spotlight <span>›</span>
-            </div>
-          </div>
-        </div>
+  loadingProfiles: boolean;
+  profilesError: string | null;
 
-        {/* Highlighted talent */}
-        <div className="hero-tile">
-          <div className="hero-tile-inner">
-            <div className="tile-label">Highlighted</div>
-            <div className="tile-title-row">
-              <div className="tile-title">Featured quantum talent</div>
-              <div className="tile-icon-orbit">🤝</div>
-            </div>
-            <p className="tile-text">
-              Later this tile can feature a standout community member – for example
-              a PI, postdoc, or startup founder.
-            </p>
-            <div className="tile-pill-row">
-              <span className="tile-pill">Example: Role</span>
-              <span className="tile-pill">Field</span>
-              <span className="tile-pill">Affiliation</span>
-            </div>
-            <div className="tile-cta">
-              Talent spotlight <span>›</span>
-            </div>
-          </div>
-        </div>
-      </div>
+  loadingOrgs: boolean;
+  orgsError: string | null;
 
-      <div
-        style={{
-          marginTop: "auto",
-          paddingTop: 12,
-          borderTop: "1px solid rgba(148,163,184,0.18)",
-          fontSize: 12,
-          color: "rgba(148,163,184,0.9)",
-          textAlign: "right",
-        }}
-      >
-        © 2025 Quantum5ocial
-      </div>
-    </div>
-  );
+  search: string;
+  setSearch: (v: string) => void;
+
+  // derived
+  communityLoading: boolean;
+  communityError: string | null;
+  totalCommunityCount: number;
+
+  filteredProfiles: CommunityProfile[];
+  filteredOrgs: CommunityOrg[];
+
+  featuredProfile: CommunityProfile | null;
+  featuredOrg: CommunityOrg | null;
+
+  communityItems: CommunityItem[];
+  hasAnyCommunity: boolean;
+
+  // entanglements (people)
+  getConnectionStatus: (otherUserId: string) => any;
+  isEntangleLoading: (otherUserId: string) => boolean;
+  handleEntangle: (otherUserId: string) => Promise<void>;
+  handleDeclineEntangle: (otherUserId: string) => Promise<void>;
+
+  // org follows
+  orgFollows: Record<string, boolean>;
+  followLoadingIds: string[];
+
+  isFollowingOrg: (orgId: string) => boolean;
+  isFollowLoading: (orgId: string) => boolean;
+  handleFollowOrg: (orgId: string) => Promise<void>;
+};
+
+const CommunityContext = createContext<CommunityCtx | null>(null);
+
+function useCommunityCtx() {
+  const ctx = useContext(CommunityContext);
+  if (!ctx) throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
+  return ctx;
 }
 
-function CommunityMiddle() {
+function CommunityProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
@@ -441,6 +409,165 @@ function CommunityMiddle() {
 
   const hasAnyCommunity = communityItems.length > 0;
 
+  const value: CommunityCtx = {
+    profiles,
+    orgs,
+    loadingProfiles,
+    profilesError,
+    loadingOrgs,
+    orgsError,
+
+    search,
+    setSearch,
+
+    communityLoading,
+    communityError,
+    totalCommunityCount,
+
+    filteredProfiles,
+    filteredOrgs,
+    featuredProfile,
+    featuredOrg,
+
+    communityItems,
+    hasAnyCommunity,
+
+    getConnectionStatus,
+    isEntangleLoading,
+    handleEntangle,
+    handleDeclineEntangle,
+
+    orgFollows,
+    followLoadingIds,
+    isFollowingOrg,
+    isFollowLoading,
+    handleFollowOrg,
+  };
+
+  return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
+}
+
+function CommunityRightSidebar() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
+      <div className="hero-tiles hero-tiles-vertical">
+        {/* Highlighted jobs */}
+        <div className="hero-tile">
+          <div className="hero-tile-inner">
+            <div className="tile-label">Highlighted</div>
+            <div className="tile-title-row">
+              <div className="tile-title">Quantum roles spotlight</div>
+              <div className="tile-icon-orbit">🧪</div>
+            </div>
+            <p className="tile-text">
+              This tile will later showcase a curated quantum job or role from the
+              marketplace – ideal to show during demos.
+            </p>
+            <div className="tile-pill-row">
+              <span className="tile-pill">Example: PhD position</span>
+              <span className="tile-pill">Location</span>
+              <span className="tile-pill">Lab / company</span>
+            </div>
+            <div className="tile-cta">
+              Jobs spotlight <span>›</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Highlighted products */}
+        <div className="hero-tile">
+          <div className="hero-tile-inner">
+            <div className="tile-label">Highlighted</div>
+            <div className="tile-title-row">
+              <div className="tile-title">Quantum product of the week</div>
+              <div className="tile-icon-orbit">🔧</div>
+            </div>
+            <p className="tile-text">
+              This tile will highlight one selected hardware, software, or service
+              from the Quantum Products Lab.
+            </p>
+            <div className="tile-pill-row">
+              <span className="tile-pill">Example: Cryo system</span>
+              <span className="tile-pill">Control electronics</span>
+              <span className="tile-pill">Software suite</span>
+            </div>
+            <div className="tile-cta">
+              Product spotlight <span>›</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Highlighted talent */}
+        <div className="hero-tile">
+          <div className="hero-tile-inner">
+            <div className="tile-label">Highlighted</div>
+            <div className="tile-title-row">
+              <div className="tile-title">Featured quantum talent</div>
+              <div className="tile-icon-orbit">🤝</div>
+            </div>
+            <p className="tile-text">
+              Later this tile can feature a standout community member – for example
+              a PI, postdoc, or startup founder.
+            </p>
+            <div className="tile-pill-row">
+              <span className="tile-pill">Example: Role</span>
+              <span className="tile-pill">Field</span>
+              <span className="tile-pill">Affiliation</span>
+            </div>
+            <div className="tile-cta">
+              Talent spotlight <span>›</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: "auto",
+          paddingTop: 12,
+          borderTop: "1px solid rgba(148,163,184,0.18)",
+          fontSize: 12,
+          color: "rgba(148,163,184,0.9)",
+          textAlign: "right",
+        }}
+      >
+        © 2025 Quantum5ocial
+      </div>
+    </div>
+  );
+}
+
+function CommunityMiddle() {
+  const { user } = useSupabaseUser();
+  const router = useRouter();
+  const ctx = useCommunityCtx();
+
+  const {
+    search,
+    setSearch,
+
+    communityLoading,
+    communityError,
+    totalCommunityCount,
+
+    filteredProfiles,
+    filteredOrgs,
+    featuredProfile,
+    featuredOrg,
+
+    communityItems,
+    hasAnyCommunity,
+
+    getConnectionStatus,
+    isEntangleLoading,
+    handleEntangle,
+    handleDeclineEntangle,
+
+    isFollowingOrg,
+    isFollowLoading,
+    handleFollowOrg,
+  } = ctx;
+
   return (
     <section className="section">
       {/* STICKY HEADER + SEARCH */}
@@ -466,7 +593,10 @@ function CommunityMiddle() {
             }}
           >
             <div>
-              <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                className="section-title"
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
+              >
                 Quantum5ocial community
                 {!communityLoading && !communityError && (
                   <span
@@ -498,7 +628,15 @@ function CommunityMiddle() {
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, minWidth: 160 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                gap: 4,
+                minWidth: 160,
+              }}
+            >
               <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
                 View my ecosystem →
               </Link>
@@ -515,7 +653,8 @@ function CommunityMiddle() {
                 width: "100%",
                 borderRadius: 999,
                 padding: 2,
-                background: "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
+                background:
+                  "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
               }}
             >
               <div
@@ -549,7 +688,9 @@ function CommunityMiddle() {
       </div>
 
       {/* BODY STATES */}
-      {communityLoading && <div className="products-status">Loading community members…</div>}
+      {communityLoading && (
+        <div className="products-status">Loading community members…</div>
+      )}
       {communityError && !communityLoading && (
         <div className="products-status" style={{ color: "#f87171" }}>
           {communityError}
@@ -557,7 +698,8 @@ function CommunityMiddle() {
       )}
       {!communityLoading && !communityError && !hasAnyCommunity && (
         <div className="products-empty">
-          No members or organizations visible yet. As more users and orgs join Quantum5ocial, they will appear here.
+          No members or organizations visible yet. As more users and orgs join Quantum5ocial,
+          they will appear here.
         </div>
       )}
 
@@ -572,7 +714,8 @@ function CommunityMiddle() {
                 padding: 16,
                 borderRadius: 16,
                 border: "1px solid rgba(56,189,248,0.35)",
-                background: "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
+                background:
+                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
               }}
             >
               <div style={{ marginBottom: 10 }}>
@@ -610,7 +753,10 @@ function CommunityMiddle() {
                 }}
                 onClick={() => router.push(`/profile/${featuredProfile.id}`)}
               >
-                <div className="card-inner" style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div
+                  className="card-inner"
+                  style={{ display: "flex", gap: 14, alignItems: "flex-start" }}
+                >
                   <div
                     style={{
                       width: 56,
@@ -632,7 +778,12 @@ function CommunityMiddle() {
                       <img
                         src={featuredProfile.avatar_url}
                         alt={featuredProfile.full_name || "Member"}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
                       />
                     ) : (
                       (featuredProfile.full_name || "Member")[0].toUpperCase()
@@ -648,7 +799,14 @@ function CommunityMiddle() {
                       {featuredProfile.affiliation ? ` · ${featuredProfile.affiliation}` : ""}
                     </div>
 
-                    <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        color: "var(--text-muted)",
+                        lineHeight: 1.5,
+                      }}
+                    >
                       {featuredProfile.short_bio ||
                         "Active contributor in the quantum ecosystem on Quantum5ocial."}
                     </div>
@@ -781,7 +939,8 @@ function CommunityMiddle() {
                 padding: 16,
                 borderRadius: 16,
                 border: "1px solid rgba(59,130,246,0.45)",
-                background: "radial-gradient(circle at top left, rgba(59,130,246,0.12), rgba(15,23,42,1))",
+                background:
+                  "radial-gradient(circle at top left, rgba(59,130,246,0.12), rgba(15,23,42,1))",
               }}
             >
               <div style={{ marginBottom: 10 }}>
@@ -813,7 +972,10 @@ function CommunityMiddle() {
                   if (featuredOrg.slug) router.push(`/orgs/${featuredOrg.slug}`);
                 }}
               >
-                <div className="card-inner" style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div
+                  className="card-inner"
+                  style={{ display: "flex", gap: 14, alignItems: "flex-start" }}
+                >
                   <div
                     style={{
                       width: 56,
@@ -879,9 +1041,7 @@ function CommunityMiddle() {
                     </div>
 
                     <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                      {featuredOrg.tagline ||
-                        featuredOrg.focus_areas ||
-                        "Active organization in the quantum ecosystem."}
+                      {featuredOrg.tagline || featuredOrg.focus_areas || "Active organization in the quantum ecosystem."}
                     </div>
 
                     {(() => {
@@ -1063,7 +1223,9 @@ function CommunityMiddle() {
                       )}
 
                       <div>
-                        <span style={{ opacity: 0.7 }}>{item.kind === "person" ? "Affiliation: " : "Location / meta: "}</span>
+                        <span style={{ opacity: 0.7 }}>
+                          {item.kind === "person" ? "Affiliation: " : "Location / meta: "}
+                        </span>
                         <span>{item.affiliationLine || location || "—"}</span>
                       </div>
 
@@ -1283,7 +1445,13 @@ function CommunityTwoColumnShell() {
       </div>
 
       {/* FULL-HEIGHT DIVIDER */}
-      <div style={{ background: "rgba(148,163,184,0.35)", width: 1, alignSelf: "stretch" }} />
+      <div
+        style={{
+          background: "rgba(148,163,184,0.35)",
+          width: 1,
+          alignSelf: "stretch",
+        }}
+      />
 
       {/* RIGHT */}
       <div style={{ paddingLeft: 16, position: "sticky", top: 16, alignSelf: "start" }}>
@@ -1297,9 +1465,12 @@ export default function CommunityPage() {
   return <CommunityTwoColumnShell />;
 }
 
-// ✅ Global layout: keep ONLY left sidebar globally.
-// Middle+Right are split locally inside this page.
+// ✅ global layout: left-only
+// ✅ wrap so mobileMain also has context
+// ✅ mobile: show only middle
 (CommunityPage as any).layoutProps = {
   variant: "two-left",
   right: null,
+  wrap: (children: React.ReactNode) => <CommunityProvider>{children}</CommunityProvider>,
+  mobileMain: <CommunityMiddle />,
 };
