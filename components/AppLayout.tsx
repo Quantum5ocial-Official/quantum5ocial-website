@@ -65,13 +65,11 @@ export default function AppLayout({
   }, []);
 
   const resolvedLeft = useMemo(() => {
-    // undefined => default
     if (left === undefined) return <LeftSidebar />;
     return left;
   }, [left]);
 
   const resolvedRight = useMemo(() => {
-    // undefined => keep column but empty (symmetry)
     if (right === undefined) return <div />;
     return right;
   }, [right]);
@@ -90,21 +88,35 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
-  // 3-col pages should have a real divider column between middle and right
-  const threeHasDivider = !hideSidebarsOnMobile && variant === "three" && showRight;
+  // ✅ Use real divider columns in "three" layout
+  const hasLeftDivider = !hideSidebarsOnMobile && variant === "three" && showLeft;
+  const hasRightDivider = !hideSidebarsOnMobile && variant === "three" && showRight;
 
   const gridTemplateColumns = (() => {
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
-    // ✅ add a 1px divider column between middle and right
-    if (variant === "three") return "280px minmax(0, 1fr) 1px 280px";
+    if (variant === "three") {
+      // LEFT | divider | MIDDLE | divider | RIGHT
+      // (if left/right are missing we collapse accordingly)
+      if (hasLeftDivider && hasRightDivider) return "280px 1px minmax(0, 1fr) 1px 280px";
+      if (hasLeftDivider && !hasRightDivider) return "280px 1px minmax(0, 1fr)";
+      if (!hasLeftDivider && hasRightDivider) return "minmax(0, 1fr) 1px 280px";
+      return "minmax(0, 1fr)";
+    }
+
     if (variant === "two-left") return "280px minmax(0, 1fr)";
     if (variant === "two-right") return "minmax(0, 1fr) 280px";
     return "minmax(0, 1fr)";
   })();
 
-  // When we use a divider column, we must not use grid gap (or divider “floats”)
-  const gridGap = threeHasDivider ? 0 : 24;
+  // When using divider columns, we must not use grid gap
+  const useDividerCols = hasLeftDivider || hasRightDivider;
+  const gridGap = useDividerCols ? 0 : 24;
+
+  const dividerStyle = {
+    background: "rgba(148,163,184,0.35)",
+    width: 1,
+  } as const;
 
   return (
     <>
@@ -118,32 +130,48 @@ export default function AppLayout({
             display: "grid",
             gridTemplateColumns,
             gap: gridGap,
-            // ✅ stretch so divider can be full height
-            alignItems: threeHasDivider ? "stretch" : "start",
+            // stretch so divider columns run full height
+            alignItems: useDividerCols ? "stretch" : "start",
           }}
         >
           {/* LEFT */}
           {showLeft && <>{resolvedLeft}</>}
 
+          {/* ✅ LEFT DIVIDER */}
+          {hasLeftDivider && <div aria-hidden style={dividerStyle} />}
+
           {/* MIDDLE */}
           {wrapMiddle ? (
-            <section className="layout-main" style={threeHasDivider ? { paddingRight: 24 } : undefined}>
+            <section
+              className="layout-main"
+              style={
+                useDividerCols
+                  ? {
+                      paddingLeft: hasLeftDivider ? 24 : undefined,
+                      paddingRight: hasRightDivider ? 24 : undefined,
+                    }
+                  : undefined
+              }
+            >
               {children}
             </section>
           ) : (
-            <div style={threeHasDivider ? { paddingRight: 24 } : undefined}>{children}</div>
+            <div
+              style={
+                useDividerCols
+                  ? {
+                      paddingLeft: hasLeftDivider ? 24 : undefined,
+                      paddingRight: hasRightDivider ? 24 : undefined,
+                    }
+                  : undefined
+              }
+            >
+              {children}
+            </div>
           )}
 
-          {/* ✅ DIVIDER (only for 3-col layout with right column present) */}
-          {threeHasDivider && (
-            <div
-              aria-hidden
-              style={{
-                background: "rgba(148,163,184,0.35)",
-                width: 1,
-              }}
-            />
-          )}
+          {/* ✅ RIGHT DIVIDER */}
+          {hasRightDivider && <div aria-hidden style={dividerStyle} />}
 
           {/* RIGHT */}
           {showRight && (
@@ -152,7 +180,7 @@ export default function AppLayout({
               style={{
                 display: "flex",
                 flexDirection: "column",
-                ...(threeHasDivider ? { paddingLeft: 24 } : null),
+                ...(useDividerCols ? { paddingLeft: 24 } : null),
               }}
             >
               {resolvedRight}
