@@ -7,6 +7,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
@@ -55,12 +56,19 @@ const NotificationsContext = createContext<NotificationsCtx | null>(null);
 
 function NotificationsProvider({ children }: { children: ReactNode }) {
   const value: NotificationsCtx = {};
-  return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
+  return (
+    <NotificationsContext.Provider value={value}>
+      {children}
+    </NotificationsContext.Provider>
+  );
 }
 
 function useNotificationsCtx() {
   const ctx = useContext(NotificationsContext);
-  if (!ctx) throw new Error("useNotificationsCtx must be used inside <NotificationsProvider />");
+  if (!ctx)
+    throw new Error(
+      "useNotificationsCtx must be used inside <NotificationsProvider />"
+    );
   return ctx;
 }
 
@@ -124,9 +132,15 @@ function NotificationsMiddle() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [entanglementRequests, setEntanglementRequests] = useState<EntanglementItem[]>([]);
-  const [entangledUpdates, setEntangledUpdates] = useState<EntanglementItem[]>([]);
-  const [otherNotifications, setOtherNotifications] = useState<Notification[]>([]);
+  const [entanglementRequests, setEntanglementRequests] = useState<
+    EntanglementItem[]
+  >([]);
+  const [entangledUpdates, setEntangledUpdates] = useState<EntanglementItem[]>(
+    []
+  );
+  const [otherNotifications, setOtherNotifications] = useState<Notification[]>(
+    []
+  );
 
   const [markingAll, setMarkingAll] = useState(false);
   const [actingOnId, setActingOnId] = useState<string | null>(null);
@@ -190,13 +204,17 @@ function NotificationsMiddle() {
         if (allIds.size > 0) {
           const { data: profRows, error: profErr } = await supabase
             .from("profiles")
-            .select("id, full_name, avatar_url, highest_education, affiliation, short_bio")
+            .select(
+              "id, full_name, avatar_url, highest_education, affiliation, short_bio"
+            )
             .in("id", Array.from(allIds));
 
           if (profErr) throw profErr;
 
           const profiles = (profRows || []) as MiniProfile[];
-          profileMap = new Map(profiles.map((p) => [p.id, p] as [string, MiniProfile]));
+          profileMap = new Map(
+            profiles.map((p) => [p.id, p] as [string, MiniProfile])
+          );
         }
 
         // Pending requests block
@@ -266,18 +284,25 @@ function NotificationsMiddle() {
   const handleMarkAllRead = async () => {
     if (!user) return;
 
-    const unreadNotifIds = otherNotifications.filter((n) => !n.is_read).map((n) => n.id);
+    const unreadNotifIds = otherNotifications
+      .filter((n) => !n.is_read)
+      .map((n) => n.id);
     if (unreadNotifIds.length === 0) return;
 
     setMarkingAll(true);
     try {
-      const { error } = await supabase.from("notifications").update({ is_read: true }).in("id", unreadNotifIds);
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .in("id", unreadNotifIds);
 
       if (error) {
         console.error("Error marking notifications as read", error);
       } else {
         setOtherNotifications((prev) =>
-          prev.map((n) => (unreadNotifIds.includes(n.id) ? { ...n, is_read: true } : n))
+          prev.map((n) =>
+            unreadNotifIds.includes(n.id) ? { ...n, is_read: true } : n
+          )
         );
       }
     } finally {
@@ -289,16 +314,26 @@ function NotificationsMiddle() {
     if (!notification.link_url) return;
 
     if (!notification.is_read) {
-      const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", notification.id);
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", notification.id);
       if (!error) {
-        setOtherNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n)));
+        setOtherNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notification.id ? { ...n, is_read: true } : n
+          )
+        );
       }
     }
 
     router.push(notification.link_url);
   };
 
-  const handleRespondRequest = async (item: EntanglementItem, action: "accept" | "decline") => {
+  const handleRespondRequest = async (
+    item: EntanglementItem,
+    action: "accept" | "decline"
+  ) => {
     if (!user) return;
     setActingOnId(item.id);
 
@@ -313,7 +348,9 @@ function NotificationsMiddle() {
         if (error) {
           console.error("Accept entanglement error", error);
         } else {
-          setEntanglementRequests((prev) => prev.filter((req) => req.id !== item.id));
+          setEntanglementRequests((prev) =>
+            prev.filter((req) => req.id !== item.id)
+          );
 
           const name = item.otherProfile?.full_name || "Quantum member";
           const acceptedItem: EntanglementItem = {
@@ -324,25 +361,39 @@ function NotificationsMiddle() {
           setEntangledUpdates((prev) => [acceptedItem, ...prev]);
         }
       } else {
-        const { error } = await supabase.from("connections").update({ status: "declined" }).eq("id", item.id);
+        const { error } = await supabase
+          .from("connections")
+          .update({ status: "declined" })
+          .eq("id", item.id);
 
         if (error) {
-          console.error("Decline entanglement error, falling back to delete", error);
+          console.error(
+            "Decline entanglement error, falling back to delete",
+            error
+          );
 
-          const { error: deleteError } = await supabase.from("connections").delete().eq("id", item.id);
+          const { error: deleteError } = await supabase
+            .from("connections")
+            .delete()
+            .eq("id", item.id);
           if (deleteError) {
             console.error("Error deleting connection on decline", deleteError);
           }
         }
 
-        setEntanglementRequests((prev) => prev.filter((req) => req.id !== item.id));
+        setEntanglementRequests((prev) =>
+          prev.filter((req) => req.id !== item.id)
+        );
       }
     } finally {
       setActingOnId(null);
     }
   };
 
-  const totalItems = entanglementRequests.length + entangledUpdates.length + otherNotifications.length;
+  const totalItems =
+    entanglementRequests.length +
+    entangledUpdates.length +
+    otherNotifications.length;
 
   const scrollRequests = (direction: "left" | "right") => {
     const node = requestsRowRef.current;
@@ -356,7 +407,10 @@ function NotificationsMiddle() {
       {/* Header */}
       <div className="section-header">
         <div>
-          <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            className="section-title"
+            style={{ display: "flex", alignItems: "center", gap: 10 }}
+          >
             Notifications
             {!loading && !error && (
               <span
@@ -373,7 +427,10 @@ function NotificationsMiddle() {
               </span>
             )}
           </div>
-          <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
+          <div
+            className="section-sub"
+            style={{ maxWidth: 480, lineHeight: 1.45 }}
+          >
             Your requests here:
           </div>
         </div>
@@ -401,13 +458,20 @@ function NotificationsMiddle() {
 
       {!loading && !error && totalItems === 0 && (
         <div className="products-empty">
-          No notifications yet. As you entangle with people and interact with jobs and organizations, updates will appear
-          here.
+          No notifications yet. As you entangle with people and interact with
+          jobs and organizations, updates will appear here.
         </div>
       )}
 
       {!loading && !error && totalItems > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 8 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 20,
+            marginTop: 8,
+          }}
+        >
           {/* BLOCK 1 – Entanglement requests */}
           {entanglementRequests.length > 0 && (
             <div>
@@ -492,7 +556,8 @@ function NotificationsMiddle() {
                     const education = other?.highest_education || "—";
                     const affiliation = other?.affiliation || "—";
                     const short_bio =
-                      other?.short_bio || "Quantum5ocial community member exploring the quantum ecosystem.";
+                      other?.short_bio ||
+                      "Quantum5ocial community member exploring the quantum ecosystem.";
 
                     return (
                       <div
@@ -509,7 +574,14 @@ function NotificationsMiddle() {
                           flexShrink: 0,
                         }}
                       >
-                        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 12,
+                            alignItems: "center",
+                            marginBottom: 8,
+                          }}
+                        >
                           <div
                             style={{
                               width: 48,
@@ -520,7 +592,8 @@ function NotificationsMiddle() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                              background:
+                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
                               color: "#fff",
                               fontWeight: 600,
                               fontSize: 18,
@@ -531,7 +604,12 @@ function NotificationsMiddle() {
                               <img
                                 src={avatarUrl}
                                 alt={name}
-                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
                               />
                             ) : (
                               name.charAt(0).toUpperCase()
@@ -539,10 +617,21 @@ function NotificationsMiddle() {
                           </div>
 
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                marginBottom: 2,
+                              }}
+                            >
                               <div
                                 className="card-title"
-                                style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                                style={{
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
                               >
                                 {name}
                               </div>
@@ -560,7 +649,10 @@ function NotificationsMiddle() {
                                 Member
                               </span>
                             </div>
-                            <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.3 }}>
+                            <div
+                              className="card-meta"
+                              style={{ fontSize: 12, lineHeight: 1.3 }}
+                            >
                               Quantum5ocial member
                             </div>
                           </div>
@@ -585,37 +677,60 @@ function NotificationsMiddle() {
                             <span>{affiliation}</span>
                           </div>
                           <div style={{ marginTop: 4 }}>{short_bio}</div>
-                          <div style={{ marginTop: 4, fontSize: 11, color: "rgba(148,163,184,0.9)" }}>
+                          <div
+                            style={{
+                              marginTop: 4,
+                              fontSize: 11,
+                              color: "rgba(148,163,184,0.9)",
+                            }}
+                          >
                             {formatCreated(item.created_at)}
                           </div>
                         </div>
 
-                        <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            display: "flex",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
                           <button
                             type="button"
                             disabled={actingOnId === item.id}
-                            onClick={() => handleRespondRequest(item, "accept")}
+                            onClick={() =>
+                              handleRespondRequest(item, "accept")
+                            }
                             style={{
                               flex: 1,
                               minWidth: 120,
                               padding: "7px 0",
                               borderRadius: 10,
                               border: "none",
-                              background: "linear-gradient(90deg,#22c55e,#16a34a)",
+                              background:
+                                "linear-gradient(90deg,#22c55e,#16a34a)",
                               color: "#0f172a",
                               fontSize: 12,
                               fontWeight: 600,
-                              cursor: actingOnId === item.id ? "default" : "pointer",
+                              cursor:
+                                actingOnId === item.id
+                                  ? "default"
+                                  : "pointer",
                               opacity: actingOnId === item.id ? 0.7 : 1,
                             }}
                           >
-                            {actingOnId === item.id ? "Accepting…" : "Accept request"}
+                            {actingOnId === item.id
+                              ? "Accepting…"
+                              : "Accept request"}
                           </button>
 
                           <button
                             type="button"
                             disabled={actingOnId === item.id}
-                            onClick={() => handleRespondRequest(item, "decline")}
+                            onClick={() =>
+                              handleRespondRequest(item, "decline")
+                            }
                             style={{
                               flex: 1,
                               minWidth: 100,
@@ -625,7 +740,10 @@ function NotificationsMiddle() {
                               background: "transparent",
                               color: "rgba(248,250,252,0.9)",
                               fontSize: 12,
-                              cursor: actingOnId === item.id ? "default" : "pointer",
+                              cursor:
+                                actingOnId === item.id
+                                  ? "default"
+                                  : "pointer",
                               opacity: actingOnId === item.id ? 0.7 : 1,
                             }}
                           >
@@ -672,8 +790,21 @@ function NotificationsMiddle() {
                         background: "rgba(15,23,42,0.9)",
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 12,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
                           <div
                             style={{
                               width: 32,
@@ -684,40 +815,55 @@ function NotificationsMiddle() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                              background:
+                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
                               color: "#fff",
                               fontWeight: 600,
                               fontSize: 14,
                             }}
                           >
                             {avatarUrl ? (
-                              <img src={avatarUrl} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                              <img
+                                src={avatarUrl}
+                                alt={name}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                }}
+                              />
                             ) : (
                               name.charAt(0).toUpperCase()
                             )}
                           </div>
+
+                          {/* ✅ clickable name -> profile page */}
                           <div style={{ fontSize: 13, fontWeight: 500 }}>
-  You are now entangled with{" "}
-  {item.otherProfile?.id ? (
-    <Link
-      href={`/profile/${item.otherProfile.id}`}
-      style={{
-        color: "#7dd3fc",
-        textDecoration: "none",
-        fontWeight: 700,
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {item.otherProfile.full_name || "Quantum member"}
-    </Link>
-  ) : (
-    <span style={{ fontWeight: 700 }}>
-      {item.otherProfile?.full_name || "Quantum member"}
-    </span>
-  )}
-</div>
+                            You are now entangled with{" "}
+                            {other?.id ? (
+                              <Link
+                                href={`/profile/${other.id}`}
+                                style={{
+                                  color: "#7dd3fc",
+                                  textDecoration: "none",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {name}
+                              </Link>
+                            ) : (
+                              <span style={{ fontWeight: 700 }}>{name}</span>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)", whiteSpace: "nowrap" }}>
+
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(148,163,184,0.9)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {formatCreated(item.created_at)}
                         </div>
                       </div>
@@ -753,7 +899,9 @@ function NotificationsMiddle() {
                       style={{
                         padding: 12,
                         borderRadius: 12,
-                        border: read ? "1px solid rgba(30,64,175,0.4)" : "1px solid rgba(56,189,248,0.8)",
+                        border: read
+                          ? "1px solid rgba(30,64,175,0.4)"
+                          : "1px solid rgba(56,189,248,0.8)",
                         background: read
                           ? "rgba(15,23,42,0.9)"
                           : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
@@ -761,7 +909,14 @@ function NotificationsMiddle() {
                       }}
                       onClick={() => n.link_url && handleOpenNotification(n)}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                          gap: 10,
+                        }}
+                      >
                         <div>
                           <div
                             style={{
@@ -774,16 +929,34 @@ function NotificationsMiddle() {
                           >
                             {n.type || "Update"}
                           </div>
-                          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 3 }}>
+                          <div
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 600,
+                              marginBottom: 3,
+                            }}
+                          >
                             {n.title || "Notification"}
                           </div>
                           {n.message && (
-                            <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.4 }}>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: "var(--text-muted)",
+                                lineHeight: 1.4,
+                              }}
+                            >
                               {n.message}
                             </div>
                           )}
                         </div>
-                        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)", textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(148,163,184,0.9)",
+                            textAlign: "right",
+                          }}
+                        >
                           {formatCreated(n.created_at)}
                         </div>
                       </div>
@@ -815,10 +988,23 @@ function NotificationsTwoColumnShell() {
       </div>
 
       {/* DIVIDER */}
-      <div style={{ background: "rgba(148,163,184,0.35)", width: 1, alignSelf: "stretch" }} />
+      <div
+        style={{
+          background: "rgba(148,163,184,0.35)",
+          width: 1,
+          alignSelf: "stretch",
+        }}
+      />
 
       {/* RIGHT */}
-      <div style={{ paddingLeft: 16, position: "sticky", top: 16, alignSelf: "start" }}>
+      <div
+        style={{
+          paddingLeft: 16,
+          position: "sticky",
+          top: 16,
+          alignSelf: "start",
+        }}
+      >
         <NotificationsRightSidebar />
       </div>
     </div>
@@ -836,6 +1022,8 @@ export default function NotificationsPage() {
 (NotificationsPage as any).layoutProps = {
   variant: "two-left",
   right: null,
-  wrap: (children: React.ReactNode) => <NotificationsProvider>{children}</NotificationsProvider>,
+  wrap: (children: React.ReactNode) => (
+    <NotificationsProvider>{children}</NotificationsProvider>
+  ),
   mobileMain: <NotificationsMiddle />,
 };
