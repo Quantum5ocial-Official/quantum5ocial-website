@@ -18,7 +18,7 @@ export default function EcosystemSavedProductsPage() {
   const [loadingSaved, setLoadingSaved] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // NEW: search
+  // Search
   const [search, setSearch] = useState("");
 
   // Redirect if not logged in
@@ -79,66 +79,133 @@ export default function EcosystemSavedProductsPage() {
     });
   }, [saved, search]);
 
-  const countLabel = useMemo(() => {
-    const n = saved.length;
-    return `${n} product${n === 1 ? "" : "s"} saved`;
-  }, [saved.length]);
-
   if (!user && !loading) return null;
+
+  const total = saved.length;
+  const showList = !loadingSaved && !error && total > 0;
 
   return (
     <section className="section">
-      {/* Header */}
-      <div className="section-header" style={{ alignItems: "flex-start" }}>
-        <div>
-          <div className="section-title">Saved products</div>
-          <div className="section-sub" style={{ maxWidth: 560 }}>
-            Products you’ve bookmarked from the Quantum marketplace.
+      {/* Header card — matches /ecosystem/following */}
+      <div
+        className="card"
+        style={{
+          padding: 18,
+          marginBottom: 14,
+          background:
+            "radial-gradient(circle at 0% 0%, rgba(34,211,238,0.12), rgba(15,23,42,0.96))",
+          border: "1px solid rgba(148,163,184,0.35)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 16,
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+          }}
+        >
+          <div>
+            <div
+              className="section-title"
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
+              🔧 Saved products
+              {!loadingSaved && !error && (
+                <span
+                  style={{
+                    fontSize: 12,
+                    padding: "2px 10px",
+                    borderRadius: 999,
+                    background: "rgba(15,23,42,0.9)",
+                    border: "1px solid rgba(34,211,238,0.45)",
+                    color: "#7dd3fc",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {total} total
+                </span>
+              )}
+            </div>
+
+            <div className="section-sub" style={{ maxWidth: 560 }}>
+              Products you&apos;ve bookmarked from the Quantum marketplace.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 6,
+            }}
+          >
+            <Link
+              href="/ecosystem"
+              className="section-link"
+              style={{ fontSize: 13 }}
+            >
+              ← Back to ecosystem
+            </Link>
+            <Link
+              href="/products"
+              className="section-link"
+              style={{ fontSize: 13 }}
+            >
+              Discover products →
+            </Link>
           </div>
         </div>
 
-        {!loadingSaved && !error && (
-          <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-            {countLabel}
+        {/* Search (inside header card) */}
+        {showList && (
+          <div style={{ marginTop: 12, display: "flex", gap: 10, maxWidth: 720 }}>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search saved products… (name, vendor, category)"
+              style={{
+                flex: 1,
+                padding: "10px 14px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.5)",
+                background: "rgba(15,23,42,0.95)",
+                color: "#e5e7eb",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setSearch((s) => s.trim())}
+              style={{
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "none",
+                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                color: "#0f172a",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Search
+            </button>
+          </div>
+        )}
+
+        {showList && search.trim() && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(148,163,184,0.95)" }}>
+            Showing {filtered.length} result{filtered.length === 1 ? "" : "s"} for{" "}
+            <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
+              &quot;{search.trim()}&quot;
+            </span>
           </div>
         )}
       </div>
-
-      {/* Search */}
-      {!loadingSaved && saved.length > 0 && (
-        <div style={{ marginTop: 12, marginBottom: 18, maxWidth: 640 }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search saved products… (name, vendor, category)"
-            style={{
-              width: "100%",
-              padding: "10px 14px",
-              borderRadius: 12,
-              border: "1px solid rgba(148,163,184,0.5)",
-              background: "rgba(15,23,42,0.95)",
-              color: "#e5e7eb",
-              fontSize: 14,
-              outline: "none",
-            }}
-          />
-          {search.trim() && (
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 12,
-                color: "rgba(148,163,184,0.95)",
-              }}
-            >
-              Showing {filtered.length} result
-              {filtered.length === 1 ? "" : "s"} for{" "}
-              <span style={{ color: "#e5e7eb", fontWeight: 600 }}>
-                “{search.trim()}”
-              </span>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* States */}
       {loadingSaved ? (
@@ -147,15 +214,15 @@ export default function EcosystemSavedProductsPage() {
         <p className="profile-muted" style={{ color: "#f87171" }}>
           {error}
         </p>
-      ) : saved.length === 0 ? (
-        <p className="profile-muted">
-          You haven’t saved any products yet. Tap the heart on a product to add
+      ) : total === 0 ? (
+        <div className="products-empty">
+          You haven&apos;t saved any products yet. Tap the heart on a product to add
           it here.
-        </p>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="products-empty">
           No saved products matched{" "}
-          <span style={{ fontWeight: 600 }}>“{search.trim()}”</span>.
+          <span style={{ fontWeight: 600 }}>&quot;{search.trim()}&quot;</span>.
         </div>
       ) : (
         <div className="products-grid">
@@ -164,8 +231,7 @@ export default function EcosystemSavedProductsPage() {
             if (!p) return null;
 
             const hasImage = !!p.image1_url;
-            const showFixedPrice =
-              p.price_type === "fixed" && p.price_value;
+            const showFixedPrice = p.price_type === "fixed" && p.price_value;
             const company = p.company_name || "Unknown vendor";
 
             return (
@@ -204,9 +270,7 @@ export default function EcosystemSavedProductsPage() {
                       {showFixedPrice ? p.price_value : "Contact for price"}
                     </div>
                     {p.category && (
-                      <div className="products-card-category">
-                        {p.category}
-                      </div>
+                      <div className="products-card-category">{p.category}</div>
                     )}
                   </div>
                 </div>
