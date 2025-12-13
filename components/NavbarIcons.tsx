@@ -165,50 +165,35 @@ export default function NavbarIcons() {
 
 // ----- NOTIFICATIONS -----
 useEffect(() => {
-  if (!user) return;
-
-  // ✅ auto-clear badge when opening notifications page
-  if (router.pathname === "/notifications") {
-    try {
-      window.localStorage.setItem("q5_notifications_seen_at", Date.now().toString());
-    } catch {}
-    setNotificationsCount(0);
-    return;
-  }
-
   let cancelled = false;
 
   const loadNotifications = async () => {
-    try {
-      // read last seen timestamp
-      let seenAt = 0;
-      try {
-        const seenAtRaw = window.localStorage.getItem("q5_notifications_seen_at");
-        seenAt = seenAtRaw ? Number(seenAtRaw) : 0;
-      } catch {}
+    if (!user) {
+      setNotificationsCount(0);
+      return;
+    }
 
-      // load pending requests with created_at so we can compare timestamps
-      const { data, error } = await supabase
+    try {
+      // 1) Pending incoming entanglement requests
+      const { count: pendingCount, error: pendingErr } = await supabase
         .from("connections")
-        .select("created_at")
+        .select("id", { count: "exact", head: true })
         .eq("target_user_id", user.id)
         .eq("status", "pending");
 
+      // 2) Unread notifications (accepted updates, etc.)
+      const { count: unreadCount, error: unreadErr } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
       if (cancelled) return;
 
-      if (error || !data) {
-        setNotificationsCount(0);
-        return;
-      }
+      const p = !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
+      const u = !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
 
-      // count only the ones newer than seenAt
-      const unreadPending = data.filter((row) => {
-        if (!row.created_at) return true;
-        const t = new Date(row.created_at).getTime();
-        return Number.isFinite(t) ? t > seenAt : true;
-      });
-
-      setNotificationsCount(unreadPending.length);
+      setNotificationsCount(p + u);
     } catch (e) {
       if (!cancelled) {
         console.error("Error loading notifications", e);
