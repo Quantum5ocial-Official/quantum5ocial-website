@@ -183,7 +183,7 @@ export default function AppLayout({
               style={{
                 position: "fixed",
                 left: 0,
-                top: "25%",
+                top: "75%",
                 transform: "translateY(-50%)",
                 zIndex: 60,
                 width: 30,
