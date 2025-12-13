@@ -1,6 +1,7 @@
 // components/AppLayout.tsx
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/router";
 import LeftSidebar from "./LeftSidebar";
 
 const Navbar = dynamic(() => import("./NavbarIcons"), { ssr: false });
@@ -54,7 +55,12 @@ export default function AppLayout({
   mobileMode = "middle-only",
   wrapMiddle = true,
 }: AppLayoutProps) {
+  const router = useRouter();
+
   const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ MOBILE: left drawer state (does not affect desktop)
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -132,11 +138,143 @@ export default function AppLayout({
     return cols.join(" ");
   })();
 
+  // ✅ MOBILE drawer is available when we're hiding sidebars (middle-only),
+  // and a left sidebar exists for this variant.
+  const showMobileLeftDrawer =
+    hideSidebarsOnMobile &&
+    resolvedLeft !== null &&
+    variant !== "two-right" &&
+    variant !== "center";
+
+  // close drawer on navigation
+  useEffect(() => {
+    const close = () => setLeftDrawerOpen(false);
+    router.events.on("routeChangeStart", close);
+    return () => router.events.off("routeChangeStart", close);
+  }, [router.events]);
+
+  // ESC closes drawer
+  useEffect(() => {
+    if (!leftDrawerOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLeftDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [leftDrawerOpen]);
+
+  // lock scroll while drawer open
+  useEffect(() => {
+    if (!leftDrawerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [leftDrawerOpen]);
+
   return (
     <>
       <div className="bg-layer" />
       <div className="page">
         {showNavbar && <Navbar />}
+
+        {/* ✅ MOBILE ONLY: left drawer button (no desktop impact) */}
+        {showMobileLeftDrawer && (
+          <button
+            type="button"
+            aria-label="Open menu"
+            onClick={() => setLeftDrawerOpen(true)}
+            style={{
+              position: "fixed",
+              left: 12,
+              top: 12,
+              zIndex: 60,
+              width: 42,
+              height: 42,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "rgba(15,23,42,0.85)",
+              color: "#e5e7eb",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+            }}
+          >
+            ☰
+          </button>
+        )}
+
+        {/* ✅ MOBILE ONLY: left drawer panel (no desktop impact) */}
+        {showMobileLeftDrawer && leftDrawerOpen && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 70,
+              display: "flex",
+            }}
+          >
+            {/* overlay */}
+            <div
+              onClick={() => setLeftDrawerOpen(false)}
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(2,6,23,0.55)",
+              }}
+            />
+
+            {/* panel */}
+            <aside
+              style={{
+                position: "relative",
+                width: 320,
+                maxWidth: "86vw",
+                height: "100%",
+                padding: 14,
+                background: "rgba(2,6,23,0.92)",
+                borderRight: "1px solid rgba(148,163,184,0.22)",
+                boxShadow: "20px 0 60px rgba(0,0,0,0.45)",
+                backdropFilter: "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  marginBottom: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Close menu"
+                  onClick={() => setLeftDrawerOpen(false)}
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.25)",
+                    background: "rgba(15,23,42,0.7)",
+                    color: "#e5e7eb",
+                    cursor: "pointer",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ height: "calc(100% - 46px)", overflowY: "auto" }}>
+                {resolvedLeft}
+              </div>
+            </aside>
+          </div>
+        )}
 
         <main
           className="layout-3col"
