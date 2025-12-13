@@ -33,16 +33,14 @@ type AppLayoutProps = {
 
   /**
    * On mobile:
-   * - "middle-only" => AppLayout collapses to 1 column (default)
-   * - "keep-columns" => keeps desktop columns (rare)
+   * - "middle-only" => collapse to single column (default)
+   * - "keep-columns" => keep desktop columns
    */
   mobileMode?: "middle-only" | "keep-columns";
 
   /**
-   * Optional: For pages that render their own "middle + right" split INSIDE children
-   * (like Jobs), provide what should be shown on mobile instead of children.
-   *
-   * Example for Jobs: mobileMain = <JobsMiddle />
+   * ✅ For pages that create their own internal split inside children (e.g. Jobs),
+   * provide what AppLayout should render on mobile instead of children.
    */
   mobileMain?: ReactNode;
 
@@ -92,11 +90,13 @@ export default function AppLayout({
   }, [mobileLeftOpen]);
 
   const resolvedLeft = useMemo(() => {
+    // undefined => default
     if (left === undefined) return <LeftSidebar />;
     return left;
   }, [left]);
 
   const resolvedRight = useMemo(() => {
+    // undefined => keep column but empty (symmetry)
     if (right === undefined) return <div />;
     return right;
   }, [right]);
@@ -116,11 +116,11 @@ export default function AppLayout({
     resolvedRight !== null;
 
   // ✅ IMPORTANT:
-  // Default <LeftSidebar /> already draws its own right border.
-  // Inject a divider only if the page provides a CUSTOM left sidebar.
+  // Your default <LeftSidebar /> already has a right border/line.
+  // So we only inject a left divider if the page provides a CUSTOM left sidebar.
   const useLeftInjectedDivider = showLeft && left !== undefined;
 
-  // Right divider is safe to inject
+  // Right divider is safe to inject (your right column does not draw its own divider).
   const useRightInjectedDivider = showRight;
 
   const Divider = () => (
@@ -135,18 +135,20 @@ export default function AppLayout({
   );
 
   const gridTemplateColumns = (() => {
-    // ✅ Mobile collapsed to 1 column
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
     const cols: string[] = [];
 
+    // LEFT
     if (showLeft) {
       cols.push("280px");
       if (useLeftInjectedDivider) cols.push("1px");
     }
 
+    // MIDDLE (always)
     cols.push("minmax(0, 1fr)");
 
+    // RIGHT
     if (showRight) {
       if (useRightInjectedDivider) cols.push("1px");
       cols.push("280px");
@@ -155,15 +157,14 @@ export default function AppLayout({
     return cols.join(" ");
   })();
 
-  // ✅ Mobile left drawer only makes sense if left exists in desktop world
+  // Mobile drawer is only meaningful if left exists in desktop world
   const canOpenMobileLeftDrawer =
     hideSidebarsOnMobile &&
     variant !== "two-right" &&
     variant !== "center" &&
     resolvedLeft !== null;
 
-  // ✅ What to render in the main (middle) column
-  // If a page provides mobileMain, use it on mobile (middle-only mode).
+  // ✅ What to render as the main content on mobile
   const mainContent =
     hideSidebarsOnMobile && mobileMain !== undefined ? mobileMain : children;
 
@@ -173,9 +174,10 @@ export default function AppLayout({
       <div className="page">
         {showNavbar && <Navbar />}
 
-        {/* ✅ MOBILE: mid-left arrow tab + drawer */}
+        {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer */}
         {canOpenMobileLeftDrawer && (
           <>
+            {/* Arrow tab trigger (middle-left edge) */}
             <button
               type="button"
               aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
@@ -217,6 +219,7 @@ export default function AppLayout({
               </span>
             </button>
 
+            {/* Backdrop */}
             {mobileLeftOpen && (
               <div
                 aria-hidden="true"
@@ -230,6 +233,7 @@ export default function AppLayout({
               />
             )}
 
+            {/* Drawer panel */}
             <aside
               aria-label="Sidebar drawer"
               style={{
