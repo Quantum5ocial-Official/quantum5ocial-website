@@ -169,11 +169,7 @@ export default function CreateResearchGroupPage() {
             padding: "32px 24px 64px",
           }}
         >
-          <header
-            style={{
-              marginBottom: 24,
-            }}
-          >
+          <header style={{ marginBottom: 24 }}>
             <h1
               style={{
                 fontSize: 28,
@@ -306,11 +302,7 @@ export default function CreateResearchGroupPage() {
               <div>
                 <label
                   htmlFor="group-institution"
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    marginBottom: 4,
-                  }}
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
                   Institution / University{" "}
                   <span style={{ color: "#f97373" }}>*</span>
@@ -336,11 +328,7 @@ export default function CreateResearchGroupPage() {
               <div>
                 <label
                   htmlFor="group-department"
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    marginBottom: 4,
-                  }}
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
                   Department / Institute
                 </label>
@@ -365,11 +353,7 @@ export default function CreateResearchGroupPage() {
               <div>
                 <label
                   htmlFor="group-website"
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    marginBottom: 4,
-                  }}
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
                   Group website
                 </label>
@@ -404,11 +388,7 @@ export default function CreateResearchGroupPage() {
               <div>
                 <label
                   htmlFor="group-focus"
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    marginBottom: 4,
-                  }}
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
                   Focus areas
                 </label>
@@ -433,11 +413,7 @@ export default function CreateResearchGroupPage() {
               <div>
                 <label
                   htmlFor="group-size"
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    marginBottom: 4,
-                  }}
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
                   Group size <span style={{ color: "#f97373" }}>*</span>
                 </label>
@@ -467,11 +443,7 @@ export default function CreateResearchGroupPage() {
               <div>
                 <label
                   htmlFor="group-type"
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    marginBottom: 4,
-                  }}
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
                   Group type <span style={{ color: "#f97373" }}>*</span>
                 </label>
@@ -596,31 +568,18 @@ export default function CreateResearchGroupPage() {
                 style={{ fontSize: 13, lineHeight: 1.4 }}
               >
                 I verify that I am an authorized representative of this group
-                and have the right to create and manage this page on its
-                behalf.
+                and have the right to create and manage this page on its behalf.
               </label>
             </div>
 
             {/* Messages */}
             {submitError && (
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 13,
-                  color: "#fecaca",
-                }}
-              >
+              <div style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}>
                 {submitError}
               </div>
             )}
             {submitMessage && (
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 13,
-                  color: "#bbf7d0",
-                }}
-              >
+              <div style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}>
                 {submitMessage}
               </div>
             )}
@@ -657,3 +616,9 @@ export default function CreateResearchGroupPage() {
     </>
   );
 }
+
+// ✅ global layout: left sidebar + middle only, no right column
+(CreateResearchGroupPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
