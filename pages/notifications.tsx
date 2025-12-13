@@ -696,7 +696,26 @@ function NotificationsMiddle() {
                               name.charAt(0).toUpperCase()
                             )}
                           </div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{item.message}</div>
+                          <div style={{ fontSize: 13, fontWeight: 500 }}>
+  You are now entangled with{" "}
+  {item.otherProfile?.id ? (
+    <Link
+      href={`/profile/${item.otherProfile.id}`}
+      style={{
+        color: "#7dd3fc",
+        textDecoration: "none",
+        fontWeight: 700,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {item.otherProfile.full_name || "Quantum member"}
+    </Link>
+  ) : (
+    <span style={{ fontWeight: 700 }}>
+      {item.otherProfile?.full_name || "Quantum member"}
+    </span>
+  )}
+</div>
                         </div>
                         <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)", whiteSpace: "nowrap" }}>
                           {formatCreated(item.created_at)}
