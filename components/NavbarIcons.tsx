@@ -163,44 +163,51 @@ export default function NavbarIcons() {
     };
   }, [user, router.pathname]);
 
-  // ----- NOTIFICATIONS -----
-  useEffect(() => {
-    let cancelled = false;
+ // ----- NOTIFICATIONS -----
+useEffect(() => {
+  let cancelled = false;
 
-    const loadNotifications = async () => {
-      if (!user) {
+  const loadNotifications = async () => {
+    if (!user) {
+      setNotificationsCount(0);
+      return;
+    }
+
+    try {
+      // 1) Pending incoming entanglement requests
+      const { count: pendingCount, error: pendingErr } = await supabase
+        .from("connections")
+        .select("id", { count: "exact", head: true })
+        .eq("target_user_id", user.id)
+        .eq("status", "pending");
+
+      // 2) Unread notifications (accepted updates, etc.)
+      const { count: unreadCount, error: unreadErr } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
+      if (cancelled) return;
+
+      const p = !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
+      const u = !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
+
+      setNotificationsCount(p + u);
+    } catch (e) {
+      if (!cancelled) {
+        console.error("Error loading notifications", e);
         setNotificationsCount(0);
-        return;
       }
+    }
+  };
 
-      try {
-        const { count, error } = await supabase
-          .from("connections")
-          .select("id", { count: "exact", head: true })
-          .eq("target_user_id", user.id)
-          .eq("status", "pending");
+  loadNotifications();
 
-        if (cancelled) return;
-
-        if (!error && typeof count === "number") {
-          setNotificationsCount(count);
-        } else {
-          setNotificationsCount(0);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          console.error("Error loading notifications", e);
-          setNotificationsCount(0);
-        }
-      }
-    };
-
-    loadNotifications();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, router.pathname]);
+  return () => {
+    cancelled = true;
+  };
+}, [user, router.pathname]);
 
   // Close dropdowns on outside click
   useEffect(() => {
