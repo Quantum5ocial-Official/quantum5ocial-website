@@ -1,7 +1,6 @@
 // components/AppLayout.tsx
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/router";
 import LeftSidebar from "./LeftSidebar";
 
 const Navbar = dynamic(() => import("./NavbarIcons"), { ssr: false });
@@ -55,12 +54,10 @@ export default function AppLayout({
   mobileMode = "middle-only",
   wrapMiddle = true,
 }: AppLayoutProps) {
-  const router = useRouter();
-
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ MOBILE: left drawer state (does not affect desktop)
-  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  // ✅ mobile left drawer (ONLY used in mobile middle-only mode)
+  const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -69,6 +66,21 @@ export default function AppLayout({
     window.addEventListener("resize", handle);
     return () => window.removeEventListener("resize", handle);
   }, []);
+
+  // Close drawer when switching out of mobile or out of middle-only mode
+  useEffect(() => {
+    if (!isMobile || mobileMode !== "middle-only") setMobileLeftOpen(false);
+  }, [isMobile, mobileMode]);
+
+  // ESC to close (mobile drawer only)
+  useEffect(() => {
+    if (!mobileLeftOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileLeftOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileLeftOpen]);
 
   const resolvedLeft = useMemo(() => {
     // undefined => default
@@ -138,40 +150,12 @@ export default function AppLayout({
     return cols.join(" ");
   })();
 
-  // ✅ MOBILE drawer is available when we're hiding sidebars (middle-only),
-  // and a left sidebar exists for this variant.
-  const showMobileLeftDrawer =
+  // Mobile drawer is only meaningful if left exists in desktop world
+  const canOpenMobileLeftDrawer =
     hideSidebarsOnMobile &&
-    resolvedLeft !== null &&
     variant !== "two-right" &&
-    variant !== "center";
-
-  // close drawer on navigation
-  useEffect(() => {
-    const close = () => setLeftDrawerOpen(false);
-    router.events.on("routeChangeStart", close);
-    return () => router.events.off("routeChangeStart", close);
-  }, [router.events]);
-
-  // ESC closes drawer
-  useEffect(() => {
-    if (!leftDrawerOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLeftDrawerOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [leftDrawerOpen]);
-
-  // lock scroll while drawer open
-  useEffect(() => {
-    if (!leftDrawerOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [leftDrawerOpen]);
+    variant !== "center" &&
+    resolvedLeft !== null;
 
   return (
     <>
@@ -179,101 +163,87 @@ export default function AppLayout({
       <div className="page">
         {showNavbar && <Navbar />}
 
-        {/* ✅ MOBILE ONLY: left drawer button (no desktop impact) */}
-        {showMobileLeftDrawer && (
-          <button
-            type="button"
-            aria-label="Open menu"
-            onClick={() => setLeftDrawerOpen(true)}
-            style={{
-              position: "fixed",
-              left: 12,
-              top: 12,
-              zIndex: 60,
-              width: 42,
-              height: 42,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(15,23,42,0.85)",
-              color: "#e5e7eb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              backdropFilter: "blur(10px)",
-              WebkitBackdropFilter: "blur(10px)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-            }}
-          >
-            ☰
-          </button>
-        )}
-
-        {/* ✅ MOBILE ONLY: left drawer panel (no desktop impact) */}
-        {showMobileLeftDrawer && leftDrawerOpen && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 70,
-              display: "flex",
-            }}
-          >
-            {/* overlay */}
-            <div
-              onClick={() => setLeftDrawerOpen(false)}
+        {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer */}
+        {canOpenMobileLeftDrawer && (
+          <>
+            {/* Arrow tab trigger (middle-left edge) */}
+            <button
+              type="button"
+              aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
+              onClick={() => setMobileLeftOpen((v) => !v)}
               style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(2,6,23,0.55)",
-              }}
-            />
-
-            {/* panel */}
-            <aside
-              style={{
-                position: "relative",
-                width: 320,
-                maxWidth: "86vw",
-                height: "100%",
-                padding: 14,
-                background: "rgba(2,6,23,0.92)",
-                borderRight: "1px solid rgba(148,163,184,0.22)",
-                boxShadow: "20px 0 60px rgba(0,0,0,0.45)",
-                backdropFilter: "blur(14px)",
-                WebkitBackdropFilter: "blur(14px)",
+                position: "fixed",
+                left: 0,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 60,
+                width: 44,
+                height: 84,
+                border: "1px solid rgba(148,163,184,0.35)",
+                borderLeft: "none",
+                borderTopRightRadius: 16,
+                borderBottomRightRadius: 16,
+                background: "rgba(2,6,23,0.72)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
               }}
             >
-              <div
+              <span
+                aria-hidden="true"
                 style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  marginBottom: 10,
+                  fontSize: 22,
+                  lineHeight: 1,
+                  color: "rgba(226,232,240,0.95)",
+                  transform: mobileLeftOpen ? "rotate(180deg)" : "none",
+                  transition: "transform 160ms ease",
+                  userSelect: "none",
                 }}
               >
-                <button
-                  type="button"
-                  aria-label="Close menu"
-                  onClick={() => setLeftDrawerOpen(false)}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.25)",
-                    background: "rgba(15,23,42,0.7)",
-                    color: "#e5e7eb",
-                    cursor: "pointer",
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
+                ❯
+              </span>
+            </button>
 
-              <div style={{ height: "calc(100% - 46px)", overflowY: "auto" }}>
-                {resolvedLeft}
-              </div>
+            {/* Backdrop */}
+            {mobileLeftOpen && (
+              <div
+                aria-hidden="true"
+                onClick={() => setMobileLeftOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 55,
+                  background: "rgba(0,0,0,0.45)",
+                }}
+              />
+            )}
+
+            {/* Drawer panel */}
+            <aside
+              aria-label="Sidebar drawer"
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                bottom: 0,
+                width: 280,
+                zIndex: 56,
+                transform: mobileLeftOpen ? "translateX(0)" : "translateX(-105%)",
+                transition: "transform 200ms ease",
+                background: "rgba(2,6,23,0.92)",
+                backdropFilter: "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+                borderRight: "1px solid rgba(148,163,184,0.35)",
+                overflowY: "auto",
+              }}
+            >
+              {resolvedLeft}
             </aside>
-          </div>
+          </>
         )}
 
         <main
