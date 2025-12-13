@@ -1,12 +1,9 @@
 // pages/products/[id].tsx
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-
-const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
 
 type Product = {
   id: string;
@@ -97,7 +94,7 @@ export default function ProductDetailPage() {
     if (error) {
       console.error("Error deleting product", error);
       setErrorMsg("Could not delete product. Please try again.");
-      setDeleting(false);
+      setDeletING(false);
       return;
     }
 
@@ -106,31 +103,17 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <>
-        <div className="bg-layer" />
-        <Navbar />
-        <div className="page" style={{ paddingTop: 40 }}>
-          <section className="section">
-            <p className="profile-muted">Loading product…</p>
-          </section>
-        </div>
-      </>
+      <section className="section">
+        <p className="profile-muted">Loading product…</p>
+      </section>
     );
   }
 
   if (!product) {
     return (
-      <>
-        <div className="bg-layer" />
-        <Navbar />
-        <div className="page" style={{ paddingTop: 40 }}>
-          <section className="section">
-            <p className="profile-muted">
-              Product not found or no longer available.
-            </p>
-          </section>
-        </div>
-      </>
+      <section className="section">
+        <p className="profile-muted">Product not found or no longer available.</p>
+      </section>
     );
   }
 
@@ -174,214 +157,193 @@ export default function ProductDetailPage() {
   };
 
   return (
-    <>
-      <div className="bg-layer" />
-      <Navbar />
-      <div className="page">
-        <section className="section">
-          <div className="product-detail-shell">
-            {/* Header with actions – aligned to same width as card */}
-            <div className="section-header product-detail-header">
-              <div>
-                <div className="section-title">{product.name}</div>
-                <div className="section-sub">
-                  {product.company_name
-                    ? `Listed by ${product.company_name}`
-                    : "Listed by unknown vendor"}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                <Link href="/products" className="nav-ghost-btn">
-                  ← Back to products
-                </Link>
-
-                {isOwner && (
-                  <>
-                    <button
-                      type="button"
-                      className="nav-ghost-btn"
-                      style={{ cursor: "pointer" }}
-                      onClick={() =>
-                        router.push(`/products/new?id=${product.id}`)
-                      }
-                    >
-                      Edit product
-                    </button>
-
-                    <button
-                      onClick={handleDelete}
-                      className="nav-cta"
-                      style={{ background: "#b91c1c", cursor: "pointer" }}
-                      disabled={deleting}
-                    >
-                      {deleting ? "Deleting…" : "Delete"}
-                    </button>
-                  </>
-                )}
-              </div>
+    <section className="section">
+      <div className="product-detail-shell">
+        {/* Header with actions – aligned to same width as card */}
+        <div className="section-header product-detail-header">
+          <div>
+            <div className="section-title">{product.name}</div>
+            <div className="section-sub">
+              {product.company_name
+                ? `Listed by ${product.company_name}`
+                : "Listed by unknown vendor"}
             </div>
+          </div>
 
-            {/* Main card */}
-            <div className="product-detail-card">
-              <div className="product-detail-top">
-                {/* LEFT: image carousel */}
-                <div className="product-detail-images">
-                  {images.length > 0 ? (
-                    <div className="product-detail-carousel">
-                      {images.length > 1 && (
-                        <>
-                          <button
-                            className="product-detail-carousel-arrow left"
-                            onClick={showPrev}
-                            aria-label="Previous image"
-                          >
-                            ‹
-                          </button>
-                          <button
-                            className="product-detail-carousel-arrow right"
-                            onClick={showNext}
-                            aria-label="Next image"
-                          >
-                            ›
-                          </button>
-                        </>
-                      )}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <Link href="/products" className="nav-ghost-btn">
+              ← Back to products
+            </Link>
 
-                      <div className="product-detail-image-box">
-                        <img
-                          src={images[activeIndex]}
-                          alt={product.name}
-                        />
-                      </div>
-
-                      {images.length > 1 && (
-                        <div className="product-detail-dots">
-                          {images.map((_, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              className={
-                                "product-detail-dot" +
-                                (idx === activeIndex ? " active" : "")
-                              }
-                              onClick={() => setActiveIndex(idx)}
-                              aria-label={`Show image ${idx + 1}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="product-detail-image-placeholder">
-                      No images provided
-                    </div>
-                  )}
-                </div>
-
-                {/* RIGHT: main info */}
-                <div className="product-detail-main">
-                  {product.category && (
-                    <div className="product-detail-category">
-                      {product.category}
-                    </div>
-                  )}
-
-                  {product.short_description && (
-                    <p className="product-detail-short">
-                      {product.short_description}
-                    </p>
-                  )}
-
-                  <div className="product-detail-meta">
-                    <div>
-                      <div className="profile-summary-label">Price</div>
-                      <div className="profile-summary-text">{priceLabel}</div>
-                    </div>
-
-                    <div>
-                      <div className="profile-summary-label">Stock</div>
-                      <div className="profile-summary-text">{stockLabel}</div>
-                    </div>
-                  </div>
-
-                  {product.product_url && (
-                    <div style={{ marginTop: 14 }}>
-                      <a
-                        href={product.product_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#7dd3fc", fontSize: 14 }}
-                      >
-                        Visit product page ↗
-                      </a>
-                    </div>
-                  )}
-
-                  {keywordList.length > 0 && (
-                    <div style={{ marginTop: 14 }}>
-                      <div className="profile-tags-label">Keywords</div>
-                      <div className="profile-tags">
-                        {keywordList.map((k) => (
-                          <span key={k} className="profile-tag-chip">
-                            {k}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {product.datasheet_url && (
-                    <div style={{ marginTop: 16 }}>
-                      <a
-                        href={product.datasheet_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: "#7dd3fc", fontSize: 14 }}
-                      >
-                        View datasheet (PDF)
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Bottom: specifications */}
-              <div className="product-detail-body">
-                {product.specifications && (
-                  <div className="product-detail-section">
-                    <div className="profile-section-label">Specifications</div>
-                    <p className="profile-summary-text">
-                      {product.specifications}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {errorMsg && (
-                <p
-                  style={{
-                    color: "#fecaca",
-                    marginTop: 16,
-                    fontSize: 13,
-                  }}
+            {isOwner && (
+              <>
+                <button
+                  type="button"
+                  className="nav-ghost-btn"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => router.push(`/products/new?id=${product.id}`)}
                 >
-                  {errorMsg}
-                </p>
+                  Edit product
+                </button>
+
+                <button
+                  onClick={handleDelete}
+                  className="nav-cta"
+                  style={{ background: "#b91c1c", cursor: "pointer" }}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Main card */}
+        <div className="product-detail-card">
+          <div className="product-detail-top">
+            {/* LEFT: image carousel */}
+            <div className="product-detail-images">
+              {images.length > 0 ? (
+                <div className="product-detail-carousel">
+                  {images.length > 1 && (
+                    <>
+                      <button
+                        className="product-detail-carousel-arrow left"
+                        onClick={showPrev}
+                        aria-label="Previous image"
+                        type="button"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        className="product-detail-carousel-arrow right"
+                        onClick={showNext}
+                        aria-label="Next image"
+                        type="button"
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+
+                  <div className="product-detail-image-box">
+                    <img src={images[activeIndex]} alt={product.name} />
+                  </div>
+
+                  {images.length > 1 && (
+                    <div className="product-detail-dots">
+                      {images.map((_, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className={
+                            "product-detail-dot" +
+                            (idx === activeIndex ? " active" : "")
+                          }
+                          onClick={() => setActiveIndex(idx)}
+                          aria-label={`Show image ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="product-detail-image-placeholder">
+                  No images provided
+                </div>
               )}
             </div>
 
-            {/* Optional debug */}
-            {process.env.NODE_ENV === "development" && (
-              <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
-                <div>Debug:</div>
-                <div>current user id: {user?.id || "none"}</div>
-                <div>product.owner_id: {product.owner_id || "null"}</div>
-                <div>isOwner: {String(isOwner)}</div>
+            {/* RIGHT: main info */}
+            <div className="product-detail-main">
+              {product.category && (
+                <div className="product-detail-category">{product.category}</div>
+              )}
+
+              {product.short_description && (
+                <p className="product-detail-short">{product.short_description}</p>
+              )}
+
+              <div className="product-detail-meta">
+                <div>
+                  <div className="profile-summary-label">Price</div>
+                  <div className="profile-summary-text">{priceLabel}</div>
+                </div>
+
+                <div>
+                  <div className="profile-summary-label">Stock</div>
+                  <div className="profile-summary-text">{stockLabel}</div>
+                </div>
+              </div>
+
+              {product.product_url && (
+                <div style={{ marginTop: 14 }}>
+                  <a
+                    href={product.product_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "#7dd3fc", fontSize: 14 }}
+                  >
+                    Visit product page ↗
+                  </a>
+                </div>
+              )}
+
+              {keywordList.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div className="profile-tags-label">Keywords</div>
+                  <div className="profile-tags">
+                    {keywordList.map((k) => (
+                      <span key={k} className="profile-tag-chip">
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {product.datasheet_url && (
+                <div style={{ marginTop: 16 }}>
+                  <a
+                    href={product.datasheet_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: "#7dd3fc", fontSize: 14 }}
+                  >
+                    View datasheet (PDF)
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom: specifications */}
+          <div className="product-detail-body">
+            {product.specifications && (
+              <div className="product-detail-section">
+                <div className="profile-section-label">Specifications</div>
+                <p className="profile-summary-text">{product.specifications}</p>
               </div>
             )}
           </div>
-        </section>
+
+          {errorMsg && (
+            <p style={{ color: "#fecaca", marginTop: 16, fontSize: 13 }}>
+              {errorMsg}
+            </p>
+          )}
+        </div>
+
+        {/* Optional debug */}
+        {process.env.NODE_ENV === "development" && (
+          <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
+            <div>Debug:</div>
+            <div>current user id: {user?.id || "none"}</div>
+            <div>product.owner_id: {product.owner_id || "null"}</div>
+            <div>isOwner: {String(isOwner)}</div>
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -556,6 +518,12 @@ export default function ProductDetailPage() {
           max-width: 800px;
         }
       `}</style>
-    </>
+    </section>
   );
 }
+
+// ✅ global layout: left sidebar + middle only, no right column
+(ProductDetailPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
