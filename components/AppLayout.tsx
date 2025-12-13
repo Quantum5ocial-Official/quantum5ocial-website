@@ -90,14 +90,21 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
+  // 3-col pages should have a real divider column between middle and right
+  const threeHasDivider = !hideSidebarsOnMobile && variant === "three" && showRight;
+
   const gridTemplateColumns = (() => {
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
-    if (variant === "three") return "280px minmax(0, 1fr) 280px";
+    // ✅ add a 1px divider column between middle and right
+    if (variant === "three") return "280px minmax(0, 1fr) 1px 280px";
     if (variant === "two-left") return "280px minmax(0, 1fr)";
     if (variant === "two-right") return "minmax(0, 1fr) 280px";
     return "minmax(0, 1fr)";
   })();
+
+  // When we use a divider column, we must not use grid gap (or divider “floats”)
+  const gridGap = threeHasDivider ? 0 : 24;
 
   return (
     <>
@@ -110,8 +117,9 @@ export default function AppLayout({
           style={{
             display: "grid",
             gridTemplateColumns,
-            gap: 24,
-            alignItems: "start",
+            gap: gridGap,
+            // ✅ stretch so divider can be full height
+            alignItems: threeHasDivider ? "stretch" : "start",
           }}
         >
           {/* LEFT */}
@@ -119,16 +127,33 @@ export default function AppLayout({
 
           {/* MIDDLE */}
           {wrapMiddle ? (
-            <section className="layout-main">{children}</section>
+            <section className="layout-main" style={threeHasDivider ? { paddingRight: 24 } : undefined}>
+              {children}
+            </section>
           ) : (
-            <>{children}</>
+            <div style={threeHasDivider ? { paddingRight: 24 } : undefined}>{children}</div>
+          )}
+
+          {/* ✅ DIVIDER (only for 3-col layout with right column present) */}
+          {threeHasDivider && (
+            <div
+              aria-hidden
+              style={{
+                background: "rgba(148,163,184,0.35)",
+                width: 1,
+              }}
+            />
           )}
 
           {/* RIGHT */}
           {showRight && (
             <aside
               className="layout-right sticky-col"
-              style={{ display: "flex", flexDirection: "column" }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                ...(threeHasDivider ? { paddingLeft: 24 } : null),
+              }}
             >
               {resolvedRight}
             </aside>
