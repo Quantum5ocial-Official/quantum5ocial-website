@@ -33,7 +33,7 @@ type AppLayoutProps = {
 
   /**
    * For now, on mobile we show only the middle content (no left/right).
-   * Later we’ll implement drawers.
+   * We implement a left drawer trigger globally.
    */
   mobileMode?: "middle-only" | "keep-columns";
 
@@ -128,6 +128,7 @@ export default function AppLayout({
   );
 
   const gridTemplateColumns = (() => {
+    // ✅ Mobile: show only middle (children)
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
     const cols: string[] = [];
@@ -150,7 +151,7 @@ export default function AppLayout({
     return cols.join(" ");
   })();
 
-  // Mobile drawer is only meaningful if left exists in desktop world
+  // ✅ Mobile left drawer only makes sense if left exists in desktop world
   const canOpenMobileLeftDrawer =
     hideSidebarsOnMobile &&
     variant !== "two-right" &&
@@ -177,8 +178,8 @@ export default function AppLayout({
                 top: "50%",
                 transform: "translateY(-50%)",
                 zIndex: 60,
-                width: 35,
-                height: 75,
+                width: 44,
+                height: 84,
                 border: "1px solid rgba(148,163,184,0.35)",
                 borderLeft: "none",
                 borderTopRightRadius: 16,
