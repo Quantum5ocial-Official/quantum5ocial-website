@@ -94,10 +94,11 @@ export default function ProductDetailPage() {
     if (error) {
       console.error("Error deleting product", error);
       setErrorMsg("Could not delete product. Please try again.");
-      setDeletING(false);
+      setDeleting(false); // ✅ fixed typo
       return;
     }
 
+    setDeleting(false);
     router.push("/products");
   };
 
@@ -140,11 +141,9 @@ export default function ProductDetailPage() {
       .map((k) => k.trim())
       .filter(Boolean) ?? [];
 
-  const images = [
-    product.image1_url,
-    product.image2_url,
-    product.image3_url,
-  ].filter(Boolean) as string[];
+  const images = [product.image1_url, product.image2_url, product.image3_url].filter(
+    Boolean
+  ) as string[];
 
   const showPrev = () => {
     if (images.length <= 1) return;
@@ -238,8 +237,7 @@ export default function ProductDetailPage() {
                           key={idx}
                           type="button"
                           className={
-                            "product-detail-dot" +
-                            (idx === activeIndex ? " active" : "")
+                            "product-detail-dot" + (idx === activeIndex ? " active" : "")
                           }
                           onClick={() => setActiveIndex(idx)}
                           aria-label={`Show image ${idx + 1}`}
@@ -249,9 +247,7 @@ export default function ProductDetailPage() {
                   )}
                 </div>
               ) : (
-                <div className="product-detail-image-placeholder">
-                  No images provided
-                </div>
+                <div className="product-detail-image-placeholder">No images provided</div>
               )}
             </div>
 
@@ -329,9 +325,7 @@ export default function ProductDetailPage() {
           </div>
 
           {errorMsg && (
-            <p style={{ color: "#fecaca", marginTop: 16, fontSize: 13 }}>
-              {errorMsg}
-            </p>
+            <p style={{ color: "#fecaca", marginTop: 16, fontSize: 13 }}>{errorMsg}</p>
           )}
         </div>
 
