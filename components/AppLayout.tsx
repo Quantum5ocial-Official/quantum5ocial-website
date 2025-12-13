@@ -65,11 +65,13 @@ export default function AppLayout({
   }, []);
 
   const resolvedLeft = useMemo(() => {
+    // undefined => default
     if (left === undefined) return <LeftSidebar />;
     return left;
   }, [left]);
 
   const resolvedRight = useMemo(() => {
+    // undefined => keep column but empty (symmetry)
     if (right === undefined) return <div />;
     return right;
   }, [right]);
@@ -88,35 +90,43 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
-  // ✅ Use real divider columns in "three" layout
-  const hasLeftDivider = !hideSidebarsOnMobile && variant === "three" && showLeft;
-  const hasRightDivider = !hideSidebarsOnMobile && variant === "three" && showRight;
+  // Divider element (same style everywhere)
+  const Divider = () => (
+    <div
+      aria-hidden="true"
+      style={{
+        width: 1,
+        background: "rgba(148,163,184,0.35)",
+        alignSelf: "stretch",
+      }}
+    />
+  );
 
+  // Build grid columns dynamically, including divider columns
   const gridTemplateColumns = (() => {
     if (hideSidebarsOnMobile) return "minmax(0, 1fr)";
 
-    if (variant === "three") {
-      // LEFT | divider | MIDDLE | divider | RIGHT
-      // (if left/right are missing we collapse accordingly)
-      if (hasLeftDivider && hasRightDivider) return "280px 1px minmax(0, 1fr) 1px 280px";
-      if (hasLeftDivider && !hasRightDivider) return "280px 1px minmax(0, 1fr)";
-      if (!hasLeftDivider && hasRightDivider) return "minmax(0, 1fr) 1px 280px";
-      return "minmax(0, 1fr)";
+    const cols: string[] = [];
+
+    // LEFT
+    if (showLeft) {
+      cols.push("280px");
+      // divider between LEFT and MIDDLE
+      cols.push("1px");
     }
 
-    if (variant === "two-left") return "280px minmax(0, 1fr)";
-    if (variant === "two-right") return "minmax(0, 1fr) 280px";
-    return "minmax(0, 1fr)";
+    // MIDDLE (always)
+    cols.push("minmax(0, 1fr)");
+
+    // RIGHT
+    if (showRight) {
+      // divider between MIDDLE and RIGHT
+      cols.push("1px");
+      cols.push("280px");
+    }
+
+    return cols.join(" ");
   })();
-
-  // When using divider columns, we must not use grid gap
-  const useDividerCols = hasLeftDivider || hasRightDivider;
-  const gridGap = useDividerCols ? 0 : 24;
-
-  const dividerStyle = {
-    background: "rgba(148,163,184,0.35)",
-    width: 1,
-  } as const;
 
   return (
     <>
@@ -129,62 +139,36 @@ export default function AppLayout({
           style={{
             display: "grid",
             gridTemplateColumns,
-            gap: gridGap,
-            // stretch so divider columns run full height
-            alignItems: useDividerCols ? "stretch" : "start",
+            gap: 24,
+            alignItems: "start",
           }}
         >
           {/* LEFT */}
-          {showLeft && <>{resolvedLeft}</>}
-
-          {/* ✅ LEFT DIVIDER */}
-          {hasLeftDivider && <div aria-hidden style={dividerStyle} />}
+          {showLeft && (
+            <>
+              {resolvedLeft}
+              <Divider />
+            </>
+          )}
 
           {/* MIDDLE */}
           {wrapMiddle ? (
-            <section
-              className="layout-main"
-              style={
-                useDividerCols
-                  ? {
-                      paddingLeft: hasLeftDivider ? 24 : undefined,
-                      paddingRight: hasRightDivider ? 24 : undefined,
-                    }
-                  : undefined
-              }
-            >
-              {children}
-            </section>
+            <section className="layout-main">{children}</section>
           ) : (
-            <div
-              style={
-                useDividerCols
-                  ? {
-                      paddingLeft: hasLeftDivider ? 24 : undefined,
-                      paddingRight: hasRightDivider ? 24 : undefined,
-                    }
-                  : undefined
-              }
-            >
-              {children}
-            </div>
+            <>{children}</>
           )}
-
-          {/* ✅ RIGHT DIVIDER */}
-          {hasRightDivider && <div aria-hidden style={dividerStyle} />}
 
           {/* RIGHT */}
           {showRight && (
-            <aside
-              className="layout-right sticky-col"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                ...(useDividerCols ? { paddingLeft: 24 } : null),
-              }}
-            >
-              {resolvedRight}
-            </aside>
+            <>
+              <Divider />
+              <aside
+                className="layout-right sticky-col"
+                style={{ display: "flex", flexDirection: "column" }}
+              >
+                {resolvedRight}
+              </aside>
+            </>
           )}
         </main>
       </div>
