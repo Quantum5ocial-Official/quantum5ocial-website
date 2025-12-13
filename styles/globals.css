@@ -3229,3 +3229,13 @@ html.theme-light footer {
 .layout-right {
   border-left: none !important;
 }
+/* Ensure dividers always render above content + are visible */
+.layout-main {
+  position: relative;
+  overflow: visible;
+}
+
+.layout-main::before,
+.layout-main::after {
+  z-index: 5;
+}
