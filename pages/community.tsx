@@ -112,7 +112,8 @@ const CommunityContext = createContext<CommunityCtx | null>(null);
 
 function useCommunityCtx() {
   const ctx = useContext(CommunityContext);
-  if (!ctx) throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
+  if (!ctx)
+    throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
   return ctx;
 }
 
@@ -306,9 +307,9 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
     return profiles.filter((p) => {
       const haystack = (
-        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${p.short_bio || ""} ${
-          p.city || ""
-        } ${p.country || ""}`
+        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${
+          p.short_bio || ""
+        } ${p.city || ""} ${p.country || ""}`
       ).toLowerCase();
       return haystack.includes(q);
     });
@@ -323,7 +324,9 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       const meta =
         org.kind === "company"
           ? `${org.industry || ""} ${org.focus_areas || ""}`
-          : `${org.institution || ""} ${org.department || ""} ${org.focus_areas || ""}`;
+          : `${org.institution || ""} ${org.department || ""} ${
+              org.focus_areas || ""
+            }`;
 
       const haystack = `${org.name || ""} ${meta} ${org.tagline || ""} ${location}`.toLowerCase();
       return haystack.includes(q);
@@ -331,7 +334,8 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   }, [orgs, search]);
 
   // === FEATURED PROFILE + ORGANIZATION OF THE WEEK ===
-  const featuredProfile = filteredProfiles.length > 0 ? filteredProfiles[0] : null;
+  const featuredProfile =
+    filteredProfiles.length > 0 ? filteredProfiles[0] : null;
   const featuredOrg = filteredOrgs.length > 0 ? filteredOrgs[0] : null;
 
   // === UNIFIED COMMUNITY ITEM LIST (MIXED PEOPLE + ORGS) ===
@@ -374,7 +378,9 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         affiliationLine = location || (o.industry || "—");
       } else {
         roleLabel = o.institution || "Research group";
-        const base = [o.department || "", o.institution || ""].filter(Boolean).join(", ");
+        const base = [o.department || "", o.institution || ""]
+          .filter(Boolean)
+          .join(", ");
         const location = [o.city, o.country].filter(Boolean).join(", ");
         affiliationLine = base || location || "—";
       }
@@ -444,81 +450,354 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     handleFollowOrg,
   };
 
-  return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
+  return (
+    <CommunityContext.Provider value={value}>
+      {children}
+    </CommunityContext.Provider>
+  );
 }
 
 function CommunityRightSidebar() {
+  const router = useRouter();
+  const { user } = useSupabaseUser();
+
+  const {
+    featuredProfile,
+    featuredOrg,
+
+    getConnectionStatus,
+    isEntangleLoading,
+    handleEntangle,
+    handleDeclineEntangle,
+
+    isFollowingOrg,
+    isFollowLoading,
+    handleFollowOrg,
+  } = useCommunityCtx();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
       <div className="hero-tiles hero-tiles-vertical">
-        {/* Highlighted jobs */}
-        <div className="hero-tile">
-          <div className="hero-tile-inner">
-            <div className="tile-label">Highlighted</div>
-            <div className="tile-title-row">
-              <div className="tile-title">Quantum roles spotlight</div>
-              <div className="tile-icon-orbit">🧪</div>
-            </div>
-            <p className="tile-text">
-              This tile will later showcase a curated quantum job or role from the
-              marketplace – ideal to show during demos.
-            </p>
-            <div className="tile-pill-row">
-              <span className="tile-pill">Example: PhD position</span>
-              <span className="tile-pill">Location</span>
-              <span className="tile-pill">Lab / company</span>
-            </div>
-            <div className="tile-cta">
-              Jobs spotlight <span>›</span>
-            </div>
-          </div>
-        </div>
+        {/* =========================
+            FEATURED MEMBER (tile)
+        ========================== */}
+        {featuredProfile && (
+          <div className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Profile of the week</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Spotlight</div>
+                <div className="tile-icon-orbit">🤝</div>
+              </div>
 
-        {/* Highlighted products */}
-        <div className="hero-tile">
-          <div className="hero-tile-inner">
-            <div className="tile-label">Highlighted</div>
-            <div className="tile-title-row">
-              <div className="tile-title">Quantum product of the week</div>
-              <div className="tile-icon-orbit">🔧</div>
-            </div>
-            <p className="tile-text">
-              This tile will highlight one selected hardware, software, or service
-              from the Quantum Products Lab.
-            </p>
-            <div className="tile-pill-row">
-              <span className="tile-pill">Example: Cryo system</span>
-              <span className="tile-pill">Control electronics</span>
-              <span className="tile-pill">Software suite</span>
-            </div>
-            <div className="tile-cta">
-              Product spotlight <span>›</span>
-            </div>
-          </div>
-        </div>
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "flex-start",
+                  cursor: "pointer",
+                }}
+                onClick={() => router.push(`/profile/${featuredProfile.id}`)}
+              >
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 999,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                    color: "#fff",
+                    fontWeight: 700,
+                  }}
+                >
+                  {featuredProfile.avatar_url ? (
+                    <img
+                      src={featuredProfile.avatar_url}
+                      alt={featuredProfile.full_name || "Member"}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    (featuredProfile.full_name || "M")[0].toUpperCase()
+                  )}
+                </div>
 
-        {/* Highlighted talent */}
-        <div className="hero-tile">
-          <div className="hero-tile-inner">
-            <div className="tile-label">Highlighted</div>
-            <div className="tile-title-row">
-              <div className="tile-title">Featured quantum talent</div>
-              <div className="tile-icon-orbit">🤝</div>
-            </div>
-            <p className="tile-text">
-              Later this tile can feature a standout community member – for example
-              a PI, postdoc, or startup founder.
-            </p>
-            <div className="tile-pill-row">
-              <span className="tile-pill">Example: Role</span>
-              <span className="tile-pill">Field</span>
-              <span className="tile-pill">Affiliation</span>
-            </div>
-            <div className="tile-cta">
-              Talent spotlight <span>›</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                    {featuredProfile.full_name || "Quantum member"}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                    {[featuredProfile.highest_education, featuredProfile.role, featuredProfile.affiliation]
+                      .filter(Boolean)
+                      .join(" · ") || "Quantum5ocial community member"}
+                  </div>
+                  {featuredProfile.short_bio && (
+                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                      {featuredProfile.short_bio.length > 90
+                        ? featuredProfile.short_bio.slice(0, 87) + "..."
+                        : featuredProfile.short_bio}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Entangle actions (same logic as middle) */}
+              {(!user || featuredProfile.id !== user.id) &&
+                (() => {
+                  const status = getConnectionStatus(featuredProfile.id);
+                  const loading = isEntangleLoading(featuredProfile.id);
+
+                  if (user && status === "pending_incoming") {
+                    return (
+                      <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEntangle(featuredProfile.id);
+                          }}
+                          style={{
+                            flex: 1,
+                            minWidth: 120,
+                            padding: "7px 0",
+                            borderRadius: 10,
+                            border: "none",
+                            background: "linear-gradient(90deg,#22c55e,#16a34a)",
+                            color: "#0f172a",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            cursor: loading ? "default" : "pointer",
+                            opacity: loading ? 0.7 : 1,
+                          }}
+                        >
+                          {loading ? "…" : "Accept request"}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeclineEntangle(featuredProfile.id);
+                          }}
+                          style={{
+                            flex: 1,
+                            minWidth: 100,
+                            padding: "7px 0",
+                            borderRadius: 10,
+                            border: "1px solid rgba(148,163,184,0.7)",
+                            background: "transparent",
+                            color: "rgba(248,250,252,0.9)",
+                            fontSize: 12,
+                            cursor: loading ? "default" : "pointer",
+                            opacity: loading ? 0.7 : 1,
+                          }}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  let label = "Entangle +";
+                  let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
+                  let border = "none";
+                  let color = "#0f172a";
+                  let disabled = false;
+
+                  if (user) {
+                    if (status === "pending_outgoing") {
+                      label = "Requested";
+                      bg = "transparent";
+                      border = "1px solid rgba(148,163,184,0.7)";
+                      color = "rgba(148,163,184,0.95)";
+                      disabled = true;
+                    } else if (status === "accepted") {
+                      label = "Entangled ✓";
+                      bg = "transparent";
+                      border = "1px solid rgba(74,222,128,0.7)";
+                      color = "rgba(187,247,208,0.95)";
+                      disabled = true;
+                    } else if (status === "declined") {
+                      label = "Declined";
+                      bg = "transparent";
+                      border = "1px solid rgba(148,163,184,0.5)";
+                      color = "rgba(148,163,184,0.7)";
+                      disabled = true;
+                    }
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      disabled={disabled || loading}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEntangle(featuredProfile.id);
+                      }}
+                      style={{
+                        width: "100%",
+                        marginTop: 12,
+                        padding: "7px 0",
+                        borderRadius: 10,
+                        border,
+                        background: bg,
+                        color,
+                        fontSize: 12,
+                        cursor: disabled || loading ? "default" : "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        opacity: loading ? 0.7 : 1,
+                      }}
+                    >
+                      {loading ? "…" : label}
+                    </button>
+                  );
+                })()}
+
+              <div className="tile-cta">
+                View member <span>›</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* =========================
+            FEATURED ORG (tile)
+        ========================== */}
+        {featuredOrg && (
+          <div className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Organization of the week</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Featured</div>
+                <div className="tile-icon-orbit">🏢</div>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "flex-start",
+                  cursor: featuredOrg.slug ? "pointer" : "default",
+                }}
+                onClick={() => {
+                  if (featuredOrg.slug) router.push(`/orgs/${featuredOrg.slug}`);
+                }}
+              >
+                <div
+                  style={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                    color: "#0f172a",
+                    fontWeight: 700,
+                  }}
+                >
+                  {featuredOrg.logo_url ? (
+                    <img
+                      src={featuredOrg.logo_url}
+                      alt={featuredOrg.name}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    featuredOrg.name.charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                    {featuredOrg.name}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                    {featuredOrg.kind === "company"
+                      ? featuredOrg.industry || "Quantum company"
+                      : featuredOrg.institution || "Research group"}
+                    {featuredOrg.city || featuredOrg.country
+                      ? ` · ${[featuredOrg.city, featuredOrg.country].filter(Boolean).join(", ")}`
+                      : ""}
+                  </div>
+
+                  {(featuredOrg.tagline || featuredOrg.focus_areas) && (
+                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                      {(featuredOrg.tagline || featuredOrg.focus_areas || "").length > 90
+                        ? (featuredOrg.tagline || featuredOrg.focus_areas || "").slice(0, 87) + "..."
+                        : featuredOrg.tagline || featuredOrg.focus_areas}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Follow button (same logic as middle) */}
+              {(() => {
+                const following = isFollowingOrg(featuredOrg.id);
+                const loading = isFollowLoading(featuredOrg.id);
+
+                const label = following ? "Following" : "Follow";
+                const bg = following ? "transparent" : "rgba(59,130,246,0.16)";
+                const border = following
+                  ? "1px solid rgba(148,163,184,0.7)"
+                  : "1px solid rgba(59,130,246,0.6)";
+                const color = following ? "rgba(148,163,184,0.95)" : "#bfdbfe";
+
+                return (
+                  <button
+                    type="button"
+                    style={{
+                      width: "100%",
+                      marginTop: 12,
+                      padding: "7px 0",
+                      borderRadius: 10,
+                      border,
+                      background: bg,
+                      color,
+                      fontSize: 12,
+                      cursor: loading ? "default" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      opacity: loading ? 0.7 : 1,
+                    }}
+                    disabled={loading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFollowOrg(featuredOrg.id);
+                    }}
+                  >
+                    {loading ? "…" : label}
+                    {!following && <span style={{ fontSize: 14 }}>+</span>}
+                  </button>
+                );
+              })()}
+
+              <div className="tile-cta">
+                View organization <span>›</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div
@@ -549,11 +828,6 @@ function CommunityMiddle() {
     communityLoading,
     communityError,
     totalCommunityCount,
-
-    filteredProfiles,
-    filteredOrgs,
-    featuredProfile,
-    featuredOrg,
 
     communityItems,
     hasAnyCommunity,
@@ -706,391 +980,15 @@ function CommunityMiddle() {
       {/* MAIN CONTENT */}
       {!communityLoading && !communityError && hasAnyCommunity && (
         <>
-          {/* PROFILE OF THE WEEK */}
-          {featuredProfile && (
-            <div
-              style={{
-                marginBottom: 16,
-                padding: 16,
-                borderRadius: 16,
-                border: "1px solid rgba(56,189,248,0.35)",
-                background:
-                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
-              }}
-            >
-              <div style={{ marginBottom: 10 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "#7dd3fc",
-                    marginBottom: 4,
-                  }}
-                >
-                  Profile of the week
-                </div>
-                <div
-                  style={{
-                    fontSize: "0.95rem",
-                    fontWeight: 600,
-                    background: "linear-gradient(90deg,#22d3ee,#a855f7)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                  }}
-                >
-                  Standout member from the Quantum Community
-                </div>
-              </div>
-
-              <div
-                className="card"
-                style={{
-                  borderRadius: 14,
-                  padding: 14,
-                  background: "rgba(15,23,42,0.95)",
-                  cursor: "pointer",
-                }}
-                onClick={() => router.push(`/profile/${featuredProfile.id}`)}
-              >
-                <div
-                  className="card-inner"
-                  style={{ display: "flex", gap: 14, alignItems: "flex-start" }}
-                >
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: "999px",
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.5)",
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                      color: "#fff",
-                      fontWeight: 600,
-                      fontSize: 18,
-                    }}
-                  >
-                    {featuredProfile.avatar_url ? (
-                      <img
-                        src={featuredProfile.avatar_url}
-                        alt={featuredProfile.full_name || "Member"}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          display: "block",
-                        }}
-                      />
-                    ) : (
-                      (featuredProfile.full_name || "Member")[0].toUpperCase()
-                    )}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="card-title" style={{ marginBottom: 2 }}>
-                      {featuredProfile.full_name || "Quantum member"}
-                    </div>
-                    <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4 }}>
-                      {featuredProfile.role || "Quantum5ocial member"}
-                      {featuredProfile.affiliation ? ` · ${featuredProfile.affiliation}` : ""}
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 6,
-                        fontSize: 12,
-                        color: "var(--text-muted)",
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {featuredProfile.short_bio ||
-                        "Active contributor in the quantum ecosystem on Quantum5ocial."}
-                    </div>
-
-                    {/* Entangle button with status */}
-                    {(!user || featuredProfile.id !== user.id) &&
-                      (() => {
-                        const status = getConnectionStatus(featuredProfile.id);
-                        const loading = isEntangleLoading(featuredProfile.id);
-
-                        if (user && status === "pending_incoming") {
-                          return (
-                            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEntangle(featuredProfile.id);
-                                }}
-                                style={{
-                                  flex: 1,
-                                  minWidth: 120,
-                                  padding: "6px 0",
-                                  borderRadius: 999,
-                                  border: "none",
-                                  background: "linear-gradient(90deg,#22c55e,#16a34a)",
-                                  color: "#0f172a",
-                                  fontSize: 12,
-                                  fontWeight: 600,
-                                  cursor: loading ? "default" : "pointer",
-                                  opacity: loading ? 0.7 : 1,
-                                }}
-                              >
-                                {loading ? "…" : "Accept request"}
-                              </button>
-
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeclineEntangle(featuredProfile.id);
-                                }}
-                                style={{
-                                  flex: 1,
-                                  minWidth: 100,
-                                  padding: "6px 0",
-                                  borderRadius: 999,
-                                  border: "1px solid rgba(148,163,184,0.7)",
-                                  background: "transparent",
-                                  color: "rgba(248,250,252,0.9)",
-                                  fontSize: 12,
-                                  cursor: loading ? "default" : "pointer",
-                                  opacity: loading ? 0.7 : 1,
-                                }}
-                              >
-                                Decline
-                              </button>
-                            </div>
-                          );
-                        }
-
-                        let label = "Entangle +";
-                        let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
-                        let border = "none";
-                        let color = "#0f172a";
-                        let disabled = false;
-
-                        if (user) {
-                          if (status === "pending_outgoing") {
-                            label = "Requested";
-                            bg = "transparent";
-                            border = "1px solid rgba(148,163,184,0.7)";
-                            color = "rgba(148,163,184,0.95)";
-                            disabled = true;
-                          } else if (status === "accepted") {
-                            label = "Entangled ✓";
-                            bg = "transparent";
-                            border = "1px solid rgba(74,222,128,0.7)";
-                            color = "rgba(187,247,208,0.95)";
-                            disabled = true;
-                          } else if (status === "declined") {
-                            label = "Declined";
-                            bg = "transparent";
-                            border = "1px solid rgba(148,163,184,0.5)";
-                            color = "rgba(148,163,184,0.7)";
-                            disabled = true;
-                          }
-                        }
-
-                        return (
-                          <button
-                            type="button"
-                            style={{
-                              marginTop: 10,
-                              padding: "6px 12px",
-                              borderRadius: 999,
-                              border,
-                              background: bg,
-                              color,
-                              fontSize: 12,
-                              cursor: disabled || loading ? "default" : "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              opacity: loading ? 0.7 : 1,
-                            }}
-                            disabled={disabled || loading}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEntangle(featuredProfile.id);
-                            }}
-                          >
-                            {loading ? "…" : label}
-                          </button>
-                        );
-                      })()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ORGANIZATION OF THE WEEK */}
-          {featuredOrg && (
-            <div
-              style={{
-                marginBottom: 24,
-                padding: 16,
-                borderRadius: 16,
-                border: "1px solid rgba(59,130,246,0.45)",
-                background:
-                  "radial-gradient(circle at top left, rgba(59,130,246,0.12), rgba(15,23,42,1))",
-              }}
-            >
-              <div style={{ marginBottom: 10 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    color: "#93c5fd",
-                    marginBottom: 4,
-                  }}
-                >
-                  Organization of the week
-                </div>
-                <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
-                  Featured company / lab in the ecosystem
-                </div>
-              </div>
-
-              <div
-                className="card"
-                style={{
-                  borderRadius: 14,
-                  padding: 14,
-                  background: "rgba(15,23,42,0.95)",
-                  cursor: featuredOrg.slug ? "pointer" : "default",
-                }}
-                onClick={() => {
-                  if (featuredOrg.slug) router.push(`/orgs/${featuredOrg.slug}`);
-                }}
-              >
-                <div
-                  className="card-inner"
-                  style={{ display: "flex", gap: 14, alignItems: "flex-start" }}
-                >
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.5)",
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                      color: "#0f172a",
-                      fontWeight: 700,
-                      fontSize: 18,
-                    }}
-                  >
-                    {featuredOrg.logo_url ? (
-                      <img
-                        src={featuredOrg.logo_url}
-                        alt={featuredOrg.name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                      />
-                    ) : (
-                      featuredOrg.name.charAt(0).toUpperCase()
-                    )}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                      <div
-                        className="card-title"
-                        style={{
-                          marginBottom: 0,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {featuredOrg.name}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          borderRadius: 999,
-                          padding: "2px 8px",
-                          border: "1px solid rgba(148,163,184,0.7)",
-                          color: "rgba(226,232,240,0.95)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {featuredOrg.kind === "company" ? "Company" : "Research group"}
-                      </span>
-                    </div>
-
-                    <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4, marginBottom: 4 }}>
-                      {featuredOrg.kind === "company"
-                        ? featuredOrg.industry || "Quantum company"
-                        : featuredOrg.institution || "Research group"}
-                      {featuredOrg.city || featuredOrg.country
-                        ? ` · ${[featuredOrg.city, featuredOrg.country].filter(Boolean).join(", ")}`
-                        : ""}
-                    </div>
-
-                    <div style={{ marginTop: 4, fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>
-                      {featuredOrg.tagline || featuredOrg.focus_areas || "Active organization in the quantum ecosystem."}
-                    </div>
-
-                    {(() => {
-                      const following = isFollowingOrg(featuredOrg.id);
-                      const loading = isFollowLoading(featuredOrg.id);
-
-                      const label = following ? "Following" : "Follow";
-                      const bg = following ? "transparent" : "rgba(59,130,246,0.16)";
-                      const border = following
-                        ? "1px solid rgba(148,163,184,0.7)"
-                        : "1px solid rgba(59,130,246,0.6)";
-                      const color = following ? "rgba(148,163,184,0.95)" : "#bfdbfe";
-
-                      return (
-                        <button
-                          type="button"
-                          style={{
-                            marginTop: 10,
-                            padding: "6px 12px",
-                            borderRadius: 999,
-                            border,
-                            background: bg,
-                            color,
-                            fontSize: 12,
-                            cursor: loading ? "default" : "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                            opacity: loading ? 0.7 : 1,
-                          }}
-                          disabled={loading}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFollowOrg(featuredOrg.id);
-                          }}
-                        >
-                          {loading ? "…" : label}
-                          {!following && <span style={{ fontSize: 14 }}>+</span>}
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Browse header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 10,
+            }}
+          >
             <div>
               <div
                 style={{
@@ -1103,7 +1001,9 @@ function CommunityMiddle() {
               >
                 Browse community
               </div>
-              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>Members &amp; organizations</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
+                Members &amp; organizations
+              </div>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
               Showing {communityItems.length} match{communityItems.length === 1 ? "" : "es"}
