@@ -3302,3 +3302,94 @@ html.theme-light footer {
   margin-top: 6px;
   line-height: 1.35;
 }
+/* Middle column post placeholder (homepage) */
+.home-post-placeholder {
+  border-radius: 18px;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.75),
+    rgba(15, 23, 42, 0.92)
+  );
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+}
+
+.home-post-placeholder-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.home-post-placeholder-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.home-post-placeholder-sub {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 3px;
+}
+
+.home-post-placeholder-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.home-post-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #3bc7f3, #8468ff);
+}
+
+.home-post-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-post-meta {
+  font-size: 12px;
+  opacity: 0.88;
+}
+
+.home-post-dot {
+  margin: 0 6px;
+  opacity: 0.5;
+}
+
+.home-post-text {
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 6px;
+  opacity: 0.95;
+}
+
+.home-post-tags {
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.home-post-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  opacity: 0.65;
+}
