@@ -148,7 +148,7 @@ export default function EcosystemIndexPage() {
           {/* Entangled */}
           <Tile
             href="/ecosystem/entangled"
-            label="Entangled members"
+            label="Entanglements"
             count={entangledCount}
             icon="🧬"
             color="#22d3ee"
