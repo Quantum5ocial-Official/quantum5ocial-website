@@ -54,7 +54,9 @@ export default function Home() {
           </p>
 
           <div className="hero-tags">
-            <span className="tag-chip">Intern, PhD, Postdoc, and Industry roles</span>
+            <span className="tag-chip">
+              Intern, PhD, Postdoc, and Industry roles
+            </span>
             <span className="tag-chip">Startups, Vendors, and Labs</span>
             <span className="tag-chip">Hardware · Software · Services</span>
           </div>
@@ -77,8 +79,8 @@ export default function Home() {
               <li>Complete your profile → gain QP and visibility</li>
               <li>Post roles or products → earn vendor &amp; mentor badges</li>
               <li>
-                Explore and engage → unlock levels like Superposition, Entangled,
-                Resonant
+                Explore and engage → unlock levels like Superposition,
+                Entangled, Resonant
               </li>
             </ul>
           </div>
@@ -109,8 +111,12 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">Built for the entire quantum community</div>
-            <div className="section-sub">Different paths, one shared platform.</div>
+            <div className="section-title">
+              Built for the entire quantum community
+            </div>
+            <div className="section-sub">
+              Different paths, one shared platform.
+            </div>
           </div>
         </div>
 
@@ -160,7 +166,9 @@ export default function Home() {
 function HomeRightSidebar() {
   const [latestJob, setLatestJob] = useState<Job | null>(null);
   const [latestProduct, setLatestProduct] = useState<Product | null>(null);
-  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(null);
+  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(
+    null
+  );
 
   const [loadingJob, setLoadingJob] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(true);
@@ -199,7 +207,8 @@ function HomeRightSidebar() {
 
       if (cancelled) return;
 
-      if (!error && data && data.length > 0) setLatestProduct(data[0] as Product);
+      if (!error && data && data.length > 0)
+        setLatestProduct(data[0] as Product);
       else setLatestProduct(null);
 
       setLoadingProduct(false);
@@ -209,13 +218,16 @@ function HomeRightSidebar() {
       setLoadingMember(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
+        .select(
+          "id, full_name, avatar_url, highest_education, affiliation, short_bio, role"
+        )
         .order("created_at", { ascending: false })
         .limit(1);
 
       if (cancelled) return;
 
-      if (!error && data && data.length > 0) setLatestMember(data[0] as CommunityProfile);
+      if (!error && data && data.length > 0)
+        setLatestMember(data[0] as CommunityProfile);
       else setLatestMember(null);
 
       setLoadingMember(false);
@@ -241,9 +253,13 @@ function HomeRightSidebar() {
 
   const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+    typeof memberName === "string"
+      ? memberName.split(" ")[0] || memberName
+      : "Member";
 
-  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
+  const memberProfileHref = latestMember
+    ? `/profile/${latestMember.id}`
+    : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -252,34 +268,38 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
           <div className="tile-title-row">
-            <div className="tile-title">Hot opening</div>
+            {/* ✅ accent color for the tile title */}
+            <div className="tile-title tile-title-accent tile-title-jobs">
+              Hot opening
+            </div>
             <div className="tile-icon-orbit">🧪</div>
           </div>
 
           {loadingJob ? (
             <p className="tile-text">Loading the newest job…</p>
           ) : !latestJob ? (
-            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
+            <p className="tile-text">
+              No jobs posted yet — be the first to add one.
+            </p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link
-                href={`/jobs/${latestJob.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+              {/* ✅ avoid nested <Link> inside <Link> */}
+              <div style={{ textDecoration: "none", color: "inherit" }}>
+                {/* ✅ differentiate job title from "Hot opening" */}
+                <div className="tile-entity-title">
                   {latestJob.title || "Untitled role"}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                <div className="tile-entity-meta">
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
                 {latestJob.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div className="tile-entity-desc">
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
                   </div>
                 )}
-              </Link>
+              </div>
             </div>
           )}
 
@@ -300,16 +320,28 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured product</div>
           <div className="tile-title-row">
-            <div className="tile-title">Product of the week</div>
+            {/* ✅ accent color for the tile title */}
+            <div className="tile-title tile-title-accent tile-title-products">
+              Product of the week
+            </div>
             <div className="tile-icon-orbit">🔧</div>
           </div>
 
           {loadingProduct ? (
             <p className="tile-text">Loading the newest product…</p>
           ) : !latestProduct ? (
-            <p className="tile-text">No products listed yet — add your first product.</p>
+            <p className="tile-text">
+              No products listed yet — add your first product.
+            </p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -325,7 +357,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   <div
@@ -344,26 +381,26 @@ function HomeRightSidebar() {
                 )}
               </div>
 
-              <Link
-                href={`/products/${latestProduct.id}`}
-                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
-              >
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                  {latestProduct.name}
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+              {/* ✅ no nested Link — whole tile already links */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="tile-entity-title">{latestProduct.name}</div>
+                <div className="tile-entity-meta">
+                  {[
+                    latestProduct.company_name,
+                    latestProduct.category,
+                    formatPrice(latestProduct),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
                 {latestProduct.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div className="tile-entity-desc">
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
                   </div>
                 )}
-              </Link>
+              </div>
             </div>
           )}
 
@@ -384,7 +421,10 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured member</div>
           <div className="tile-title-row">
-            <div className="tile-title">Spotlight</div>
+            {/* ✅ accent color for the tile title */}
+            <div className="tile-title tile-title-accent tile-title-community">
+              Spotlight
+            </div>
             <div className="tile-icon-orbit">🤝</div>
           </div>
 
@@ -393,7 +433,14 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -414,31 +461,37 @@ function HomeRightSidebar() {
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
                 )}
               </div>
 
+              {/* ✅ no nested Link — whole tile already links */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                    {memberName}
+                <div className="tile-entity-title">{memberName}</div>
+                <div className="tile-entity-meta">
+                  {[
+                    latestMember.highest_education,
+                    latestMember.role,
+                    latestMember.affiliation,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Quantum5ocial community member"}
+                </div>
+                {latestMember.short_bio && (
+                  <div className="tile-entity-desc">
+                    {latestMember.short_bio.length > 90
+                      ? latestMember.short_bio.slice(0, 87) + "..."
+                      : latestMember.short_bio}
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
-                      .filter(Boolean)
-                      .join(" · ") || "Quantum5ocial community member"}
-                  </div>
-                  {latestMember.short_bio && (
-                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                      {latestMember.short_bio.length > 90
-                        ? latestMember.short_bio.slice(0, 87) + "..."
-                        : latestMember.short_bio}
-                    </div>
-                  )}
-                </Link>
+                )}
               </div>
             </div>
           )}
