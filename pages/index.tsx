@@ -941,9 +941,7 @@ function HomeRightSidebar() {
 
   const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string"
-      ? memberName.split(" ")[0] || memberName
-      : "Member";
+    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
 
   const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
@@ -954,7 +952,16 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
           <div className="tile-title-row">
-            <div className="tile-title">Hot opening</div>
+            <div
+              className="tile-title"
+              style={{
+                color: "#7dd3fc", // jobs accent (cyan)
+                fontWeight: 800,
+                letterSpacing: 0.2,
+              }}
+            >
+              Hot opening
+            </div>
             <div className="tile-icon-orbit">🧪</div>
           </div>
 
@@ -1002,7 +1009,16 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured product</div>
           <div className="tile-title-row">
-            <div className="tile-title">Product of the week</div>
+            <div
+              className="tile-title"
+              style={{
+                color: "#a78bfa", // products accent (violet)
+                fontWeight: 800,
+                letterSpacing: 0.2,
+              }}
+            >
+              Product of the week
+            </div>
             <div className="tile-icon-orbit">🔧</div>
           </div>
 
@@ -1086,7 +1102,16 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured member</div>
           <div className="tile-title-row">
-            <div className="tile-title">Spotlight</div>
+            <div
+              className="tile-title"
+              style={{
+                color: "#fbbf24", // member accent (gold)
+                fontWeight: 800,
+                letterSpacing: 0.2,
+              }}
+            >
+              Spotlight
+            </div>
             <div className="tile-icon-orbit">🤝</div>
           </div>
 
