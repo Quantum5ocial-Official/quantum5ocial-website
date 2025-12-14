@@ -48,7 +48,6 @@ export default function Home() {
       {/* HERO */}
       <section className="hero" id="about">
         <div>
-          <div className="eyebrow">Quantum ecosystem hub</div>
           <h1 className="hero-title">
             Discover{" "}
             <span className="hero-highlight">jobs, products &amp; services</span>{" "}
