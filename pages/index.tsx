@@ -172,7 +172,7 @@ export default function Home() {
 }
 
 /* =========================
-   POST / ASK (expand modal)
+   POST / ASK (merged, expand modal)
    ========================= */
 
 function ActionButton({
@@ -193,7 +193,7 @@ function ActionButton({
         alignItems: "center",
         gap: 8,
         padding: "8px 10px",
-        borderRadius: 12,
+        borderRadius: 999,
         border: "1px solid rgba(148,163,184,0.18)",
         background: "rgba(2,6,23,0.22)",
         color: "rgba(226,232,240,0.92)",
@@ -208,11 +208,7 @@ function ActionButton({
   );
 }
 
-function MiniIcon({
-  path,
-}: {
-  path: string;
-}) {
+function MiniIcon({ path }: { path: string }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <path
@@ -230,10 +226,13 @@ function HomeComposerStrip() {
   const { user, loading } = useSupabaseUser();
   const [me, setMe] = useState<MyProfileMini | null>(null);
 
-  const [postOpen, setPostOpen] = useState(false);
-  const [askOpen, setAskOpen] = useState(false);
+  const [mode, setMode] = useState<"post" | "ask">("post");
+  const [open, setOpen] = useState(false);
 
+  // post
   const [postText, setPostText] = useState("");
+
+  // ask
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
   const [askType, setAskType] = useState<"concept" | "experiment" | "career">(
@@ -267,6 +266,8 @@ function HomeComposerStrip() {
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
+  const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
+
   const initials =
     (me?.full_name || "")
       .split(" ")
@@ -335,6 +336,27 @@ function HomeComposerStrip() {
     userSelect: "none",
   };
 
+  const toggleShell: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: 4,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(2,6,23,0.22)",
+  };
+
+  const toggleBtn = (active: boolean): React.CSSProperties => ({
+    padding: "7px 11px",
+    borderRadius: 999,
+    border: "none",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    background: active ? "linear-gradient(135deg,#3bc7f3,#8468ff)" : "transparent",
+    color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
+  });
+
   const modalBackdrop: React.CSSProperties = {
     position: "fixed",
     inset: 0,
@@ -363,6 +385,7 @@ function HomeComposerStrip() {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 12,
   };
 
   const closeBtn: React.CSSProperties = {
@@ -423,10 +446,13 @@ function HomeComposerStrip() {
     borderRadius: 999,
     border: "none",
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.55 : 1,
-    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    background:
+      mode === "ask"
+        ? "linear-gradient(135deg,#a78bfa,#3bc7f3)"
+        : "linear-gradient(135deg,#3bc7f3,#8468ff)",
     color: "#0f172a",
   });
 
@@ -446,127 +472,116 @@ function HomeComposerStrip() {
     userSelect: "none",
   });
 
-  const openPost = () => {
+  const openComposer = () => {
     if (!isAuthed) {
       window.location.href = "/auth?redirect=/";
       return;
     }
-    setPostOpen(true);
+    setOpen(true);
   };
 
-  const openAsk = () => {
-    if (!isAuthed) {
-      window.location.href = "/auth?redirect=/";
-      return;
-    }
-    setAskOpen(true);
-  };
+  const closeComposer = () => setOpen(false);
 
-  const closePost = () => setPostOpen(false);
-  const closeAsk = () => setAskOpen(false);
+  const collapsedPlaceholder =
+    mode === "post" ? `What’s on your mind, ${firstName}?` : "Ask the quantum community…";
+
+  const canSubmit =
+    mode === "post"
+      ? !!postText.trim()
+      : !!askTitle.trim() && !!askBody.trim();
 
   return (
     <>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-          gap: 14,
-        }}
-      >
-        {/* COLLAPSED POST */}
-        <div style={shellStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {avatarNode}
-            <div
-              style={{ ...collapsedInputStyle, flex: 1 }}
-              onClick={openPost}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") openPost();
-              }}
-            >
-              <span style={{ opacity: 0.85 }}>
-                What’s on your mind, {isAuthed ? (displayName.split(" ")[0] || displayName) : "…" }?
-              </span>
-              <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
-                ✨
-              </span>
-            </div>
+      {/* ONE merged composer */}
+      <div style={shellStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {avatarNode}
+
+          <div
+            style={{ ...collapsedInputStyle, flex: 1 }}
+            onClick={openComposer}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") openComposer();
+            }}
+          >
+            <span style={{ opacity: 0.88 }}>{collapsedPlaceholder}</span>
+            <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
+              {mode === "post" ? "✨" : "❓"}
+            </span>
           </div>
 
-          {/* small hint row (minimal, no text chips here) */}
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+          {/* Toggle (still one card) */}
+          <div style={toggleShell} onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
-              className="nav-cta"
-              onClick={openPost}
-              style={{
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: 999,
-                fontSize: 13,
-                border: "none",
-              }}
+              style={toggleBtn(mode === "post")}
+              onClick={() => setMode("post")}
             >
               Post
             </button>
-          </div>
-        </div>
-
-        {/* COLLAPSED ASK */}
-        <div style={shellStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {avatarNode}
-            <div
-              style={{ ...collapsedInputStyle, flex: 1 }}
-              onClick={openAsk}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") openAsk();
-              }}
-            >
-              <span style={{ opacity: 0.85 }}>Ask the quantum community…</span>
-              <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
-                ❓
-              </span>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
             <button
               type="button"
-              className="nav-cta"
-              onClick={openAsk}
-              style={{
-                textDecoration: "none",
-                padding: "8px 14px",
-                borderRadius: 999,
-                fontSize: 13,
-                border: "none",
-              }}
+              style={toggleBtn(mode === "ask")}
+              onClick={() => setMode("ask")}
             >
               Ask
             </button>
           </div>
         </div>
+
+        {/* small right-aligned primary */}
+        <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            className="nav-cta"
+            onClick={openComposer}
+            style={{
+              textDecoration: "none",
+              padding: "8px 14px",
+              borderRadius: 999,
+              fontSize: 13,
+              border: "none",
+            }}
+          >
+            {mode === "post" ? "Post" : "Ask"}
+          </button>
+        </div>
       </div>
 
-      {/* POST MODAL */}
-      {postOpen && (
+      {/* ONE modal, content switches by mode */}
+      {open && (
         <div
           style={modalBackdrop}
           onMouseDown={(e) => {
-            // click outside closes
-            if (e.target === e.currentTarget) closePost();
+            if (e.target === e.currentTarget) closeComposer();
           }}
         >
           <div style={modalCard}>
             <div style={modalHeader}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Create post</div>
-              <button type="button" style={closeBtn} onClick={closePost} aria-label="Close">
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                {mode === "post" ? "Create post" : "Ask a question"}
+              </div>
+
+              <div style={toggleShell}>
+                <button
+                  type="button"
+                  style={toggleBtn(mode === "post")}
+                  onClick={() => setMode("post")}
+                >
+                  Post
+                </button>
+                <button
+                  type="button"
+                  style={toggleBtn(mode === "ask")}
+                  onClick={() => setMode("ask")}
+                >
+                  Ask
+                </button>
+              </div>
+
+              <button type="button" style={closeBtn} onClick={closeComposer} aria-label="Close">
                 ✕
               </button>
             </div>
@@ -575,152 +590,126 @@ function HomeComposerStrip() {
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                 {avatarNode}
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
                     {displayName}
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                    Public · Quantum5ocial
+                    {mode === "post" ? "Public · Quantum5ocial" : "Public · Q&A"}
                   </div>
                 </div>
               </div>
 
-              <textarea
-                value={postText}
-                onChange={(e) => setPostText(e.target.value)}
-                placeholder={`What’s on your mind, ${displayName.split(" ")[0] || displayName}?`}
-                style={bigTextarea}
-              />
+              {mode === "post" ? (
+                <>
+                  <textarea
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    placeholder={`What’s on your mind, ${firstName}?`}
+                    style={bigTextarea}
+                  />
+                </>
+              ) : (
+                <>
+                  {/* type selector (expanded: icon + text) */}
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                    <div
+                      style={typeChip(askType === "concept")}
+                      onClick={() => setAskType("concept")}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
+                      Concept
+                    </div>
+                    <div
+                      style={typeChip(askType === "experiment")}
+                      onClick={() => setAskType("experiment")}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
+                      Experiment
+                    </div>
+                    <div
+                      style={typeChip(askType === "career")}
+                      onClick={() => setAskType("career")}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
+                      Career
+                    </div>
+                  </div>
+
+                  <input
+                    value={askTitle}
+                    onChange={(e) => setAskTitle(e.target.value)}
+                    placeholder="Question title (be specific)"
+                    style={smallInput}
+                  />
+
+                  <div style={{ height: 10 }} />
+
+                  <textarea
+                    value={askBody}
+                    onChange={(e) => setAskBody(e.target.value)}
+                    placeholder="Add context, details, constraints, what you already tried…"
+                    style={{ ...bigTextarea, minHeight: 150 }}
+                  />
+                </>
+              )}
             </div>
 
             <div style={footerBar}>
               {/* expanded actions: icon + text */}
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <ActionButton
-                  icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
-                  label="Photo"
-                />
-                <ActionButton
-                  icon={<MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />}
-                  label="Video"
-                />
-                <ActionButton
-                  icon={<MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />}
-                  label="Link"
-                />
+                {mode === "post" ? (
+                  <>
+                    <ActionButton
+                      icon={
+                        <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                      }
+                      label="Photo"
+                    />
+                    <ActionButton
+                      icon={
+                        <MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />
+                      }
+                      label="Video"
+                    />
+                    <ActionButton
+                      icon={
+                        <MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
+                      }
+                      label="Link"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <ActionButton icon="❓" label="Add details" title="Add more context" />
+                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
+                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
+                  </>
+                )}
               </div>
 
               <button
                 type="button"
-                style={primaryBtn(!postText.trim())}
-                disabled={!postText.trim()}
+                style={primaryBtn(!canSubmit)}
+                disabled={!canSubmit}
                 onClick={() => {
-                  // placeholder for now — later: insert into "posts" table
-                  setPostText("");
-                  closePost();
+                  // placeholders for now — later: insert into tables
+                  if (mode === "post") {
+                    setPostText("");
+                  } else {
+                    setAskTitle("");
+                    setAskBody("");
+                    setAskType("concept");
+                  }
+                  closeComposer();
                 }}
               >
-                Post
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ASK MODAL */}
-      {askOpen && (
-        <div
-          style={modalBackdrop}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeAsk();
-          }}
-        >
-          <div style={modalCard}>
-            <div style={modalHeader}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Ask a question</div>
-              <button type="button" style={closeBtn} onClick={closeAsk} aria-label="Close">
-                ✕
-              </button>
-            </div>
-
-            <div style={modalBody}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                {avatarNode}
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
-                    {displayName}
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                    Public · Q&amp;A
-                  </div>
-                </div>
-              </div>
-
-              {/* type selector (expanded: icon + text) */}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                <div
-                  style={typeChip(askType === "concept")}
-                  onClick={() => setAskType("concept")}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
-                  Concept
-                </div>
-                <div
-                  style={typeChip(askType === "experiment")}
-                  onClick={() => setAskType("experiment")}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
-                  Experiment
-                </div>
-                <div
-                  style={typeChip(askType === "career")}
-                  onClick={() => setAskType("career")}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
-                  Career
-                </div>
-              </div>
-
-              <input
-                value={askTitle}
-                onChange={(e) => setAskTitle(e.target.value)}
-                placeholder="Question title (be specific)"
-                style={smallInput}
-              />
-
-              <div style={{ height: 10 }} />
-
-              <textarea
-                value={askBody}
-                onChange={(e) => setAskBody(e.target.value)}
-                placeholder="Add context, details, constraints, what you already tried…"
-                style={{ ...bigTextarea, minHeight: 150 }}
-              />
-            </div>
-
-            <div style={footerBar}>
-              <div style={{ fontSize: 12, opacity: 0.75 }}>
-                Tip: add enough context so experts can answer precisely.
-              </div>
-
-              <button
-                type="button"
-                style={primaryBtn(!askTitle.trim() || !askBody.trim())}
-                disabled={!askTitle.trim() || !askBody.trim()}
-                onClick={() => {
-                  // placeholder for now — later: insert into "questions" table
-                  setAskTitle("");
-                  setAskBody("");
-                  setAskType("concept");
-                  closeAsk();
-                }}
-              >
-                Ask
+                {mode === "post" ? "Post" : "Ask"}
               </button>
             </div>
           </div>
