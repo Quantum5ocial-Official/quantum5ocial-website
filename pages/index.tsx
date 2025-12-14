@@ -835,13 +835,13 @@ function HomeComposerStrip() {
 }
 
 /* =========================
-   RIGHT SIDEBAR (featured via is_featured, fallback to latest)
+   RIGHT SIDEBAR (dynamic tiles)
    ========================= */
 
 function HomeRightSidebar() {
-  const [featuredJob, setFeaturedJob] = useState<Job | null>(null);
-  const [featuredProduct, setFeaturedProduct] = useState<Product | null>(null);
-  const [featuredMember, setFeaturedMember] = useState<CommunityProfile | null>(null);
+  const [latestJob, setLatestJob] = useState<Job | null>(null);
+  const [latestProduct, setLatestProduct] = useState<Product | null>(null);
+  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(null);
 
   const [loadingJob, setLoadingJob] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(true);
@@ -850,115 +850,80 @@ function HomeRightSidebar() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadFeaturedJob = async () => {
+    const pickOne = async <T,>(
+      table: string,
+      select: string,
+      fallbackOrderCol: string
+    ): Promise<T | null> => {
+      // 1) Try featured first (ranked, then most recently featured, then newest)
+      const { data: featured, error: featErr } = await supabase
+        .from(table)
+        .select(select)
+        .eq("is_featured", true)
+        .order("featured_rank", { ascending: true, nullsFirst: false })
+        .order("featured_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!featErr && featured && featured.length > 0) return featured[0] as T;
+
+      // 2) Fallback: latest
+      const { data: latest, error: latErr } = await supabase
+        .from(table)
+        .select(select)
+        .order(fallbackOrderCol, { ascending: false })
+        .limit(1);
+
+      if (!latErr && latest && latest.length > 0) return latest[0] as T;
+
+      return null;
+    };
+
+    const loadAll = async () => {
       setLoadingJob(true);
-
-      // 1) try featured
-      const { data: feat, error: featErr } = await supabase
-        .from("jobs")
-        .select("id, title, company_name, location, employment_type, remote_type, short_description")
-        .eq("is_featured", true)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!featErr && feat && feat.length > 0) {
-        setFeaturedJob(feat[0] as Job);
-        setLoadingJob(false);
-        return;
-      }
-
-      // 2) fallback latest
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("id, title, company_name, location, employment_type, remote_type, short_description")
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!error && data && data.length > 0) setFeaturedJob(data[0] as Job);
-      else setFeaturedJob(null);
-
-      setLoadingJob(false);
-    };
-
-    const loadFeaturedProduct = async () => {
       setLoadingProduct(true);
-
-      // 1) try featured
-      const { data: feat, error: featErr } = await supabase
-        .from("products")
-        .select(
-          "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
-        )
-        .eq("is_featured", true)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!featErr && feat && feat.length > 0) {
-        setFeaturedProduct(feat[0] as Product);
-        setLoadingProduct(false);
-        return;
-      }
-
-      // 2) fallback latest
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
-        )
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!error && data && data.length > 0) setFeaturedProduct(data[0] as Product);
-      else setFeaturedProduct(null);
-
-      setLoadingProduct(false);
-    };
-
-    const loadFeaturedMember = async () => {
       setLoadingMember(true);
 
-      // 1) try featured
-      const { data: feat, error: featErr } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
-        .eq("is_featured", true)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      try {
+        const [job, product, member] = await Promise.all([
+          pickOne<Job>(
+            "jobs",
+            "id, title, company_name, location, employment_type, remote_type, short_description",
+            "created_at"
+          ),
+          pickOne<Product>(
+            "products",
+            "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url",
+            "created_at"
+          ),
+          pickOne<CommunityProfile>(
+            "profiles",
+            "id, full_name, avatar_url, highest_education, affiliation, short_bio, role",
+            "created_at"
+          ),
+        ]);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (!featErr && feat && feat.length > 0) {
-        setFeaturedMember(feat[0] as CommunityProfile);
+        // keep existing state names (latest*) and rendering unchanged
+        setLatestJob(job);
+        setLatestProduct(product);
+        setLatestMember(member);
+      } catch (e) {
+        console.error("HomeRightSidebar load error:", e);
+        if (cancelled) return;
+        setLatestJob(null);
+        setLatestProduct(null);
+        setLatestMember(null);
+      } finally {
+        if (cancelled) return;
+        setLoadingJob(false);
+        setLoadingProduct(false);
         setLoadingMember(false);
-        return;
       }
-
-      // 2) fallback latest
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!error && data && data.length > 0) setFeaturedMember(data[0] as CommunityProfile);
-      else setFeaturedMember(null);
-
-      setLoadingMember(false);
     };
 
-    loadFeaturedJob();
-    loadFeaturedProduct();
-    loadFeaturedMember();
+    loadAll();
 
     return () => {
       cancelled = true;
@@ -974,11 +939,13 @@ function HomeRightSidebar() {
     return "";
   };
 
-  const memberName = featuredMember?.full_name || "Quantum member";
+  const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+    typeof memberName === "string"
+      ? memberName.split(" ")[0] || memberName
+      : "Member";
 
-  const memberProfileHref = featuredMember ? `/profile/${featuredMember.id}` : "/community";
+  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -992,23 +959,26 @@ function HomeRightSidebar() {
           </div>
 
           {loadingJob ? (
-            <p className="tile-text">Loading the featured job…</p>
-          ) : !featuredJob ? (
+            <p className="tile-text">Loading the newest job…</p>
+          ) : !latestJob ? (
             <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link href={`/jobs/${featuredJob.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+              <Link
+                href={`/jobs/${latestJob.id}`}
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                  {featuredJob.title || "Untitled role"}
+                  {latestJob.title || "Untitled role"}
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {formatJobMeta(featuredJob) || "Quantum role"}
+                  {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
-                {featuredJob.short_description && (
+                {latestJob.short_description && (
                   <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                    {featuredJob.short_description.length > 90
-                      ? featuredJob.short_description.slice(0, 87) + "..."
-                      : featuredJob.short_description}
+                    {latestJob.short_description.length > 90
+                      ? latestJob.short_description.slice(0, 87) + "..."
+                      : latestJob.short_description}
                   </div>
                 )}
               </Link>
@@ -1037,8 +1007,8 @@ function HomeRightSidebar() {
           </div>
 
           {loadingProduct ? (
-            <p className="tile-text">Loading the featured product…</p>
-          ) : !featuredProduct ? (
+            <p className="tile-text">Loading the newest product…</p>
+          ) : !latestProduct ? (
             <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
             <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -1053,10 +1023,10 @@ function HomeRightSidebar() {
                   border: "1px solid rgba(148,163,184,0.18)",
                 }}
               >
-                {featuredProduct.image1_url ? (
+                {latestProduct.image1_url ? (
                   <img
-                    src={featuredProduct.image1_url}
-                    alt={featuredProduct.name}
+                    src={latestProduct.image1_url}
+                    alt={latestProduct.name}
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
@@ -1077,22 +1047,22 @@ function HomeRightSidebar() {
               </div>
 
               <Link
-                href={`/products/${featuredProduct.id}`}
+                href={`/products/${latestProduct.id}`}
                 style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
               >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                  {featuredProduct.name}
+                  {latestProduct.name}
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[featuredProduct.company_name, featuredProduct.category, formatPrice(featuredProduct)]
+                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
-                {featuredProduct.short_description && (
+                {latestProduct.short_description && (
                   <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                    {featuredProduct.short_description.length > 90
-                      ? featuredProduct.short_description.slice(0, 87) + "..."
-                      : featuredProduct.short_description}
+                    {latestProduct.short_description.length > 90
+                      ? latestProduct.short_description.slice(0, 87) + "..."
+                      : latestProduct.short_description}
                   </div>
                 )}
               </Link>
@@ -1121,8 +1091,8 @@ function HomeRightSidebar() {
           </div>
 
           {loadingMember ? (
-            <p className="tile-text">Loading the featured member…</p>
-          ) : !featuredMember ? (
+            <p className="tile-text">Loading the newest member…</p>
+          ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
             <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -1142,9 +1112,9 @@ function HomeRightSidebar() {
                   fontWeight: 700,
                 }}
               >
-                {featuredMember.avatar_url ? (
+                {latestMember.avatar_url ? (
                   <img
-                    src={featuredMember.avatar_url}
+                    src={latestMember.avatar_url}
                     alt={memberFirstName}
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
@@ -1159,15 +1129,15 @@ function HomeRightSidebar() {
                     {memberName}
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[featuredMember.highest_education, featuredMember.role, featuredMember.affiliation]
+                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
                   </div>
-                  {featuredMember.short_bio && (
+                  {latestMember.short_bio && (
                     <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                      {featuredMember.short_bio.length > 90
-                        ? featuredMember.short_bio.slice(0, 87) + "..."
-                        : featuredMember.short_bio}
+                      {latestMember.short_bio.length > 90
+                        ? latestMember.short_bio.slice(0, 87) + "..."
+                        : latestMember.short_bio}
                     </div>
                   )}
                 </Link>
