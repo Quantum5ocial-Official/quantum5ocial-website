@@ -36,6 +36,8 @@ type CommunityProfile = {
 };
 
 export default function Home() {
+  const [composerMode, setComposerMode] = useState<"post" | "ask">("post");
+
   return (
     <>
       {/* HERO */}
@@ -63,54 +65,236 @@ export default function Home() {
         </div>
       </section>
 
-      {/* POSTS PLACEHOLDER (between HERO and Earn QP) */}
-      <section className="section">
-        <div className="home-post-placeholder">
-          <div className="home-post-placeholder-head">
-            <div>
-              <div className="home-post-placeholder-title">Posts</div>
-              <div className="home-post-placeholder-sub">
-                A simple feed will live here soon.
-              </div>
+      {/* POST / ASK PLACEHOLDER (between hero and Earn QP block) */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div
+          style={{
+            borderRadius: 18,
+            border: "1px solid rgba(148,163,184,0.24)",
+            background:
+              "linear-gradient(135deg, rgba(15,23,42,0.82), rgba(15,23,42,0.92))",
+            boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
+            padding: 16,
+            maxWidth: 980,
+          }}
+        >
+          {/* top row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 999,
+                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+                fontWeight: 800,
+                flexShrink: 0,
+              }}
+              aria-hidden
+            >
+              Q
             </div>
 
-            <button
-              type="button"
-              className="nav-ghost-btn"
-              style={{ padding: "7px 12px" }}
-              disabled
-              title="Coming soon"
-            >
-              + Write a post
-            </button>
-          </div>
+            {/* input-like area */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setComposerMode("post")}
+                  style={{
+                    flex: 1,
+                    textAlign: "left",
+                    padding: "10px 12px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    background:
+                      composerMode === "post"
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(15,23,42,0.45)",
+                    color: "rgba(226,232,240,0.95)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {composerMode === "post"
+                    ? "What’s happening in your quantum world?"
+                    : "Ask a question to the community…"}
+                </button>
 
-          <div className="home-post-placeholder-card">
-            <div className="home-post-avatar">D</div>
-
-            <div className="home-post-body">
-              <div className="home-post-meta">
-                <strong>Deepankar</strong>{" "}
-                <span className="home-post-dot">·</span> Quantum researcher
-                <span className="home-post-dot">·</span>{" "}
-                <span style={{ opacity: 0.75 }}>2h</span>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setComposerMode("post")}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(59,199,243,0.35)",
+                      background:
+                        composerMode === "post"
+                          ? "rgba(59,199,243,0.14)"
+                          : "rgba(15,23,42,0.35)",
+                      color:
+                        composerMode === "post"
+                          ? "rgba(125,211,252,1)"
+                          : "rgba(226,232,240,0.85)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Post
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComposerMode("ask")}
+                    style={{
+                      padding: "9px 12px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(251,191,36,0.35)",
+                      background:
+                        composerMode === "ask"
+                          ? "rgba(251,191,36,0.14)"
+                          : "rgba(15,23,42,0.35)",
+                      color:
+                        composerMode === "ask"
+                          ? "rgba(253,224,71,1)"
+                          : "rgba(226,232,240,0.85)",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Ask
+                  </button>
+                </div>
               </div>
 
-              <div className="home-post-text">
-                Exploring high-impedance resonators for next-gen quantum
-                hardware. Hiring soon — stay tuned.
-              </div>
+              {/* actions row */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  marginTop: 10,
+                  opacity: 0.95,
+                }}
+              >
+                {composerMode === "post" ? (
+                  <>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      📷 Photo
+                    </span>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      🔗 Link
+                    </span>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      🧵 Thread
+                    </span>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      🧪 Lab update
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      ❓ Quick question
+                    </span>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      🧠 Theory
+                    </span>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      🧰 Experimental
+                    </span>
+                    <span
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.22)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 12,
+                      }}
+                    >
+                      🧊 Cryo / RF
+                    </span>
+                  </>
+                )}
 
-              <div className="home-post-tags">
-                <span>#quantum</span>
-                <span>#hardware</span>
-                <span>#jobs</span>
-              </div>
+                <span style={{ flex: 1 }} />
 
-              <div className="home-post-actions">
-                <span title="Like">♡</span>
-                <span title="Comment">💬</span>
-                <span title="Share">↗</span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(148,163,184,0.95)",
+                    alignSelf: "center",
+                  }}
+                >
+                  (placeholder UI)
+                </span>
               </div>
             </div>
           </div>
@@ -261,7 +445,8 @@ function HomeRightSidebar() {
 
       if (cancelled) return;
 
-      if (!error && data && data.length > 0) setLatestProduct(data[0] as Product);
+      if (!error && data && data.length > 0)
+        setLatestProduct(data[0] as Product);
       else setLatestProduct(null);
 
       setLoadingProduct(false);
@@ -271,13 +456,16 @@ function HomeRightSidebar() {
       setLoadingMember(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
+        .select(
+          "id, full_name, avatar_url, highest_education, affiliation, short_bio, role"
+        )
         .order("created_at", { ascending: false })
         .limit(1);
 
       if (cancelled) return;
 
-      if (!error && data && data.length > 0) setLatestMember(data[0] as CommunityProfile);
+      if (!error && data && data.length > 0)
+        setLatestMember(data[0] as CommunityProfile);
       else setLatestMember(null);
 
       setLoadingMember(false);
@@ -318,28 +506,56 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
           <div className="tile-title-row">
-            <div className="tile-title">Hot opening</div>
+            {/* Accent the label so it doesn't compete with the job title */}
+            <div
+              className="tile-title"
+              style={{
+                color: "rgba(125,211,252,1)",
+                fontWeight: 800,
+                fontSize: 13,
+                letterSpacing: 0.2,
+                textTransform: "none",
+              }}
+            >
+              Hot opening
+            </div>
             <div className="tile-icon-orbit">🧪</div>
           </div>
 
           {loadingJob ? (
             <p className="tile-text">Loading the newest job…</p>
           ) : !latestJob ? (
-            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
+            <p className="tile-text">
+              No jobs posted yet — be the first to add one.
+            </p>
           ) : (
             <div style={{ marginTop: 8 }}>
               <Link
                 href={`/jobs/${latestJob.id}`}
                 style={{ textDecoration: "none", color: "inherit" }}
               >
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
                 {latestJob.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
@@ -366,16 +582,35 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured product</div>
           <div className="tile-title-row">
-            <div className="tile-title">Product of the week</div>
+            <div
+              className="tile-title"
+              style={{
+                color: "rgba(196,181,253,1)",
+                fontWeight: 800,
+                fontSize: 13,
+                letterSpacing: 0.2,
+              }}
+            >
+              Product of the week
+            </div>
             <div className="tile-icon-orbit">🔧</div>
           </div>
 
           {loadingProduct ? (
             <p className="tile-text">Loading the newest product…</p>
           ) : !latestProduct ? (
-            <p className="tile-text">No products listed yet — add your first product.</p>
+            <p className="tile-text">
+              No products listed yet — add your first product.
+            </p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -391,7 +626,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   <div
@@ -412,18 +652,41 @@ function HomeRightSidebar() {
 
               <Link
                 href={`/products/${latestProduct.id}`}
-                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: 1,
+                  minWidth: 0,
+                }}
               >
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>
                   {latestProduct.name}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {[
+                    latestProduct.company_name,
+                    latestProduct.category,
+                    formatPrice(latestProduct),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
                 {latestProduct.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
@@ -450,7 +713,17 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured member</div>
           <div className="tile-title-row">
-            <div className="tile-title">Spotlight</div>
+            <div
+              className="tile-title"
+              style={{
+                color: "rgba(253,224,71,1)",
+                fontWeight: 800,
+                fontSize: 13,
+                letterSpacing: 0.2,
+              }}
+            >
+              Spotlight
+            </div>
             <div className="tile-icon-orbit">🤝</div>
           </div>
 
@@ -459,7 +732,14 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -473,14 +753,19 @@ function HomeRightSidebar() {
                   justifyContent: "center",
                   background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                   color: "#fff",
-                  fontWeight: 700,
+                  fontWeight: 800,
                 }}
               >
                 {latestMember.avatar_url ? (
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
@@ -488,17 +773,38 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                <Link
+                  href={memberProfileHref}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.25 }}>
                     {memberName}
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.85,
+                      marginTop: 4,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {[
+                      latestMember.highest_education,
+                      latestMember.role,
+                      latestMember.affiliation,
+                    ]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
                   </div>
                   {latestMember.short_bio && (
-                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        opacity: 0.9,
+                        marginTop: 6,
+                        lineHeight: 1.35,
+                      }}
+                    >
                       {latestMember.short_bio.length > 90
                         ? latestMember.short_bio.slice(0, 87) + "..."
                         : latestMember.short_bio}
