@@ -37,6 +37,11 @@ export default function LeftSidebar() {
   );
   const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
 
+  // ✅ org followers count (same logic as /orgs/[slug].tsx)
+  const [myOrgFollowersCount, setMyOrgFollowersCount] = useState<number | null>(
+    null
+  );
+
   // 🔥 Load everything internally
   useEffect(() => {
     if (!user) {
@@ -99,9 +104,24 @@ export default function LeftSidebar() {
           .maybeSingle();
 
         if (orgRow) {
-          setMyOrg(orgRow as MyOrgSummary);
+          const org = orgRow as MyOrgSummary;
+          setMyOrg(org);
+
+          // ✅ Followers count from org_follows (same logic as slug page)
+          const { data: followRows, error: followErr } = await supabase
+            .from("org_follows")
+            .select("user_id")
+            .eq("org_id", org.id);
+
+          if (followErr) {
+            console.error("Error loading my org followers", followErr);
+            setMyOrgFollowersCount(0);
+          } else {
+            setMyOrgFollowersCount((followRows || []).length);
+          }
         } else {
           setMyOrg(null);
+          setMyOrgFollowersCount(null);
         }
       } catch (err) {
         console.error("LeftSidebar load error:", err);
@@ -338,7 +358,10 @@ export default function LeftSidebar() {
                 }}
               >
                 <div>
-                  Followers: <span style={{ color: "#e5e7eb" }}>0</span>
+                  Followers:{" "}
+                  <span style={{ color: "#e5e7eb" }}>
+                    {myOrgFollowersCount ?? "…"}
+                  </span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
