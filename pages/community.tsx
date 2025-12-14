@@ -31,7 +31,7 @@ type CommunityProfile = {
   describes_you?: string | null;
   current_org?: string | null;
 
-  // featured fields (you said already exists for profiles)
+  // featured fields
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_at?: string | null;
@@ -53,7 +53,7 @@ type CommunityOrg = {
   country: string | null;
   created_at?: string | null;
 
-  // featured fields (you just added)
+  // featured fields
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_at?: string | null;
@@ -77,7 +77,6 @@ type CommunityItem = {
 };
 
 type CommunityCtx = {
-  // data
   profiles: CommunityProfile[];
   orgs: CommunityOrg[];
 
@@ -95,7 +94,6 @@ type CommunityCtx = {
   search: string;
   setSearch: (v: string) => void;
 
-  // derived
   communityLoading: boolean;
   communityError: string | null;
   totalCommunityCount: number;
@@ -254,7 +252,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase
           .from("organizations")
           .select(
-            "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at"
+            "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at, is_featured, featured_rank, featured_at"
           )
           .eq("is_active", true)
           .order("created_at", { ascending: false });
@@ -285,13 +283,18 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     const pickOne = async <T,>(
       table: string,
       select: string,
-      fallbackOrderCol: string
+      // optional filter for orgs
+      extraFilter?: { col: string; value: any }
     ): Promise<T | null> => {
       // 1) Try featured first (ranked, then most recently featured, then newest)
-      const { data: featured, error: featErr } = await supabase
+      let q = supabase
         .from(table)
         .select(select)
-        .eq("is_featured", true)
+        .eq("is_featured", true);
+
+      if (extraFilter) q = q.eq(extraFilter.col, extraFilter.value);
+
+      const { data: featured, error: featErr } = await q
         .order("featured_rank", { ascending: true, nullsFirst: false })
         .order("featured_at", { ascending: false })
         .order("created_at", { ascending: false })
@@ -300,10 +303,11 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       if (!featErr && featured && featured.length > 0) return featured[0] as T;
 
       // 2) Fallback: latest
-      const { data: latest, error: latErr } = await supabase
-        .from(table)
-        .select(select)
-        .order(fallbackOrderCol, { ascending: false })
+      let q2 = supabase.from(table).select(select);
+      if (extraFilter) q2 = q2.eq(extraFilter.col, extraFilter.value);
+
+      const { data: latest, error: latErr } = await q2
+        .order("created_at", { ascending: false })
         .limit(1);
 
       if (!latErr && latest && latest.length > 0) return latest[0] as T;
@@ -318,14 +322,12 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         const [p, o] = await Promise.all([
           pickOne<CommunityProfile>(
             "profiles",
-            // include featured columns so ordering works (even if you don't render them)
-            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, city, country, created_at, is_featured, featured_rank, featured_at",
-            "created_at"
+            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, city, country, created_at, is_featured, featured_rank, featured_at"
           ),
           pickOne<CommunityOrg>(
             "organizations",
             "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at, is_featured, featured_rank, featured_at",
-            "created_at"
+            { col: "is_active", value: true }
           ),
         ]);
 
@@ -552,6 +554,62 @@ function CommunityRightSidebar() {
     handleFollowOrg,
   } = useCommunityCtx();
 
+  // ===== Inline styles to match Ecosystem colors =====
+  const tileBase: React.CSSProperties = {
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
+    boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
+  };
+
+  // Cyan (Spotlight)
+  const cyanTile: React.CSSProperties = {
+    ...tileBase,
+    border: "1px solid rgba(34,211,238,0.38)",
+    background: "radial-gradient(circle at 0% 0%, rgba(34,211,238,0.16), rgba(15,23,42,0.96))",
+    boxShadow:
+      "0 18px 45px rgba(15,23,42,0.75), 0 0 0 1px rgba(34,211,238,0.10) inset",
+  };
+
+  // Purple (Featured org)
+  const purpleTile: React.CSSProperties = {
+    ...tileBase,
+    border: "1px solid rgba(168,85,247,0.34)",
+    background: "radial-gradient(circle at 0% 0%, rgba(168,85,247,0.14), rgba(15,23,42,0.96))",
+    boxShadow:
+      "0 18px 45px rgba(15,23,42,0.75), 0 0 0 1px rgba(168,85,247,0.10) inset",
+  };
+
+  const cyanLabel: React.CSSProperties = { color: "rgba(34,211,238,0.92)" };
+  const purpleLabel: React.CSSProperties = { color: "rgba(168,85,247,0.92)" };
+
+  const cyanOrbit: React.CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(34,211,238,0.16)",
+    border: "1px solid rgba(34,211,238,0.35)",
+    color: "rgba(34,211,238,0.95)",
+  };
+
+  const purpleOrbit: React.CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "rgba(168,85,247,0.14)",
+    border: "1px solid rgba(168,85,247,0.32)",
+    color: "rgba(168,85,247,0.95)",
+  };
+
+  const cyanCta: React.CSSProperties = { color: "rgba(34,211,238,0.95)" };
+  const purpleCta: React.CSSProperties = { color: "rgba(168,85,247,0.95)" };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
       <div className="hero-tiles hero-tiles-vertical">
@@ -559,23 +617,23 @@ function CommunityRightSidebar() {
             FEATURED MEMBER (tile)
         ========================== */}
         {loadingFeatured ? (
-          <div className="hero-tile">
+          <div className="hero-tile" style={cyanTile}>
             <div className="hero-tile-inner">
-              <div className="tile-label">Profile of the week</div>
+              <div className="tile-label" style={cyanLabel}>Profile of the week</div>
               <div className="tile-title-row">
                 <div className="tile-title">Spotlight</div>
-                <div className="tile-icon-orbit">🤝</div>
+                <div className="tile-icon-orbit" style={cyanOrbit}>🤝</div>
               </div>
               <p className="tile-text">Loading featured member…</p>
             </div>
           </div>
         ) : featuredProfile ? (
-          <div className="hero-tile">
+          <div className="hero-tile" style={cyanTile}>
             <div className="hero-tile-inner">
-              <div className="tile-label">Profile of the week</div>
+              <div className="tile-label" style={cyanLabel}>Profile of the week</div>
               <div className="tile-title-row">
                 <div className="tile-title">Spotlight</div>
-                <div className="tile-icon-orbit">🤝</div>
+                <div className="tile-icon-orbit" style={cyanOrbit}>🤝</div>
               </div>
 
               <div
@@ -756,18 +814,18 @@ function CommunityRightSidebar() {
                   );
                 })()}
 
-              <div className="tile-cta">
+              <div className="tile-cta" style={cyanCta}>
                 View member <span>›</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="hero-tile">
+          <div className="hero-tile" style={cyanTile}>
             <div className="hero-tile-inner">
-              <div className="tile-label">Profile of the week</div>
+              <div className="tile-label" style={cyanLabel}>Profile of the week</div>
               <div className="tile-title-row">
                 <div className="tile-title">Spotlight</div>
-                <div className="tile-icon-orbit">🤝</div>
+                <div className="tile-icon-orbit" style={cyanOrbit}>🤝</div>
               </div>
               <p className="tile-text">No profiles found yet.</p>
             </div>
@@ -778,23 +836,23 @@ function CommunityRightSidebar() {
             FEATURED ORG (tile)
         ========================== */}
         {loadingFeatured ? (
-          <div className="hero-tile">
+          <div className="hero-tile" style={purpleTile}>
             <div className="hero-tile-inner">
-              <div className="tile-label">Organization of the week</div>
+              <div className="tile-label" style={purpleLabel}>Organization of the week</div>
               <div className="tile-title-row">
                 <div className="tile-title">Featured</div>
-                <div className="tile-icon-orbit">🏢</div>
+                <div className="tile-icon-orbit" style={purpleOrbit}>🏢</div>
               </div>
               <p className="tile-text">Loading featured organization…</p>
             </div>
           </div>
         ) : featuredOrg ? (
-          <div className="hero-tile">
+          <div className="hero-tile" style={purpleTile}>
             <div className="hero-tile-inner">
-              <div className="tile-label">Organization of the week</div>
+              <div className="tile-label" style={purpleLabel}>Organization of the week</div>
               <div className="tile-title-row">
                 <div className="tile-title">Featured</div>
-                <div className="tile-icon-orbit">🏢</div>
+                <div className="tile-icon-orbit" style={purpleOrbit}>🏢</div>
               </div>
 
               <div
@@ -902,18 +960,18 @@ function CommunityRightSidebar() {
                 );
               })()}
 
-              <div className="tile-cta">
+              <div className="tile-cta" style={purpleCta}>
                 View organization <span>›</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="hero-tile">
+          <div className="hero-tile" style={purpleTile}>
             <div className="hero-tile-inner">
-              <div className="tile-label">Organization of the week</div>
+              <div className="tile-label" style={purpleLabel}>Organization of the week</div>
               <div className="tile-title-row">
                 <div className="tile-title">Featured</div>
-                <div className="tile-icon-orbit">🏢</div>
+                <div className="tile-icon-orbit" style={purpleOrbit}>🏢</div>
               </div>
               <p className="tile-text">No organizations found yet.</p>
             </div>
