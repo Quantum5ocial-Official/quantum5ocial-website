@@ -232,15 +232,21 @@ function useIsMobile(maxWidth = 520) {
     const set = () => setIsMobile(mq.matches);
 
     set();
-    if (mq.addEventListener) mq.addEventListener("change", set);
-    // @ts-expect-error - Safari older versions
-    else mq.addListener(set);
 
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener("change", set);
-      // @ts-expect-error - Safari older versions
-      else mq.removeListener(set);
-    };
+    // Safari / older browsers fallback
+    const anyMq = mq as any;
+
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+
+    return;
   }, [maxWidth]);
 
   return isMobile;
