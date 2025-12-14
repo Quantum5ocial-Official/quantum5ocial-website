@@ -26,9 +26,15 @@ type CommunityProfile = {
   city: string | null;
   created_at?: string | null;
 
+  // optional extra fields
   education_level?: string | null;
   describes_you?: string | null;
   current_org?: string | null;
+
+  // featured fields (you said already exists for profiles)
+  is_featured?: boolean | null;
+  featured_rank?: number | null;
+  featured_at?: string | null;
 };
 
 // Organization type for community view
@@ -46,6 +52,11 @@ type CommunityOrg = {
   city: string | null;
   country: string | null;
   created_at?: string | null;
+
+  // featured fields (you just added)
+  is_featured?: boolean | null;
+  featured_rank?: number | null;
+  featured_at?: string | null;
 };
 
 // Unified item in the grid
@@ -76,6 +87,11 @@ type CommunityCtx = {
   loadingOrgs: boolean;
   orgsError: string | null;
 
+  // featured tiles (separate loading)
+  featuredProfile: CommunityProfile | null;
+  featuredOrg: CommunityOrg | null;
+  loadingFeatured: boolean;
+
   search: string;
   setSearch: (v: string) => void;
 
@@ -86,9 +102,6 @@ type CommunityCtx = {
 
   filteredProfiles: CommunityProfile[];
   filteredOrgs: CommunityOrg[];
-
-  featuredProfile: CommunityProfile | null;
-  featuredOrg: CommunityOrg | null;
 
   communityItems: CommunityItem[];
   hasAnyCommunity: boolean;
@@ -112,8 +125,7 @@ const CommunityContext = createContext<CommunityCtx | null>(null);
 
 function useCommunityCtx() {
   const ctx = useContext(CommunityContext);
-  if (!ctx)
-    throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
+  if (!ctx) throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
   return ctx;
 }
 
@@ -129,6 +141,11 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   const [orgs, setOrgs] = useState<CommunityOrg[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [orgsError, setOrgsError] = useState<string | null>(null);
+
+  // --- Featured picks (DB-driven like jobs/products) ---
+  const [featuredProfile, setFeaturedProfile] = useState<CommunityProfile | null>(null);
+  const [featuredOrg, setFeaturedOrg] = useState<CommunityOrg | null>(null);
+  const [loadingFeatured, setLoadingFeatured] = useState(true);
 
   const [search, setSearch] = useState("");
 
@@ -261,6 +278,78 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     loadOrgs();
   }, []);
 
+  // === LOAD FEATURED PROFILE + FEATURED ORG (DB-driven like jobs/products) ===
+  useEffect(() => {
+    let cancelled = false;
+
+    const pickOne = async <T,>(
+      table: string,
+      select: string,
+      fallbackOrderCol: string
+    ): Promise<T | null> => {
+      // 1) Try featured first (ranked, then most recently featured, then newest)
+      const { data: featured, error: featErr } = await supabase
+        .from(table)
+        .select(select)
+        .eq("is_featured", true)
+        .order("featured_rank", { ascending: true, nullsFirst: false })
+        .order("featured_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!featErr && featured && featured.length > 0) return featured[0] as T;
+
+      // 2) Fallback: latest
+      const { data: latest, error: latErr } = await supabase
+        .from(table)
+        .select(select)
+        .order(fallbackOrderCol, { ascending: false })
+        .limit(1);
+
+      if (!latErr && latest && latest.length > 0) return latest[0] as T;
+
+      return null;
+    };
+
+    const loadFeatured = async () => {
+      setLoadingFeatured(true);
+
+      try {
+        const [p, o] = await Promise.all([
+          pickOne<CommunityProfile>(
+            "profiles",
+            // include featured columns so ordering works (even if you don't render them)
+            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, city, country, created_at, is_featured, featured_rank, featured_at",
+            "created_at"
+          ),
+          pickOne<CommunityOrg>(
+            "organizations",
+            "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at, is_featured, featured_rank, featured_at",
+            "created_at"
+          ),
+        ]);
+
+        if (cancelled) return;
+        setFeaturedProfile(p);
+        setFeaturedOrg(o);
+      } catch (e) {
+        console.error("Featured load crashed:", e);
+        if (cancelled) return;
+        setFeaturedProfile(null);
+        setFeaturedOrg(null);
+      } finally {
+        if (cancelled) return;
+        setLoadingFeatured(false);
+      }
+    };
+
+    loadFeatured();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // === LOAD ORG_FOLLOWS FOR FOLLOW STATE ===
   useEffect(() => {
     const loadOrgFollows = async () => {
@@ -307,9 +396,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
     return profiles.filter((p) => {
       const haystack = (
-        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${
-          p.short_bio || ""
-        } ${p.city || ""} ${p.country || ""}`
+        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${p.short_bio || ""} ${p.city || ""} ${p.country || ""}`
       ).toLowerCase();
       return haystack.includes(q);
     });
@@ -324,19 +411,12 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       const meta =
         org.kind === "company"
           ? `${org.industry || ""} ${org.focus_areas || ""}`
-          : `${org.institution || ""} ${org.department || ""} ${
-              org.focus_areas || ""
-            }`;
+          : `${org.institution || ""} ${org.department || ""} ${org.focus_areas || ""}`;
 
       const haystack = `${org.name || ""} ${meta} ${org.tagline || ""} ${location}`.toLowerCase();
       return haystack.includes(q);
     });
   }, [orgs, search]);
-
-  // === FEATURED PROFILE + ORGANIZATION OF THE WEEK ===
-  const featuredProfile =
-    filteredProfiles.length > 0 ? filteredProfiles[0] : null;
-  const featuredOrg = filteredOrgs.length > 0 ? filteredOrgs[0] : null;
 
   // === UNIFIED COMMUNITY ITEM LIST (MIXED PEOPLE + ORGS) ===
   const communityItems: CommunityItem[] = useMemo(() => {
@@ -378,9 +458,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         affiliationLine = location || (o.industry || "—");
       } else {
         roleLabel = o.institution || "Research group";
-        const base = [o.department || "", o.institution || ""]
-          .filter(Boolean)
-          .join(", ");
+        const base = [o.department || "", o.institution || ""].filter(Boolean).join(", ");
         const location = [o.city, o.country].filter(Boolean).join(", ");
         affiliationLine = base || location || "—";
       }
@@ -423,6 +501,10 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     loadingOrgs,
     orgsError,
 
+    featuredProfile,
+    featuredOrg,
+    loadingFeatured,
+
     search,
     setSearch,
 
@@ -432,8 +514,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
     filteredProfiles,
     filteredOrgs,
-    featuredProfile,
-    featuredOrg,
 
     communityItems,
     hasAnyCommunity,
@@ -450,11 +530,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     handleFollowOrg,
   };
 
-  return (
-    <CommunityContext.Provider value={value}>
-      {children}
-    </CommunityContext.Provider>
-  );
+  return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
 }
 
 function CommunityRightSidebar() {
@@ -464,6 +540,7 @@ function CommunityRightSidebar() {
   const {
     featuredProfile,
     featuredOrg,
+    loadingFeatured,
 
     getConnectionStatus,
     isEntangleLoading,
@@ -481,7 +558,18 @@ function CommunityRightSidebar() {
         {/* =========================
             FEATURED MEMBER (tile)
         ========================== */}
-        {featuredProfile && (
+        {loadingFeatured ? (
+          <div className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Profile of the week</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Spotlight</div>
+                <div className="tile-icon-orbit">🤝</div>
+              </div>
+              <p className="tile-text">Loading featured member…</p>
+            </div>
+          </div>
+        ) : featuredProfile ? (
           <div className="hero-tile">
             <div className="hero-tile-inner">
               <div className="tile-label">Profile of the week</div>
@@ -673,12 +761,34 @@ function CommunityRightSidebar() {
               </div>
             </div>
           </div>
+        ) : (
+          <div className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Profile of the week</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Spotlight</div>
+                <div className="tile-icon-orbit">🤝</div>
+              </div>
+              <p className="tile-text">No profiles found yet.</p>
+            </div>
+          </div>
         )}
 
         {/* =========================
             FEATURED ORG (tile)
         ========================== */}
-        {featuredOrg && (
+        {loadingFeatured ? (
+          <div className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Organization of the week</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Featured</div>
+                <div className="tile-icon-orbit">🏢</div>
+              </div>
+              <p className="tile-text">Loading featured organization…</p>
+            </div>
+          </div>
+        ) : featuredOrg ? (
           <div className="hero-tile">
             <div className="hero-tile-inner">
               <div className="tile-label">Organization of the week</div>
@@ -795,6 +905,17 @@ function CommunityRightSidebar() {
               <div className="tile-cta">
                 View organization <span>›</span>
               </div>
+            </div>
+          </div>
+        ) : (
+          <div className="hero-tile">
+            <div className="hero-tile-inner">
+              <div className="tile-label">Organization of the week</div>
+              <div className="tile-title-row">
+                <div className="tile-title">Featured</div>
+                <div className="tile-icon-orbit">🏢</div>
+              </div>
+              <p className="tile-text">No organizations found yet.</p>
             </div>
           </div>
         )}
@@ -962,9 +1083,7 @@ function CommunityMiddle() {
       </div>
 
       {/* BODY STATES */}
-      {communityLoading && (
-        <div className="products-status">Loading community members…</div>
-      )}
+      {communityLoading && <div className="products-status">Loading community members…</div>}
       {communityError && !communityLoading && (
         <div className="products-status" style={{ color: "#f87171" }}>
           {communityError}
@@ -981,14 +1100,7 @@ function CommunityMiddle() {
       {!communityLoading && !communityError && hasAnyCommunity && (
         <>
           {/* Browse header */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              marginBottom: 10,
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
             <div>
               <div
                 style={{
@@ -1001,9 +1113,7 @@ function CommunityMiddle() {
               >
                 Browse community
               </div>
-              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
-                Members &amp; organizations
-              </div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>Members &amp; organizations</div>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
               Showing {communityItems.length} match{communityItems.length === 1 ? "" : "es"}
@@ -1334,9 +1444,9 @@ function CommunityTwoColumnShell() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 280px", // right width matches left sidebar
+        gridTemplateColumns: "minmax(0, 1fr) 1px 280px",
         alignItems: "stretch",
-        minHeight: "100vh", // ensures divider can be full height
+        minHeight: "100vh",
       }}
     >
       {/* MIDDLE */}
