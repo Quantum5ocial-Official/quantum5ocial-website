@@ -835,39 +835,10 @@ function HomeComposerStrip() {
 }
 
 /* =========================
-   RIGHT SIDEBAR (curated featured tiles)
-   - Keeps original color coding:
-     * Feature label titles (Hot opening / Product of the week / Spotlight) = accent
-     * Entity titles (job/product/member names) = neutral
+   RIGHT SIDEBAR (featured via is_featured, fallback to latest)
    ========================= */
 
 function HomeRightSidebar() {
-  const { user } = useSupabaseUser();
-
-  // Curated selections (for now: simple per-user override or global fallback)
-  // Later you can replace this with an algorithm / admin UI.
-  const curated = {
-    jobId: null as string | null,
-    productId: null as string | null,
-    memberId: null as string | null,
-
-    // Optional: simple per-user curation (example hook)
-    // If you don't want per-user, keep everything null and set global ones below.
-    // You can also swap to a "featured" table later.
-  };
-
-  // ✅ Global fallbacks (set these manually when you want to feature something)
-  // Just paste IDs here for now.
-  const GLOBAL_FEATURED = {
-    jobId: "REPLACE_WITH_JOB_ID_OR_NULL",
-    productId: "REPLACE_WITH_PRODUCT_ID_OR_NULL",
-    memberId: "REPLACE_WITH_MEMBER_ID_OR_NULL",
-  };
-
-  const featuredJobId = curated.jobId || GLOBAL_FEATURED.jobId || null;
-  const featuredProductId = curated.productId || GLOBAL_FEATURED.productId || null;
-  const featuredMemberId = curated.memberId || GLOBAL_FEATURED.memberId || null;
-
   const [featuredJob, setFeaturedJob] = useState<Job | null>(null);
   const [featuredProduct, setFeaturedProduct] = useState<Product | null>(null);
   const [featuredMember, setFeaturedMember] = useState<CommunityProfile | null>(null);
@@ -882,104 +853,107 @@ function HomeRightSidebar() {
     const loadFeaturedJob = async () => {
       setLoadingJob(true);
 
-      try {
-        if (featuredJobId && featuredJobId !== "REPLACE_WITH_JOB_ID_OR_NULL") {
-          const { data, error } = await supabase
-            .from("jobs")
-            .select(
-              "id, title, company_name, location, employment_type, remote_type, short_description"
-            )
-            .eq("id", featuredJobId)
-            .maybeSingle();
+      // 1) try featured
+      const { data: feat, error: featErr } = await supabase
+        .from("jobs")
+        .select("id, title, company_name, location, employment_type, remote_type, short_description")
+        .eq("is_featured", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-          if (!cancelled) setFeaturedJob(!error && data ? (data as Job) : null);
-          setLoadingJob(false);
-          return;
-        }
+      if (cancelled) return;
 
-        // fallback to latest job
-        const { data, error } = await supabase
-          .from("jobs")
-          .select(
-            "id, title, company_name, location, employment_type, remote_type, short_description"
-          )
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (!cancelled) setFeaturedJob(!error && data && data.length ? (data[0] as Job) : null);
-      } catch (e) {
-        if (!cancelled) setFeaturedJob(null);
-      } finally {
-        if (!cancelled) setLoadingJob(false);
+      if (!featErr && feat && feat.length > 0) {
+        setFeaturedJob(feat[0] as Job);
+        setLoadingJob(false);
+        return;
       }
+
+      // 2) fallback latest
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("id, title, company_name, location, employment_type, remote_type, short_description")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (cancelled) return;
+
+      if (!error && data && data.length > 0) setFeaturedJob(data[0] as Job);
+      else setFeaturedJob(null);
+
+      setLoadingJob(false);
     };
 
     const loadFeaturedProduct = async () => {
       setLoadingProduct(true);
 
-      try {
-        if (featuredProductId && featuredProductId !== "REPLACE_WITH_PRODUCT_ID_OR_NULL") {
-          const { data, error } = await supabase
-            .from("products")
-            .select(
-              "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
-            )
-            .eq("id", featuredProductId)
-            .maybeSingle();
+      // 1) try featured
+      const { data: feat, error: featErr } = await supabase
+        .from("products")
+        .select(
+          "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
+        )
+        .eq("is_featured", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-          if (!cancelled) setFeaturedProduct(!error && data ? (data as Product) : null);
-          setLoadingProduct(false);
-          return;
-        }
+      if (cancelled) return;
 
-        // fallback to latest product
-        const { data, error } = await supabase
-          .from("products")
-          .select(
-            "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
-          )
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (!cancelled)
-          setFeaturedProduct(!error && data && data.length ? (data[0] as Product) : null);
-      } catch (e) {
-        if (!cancelled) setFeaturedProduct(null);
-      } finally {
-        if (!cancelled) setLoadingProduct(false);
+      if (!featErr && feat && feat.length > 0) {
+        setFeaturedProduct(feat[0] as Product);
+        setLoadingProduct(false);
+        return;
       }
+
+      // 2) fallback latest
+      const { data, error } = await supabase
+        .from("products")
+        .select(
+          "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
+        )
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (cancelled) return;
+
+      if (!error && data && data.length > 0) setFeaturedProduct(data[0] as Product);
+      else setFeaturedProduct(null);
+
+      setLoadingProduct(false);
     };
 
     const loadFeaturedMember = async () => {
       setLoadingMember(true);
 
-      try {
-        if (featuredMemberId && featuredMemberId !== "REPLACE_WITH_MEMBER_ID_OR_NULL") {
-          const { data, error } = await supabase
-            .from("profiles")
-            .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
-            .eq("id", featuredMemberId)
-            .maybeSingle();
+      // 1) try featured
+      const { data: feat, error: featErr } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
+        .eq("is_featured", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-          if (!cancelled) setFeaturedMember(!error && data ? (data as CommunityProfile) : null);
-          setLoadingMember(false);
-          return;
-        }
+      if (cancelled) return;
 
-        // fallback to latest member
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (!cancelled)
-          setFeaturedMember(!error && data && data.length ? (data[0] as CommunityProfile) : null);
-      } catch (e) {
-        if (!cancelled) setFeaturedMember(null);
-      } finally {
-        if (!cancelled) setLoadingMember(false);
+      if (!featErr && feat && feat.length > 0) {
+        setFeaturedMember(feat[0] as CommunityProfile);
+        setLoadingMember(false);
+        return;
       }
+
+      // 2) fallback latest
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (cancelled) return;
+
+      if (!error && data && data.length > 0) setFeaturedMember(data[0] as CommunityProfile);
+      else setFeaturedMember(null);
+
+      setLoadingMember(false);
     };
 
     loadFeaturedJob();
@@ -989,7 +963,7 @@ function HomeRightSidebar() {
     return () => {
       cancelled = true;
     };
-  }, [featuredJobId, featuredProductId, featuredMemberId, user?.id]);
+  }, []);
 
   const formatJobMeta = (job: Job) =>
     [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
@@ -1006,11 +980,6 @@ function HomeRightSidebar() {
 
   const memberProfileHref = featuredMember ? `/profile/${featuredMember.id}` : "/community";
 
-  // Accent vs neutral colors (do NOT let inheritance drift)
-  const ACCENT = "#7dd3fc"; // feature label titles
-  const PRIMARY = "rgba(226,232,240,0.95)"; // entity titles
-  const MUTED = "rgba(148,163,184,0.95)";
-
   return (
     <div className="hero-tiles hero-tiles-vertical">
       {/* JOBS TILE */}
@@ -1018,27 +987,21 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT, fontWeight: 700 }}>
-              Hot opening
-            </div>
+            <div className="tile-title">Hot opening</div>
             <div className="tile-icon-orbit">🧪</div>
           </div>
 
           {loadingJob ? (
-            <p className="tile-text">Loading featured job…</p>
+            <p className="tile-text">Loading the featured job…</p>
           ) : !featuredJob ? (
             <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link
-                href={`/jobs/${featuredJob.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                {/* ✅ entity title = neutral */}
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, color: PRIMARY }}>
+              <Link href={`/jobs/${featuredJob.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {featuredJob.title || "Untitled role"}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4, lineHeight: 1.35 }}>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
                   {formatJobMeta(featuredJob) || "Quantum role"}
                 </div>
                 {featuredJob.short_description && (
@@ -1069,14 +1032,12 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured product</div>
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT, fontWeight: 700 }}>
-              Product of the week
-            </div>
+            <div className="tile-title">Product of the week</div>
             <div className="tile-icon-orbit">🔧</div>
           </div>
 
           {loadingProduct ? (
-            <p className="tile-text">Loading featured product…</p>
+            <p className="tile-text">Loading the featured product…</p>
           ) : !featuredProduct ? (
             <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
@@ -1108,7 +1069,6 @@ function HomeRightSidebar() {
                       justifyContent: "center",
                       fontSize: 10,
                       opacity: 0.75,
-                      color: MUTED,
                     }}
                   >
                     No image
@@ -1120,11 +1080,10 @@ function HomeRightSidebar() {
                 href={`/products/${featuredProduct.id}`}
                 style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
               >
-                {/* ✅ entity title = neutral */}
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, color: PRIMARY }}>
+                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {featuredProduct.name}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4, lineHeight: 1.35 }}>
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
                   {[featuredProduct.company_name, featuredProduct.category, formatPrice(featuredProduct)]
                     .filter(Boolean)
                     .join(" · ")}
@@ -1157,14 +1116,12 @@ function HomeRightSidebar() {
         <div className="hero-tile-inner">
           <div className="tile-label">Featured member</div>
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT, fontWeight: 700 }}>
-              Spotlight
-            </div>
+            <div className="tile-title">Spotlight</div>
             <div className="tile-icon-orbit">🤝</div>
           </div>
 
           {loadingMember ? (
-            <p className="tile-text">Loading featured member…</p>
+            <p className="tile-text">Loading the featured member…</p>
           ) : !featuredMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
@@ -1198,11 +1155,10 @@ function HomeRightSidebar() {
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
-                  {/* ✅ entity title = neutral */}
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25, color: PRIMARY }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                     {memberName}
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 4, lineHeight: 1.35 }}>
+                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
                     {[featuredMember.highest_education, featuredMember.role, featuredMember.affiliation]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
@@ -1233,7 +1189,6 @@ function HomeRightSidebar() {
     </div>
   );
 }
-
 // Tell _app.tsx to render the right sidebar for this page (no page-level AppLayout)
 (Home as any).layoutProps = {
   variant: "three",
