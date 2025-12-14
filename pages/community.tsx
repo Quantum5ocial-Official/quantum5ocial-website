@@ -989,7 +989,6 @@ function CommunityRightSidebar() {
           textAlign: "right",
         }}
       >
-        © 2025 Quantum5ocial
       </div>
     </div>
   );
