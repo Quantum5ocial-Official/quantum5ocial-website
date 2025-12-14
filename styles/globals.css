@@ -3239,3 +3239,26 @@ html.theme-light footer {
 .layout-main::after {
   z-index: 5;
 }
+/* small label above (FEATURED ROLE etc.) can stay muted */
+.featured-kicker {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+/* THIS is the “Hot opening / Product of the week / Spotlight” line */
+.featured-tile-title {
+  margin-top: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #22d3ee; /* cyan accent */
+}
+
+/* THIS is the actual job/product/member name (keep white + stronger) */
+.featured-item-name {
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #e5e7eb;
+}
