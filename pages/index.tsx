@@ -222,6 +222,30 @@ function MiniIcon({ path }: { path: string }) {
   );
 }
 
+function useIsMobile(maxWidth = 520) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+    if (mq.addEventListener) mq.addEventListener("change", set);
+    // @ts-expect-error - Safari older versions
+    else mq.addListener(set);
+
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener("change", set);
+      // @ts-expect-error - Safari older versions
+      else mq.removeListener(set);
+    };
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
 function HomeComposerStrip() {
   const { user, loading } = useSupabaseUser();
   const [me, setMe] = useState<MyProfileMini | null>(null);
@@ -238,6 +262,8 @@ function HomeComposerStrip() {
   const [askType, setAskType] = useState<"concept" | "experiment" | "career">(
     "concept"
   );
+
+  const isMobile = useIsMobile(520);
 
   useEffect(() => {
     let cancelled = false;
@@ -279,8 +305,8 @@ function HomeComposerStrip() {
   const avatarNode = (
     <div
       style={{
-        width: 40,
-        height: 40,
+        width: isMobile ? 36 : 40,
+        height: isMobile ? 36 : 40,
         borderRadius: 999,
         overflow: "hidden",
         flexShrink: 0,
@@ -319,11 +345,11 @@ function HomeComposerStrip() {
     background:
       "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
     boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
-    padding: 14,
+    padding: isMobile ? 12 : 14,
   };
 
   const collapsedInputStyle: React.CSSProperties = {
-    height: 42,
+    height: isMobile ? 40 : 42,
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.22)",
     background: "rgba(2,6,23,0.35)",
@@ -334,6 +360,7 @@ function HomeComposerStrip() {
     gap: 10,
     cursor: "pointer",
     userSelect: "none",
+    minWidth: 0,
   };
 
   const toggleShell: React.CSSProperties = {
@@ -347,14 +374,15 @@ function HomeComposerStrip() {
   };
 
   const toggleBtn = (active: boolean): React.CSSProperties => ({
-    padding: "7px 11px",
+    padding: isMobile ? "7px 10px" : "7px 11px",
     borderRadius: 999,
     border: "none",
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 700,
     cursor: "pointer",
     background: active ? "linear-gradient(135deg,#3bc7f3,#8468ff)" : "transparent",
     color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
+    whiteSpace: "nowrap",
   });
 
   const modalBackdrop: React.CSSProperties = {
@@ -364,19 +392,20 @@ function HomeComposerStrip() {
     backdropFilter: "blur(8px)",
     zIndex: 1000,
     display: "flex",
-    alignItems: "center",
+    alignItems: isMobile ? "flex-end" : "center",
     justifyContent: "center",
-    padding: 18,
+    padding: isMobile ? 10 : 18,
   };
 
   const modalCard: React.CSSProperties = {
     width: "min(740px, 100%)",
-    borderRadius: 18,
+    borderRadius: isMobile ? "18px 18px 0 0" : 18,
     border: "1px solid rgba(148,163,184,0.22)",
     background:
       "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
     boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
     overflow: "hidden",
+    maxHeight: isMobile ? "86vh" : undefined,
   };
 
   const modalHeader: React.CSSProperties = {
@@ -399,15 +428,17 @@ function HomeComposerStrip() {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   };
 
   const modalBody: React.CSSProperties = {
     padding: 16,
+    overflowY: isMobile ? "auto" : undefined,
   };
 
   const bigTextarea: React.CSSProperties = {
     width: "100%",
-    minHeight: 160,
+    minHeight: isMobile ? 140 : 160,
     borderRadius: 14,
     border: "1px solid rgba(148,163,184,0.2)",
     background: "rgba(2,6,23,0.26)",
@@ -446,7 +477,7 @@ function HomeComposerStrip() {
     borderRadius: 999,
     border: "none",
     fontSize: 13,
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.55 : 1,
     background:
@@ -470,6 +501,7 @@ function HomeComposerStrip() {
     fontSize: 13,
     cursor: "pointer",
     userSelect: "none",
+    whiteSpace: "nowrap",
   });
 
   const openComposer = () => {
@@ -482,23 +514,39 @@ function HomeComposerStrip() {
 
   const closeComposer = () => setOpen(false);
 
+  // mobile-friendly placeholders (avoid awkward wrapping)
   const collapsedPlaceholder =
-    mode === "post" ? `What’s on your mind, ${firstName}?` : "Ask the quantum community…";
+    mode === "post"
+      ? isMobile
+        ? "What’s on your mind?"
+        : `What’s on your mind, ${firstName}?`
+      : isMobile
+      ? "Ask the community…"
+      : "Ask the quantum community…";
 
   const canSubmit =
-    mode === "post"
-      ? !!postText.trim()
-      : !!askTitle.trim() && !!askBody.trim();
+    mode === "post" ? !!postText.trim() : !!askTitle.trim() && !!askBody.trim();
 
   return (
     <>
       {/* ONE merged composer */}
       <div style={shellStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
           {avatarNode}
 
+          {/* Input grows full width on small screens, and ellipsizes */}
           <div
-            style={{ ...collapsedInputStyle, flex: 1 }}
+            style={{
+              ...collapsedInputStyle,
+              flex: "1 1 260px",
+            }}
             onClick={openComposer}
             role="button"
             tabIndex={0}
@@ -506,14 +554,38 @@ function HomeComposerStrip() {
               if (e.key === "Enter") openComposer();
             }}
           >
-            <span style={{ opacity: 0.88 }}>{collapsedPlaceholder}</span>
-            <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
+            <span
+              style={{
+                opacity: 0.88,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {collapsedPlaceholder}
+            </span>
+            <span
+              style={{
+                marginLeft: "auto",
+                opacity: 0.7,
+                fontSize: 12,
+                flexShrink: 0,
+              }}
+            >
               {mode === "post" ? "✨" : "❓"}
             </span>
           </div>
 
-          {/* Toggle (still one card) */}
-          <div style={toggleShell} onClick={(e) => e.stopPropagation()}>
+          {/* Toggle drops below if needed */}
+          <div
+            style={{
+              ...toggleShell,
+              flex: "0 0 auto",
+              marginLeft: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               style={toggleBtn(mode === "post")}
@@ -532,7 +604,15 @@ function HomeComposerStrip() {
         </div>
 
         {/* small right-aligned primary */}
-        <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            justifyContent: "flex-end",
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
           <button
             type="button"
             className="nav-cta"
@@ -581,13 +661,25 @@ function HomeComposerStrip() {
                 </button>
               </div>
 
-              <button type="button" style={closeBtn} onClick={closeComposer} aria-label="Close">
+              <button
+                type="button"
+                style={closeBtn}
+                onClick={closeComposer}
+                aria-label="Close"
+              >
                 ✕
               </button>
             </div>
 
             <div style={modalBody}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
                 {avatarNode}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
@@ -604,14 +696,25 @@ function HomeComposerStrip() {
                   <textarea
                     value={postText}
                     onChange={(e) => setPostText(e.target.value)}
-                    placeholder={`What’s on your mind, ${firstName}?`}
+                    placeholder={
+                      isMobile
+                        ? "What’s on your mind?"
+                        : `What’s on your mind, ${firstName}?`
+                    }
                     style={bigTextarea}
                   />
                 </>
               ) : (
                 <>
-                  {/* type selector (expanded: icon + text) */}
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                  {/* type selector */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      marginBottom: 12,
+                    }}
+                  >
                     <div
                       style={typeChip(askType === "concept")}
                       onClick={() => setAskType("concept")}
@@ -654,15 +757,21 @@ function HomeComposerStrip() {
                     value={askBody}
                     onChange={(e) => setAskBody(e.target.value)}
                     placeholder="Add context, details, constraints, what you already tried…"
-                    style={{ ...bigTextarea, minHeight: 150 }}
+                    style={{ ...bigTextarea, minHeight: isMobile ? 140 : 150 }}
                   />
                 </>
               )}
             </div>
 
             <div style={footerBar}>
-              {/* expanded actions: icon + text */}
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
                 {mode === "post" ? (
                   <>
                     <ActionButton
@@ -765,7 +874,8 @@ function HomeRightSidebar() {
 
       if (cancelled) return;
 
-      if (!error && data && data.length > 0) setLatestProduct(data[0] as Product);
+      if (!error && data && data.length > 0)
+        setLatestProduct(data[0] as Product);
       else setLatestProduct(null);
 
       setLoadingProduct(false);
@@ -832,7 +942,9 @@ function HomeRightSidebar() {
           {loadingJob ? (
             <p className="tile-text">Loading the newest job…</p>
           ) : !latestJob ? (
-            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
+            <p className="tile-text">
+              No jobs posted yet — be the first to add one.
+            </p>
           ) : (
             <div style={{ marginTop: 8 }}>
               <Link
