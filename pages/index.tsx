@@ -841,11 +841,20 @@ function HomeComposerStrip() {
 function HomeRightSidebar() {
   const [latestJob, setLatestJob] = useState<Job | null>(null);
   const [latestProduct, setLatestProduct] = useState<Product | null>(null);
-  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(null);
+  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(
+    null
+  );
 
   const [loadingJob, setLoadingJob] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [loadingMember, setLoadingMember] = useState(true);
+
+  // Accent colors (match your dashboard tiles)
+  const ACCENT = {
+    members: "#22d3ee", // cyan/teal
+    jobs: "#22c55e", // green
+    products: "#fbbf24", // amber/yellow
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -905,7 +914,6 @@ function HomeRightSidebar() {
 
         if (cancelled) return;
 
-        // keep existing state names (latest*) and rendering unchanged
         setLatestJob(job);
         setLatestProduct(product);
         setLatestMember(member);
@@ -931,7 +939,9 @@ function HomeRightSidebar() {
   }, []);
 
   const formatJobMeta = (job: Job) =>
-    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
+    [job.company_name, job.location, job.remote_type]
+      .filter(Boolean)
+      .join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -941,9 +951,13 @@ function HomeRightSidebar() {
 
   const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+    typeof memberName === "string"
+      ? memberName.split(" ")[0] || memberName
+      : "Member";
 
-  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
+  const memberProfileHref = latestMember
+    ? `/profile/${latestMember.id}`
+    : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -951,13 +965,15 @@ function HomeRightSidebar() {
       <Link href="/jobs" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
+
           <div className="tile-title-row">
+            {/* Accent header (NOT white bold) */}
             <div
               className="tile-title"
               style={{
-                color: "#7dd3fc", // jobs accent (cyan)
-                fontWeight: 800,
-                letterSpacing: 0.2,
+                color: ACCENT.jobs,
+                fontWeight: 700,
+                letterSpacing: 0.3,
               }}
             >
               Hot opening
@@ -968,21 +984,40 @@ function HomeRightSidebar() {
           {loadingJob ? (
             <p className="tile-text">Loading the newest job…</p>
           ) : !latestJob ? (
-            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
+            <p className="tile-text">
+              No jobs posted yet — be the first to add one.
+            </p>
           ) : (
             <div style={{ marginTop: 8 }}>
               <Link
                 href={`/jobs/${latestJob.id}`}
                 style={{ textDecoration: "none", color: "inherit" }}
               >
+                {/* Keep the actual job title white */}
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
+
                 {latestJob.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
@@ -1008,13 +1043,15 @@ function HomeRightSidebar() {
       <Link href="/products" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured product</div>
+
           <div className="tile-title-row">
+            {/* Accent header */}
             <div
               className="tile-title"
               style={{
-                color: "#a78bfa", // products accent (violet)
-                fontWeight: 800,
-                letterSpacing: 0.2,
+                color: ACCENT.products,
+                fontWeight: 700,
+                letterSpacing: 0.3,
               }}
             >
               Product of the week
@@ -1025,9 +1062,18 @@ function HomeRightSidebar() {
           {loadingProduct ? (
             <p className="tile-text">Loading the newest product…</p>
           ) : !latestProduct ? (
-            <p className="tile-text">No products listed yet — add your first product.</p>
+            <p className="tile-text">
+              No products listed yet — add your first product.
+            </p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -1043,7 +1089,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   <div
@@ -1064,18 +1115,44 @@ function HomeRightSidebar() {
 
               <Link
                 href={`/products/${latestProduct.id}`}
-                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: 1,
+                  minWidth: 0,
+                }}
               >
+                {/* Keep the actual product name white */}
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestProduct.name}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {[
+                    latestProduct.company_name,
+                    latestProduct.category,
+                    formatPrice(latestProduct),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
+
                 {latestProduct.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
@@ -1101,13 +1178,15 @@ function HomeRightSidebar() {
       <Link href="/community" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured member</div>
+
           <div className="tile-title-row">
+            {/* Accent header */}
             <div
               className="tile-title"
               style={{
-                color: "#fbbf24", // member accent (gold)
-                fontWeight: 800,
-                letterSpacing: 0.2,
+                color: ACCENT.members,
+                fontWeight: 700,
+                letterSpacing: 0.3,
               }}
             >
               Spotlight
@@ -1120,7 +1199,14 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -1141,7 +1227,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
@@ -1149,17 +1240,41 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
+                <Link
+                  href={memberProfileHref}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  {/* Keep member name white */}
                   <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                     {memberName}
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.85,
+                      marginTop: 4,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {[
+                      latestMember.highest_education,
+                      latestMember.role,
+                      latestMember.affiliation,
+                    ]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
                   </div>
+
                   {latestMember.short_bio && (
-                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        opacity: 0.9,
+                        marginTop: 6,
+                        lineHeight: 1.35,
+                      }}
+                    >
                       {latestMember.short_bio.length > 90
                         ? latestMember.short_bio.slice(0, 87) + "..."
                         : latestMember.short_bio}
