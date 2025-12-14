@@ -289,6 +289,57 @@ export default function LeftSidebar() {
       </div>
 
       {/* ======================================================
+         MY ACTIVITY (new tile) — counts hardcoded to 0 for now
+      ======================================================= */}
+      <div className="sidebar-card dashboard-sidebar-card">
+        <div className="dashboard-sidebar-title">My activity</div>
+
+        <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Posts</span>
+            <span style={{ opacity: 0.9 }}>0</span>
+          </div>
+
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Questions</span>
+            <span style={{ opacity: 0.9 }}>0</span>
+          </div>
+
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Answers</span>
+            <span style={{ opacity: 0.9 }}>0</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================
          MY ORGANIZATION — conditional
       ======================================================= */}
       {myOrg && (
