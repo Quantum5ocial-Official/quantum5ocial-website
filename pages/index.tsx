@@ -1,5 +1,5 @@
 // pages/index.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
@@ -61,7 +61,9 @@ export default function Home() {
           </p>
 
           <div className="hero-tags">
-            <span className="tag-chip">Intern, PhD, Postdoc, and Industry roles</span>
+            <span className="tag-chip">
+              Intern, PhD, Postdoc, and Industry roles
+            </span>
             <span className="tag-chip">Startups, Vendors, and Labs</span>
             <span className="tag-chip">Hardware · Software · Services</span>
           </div>
@@ -121,8 +123,12 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">Built for the entire quantum community</div>
-            <div className="section-sub">Different paths, one shared platform.</div>
+            <div className="section-title">
+              Built for the entire quantum community
+            </div>
+            <div className="section-sub">
+              Different paths, one shared platform.
+            </div>
           </div>
         </div>
 
@@ -169,6 +175,64 @@ export default function Home() {
    POST / ASK PLACEHOLDERS
    ========================= */
 
+function IconButton({
+  title,
+  ariaLabel,
+  children,
+}: {
+  title: string;
+  ariaLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={ariaLabel}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(2,6,23,0.25)",
+        color: "rgba(226,232,240,0.9)",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        padding: 0,
+      }}
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SvgIcon({
+  path,
+}: {
+  path: string;
+}) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ display: "block" }}
+    >
+      <path
+        d={path}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function HomeComposerStrip() {
   const { user, loading } = useSupabaseUser();
   const [me, setMe] = useState<MyProfileMini | null>(null);
@@ -208,6 +272,7 @@ function HomeComposerStrip() {
       .join("") || "U";
 
   const isAuthed = !!user;
+  const authHint = !loading && !isAuthed;
 
   const avatarNode = (
     <div
@@ -233,7 +298,12 @@ function HomeComposerStrip() {
         <img
           src={me.avatar_url}
           alt={displayName}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
         />
       ) : (
         initials
@@ -264,23 +334,6 @@ function HomeComposerStrip() {
     userSelect: "none",
   };
 
-  const iconBtnStyle: React.CSSProperties = {
-    height: 34,
-    padding: "0 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.18)",
-    background: "rgba(2,6,23,0.25)",
-    color: "rgba(226,232,240,0.9)",
-    fontSize: 13,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  };
-
-  const authHint = !loading && !isAuthed;
-
   return (
     <div
       style={{
@@ -296,11 +349,18 @@ function HomeComposerStrip() {
 
           <Link
             href={isAuthed ? "/posts/new" : "/auth?redirect=/"}
-            style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              flex: 1,
+              minWidth: 0,
+            }}
           >
             <div style={inputStyle}>
               <span style={{ opacity: 0.85 }}>
-                {isAuthed ? "What’s happening in quantum?" : "Sign in to create a post"}
+                {isAuthed
+                  ? "What’s happening in quantum?"
+                  : "Sign in to create a post"}
               </span>
               <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
                 ✨
@@ -319,10 +379,19 @@ function HomeComposerStrip() {
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={iconBtnStyle}>🖼️ Photo</span>
-            <span style={iconBtnStyle}>🎥 Video</span>
-            <span style={iconBtnStyle}>🔗 Link</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <IconButton title="Photo" ariaLabel="Add photo">
+              {/* camera */}
+              <SvgIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+            </IconButton>
+            <IconButton title="Video" ariaLabel="Add video">
+              {/* video */}
+              <SvgIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />
+            </IconButton>
+            <IconButton title="Link" ariaLabel="Add link">
+              {/* link */}
+              <SvgIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
+            </IconButton>
           </div>
 
           <Link
@@ -353,11 +422,18 @@ function HomeComposerStrip() {
 
           <Link
             href={isAuthed ? "/ask" : "/auth?redirect=/"}
-            style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              flex: 1,
+              minWidth: 0,
+            }}
           >
             <div style={inputStyle}>
               <span style={{ opacity: 0.85 }}>
-                {isAuthed ? "Ask the quantum community…" : "Sign in to ask a question"}
+                {isAuthed
+                  ? "Ask the quantum community…"
+                  : "Sign in to ask a question"}
               </span>
               <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
                 ❓
@@ -376,10 +452,19 @@ function HomeComposerStrip() {
             flexWrap: "wrap",
           }}
         >
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={iconBtnStyle}>🧠 Concept</span>
-            <span style={iconBtnStyle}>🧪 Experiment</span>
-            <span style={iconBtnStyle}>💼 Career</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <IconButton title="Concept" ariaLabel="Ask a concept question">
+              {/* lightbulb */}
+              <SvgIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
+            </IconButton>
+            <IconButton title="Experiment" ariaLabel="Ask an experiment question">
+              {/* flask */}
+              <SvgIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
+            </IconButton>
+            <IconButton title="Career" ariaLabel="Ask a career question">
+              {/* briefcase */}
+              <SvgIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
+            </IconButton>
           </div>
 
           <Link
@@ -462,13 +547,16 @@ function HomeRightSidebar() {
       setLoadingMember(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation, short_bio, role")
+        .select(
+          "id, full_name, avatar_url, highest_education, affiliation, short_bio, role"
+        )
         .order("created_at", { ascending: false })
         .limit(1);
 
       if (cancelled) return;
 
-      if (!error && data && data.length > 0) setLatestMember(data[0] as CommunityProfile);
+      if (!error && data && data.length > 0)
+        setLatestMember(data[0] as CommunityProfile);
       else setLatestMember(null);
 
       setLoadingMember(false);
@@ -494,7 +582,9 @@ function HomeRightSidebar() {
 
   const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+    typeof memberName === "string"
+      ? memberName.split(" ")[0] || memberName
+      : "Member";
 
   const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
@@ -522,11 +612,25 @@ function HomeRightSidebar() {
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
                 {latestJob.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
@@ -562,7 +666,14 @@ function HomeRightSidebar() {
           ) : !latestProduct ? (
             <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -578,7 +689,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   <div
@@ -599,18 +715,41 @@ function HomeRightSidebar() {
 
               <Link
                 href={`/products/${latestProduct.id}`}
-                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: 1,
+                  minWidth: 0,
+                }}
               >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestProduct.name}
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {[
+                    latestProduct.company_name,
+                    latestProduct.category,
+                    formatPrice(latestProduct),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
                 {latestProduct.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
@@ -646,7 +785,14 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -667,7 +813,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
@@ -675,17 +826,38 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
+                <Link
+                  href={memberProfileHref}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
                   <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                     {memberName}
                   </div>
-                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.85,
+                      marginTop: 4,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {[
+                      latestMember.highest_education,
+                      latestMember.role,
+                      latestMember.affiliation,
+                    ]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
                   </div>
                   {latestMember.short_bio && (
-                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        opacity: 0.9,
+                        marginTop: 6,
+                        lineHeight: 1.35,
+                      }}
+                    >
                       {latestMember.short_bio.length > 90
                         ? latestMember.short_bio.slice(0, 87) + "..."
                         : latestMember.short_bio}
