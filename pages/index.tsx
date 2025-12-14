@@ -172,56 +172,49 @@ export default function Home() {
 }
 
 /* =========================
-   POST / ASK PLACEHOLDERS
+   POST / ASK (expand modal)
    ========================= */
 
-function IconButton({
+function ActionButton({
+  icon,
+  label,
   title,
-  ariaLabel,
-  children,
 }: {
-  title: string;
-  ariaLabel: string;
-  children: React.ReactNode;
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
 }) {
   return (
     <button
       type="button"
-      title={title}
-      aria-label={ariaLabel}
+      title={title || label}
       style={{
-        width: 34,
-        height: 34,
-        borderRadius: 999,
-        border: "1px solid rgba(148,163,184,0.18)",
-        background: "rgba(2,6,23,0.25)",
-        color: "rgba(226,232,240,0.9)",
         display: "inline-flex",
         alignItems: "center",
-        justifyContent: "center",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 12,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(2,6,23,0.22)",
+        color: "rgba(226,232,240,0.92)",
+        fontSize: 13,
         cursor: "pointer",
-        padding: 0,
       }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      {children}
+      <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
+      <span style={{ opacity: 0.95 }}>{label}</span>
     </button>
   );
 }
 
-function SvgIcon({
+function MiniIcon({
   path,
 }: {
   path: string;
 }) {
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      style={{ display: "block" }}
-    >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
       <path
         d={path}
         stroke="currentColor"
@@ -236,6 +229,16 @@ function SvgIcon({
 function HomeComposerStrip() {
   const { user, loading } = useSupabaseUser();
   const [me, setMe] = useState<MyProfileMini | null>(null);
+
+  const [postOpen, setPostOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+
+  const [postText, setPostText] = useState("");
+  const [askTitle, setAskTitle] = useState("");
+  const [askBody, setAskBody] = useState("");
+  const [askType, setAskType] = useState<"concept" | "experiment" | "career">(
+    "concept"
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -262,6 +265,7 @@ function HomeComposerStrip() {
     };
   }, [user, loading]);
 
+  const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
   const initials =
     (me?.full_name || "")
@@ -270,9 +274,6 @@ function HomeComposerStrip() {
       .slice(0, 2)
       .map((x) => x[0]?.toUpperCase())
       .join("") || "U";
-
-  const isAuthed = !!user;
-  const authHint = !loading && !isAuthed;
 
   const avatarNode = (
     <div
@@ -320,7 +321,7 @@ function HomeComposerStrip() {
     padding: 14,
   };
 
-  const inputStyle: React.CSSProperties = {
+  const collapsedInputStyle: React.CSSProperties = {
     height: 42,
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.22)",
@@ -334,160 +335,398 @@ function HomeComposerStrip() {
     userSelect: "none",
   };
 
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-        gap: 14,
-      }}
-    >
-      {/* POST */}
-      <div style={shellStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {avatarNode}
+  const modalBackdrop: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(2,6,23,0.62)",
+    backdropFilter: "blur(8px)",
+    zIndex: 1000,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+  };
 
-          <Link
-            href={isAuthed ? "/posts/new" : "/auth?redirect=/"}
-            style={{
-              textDecoration: "none",
-              color: "inherit",
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            <div style={inputStyle}>
+  const modalCard: React.CSSProperties = {
+    width: "min(740px, 100%)",
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+    boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+    overflow: "hidden",
+  };
+
+  const modalHeader: React.CSSProperties = {
+    padding: "14px 16px",
+    borderBottom: "1px solid rgba(148,163,184,0.14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  };
+
+  const closeBtn: React.CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(2,6,23,0.2)",
+    color: "rgba(226,232,240,0.92)",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const modalBody: React.CSSProperties = {
+    padding: 16,
+  };
+
+  const bigTextarea: React.CSSProperties = {
+    width: "100%",
+    minHeight: 160,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: 14,
+    fontSize: 15,
+    lineHeight: 1.45,
+    outline: "none",
+    resize: "vertical",
+  };
+
+  const smallInput: React.CSSProperties = {
+    width: "100%",
+    height: 42,
+    borderRadius: 12,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: "0 12px",
+    fontSize: 14,
+    outline: "none",
+  };
+
+  const footerBar: React.CSSProperties = {
+    padding: "12px 16px",
+    borderTop: "1px solid rgba(148,163,184,0.14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  };
+
+  const primaryBtn = (disabled?: boolean): React.CSSProperties => ({
+    padding: "9px 16px",
+    borderRadius: 999,
+    border: "none",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    color: "#0f172a",
+  });
+
+  const typeChip = (active: boolean): React.CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 10px",
+    borderRadius: 999,
+    border: active
+      ? "1px solid rgba(59,199,243,0.55)"
+      : "1px solid rgba(148,163,184,0.18)",
+    background: active ? "rgba(59,199,243,0.12)" : "rgba(2,6,23,0.2)",
+    color: "rgba(226,232,240,0.92)",
+    fontSize: 13,
+    cursor: "pointer",
+    userSelect: "none",
+  });
+
+  const openPost = () => {
+    if (!isAuthed) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+    setPostOpen(true);
+  };
+
+  const openAsk = () => {
+    if (!isAuthed) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+    setAskOpen(true);
+  };
+
+  const closePost = () => setPostOpen(false);
+  const closeAsk = () => setAskOpen(false);
+
+  return (
+    <>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+          gap: 14,
+        }}
+      >
+        {/* COLLAPSED POST */}
+        <div style={shellStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {avatarNode}
+            <div
+              style={{ ...collapsedInputStyle, flex: 1 }}
+              onClick={openPost}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") openPost();
+              }}
+            >
               <span style={{ opacity: 0.85 }}>
-                {isAuthed
-                  ? "What’s happening in quantum?"
-                  : "Sign in to create a post"}
+                What’s on your mind, {isAuthed ? (displayName.split(" ")[0] || displayName) : "…" }?
               </span>
               <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
                 ✨
               </span>
             </div>
-          </Link>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            marginTop: 10,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <IconButton title="Photo" ariaLabel="Add photo">
-              {/* camera */}
-              <SvgIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-            </IconButton>
-            <IconButton title="Video" ariaLabel="Add video">
-              {/* video */}
-              <SvgIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />
-            </IconButton>
-            <IconButton title="Link" ariaLabel="Add link">
-              {/* link */}
-              <SvgIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
-            </IconButton>
           </div>
 
-          <Link
-            href={isAuthed ? "/posts/new" : "/auth?redirect=/"}
-            className="nav-cta"
-            style={{
-              textDecoration: "none",
-              padding: "8px 14px",
-              borderRadius: 999,
-              fontSize: 13,
-            }}
-          >
-            Post
-          </Link>
+          {/* small hint row (minimal, no text chips here) */}
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="nav-cta"
+              onClick={openPost}
+              style={{
+                textDecoration: "none",
+                padding: "8px 14px",
+                borderRadius: 999,
+                fontSize: 13,
+                border: "none",
+              }}
+            >
+              Post
+            </button>
+          </div>
         </div>
 
-        {authHint && (
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.78 }}>
-            Posting is available once you’re signed in.
-          </div>
-        )}
-      </div>
-
-      {/* ASK (Q&A) */}
-      <div style={shellStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {avatarNode}
-
-          <Link
-            href={isAuthed ? "/ask" : "/auth?redirect=/"}
-            style={{
-              textDecoration: "none",
-              color: "inherit",
-              flex: 1,
-              minWidth: 0,
-            }}
-          >
-            <div style={inputStyle}>
-              <span style={{ opacity: 0.85 }}>
-                {isAuthed
-                  ? "Ask the quantum community…"
-                  : "Sign in to ask a question"}
-              </span>
+        {/* COLLAPSED ASK */}
+        <div style={shellStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {avatarNode}
+            <div
+              style={{ ...collapsedInputStyle, flex: 1 }}
+              onClick={openAsk}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") openAsk();
+              }}
+            >
+              <span style={{ opacity: 0.85 }}>Ask the quantum community…</span>
               <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12 }}>
                 ❓
               </span>
             </div>
-          </Link>
-        </div>
+          </div>
 
+          <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              className="nav-cta"
+              onClick={openAsk}
+              style={{
+                textDecoration: "none",
+                padding: "8px 14px",
+                borderRadius: 999,
+                fontSize: 13,
+                border: "none",
+              }}
+            >
+              Ask
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* POST MODAL */}
+      {postOpen && (
         <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            marginTop: 10,
-            flexWrap: "wrap",
+          style={modalBackdrop}
+          onMouseDown={(e) => {
+            // click outside closes
+            if (e.target === e.currentTarget) closePost();
           }}
         >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <IconButton title="Concept" ariaLabel="Ask a concept question">
-              {/* lightbulb */}
-              <SvgIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
-            </IconButton>
-            <IconButton title="Experiment" ariaLabel="Ask an experiment question">
-              {/* flask */}
-              <SvgIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
-            </IconButton>
-            <IconButton title="Career" ariaLabel="Ask a career question">
-              {/* briefcase */}
-              <SvgIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
-            </IconButton>
-          </div>
+          <div style={modalCard}>
+            <div style={modalHeader}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Create post</div>
+              <button type="button" style={closeBtn} onClick={closePost} aria-label="Close">
+                ✕
+              </button>
+            </div>
 
-          <Link
-            href={isAuthed ? "/ask" : "/auth?redirect=/"}
-            className="nav-cta"
-            style={{
-              textDecoration: "none",
-              padding: "8px 14px",
-              borderRadius: 999,
-              fontSize: 13,
-            }}
-          >
-            Ask
-          </Link>
+            <div style={modalBody}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                {avatarNode}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
+                    {displayName}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                    Public · Quantum5ocial
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                placeholder={`What’s on your mind, ${displayName.split(" ")[0] || displayName}?`}
+                style={bigTextarea}
+              />
+            </div>
+
+            <div style={footerBar}>
+              {/* expanded actions: icon + text */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <ActionButton
+                  icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
+                  label="Photo"
+                />
+                <ActionButton
+                  icon={<MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />}
+                  label="Video"
+                />
+                <ActionButton
+                  icon={<MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />}
+                  label="Link"
+                />
+              </div>
+
+              <button
+                type="button"
+                style={primaryBtn(!postText.trim())}
+                disabled={!postText.trim()}
+                onClick={() => {
+                  // placeholder for now — later: insert into "posts" table
+                  setPostText("");
+                  closePost();
+                }}
+              >
+                Post
+              </button>
+            </div>
+          </div>
         </div>
+      )}
 
-        {authHint && (
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.78 }}>
-            Questions are visible publicly, but posting requires sign-in.
+      {/* ASK MODAL */}
+      {askOpen && (
+        <div
+          style={modalBackdrop}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeAsk();
+          }}
+        >
+          <div style={modalCard}>
+            <div style={modalHeader}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Ask a question</div>
+              <button type="button" style={closeBtn} onClick={closeAsk} aria-label="Close">
+                ✕
+              </button>
+            </div>
+
+            <div style={modalBody}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                {avatarNode}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>
+                    {displayName}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                    Public · Q&amp;A
+                  </div>
+                </div>
+              </div>
+
+              {/* type selector (expanded: icon + text) */}
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                <div
+                  style={typeChip(askType === "concept")}
+                  onClick={() => setAskType("concept")}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
+                  Concept
+                </div>
+                <div
+                  style={typeChip(askType === "experiment")}
+                  onClick={() => setAskType("experiment")}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
+                  Experiment
+                </div>
+                <div
+                  style={typeChip(askType === "career")}
+                  onClick={() => setAskType("career")}
+                  role="button"
+                  tabIndex={0}
+                >
+                  <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
+                  Career
+                </div>
+              </div>
+
+              <input
+                value={askTitle}
+                onChange={(e) => setAskTitle(e.target.value)}
+                placeholder="Question title (be specific)"
+                style={smallInput}
+              />
+
+              <div style={{ height: 10 }} />
+
+              <textarea
+                value={askBody}
+                onChange={(e) => setAskBody(e.target.value)}
+                placeholder="Add context, details, constraints, what you already tried…"
+                style={{ ...bigTextarea, minHeight: 150 }}
+              />
+            </div>
+
+            <div style={footerBar}>
+              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                Tip: add enough context so experts can answer precisely.
+              </div>
+
+              <button
+                type="button"
+                style={primaryBtn(!askTitle.trim() || !askBody.trim())}
+                disabled={!askTitle.trim() || !askBody.trim()}
+                onClick={() => {
+                  // placeholder for now — later: insert into "questions" table
+                  setAskTitle("");
+                  setAskBody("");
+                  setAskType("concept");
+                  closeAsk();
+                }}
+              >
+                Ask
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -586,7 +825,9 @@ function HomeRightSidebar() {
       ? memberName.split(" ")[0] || memberName
       : "Member";
 
-  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
+  const memberProfileHref = latestMember
+    ? `/profile/${latestMember.id}`
+    : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -612,25 +853,11 @@ function HomeRightSidebar() {
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    opacity: 0.85,
-                    marginTop: 4,
-                    lineHeight: 1.35,
-                  }}
-                >
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
                 {latestJob.short_description && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.9,
-                      marginTop: 6,
-                      lineHeight: 1.35,
-                    }}
-                  >
+                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
@@ -666,14 +893,7 @@ function HomeRightSidebar() {
           ) : !latestProduct ? (
             <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-              }}
-            >
+            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
               <div
                 style={{
                   width: 46,
@@ -689,12 +909,7 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
                   <div
@@ -715,41 +930,18 @@ function HomeRightSidebar() {
 
               <Link
                 href={`/products/${latestProduct.id}`}
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  flex: 1,
-                  minWidth: 0,
-                }}
+                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
               >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestProduct.name}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    opacity: 0.85,
-                    marginTop: 4,
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {[
-                    latestProduct.company_name,
-                    latestProduct.category,
-                    formatPrice(latestProduct),
-                  ]
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
                 {latestProduct.short_description && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.9,
-                      marginTop: 6,
-                      lineHeight: 1.35,
-                    }}
-                  >
+                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
@@ -785,14 +977,7 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-              }}
-            >
+            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
               <div
                 style={{
                   width: 46,
@@ -813,12 +998,7 @@ function HomeRightSidebar() {
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
@@ -826,38 +1006,17 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link
-                  href={memberProfileHref}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
+                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                     {memberName}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.85,
-                      marginTop: 4,
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {[
-                      latestMember.highest_education,
-                      latestMember.role,
-                      latestMember.affiliation,
-                    ]
+                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
                   </div>
                   {latestMember.short_bio && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        opacity: 0.9,
-                        marginTop: 6,
-                        lineHeight: 1.35,
-                      }}
-                    >
+                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
                       {latestMember.short_bio.length > 90
                         ? latestMember.short_bio.slice(0, 87) + "..."
                         : latestMember.short_bio}
