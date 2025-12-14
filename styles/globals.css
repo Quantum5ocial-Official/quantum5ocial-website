@@ -3262,3 +3262,43 @@ html.theme-light footer {
   font-weight: 700;
   color: #e5e7eb;
 }
+/* Accent titles for "Hot opening" / "Product of the week" / "Spotlight" */
+.tile-title-accent {
+  color: #22d3ee; /* default accent (jobs) */
+  font-weight: 650;
+}
+
+/* Optional per-tile accents */
+.tile-title-jobs {
+  color: #22d3ee;
+}
+.tile-title-products {
+  color: #a78bfa;
+}
+.tile-title-community {
+  color: #fbbf24;
+}
+
+/* Actual entity title (job title / product name / member name) */
+.tile-entity-title {
+  font-weight: 750;
+  font-size: 14px;
+  line-height: 1.25;
+  color: #e5e7eb;
+}
+
+/* Meta line under entity title */
+.tile-entity-meta {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+/* Description under meta */
+.tile-entity-desc {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-top: 6px;
+  line-height: 1.35;
+}
