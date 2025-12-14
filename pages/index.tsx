@@ -835,13 +835,13 @@ function HomeComposerStrip() {
 }
 
 /* =========================
-   RIGHT SIDEBAR (dynamic tiles)
+   RIGHT SIDEBAR (FEATURED-first, fallback to latest)
    ========================= */
 
 function HomeRightSidebar() {
-  const [latestJob, setLatestJob] = useState<Job | null>(null);
-  const [latestProduct, setLatestProduct] = useState<Product | null>(null);
-  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(null);
+  const [featuredJob, setFeaturedJob] = useState<Job | null>(null);
+  const [featuredProduct, setFeaturedProduct] = useState<Product | null>(null);
+  const [featuredMember, setFeaturedMember] = useState<CommunityProfile | null>(null);
 
   const [loadingJob, setLoadingJob] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(true);
@@ -850,65 +850,79 @@ function HomeRightSidebar() {
   useEffect(() => {
     let cancelled = false;
 
-    const loadLatestJob = async () => {
+    const pickOne = async <T,>(
+      table: string,
+      select: string,
+      fallbackOrderCol: string
+    ): Promise<T | null> => {
+      // 1) Try featured first (ranked, then most recently featured, then newest)
+      const { data: featured, error: featErr } = await supabase
+        .from(table)
+        .select(select)
+        .eq("is_featured", true)
+        .order("featured_rank", { ascending: true, nullsFirst: false })
+        .order("featured_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (!featErr && featured && featured.length > 0) return featured[0] as T;
+
+      // 2) Fallback: latest
+      const { data: latest, error: latErr } = await supabase
+        .from(table)
+        .select(select)
+        .order(fallbackOrderCol, { ascending: false })
+        .limit(1);
+
+      if (!latErr && latest && latest.length > 0) return latest[0] as T;
+
+      return null;
+    };
+
+    const loadAll = async () => {
       setLoadingJob(true);
-      const { data, error } = await supabase
-        .from("jobs")
-        .select(
-          "id, title, company_name, location, employment_type, remote_type, short_description"
-        )
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!error && data && data.length > 0) setLatestJob(data[0] as Job);
-      else setLatestJob(null);
-
-      setLoadingJob(false);
-    };
-
-    const loadLatestProduct = async () => {
       setLoadingProduct(true);
-      const { data, error } = await supabase
-        .from("products")
-        .select(
-          "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url"
-        )
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (cancelled) return;
-
-      if (!error && data && data.length > 0)
-        setLatestProduct(data[0] as Product);
-      else setLatestProduct(null);
-
-      setLoadingProduct(false);
-    };
-
-    const loadLatestMember = async () => {
       setLoadingMember(true);
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, avatar_url, highest_education, affiliation, short_bio, role"
-        )
-        .order("created_at", { ascending: false })
-        .limit(1);
 
-      if (cancelled) return;
+      try {
+        const [job, product, member] = await Promise.all([
+          pickOne<Job>(
+            "jobs",
+            "id, title, company_name, location, employment_type, remote_type, short_description",
+            "created_at"
+          ),
+          pickOne<Product>(
+            "products",
+            "id, name, company_name, category, short_description, price_type, price_value, in_stock, image1_url",
+            "created_at"
+          ),
+          pickOne<CommunityProfile>(
+            "profiles",
+            "id, full_name, avatar_url, highest_education, affiliation, short_bio, role",
+            "created_at"
+          ),
+        ]);
 
-      if (!error && data && data.length > 0)
-        setLatestMember(data[0] as CommunityProfile);
-      else setLatestMember(null);
+        if (cancelled) return;
 
-      setLoadingMember(false);
+        setFeaturedJob(job);
+        setFeaturedProduct(product);
+        setFeaturedMember(member);
+      } catch (e) {
+        console.error("HomeRightSidebar load error:", e);
+        if (cancelled) return;
+        setFeaturedJob(null);
+        setFeaturedProduct(null);
+        setFeaturedMember(null);
+      } finally {
+        if (cancelled) return;
+        setLoadingJob(false);
+        setLoadingProduct(false);
+        setLoadingMember(false);
+      }
     };
 
-    loadLatestJob();
-    loadLatestProduct();
-    loadLatestMember();
+    loadAll();
 
     return () => {
       cancelled = true;
@@ -924,15 +938,11 @@ function HomeRightSidebar() {
     return "";
   };
 
-  const memberName = latestMember?.full_name || "Quantum member";
+  const memberName = featuredMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string"
-      ? memberName.split(" ")[0] || memberName
-      : "Member";
+    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
 
-  const memberProfileHref = latestMember
-    ? `/profile/${latestMember.id}`
-    : "/community";
+  const memberProfileHref = featuredMember ? `/profile/${featuredMember.id}` : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -946,28 +956,26 @@ function HomeRightSidebar() {
           </div>
 
           {loadingJob ? (
-            <p className="tile-text">Loading the newest job…</p>
-          ) : !latestJob ? (
-            <p className="tile-text">
-              No jobs posted yet — be the first to add one.
-            </p>
+            <p className="tile-text">Loading a featured job…</p>
+          ) : !featuredJob ? (
+            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
               <Link
-                href={`/jobs/${latestJob.id}`}
+                href={`/jobs/${featuredJob.id}`}
                 style={{ textDecoration: "none", color: "inherit" }}
               >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                  {latestJob.title || "Untitled role"}
+                  {featuredJob.title || "Untitled role"}
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {formatJobMeta(latestJob) || "Quantum role"}
+                  {formatJobMeta(featuredJob) || "Quantum role"}
                 </div>
-                {latestJob.short_description && (
+                {featuredJob.short_description && (
                   <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                    {latestJob.short_description.length > 90
-                      ? latestJob.short_description.slice(0, 87) + "..."
-                      : latestJob.short_description}
+                    {featuredJob.short_description.length > 90
+                      ? featuredJob.short_description.slice(0, 87) + "..."
+                      : featuredJob.short_description}
                   </div>
                 )}
               </Link>
@@ -996,8 +1004,8 @@ function HomeRightSidebar() {
           </div>
 
           {loadingProduct ? (
-            <p className="tile-text">Loading the newest product…</p>
-          ) : !latestProduct ? (
+            <p className="tile-text">Loading a featured product…</p>
+          ) : !featuredProduct ? (
             <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
             <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -1012,10 +1020,10 @@ function HomeRightSidebar() {
                   border: "1px solid rgba(148,163,184,0.18)",
                 }}
               >
-                {latestProduct.image1_url ? (
+                {featuredProduct.image1_url ? (
                   <img
-                    src={latestProduct.image1_url}
-                    alt={latestProduct.name}
+                    src={featuredProduct.image1_url}
+                    alt={featuredProduct.name}
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
@@ -1036,22 +1044,22 @@ function HomeRightSidebar() {
               </div>
 
               <Link
-                href={`/products/${latestProduct.id}`}
+                href={`/products/${featuredProduct.id}`}
                 style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
               >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                  {latestProduct.name}
+                  {featuredProduct.name}
                 </div>
                 <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+                  {[featuredProduct.company_name, featuredProduct.category, formatPrice(featuredProduct)]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
-                {latestProduct.short_description && (
+                {featuredProduct.short_description && (
                   <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                    {latestProduct.short_description.length > 90
-                      ? latestProduct.short_description.slice(0, 87) + "..."
-                      : latestProduct.short_description}
+                    {featuredProduct.short_description.length > 90
+                      ? featuredProduct.short_description.slice(0, 87) + "..."
+                      : featuredProduct.short_description}
                   </div>
                 )}
               </Link>
@@ -1080,8 +1088,8 @@ function HomeRightSidebar() {
           </div>
 
           {loadingMember ? (
-            <p className="tile-text">Loading the newest member…</p>
-          ) : !latestMember ? (
+            <p className="tile-text">Loading a featured member…</p>
+          ) : !featuredMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
             <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -1101,9 +1109,9 @@ function HomeRightSidebar() {
                   fontWeight: 700,
                 }}
               >
-                {latestMember.avatar_url ? (
+                {featuredMember.avatar_url ? (
                   <img
-                    src={latestMember.avatar_url}
+                    src={featuredMember.avatar_url}
                     alt={memberFirstName}
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
@@ -1118,15 +1126,15 @@ function HomeRightSidebar() {
                     {memberName}
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+                    {[featuredMember.highest_education, featuredMember.role, featuredMember.affiliation]
                       .filter(Boolean)
                       .join(" · ") || "Quantum5ocial community member"}
                   </div>
-                  {latestMember.short_bio && (
+                  {featuredMember.short_bio && (
                     <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
-                      {latestMember.short_bio.length > 90
-                        ? latestMember.short_bio.slice(0, 87) + "..."
-                        : latestMember.short_bio}
+                      {featuredMember.short_bio.length > 90
+                        ? featuredMember.short_bio.slice(0, 87) + "..."
+                        : featuredMember.short_bio}
                     </div>
                   )}
                 </Link>
