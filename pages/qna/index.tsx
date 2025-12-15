@@ -678,134 +678,78 @@ function QnAMiddle() {
   setMyAnswerVotes({});
 
   try {
-    const { data, error } = await supabase
+    // 1) Load answers (NO embedded relations)
+    const { data: ad, error: ae } = await supabase
       .from("qna_answers")
-      .select(
-        `
-        id,
-        question_id,
-        user_id,
-        body,
-        created_at,
-        profiles:profiles ( full_name, avatar_url ),
-        qna_answer_votes(count)
-      `
-      )
+      .select("id, question_id, user_id, body, created_at")
       .eq("question_id", qq.id)
       .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("openThread answers error:", error);
+    if (ae) {
+      console.error("openThread answers error:", ae);
       setAnswers([]);
       return;
     }
 
-    const normalized = (data || []).map((row: any) => ({
+    const baseAnswers = (ad || []).map((row: any) => ({
       ...row,
-      // ensure profiles is object not array
-      profiles: pickProfile(row.profiles),
+      id: pickId(row),
+      profiles: null,
+      qna_answer_votes: [{ count: 0 }],
     })) as QAnswer[];
 
-    setAnswers(normalized);
+    // If still empty, then it's not a UI bug — it's RLS or question_id mismatch.
+    setAnswers(baseAnswers);
 
-    // Load my votes for answers in this thread
-    if (user && normalized.length > 0) {
-      const ids = normalized.map((a) => a.id).filter(Boolean);
+    if (baseAnswers.length === 0) return;
 
-      const { data: vd, error: ve } = await supabase
-        .from("qna_answer_votes")
-        .select("answer_id")
-        .eq("user_id", user.id)
-        .in("answer_id", ids);
+    // 2) Load profiles for the answer authors
+    const authorIds = Array.from(new Set(baseAnswers.map((a) => a.user_id).filter(Boolean)));
 
-      if (ve) {
-        console.error("answer votes load error:", ve);
-      } else {
-        const map: Record<string, boolean> = {};
-        (vd || []).forEach((r: any) => (map[r.answer_id] = true));
-        setMyAnswerVotes(map);
-      }
-    }
+    const { data: pd, error: pe } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", authorIds);
+
+    if (pe) console.error("profiles load error:", pe);
+
+    const profileMap: Record<string, ProfileLite> = {};
+    (pd || []).forEach((p: any) => {
+      profileMap[p.id] = { full_name: p.full_name ?? null, avatar_url: p.avatar_url ?? null };
+    });
+
+    // 3) Load all answer votes for these answers, count client-side
+    const answerIds = baseAnswers.map((a) => a.id).filter(Boolean);
+
+    const { data: vd, error: ve } = await supabase
+      .from("qna_answer_votes")
+      .select("answer_id, user_id")
+      .in("answer_id", answerIds);
+
+    if (ve) console.error("answer votes load error:", ve);
+
+    const voteCount: Record<string, number> = {};
+    const myVoteMap: Record<string, boolean> = {};
+
+    (vd || []).forEach((r: any) => {
+      voteCount[r.answer_id] = (voteCount[r.answer_id] || 0) + 1;
+      if (user && r.user_id === user.id) myVoteMap[r.answer_id] = true;
+    });
+
+    setMyAnswerVotes(myVoteMap);
+
+    // 4) Merge back into answers state
+    setAnswers((prev) =>
+      prev.map((a) => ({
+        ...a,
+        profiles: profileMap[a.user_id] ?? null,
+        qna_answer_votes: [{ count: voteCount[a.id] ?? 0 }],
+      }))
+    );
   } finally {
     setLoadingAnswers(false);
   }
 };
-
-  const closeThread = () => {
-    setOpenQ(null);
-    setAnswers([]);
-    setAnswerBody("");
-    setMyAnswerVotes({});
-  };
-
-  const handleAddAnswer = async () => {
-    if (!user) {
-      router.push("/auth?redirect=/qna");
-      return;
-    }
-    if (!openQ) return;
-
-    const body = answerBody.trim();
-    if (!body) return;
-
-    setAnswerSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from("qna_answers")
-        .insert({
-          question_id: openQ.id,
-          user_id: user.id,
-          body,
-        })
-        .select(
-  `
-  id,
-  question_id,
-  user_id,
-  body,
-  created_at,
-  profiles:profiles ( full_name, avatar_url ),
-  qna_answer_votes(count)
-`
-)
-        .maybeSingle();
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      if (data) {
-        const normalized = {
-          ...(data as any),
-          id: pickId(data),
-          profiles: pickProfile((data as any).profiles),
-        } as QAnswer;
-
-        setAnswers((prev) => [...prev, normalized]);
-        setAnswerBody("");
-
-        // bump answer count locally in the list
-        setQuestions((prev) =>
-          prev.map((q) => {
-            if (q.id !== openQ.id) return q;
-            const cur = (q.qna_answers?.[0]?.count ?? 0) + 1;
-            return { ...q, qna_answers: [{ count: cur }] as any };
-          })
-        );
-
-        // keep openQ in sync too
-        setOpenQ((prev) => {
-          if (!prev) return prev;
-          const cur = (prev.qna_answers?.[0]?.count ?? 0) + 1;
-          return { ...prev, qna_answers: [{ count: cur }] as any };
-        });
-      }
-    } finally {
-      setAnswerSaving(false);
-    }
-  };
-
   const toggleVote = async (qid: string) => {
     if (!user) {
       router.push("/auth?redirect=/qna");
