@@ -45,6 +45,11 @@ type MyProfileMini = {
 export default function Home() {
   return (
     <>
+      {/* POST + ASK PLACEHOLDERS (between hero and earn QP) */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <HomeComposerStrip />
+      </section>
+      
       {/* HERO */}
       <section className="hero" id="about">
         <div>
@@ -69,10 +74,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* POST + ASK PLACEHOLDERS (between hero and earn QP) */}
-      <section className="section" style={{ paddingTop: 0 }}>
-        <HomeComposerStrip />
-      </section>
 
       {/* GAMIFICATION */}
       <section className="section">
