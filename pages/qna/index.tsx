@@ -11,7 +11,6 @@ type ProfileLite = {
 };
 
 // Supabase may return embedded relations as object OR array depending on relationship config.
-// We'll support both and normalize in UI.
 type ProfileMaybe = ProfileLite | ProfileLite[] | null;
 
 type QQuestion = {
@@ -35,6 +34,12 @@ type QAnswer = {
   body: string;
   created_at: string;
   profiles?: ProfileMaybe;
+};
+
+type MyProfileMini = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
 };
 
 function pickProfile(p: ProfileMaybe): ProfileLite | null {
@@ -92,7 +97,12 @@ function avatarBubble(name: string, avatar_url: string | null, size = 28) {
         <img
           src={avatar_url}
           alt={name}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
         />
       ) : (
         name.charAt(0).toUpperCase()
@@ -100,6 +110,543 @@ function avatarBubble(name: string, avatar_url: string | null, size = 28) {
     </div>
   );
 }
+
+/* =========================
+   Composer bits (homepage-like)
+   ========================= */
+
+function MiniIcon({ path }: { path: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path
+        d={path}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  title,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title || label}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(2,6,23,0.22)",
+        color: "rgba(226,232,240,0.92)",
+        fontSize: 13,
+        cursor: "pointer",
+      }}
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
+      <span style={{ opacity: 0.95 }}>{label}</span>
+    </button>
+  );
+}
+
+function useIsMobile(maxWidth = 520) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+function QnAComposerStrip({
+  onCreated,
+}: {
+  onCreated: (newQ: QQuestion) => void;
+}) {
+  const router = useRouter();
+  const { user, loading } = useSupabaseUser();
+  const isMobile = useIsMobile(520);
+
+  const [me, setMe] = useState<MyProfileMini | null>(null);
+  const [open, setOpen] = useState(false);
+
+  const [askTitle, setAskTitle] = useState("");
+  const [askBody, setAskBody] = useState("");
+  const [askTags, setAskTags] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMe = async () => {
+      if (!user) {
+        setMe(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle<MyProfileMini>();
+
+      if (cancelled) return;
+
+      if (!error && data) setMe(data);
+      else setMe({ id: user.id, full_name: null, avatar_url: null });
+    };
+
+    if (!loading) loadMe();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading]);
+
+  const isAuthed = !!user;
+  const displayName = me?.full_name || "Member";
+  const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
+
+  const initials =
+    (me?.full_name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "U";
+
+  const avatarNode = (
+    <div
+      style={{
+        width: isMobile ? 36 : 40,
+        height: isMobile ? 36 : 40,
+        borderRadius: 999,
+        overflow: "hidden",
+        flexShrink: 0,
+        border: "1px solid rgba(148,163,184,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+        color: "#fff",
+        fontWeight: 800,
+        letterSpacing: 0.5,
+      }}
+      aria-label="Your avatar"
+      title={displayName}
+    >
+      {me?.avatar_url ? (
+        <img
+          src={me.avatar_url}
+          alt={displayName}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+
+  const shellStyle: React.CSSProperties = {
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.70), rgba(15,23,42,0.86))",
+    boxShadow: "0 18px 40px rgba(15,23,42,0.35)",
+    padding: isMobile ? 12 : 14,
+    marginTop: 14,
+  };
+
+  const collapsedInputStyle: React.CSSProperties = {
+    height: isMobile ? 40 : 42,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "rgba(2,6,23,0.35)",
+    color: "rgba(226,232,240,0.92)",
+    padding: "0 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    cursor: "pointer",
+    userSelect: "none",
+    minWidth: 0,
+  };
+
+  const modalBackdrop: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(2,6,23,0.62)",
+    backdropFilter: "blur(8px)",
+    zIndex: 1000,
+    display: "flex",
+    alignItems: isMobile ? "flex-end" : "center",
+    justifyContent: "center",
+    padding: isMobile ? 10 : 18,
+  };
+
+  const modalCard: React.CSSProperties = {
+    width: "min(740px, 100%)",
+    borderRadius: isMobile ? "18px 18px 0 0" : 18,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+    boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+    overflow: "hidden",
+    maxHeight: isMobile ? "86vh" : undefined,
+  };
+
+  const modalHeader: React.CSSProperties = {
+    padding: "14px 16px",
+    borderBottom: "1px solid rgba(148,163,184,0.14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  };
+
+  const closeBtn: React.CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(2,6,23,0.2)",
+    color: "rgba(226,232,240,0.92)",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  };
+
+  const modalBody: React.CSSProperties = {
+    padding: 16,
+    overflowY: isMobile ? "auto" : undefined,
+  };
+
+  const bigTextarea: React.CSSProperties = {
+    width: "100%",
+    minHeight: isMobile ? 140 : 160,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: 14,
+    fontSize: 15,
+    lineHeight: 1.45,
+    outline: "none",
+    resize: "vertical",
+  };
+
+  const smallInput: React.CSSProperties = {
+    width: "100%",
+    height: 42,
+    borderRadius: 12,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: "0 12px",
+    fontSize: 14,
+    outline: "none",
+  };
+
+  const footerBar: React.CSSProperties = {
+    padding: "12px 16px",
+    borderTop: "1px solid rgba(148,163,184,0.14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  };
+
+  const primaryBtn = (disabled?: boolean): React.CSSProperties => ({
+    padding: "9px 16px",
+    borderRadius: 999,
+    border: "none",
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+    background: "linear-gradient(135deg,#a78bfa,#3bc7f3)",
+    color: "#0f172a",
+  });
+
+  const openComposer = () => {
+    if (!isAuthed) {
+      router.push("/auth?redirect=/qna");
+      return;
+    }
+    setOpen(true);
+  };
+
+  const closeComposer = () => setOpen(false);
+
+  const collapsedPlaceholder = isMobile
+    ? "Ask a question…"
+    : `Ask the quantum community, ${firstName}…`;
+
+  const canSubmit = !!askTitle.trim() && !!askBody.trim() && !saving;
+
+  const submit = async () => {
+    if (!user) {
+      router.push("/auth?redirect=/qna");
+      return;
+    }
+
+    const title = askTitle.trim();
+    const body = askBody.trim();
+    const tags = askTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    if (!title || !body) return;
+
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("qna_questions")
+        .insert({
+          user_id: user.id,
+          title,
+          body,
+          tags,
+        })
+        .select(
+          `
+          id, user_id, title, body, tags, created_at,
+          profiles:profiles ( full_name, avatar_url ),
+          qna_answers(count),
+          qna_votes(count)
+        `
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      if (data) {
+        const normalized = {
+          ...(data as any),
+          profiles: pickProfile((data as any).profiles),
+        } as QQuestion;
+
+        onCreated(normalized);
+
+        setAskTitle("");
+        setAskBody("");
+        setAskTags("");
+        closeComposer();
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      {/* HOMEPAGE-LIKE COMPOSER STRIP (ASK-focused) */}
+      <div style={shellStyle}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          {avatarNode}
+
+          <div
+            style={{
+              ...collapsedInputStyle,
+              flex: "1 1 260px",
+            }}
+            onClick={openComposer}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") openComposer();
+            }}
+            aria-label="Ask a question"
+            title="Ask a question"
+          >
+            <span
+              style={{
+                opacity: 0.9,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {collapsedPlaceholder}
+            </span>
+
+            <span
+              style={{
+                marginLeft: "auto",
+                opacity: 0.75,
+                fontSize: 12,
+                flexShrink: 0,
+              }}
+            >
+              ❓
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={openComposer}
+            style={{
+              padding: isMobile ? "8px 12px" : "9px 14px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 800,
+              border: "none",
+              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+              color: "#0f172a",
+              cursor: "pointer",
+              boxShadow: "0 14px 35px rgba(34,211,238,0.18)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Ask
+          </button>
+        </div>
+      </div>
+
+      {/* MODAL (homepage feel) */}
+      {open && (
+        <div
+          style={modalBackdrop}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeComposer();
+          }}
+        >
+          <div style={modalCard}>
+            <div style={modalHeader}>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>Ask a question</div>
+
+              <button
+                type="button"
+                style={closeBtn}
+                onClick={closeComposer}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={modalBody}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
+                {avatarNode}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
+                    {displayName}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                    Public · Q&amp;A
+                  </div>
+                </div>
+              </div>
+
+              <input
+                value={askTitle}
+                onChange={(e) => setAskTitle(e.target.value)}
+                placeholder="Question title (be specific)"
+                style={smallInput}
+              />
+
+              <div style={{ height: 10 }} />
+
+              <textarea
+                value={askBody}
+                onChange={(e) => setAskBody(e.target.value)}
+                placeholder="Add context, details, constraints, what you already tried…"
+                style={{ ...bigTextarea, minHeight: isMobile ? 140 : 150 }}
+              />
+
+              <div style={{ height: 10 }} />
+
+              <input
+                value={askTags}
+                onChange={(e) => setAskTags(e.target.value)}
+                placeholder="Tags (comma-separated), e.g. Hardware, Cryo, Careers"
+                style={smallInput}
+              />
+            </div>
+
+            <div style={footerBar}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
+                <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
+                <ActionButton icon={<MiniIcon path="M12 22V12m0 0l4 4m-4-4l-4 4M4 6h16" />} label="Attach" title="Attach later" />
+              </div>
+
+              <button
+                type="button"
+                style={primaryBtn(!canSubmit)}
+                disabled={!canSubmit}
+                onClick={submit}
+              >
+                {saving ? "Posting…" : "Ask"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* =========================
+   Main
+   ========================= */
 
 function QnAMiddle() {
   const router = useRouter();
@@ -111,13 +658,6 @@ function QnAMiddle() {
   const [questions, setQuestions] = useState<QQuestion[]>([]);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
-
-  // ask modal
-  const [askOpen, setAskOpen] = useState(false);
-  const [askTitle, setAskTitle] = useState("");
-  const [askBody, setAskBody] = useState("");
-  const [askTags, setAskTags] = useState(""); // comma separated
-  const [askSaving, setAskSaving] = useState(false);
 
   // thread panel
   const [openQ, setOpenQ] = useState<QQuestion | null>(null);
@@ -171,7 +711,6 @@ function QnAMiddle() {
           setErr("Could not load QnA.");
           setQuestions([]);
         } else {
-          // Normalize `profiles` to avoid TS mismatch + keep UI stable
           const normalized = (data || []).map((row: any) => ({
             ...row,
             profiles: pickProfile(row.profiles),
@@ -271,60 +810,6 @@ function QnAMiddle() {
     setAnswerBody("");
   };
 
-  const handleAsk = async () => {
-    if (!user) {
-      router.push("/auth?redirect=/qna");
-      return;
-    }
-
-    const title = askTitle.trim();
-    const body = askBody.trim();
-    const tags = askTags
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .slice(0, 8);
-
-    if (!title || !body) return;
-
-    setAskSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from("qna_questions")
-        .insert({
-          user_id: user.id,
-          title,
-          body,
-          tags,
-        })
-        .select(
-          `
-          id, user_id, title, body, tags, created_at,
-          profiles:profiles ( full_name, avatar_url ),
-          qna_answers(count),
-          qna_votes(count)
-        `
-        )
-        .maybeSingle();
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      if (data) {
-        const normalized = { ...(data as any), profiles: pickProfile((data as any).profiles) };
-        setQuestions((prev) => [normalized as any, ...prev]);
-        setAskOpen(false);
-        setAskTitle("");
-        setAskBody("");
-        setAskTags("");
-      }
-    } finally {
-      setAskSaving(false);
-    }
-  };
-
   const handleAddAnswer = async () => {
     if (!user) {
       router.push("/auth?redirect=/qna");
@@ -362,6 +847,7 @@ function QnAMiddle() {
         setAnswers((prev) => [...prev, normalized as any]);
         setAnswerBody("");
 
+        // bump answer count locally in the list
         setQuestions((prev) =>
           prev.map((q) => {
             if (q.id !== openQ.id) return q;
@@ -370,6 +856,7 @@ function QnAMiddle() {
           })
         );
 
+        // keep openQ in sync too
         setOpenQ((prev) => {
           if (!prev) return prev;
           const cur = (prev.qna_answers?.[0]?.count ?? 0) + 1;
@@ -406,6 +893,7 @@ function QnAMiddle() {
           return c;
         });
 
+        // decrement UI counts
         setQuestions((prev) =>
           prev.map((q) => {
             if (q.id !== qid) return q;
@@ -427,6 +915,7 @@ function QnAMiddle() {
 
         setMyVotes((prev) => ({ ...prev, [qid]: true }));
 
+        // increment UI counts
         setQuestions((prev) =>
           prev.map((q) => {
             if (q.id !== qid) return q;
@@ -509,31 +998,17 @@ function QnAMiddle() {
               <Link href="/community" className="section-link" style={{ fontSize: 13 }}>
                 Explore community →
               </Link>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user) router.push("/auth?redirect=/qna");
-                  else setAskOpen(true);
-                }}
-                style={{
-                  padding: "11px 18px",
-                  borderRadius: 999,
-                  fontSize: 14,
-                  fontWeight: 800,
-                  border: "none",
-                  background: "linear-gradient(90deg,#22d3ee,#6366f1)",
-                  color: "#0f172a",
-                  cursor: "pointer",
-                  boxShadow: "0 14px 35px rgba(34,211,238,0.18)",
-                }}
-              >
-                Ask a question
-              </button>
             </div>
           </div>
 
-          {/* Make it CLEAR this is search */}
+          {/* ✅ Proper ask composer (homepage-like) */}
+          <QnAComposerStrip
+            onCreated={(newQ) => {
+              setQuestions((prev) => [newQ, ...prev]);
+            }}
+          />
+
+          {/* Search (kept as-is) */}
           <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6, paddingLeft: 4 }}>
               Search questions
@@ -779,144 +1254,6 @@ function QnAMiddle() {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* =========================
-          ASK MODAL
-      ========================== */}
-      {askOpen && (
-        <div
-          onClick={() => !askSaving && setAskOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(2,6,23,0.65)",
-            zIndex: 80,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            className="card"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(820px, 96vw)",
-              padding: 16,
-              borderRadius: 20,
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
-              boxShadow: "0 22px 55px rgba(15,23,42,0.75)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-              <div style={{ fontSize: 16, fontWeight: 800 }}>Ask a question</div>
-              <button
-                type="button"
-                onClick={() => !askSaving && setAskOpen(false)}
-                style={{
-                  border: "1px solid rgba(148,163,184,0.45)",
-                  background: "transparent",
-                  color: "rgba(226,232,240,0.9)",
-                  borderRadius: 12,
-                  padding: "6px 10px",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-              <input
-                value={askTitle}
-                onChange={(e) => setAskTitle(e.target.value)}
-                placeholder="Title (clear, specific)"
-                style={{
-                  width: "100%",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  border: "1px solid rgba(148,163,184,0.45)",
-                  background: "rgba(15,23,42,0.65)",
-                  color: "#e5e7eb",
-                  outline: "none",
-                }}
-              />
-
-              <textarea
-                value={askBody}
-                onChange={(e) => setAskBody(e.target.value)}
-                placeholder="Explain the context, what you've tried, and what you want to learn…"
-                rows={6}
-                style={{
-                  width: "100%",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  border: "1px solid rgba(148,163,184,0.45)",
-                  background: "rgba(15,23,42,0.65)",
-                  color: "#e5e7eb",
-                  outline: "none",
-                  resize: "vertical",
-                }}
-              />
-
-              <input
-                value={askTags}
-                onChange={(e) => setAskTags(e.target.value)}
-                placeholder="Tags (comma-separated), e.g. Hardware, Cryo, Careers"
-                style={{
-                  width: "100%",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  border: "1px solid rgba(148,163,184,0.45)",
-                  background: "rgba(15,23,42,0.65)",
-                  color: "#e5e7eb",
-                  outline: "none",
-                }}
-              />
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => setAskOpen(false)}
-                  disabled={askSaving}
-                  style={{
-                    padding: "9px 14px",
-                    borderRadius: 12,
-                    fontSize: 13,
-                    border: "1px solid rgba(148,163,184,0.45)",
-                    background: "transparent",
-                    color: "rgba(226,232,240,0.9)",
-                    cursor: askSaving ? "default" : "pointer",
-                    opacity: askSaving ? 0.7 : 1,
-                  }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleAsk}
-                  disabled={askSaving || !askTitle.trim() || !askBody.trim()}
-                  style={{
-                    padding: "9px 14px",
-                    borderRadius: 12,
-                    fontSize: 13,
-                    fontWeight: 800,
-                    border: "none",
-                    background: "linear-gradient(90deg,#22d3ee,#6366f1)",
-                    color: "#0f172a",
-                    cursor: askSaving ? "default" : "pointer",
-                    opacity: askSaving || !askTitle.trim() || !askBody.trim() ? 0.65 : 1,
-                  }}
-                >
-                  {askSaving ? "Posting…" : "Post question"}
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
