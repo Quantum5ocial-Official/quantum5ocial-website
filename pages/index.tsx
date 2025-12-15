@@ -608,31 +608,6 @@ function HomeComposerStrip() {
           </div>
         </div>
 
-        {/* small right-aligned primary */}
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            justifyContent: "flex-end",
-            flexWrap: "wrap",
-            gap: 10,
-          }}
-        >
-          <button
-            type="button"
-            className="nav-cta"
-            onClick={openComposer}
-            style={{
-              textDecoration: "none",
-              padding: "8px 14px",
-              borderRadius: 999,
-              fontSize: 13,
-              border: "none",
-            }}
-          >
-            {mode === "post" ? "Post" : "Ask"}
-          </button>
-        </div>
       </div>
 
       {/* ONE modal, content switches by mode */}
