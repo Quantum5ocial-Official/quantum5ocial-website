@@ -6,12 +6,16 @@ import { createPortal } from "react-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
+/* =========================
+   Types
+   ========================= */
+
 type ProfileLite = {
+  id?: string;
   full_name: string | null;
   avatar_url: string | null;
 };
 
-// Supabase may return embedded relations as object OR array depending on relationship config.
 type ProfileMaybe = ProfileLite | ProfileLite[] | null;
 
 type QQuestion = {
@@ -28,17 +32,14 @@ type QQuestion = {
 };
 
 type QAnswer = {
-  // Normalized answer id. Can be row.id or row.answer_id depending on schema.
   id: string;
-
-  // raw fields (if your DB uses answer_id)
-  answer_id?: string;
-
   question_id: string;
   user_id: string;
   body: string;
   created_at: string;
-  profiles?: ProfileMaybe;
+
+  // we will attach this manually (no embedded join needed)
+  profile?: ProfileLite | null;
 
   qna_answer_votes?: { count: number }[] | null;
 };
@@ -48,6 +49,10 @@ type MyProfileMini = {
   full_name: string | null;
   avatar_url: string | null;
 };
+
+/* =========================
+   Helpers
+   ========================= */
 
 function BodyPortal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -59,10 +64,6 @@ function BodyPortal({ children }: { children: React.ReactNode }) {
 function pickProfile(p: ProfileMaybe): ProfileLite | null {
   if (!p) return null;
   return Array.isArray(p) ? (p[0] ?? null) : p;
-}
-
-function pickId(row: any): string {
-  return row?.id ?? row?.answer_id ?? "";
 }
 
 function timeAgo(iso: string) {
@@ -110,11 +111,7 @@ function avatarBubble(name: string, avatar_url: string | null, size = 28) {
       }}
     >
       {avatar_url ? (
-        <img
-          src={avatar_url}
-          alt={name}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
+        <img src={avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       ) : (
         name.charAt(0).toUpperCase()
       )}
@@ -199,34 +196,6 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
       .map((x) => x[0]?.toUpperCase())
       .join("") || "U";
 
-  const avatarNode = (
-    <div
-      style={{
-        width: isMobile ? 36 : 40,
-        height: isMobile ? 36 : 40,
-        borderRadius: 999,
-        overflow: "hidden",
-        flexShrink: 0,
-        border: "1px solid rgba(148,163,184,0.35)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-        color: "#fff",
-        fontWeight: 800,
-        letterSpacing: 0.5,
-      }}
-      aria-label="Your avatar"
-      title={displayName}
-    >
-      {me?.avatar_url ? (
-        <img src={me.avatar_url} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      ) : (
-        initials
-      )}
-    </div>
-  );
-
   const openComposer = () => {
     if (!isAuthed) {
       router.push("/auth?redirect=/qna");
@@ -309,7 +278,31 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {avatarNode}
+          <div
+            style={{
+              width: isMobile ? 36 : 40,
+              height: isMobile ? 36 : 40,
+              borderRadius: 999,
+              overflow: "hidden",
+              flexShrink: 0,
+              border: "1px solid rgba(148,163,184,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+              color: "#fff",
+              fontWeight: 800,
+              letterSpacing: 0.5,
+            }}
+            aria-label="Your avatar"
+            title={displayName}
+          >
+            {me?.avatar_url ? (
+              <img src={me.avatar_url} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              initials
+            )}
+          </div>
 
           <div
             style={{
@@ -616,7 +609,7 @@ function QnAMiddle() {
         if (cancelled) return;
 
         if (error) {
-          console.error(error);
+          console.error("questions load error:", error);
           setErr("Could not load QnA.");
           setQuestions([]);
         } else {
@@ -671,85 +664,176 @@ function QnAMiddle() {
   }, [user]);
 
   const openThread = async (qq: QQuestion) => {
-  setOpenQ(qq);
-  setAnswers([]);
-  setAnswerBody("");
-  setLoadingAnswers(true);
-  setMyAnswerVotes({});
+    setOpenQ(qq);
+    setAnswers([]);
+    setAnswerBody("");
+    setLoadingAnswers(true);
+    setMyAnswerVotes({});
 
-  try {
-    // 1) Load answers (NO embedded relations)
-    const { data: ad, error: ae } = await supabase
-      .from("qna_answers")
-      .select("id, question_id, user_id, body, created_at")
-      .eq("question_id", qq.id)
-      .order("created_at", { ascending: true });
+    try {
+      // 1) Load answers WITHOUT embedded profiles (avoids relationship issues)
+      const { data: ans, error: ansErr } = await supabase
+        .from("qna_answers")
+        .select(
+          `
+          id,
+          question_id,
+          user_id,
+          body,
+          created_at,
+          qna_answer_votes(count)
+        `
+        )
+        .eq("question_id", qq.id)
+        .order("created_at", { ascending: true });
 
-    if (ae) {
-      console.error("openThread answers error:", ae);
-      setAnswers([]);
+      if (ansErr) {
+        console.error("openThread answers error:", ansErr);
+        setAnswers([]);
+        return;
+      }
+
+      const baseAnswers = (ans || []) as any[];
+
+      // 2) Fetch profiles for those users (manual join)
+      const userIds = Array.from(new Set(baseAnswers.map((a) => a.user_id).filter(Boolean)));
+      let profileMap: Record<string, ProfileLite> = {};
+
+      if (userIds.length > 0) {
+        const { data: profs, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
+
+        if (profErr) {
+          console.error("profiles fetch error:", profErr);
+        } else {
+          (profs || []).forEach((p: any) => {
+            profileMap[p.id] = { id: p.id, full_name: p.full_name ?? null, avatar_url: p.avatar_url ?? null };
+          });
+        }
+      }
+
+      const normalized: QAnswer[] = baseAnswers.map((row: any) => ({
+        id: row.id,
+        question_id: row.question_id,
+        user_id: row.user_id,
+        body: row.body,
+        created_at: row.created_at,
+        qna_answer_votes: row.qna_answer_votes ?? null,
+        profile: profileMap[row.user_id] ?? null,
+      }));
+
+      setAnswers(normalized);
+
+      // 3) Load my votes for answers in this thread
+      if (user && normalized.length > 0) {
+        const ids = normalized.map((a) => a.id).filter(Boolean);
+
+        const { data: vd, error: ve } = await supabase
+          .from("qna_answer_votes")
+          .select("answer_id")
+          .eq("user_id", user.id)
+          .in("answer_id", ids);
+
+        if (ve) {
+          console.error("answer votes load error:", ve);
+        } else {
+          const map: Record<string, boolean> = {};
+          (vd || []).forEach((r: any) => (map[r.answer_id] = true));
+          setMyAnswerVotes(map);
+        }
+      }
+    } finally {
+      setLoadingAnswers(false);
+    }
+  };
+
+  const closeThread = () => {
+    setOpenQ(null);
+    setAnswers([]);
+    setAnswerBody("");
+    setMyAnswerVotes({});
+  };
+
+  const handleAddAnswer = async () => {
+    if (!user) {
+      router.push("/auth?redirect=/qna");
       return;
     }
+    if (!openQ) return;
 
-    const baseAnswers = (ad || []).map((row: any) => ({
-      ...row,
-      id: pickId(row),
-      profiles: null,
-      qna_answer_votes: [{ count: 0 }],
-    })) as QAnswer[];
+    const body = answerBody.trim();
+    if (!body) return;
 
-    // If still empty, then it's not a UI bug — it's RLS or question_id mismatch.
-    setAnswers(baseAnswers);
+    setAnswerSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("qna_answers")
+        .insert({
+          question_id: openQ.id,
+          user_id: user.id,
+          body,
+        })
+        .select(
+          `
+          id,
+          question_id,
+          user_id,
+          body,
+          created_at,
+          qna_answer_votes(count)
+        `
+        )
+        .maybeSingle();
 
-    if (baseAnswers.length === 0) return;
+      if (error) {
+        console.error("insert answer error:", error);
+        return;
+      }
 
-    // 2) Load profiles for the answer authors
-    const authorIds = Array.from(new Set(baseAnswers.map((a) => a.user_id).filter(Boolean)));
+      if (data) {
+        // attach my own profile quickly
+        const { data: myP } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .eq("id", user.id)
+          .maybeSingle();
 
-    const { data: pd, error: pe } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url")
-      .in("id", authorIds);
+        const normalized: QAnswer = {
+          id: (data as any).id,
+          question_id: (data as any).question_id,
+          user_id: (data as any).user_id,
+          body: (data as any).body,
+          created_at: (data as any).created_at,
+          qna_answer_votes: (data as any).qna_answer_votes ?? null,
+          profile: myP ? { id: myP.id, full_name: myP.full_name ?? null, avatar_url: myP.avatar_url ?? null } : null,
+        };
 
-    if (pe) console.error("profiles load error:", pe);
+        setAnswers((prev) => [...prev, normalized]);
+        setAnswerBody("");
 
-    const profileMap: Record<string, ProfileLite> = {};
-    (pd || []).forEach((p: any) => {
-      profileMap[p.id] = { full_name: p.full_name ?? null, avatar_url: p.avatar_url ?? null };
-    });
+        // bump answer count locally in the list
+        setQuestions((prev) =>
+          prev.map((q) => {
+            if (q.id !== openQ.id) return q;
+            const cur = (q.qna_answers?.[0]?.count ?? 0) + 1;
+            return { ...q, qna_answers: [{ count: cur }] as any };
+          })
+        );
 
-    // 3) Load all answer votes for these answers, count client-side
-    const answerIds = baseAnswers.map((a) => a.id).filter(Boolean);
+        // keep openQ in sync too
+        setOpenQ((prev) => {
+          if (!prev) return prev;
+          const cur = (prev.qna_answers?.[0]?.count ?? 0) + 1;
+          return { ...prev, qna_answers: [{ count: cur }] as any };
+        });
+      }
+    } finally {
+      setAnswerSaving(false);
+    }
+  };
 
-    const { data: vd, error: ve } = await supabase
-      .from("qna_answer_votes")
-      .select("answer_id, user_id")
-      .in("answer_id", answerIds);
-
-    if (ve) console.error("answer votes load error:", ve);
-
-    const voteCount: Record<string, number> = {};
-    const myVoteMap: Record<string, boolean> = {};
-
-    (vd || []).forEach((r: any) => {
-      voteCount[r.answer_id] = (voteCount[r.answer_id] || 0) + 1;
-      if (user && r.user_id === user.id) myVoteMap[r.answer_id] = true;
-    });
-
-    setMyAnswerVotes(myVoteMap);
-
-    // 4) Merge back into answers state
-    setAnswers((prev) =>
-      prev.map((a) => ({
-        ...a,
-        profiles: profileMap[a.user_id] ?? null,
-        qna_answer_votes: [{ count: voteCount[a.id] ?? 0 }],
-      }))
-    );
-  } finally {
-    setLoadingAnswers(false);
-  }
-};
   const toggleVote = async (qid: string) => {
     if (!user) {
       router.push("/auth?redirect=/qna");
@@ -826,12 +910,7 @@ function QnAMiddle() {
 
     try {
       if (already) {
-        const { error } = await supabase
-          .from("qna_answer_votes")
-          .delete()
-          .eq("answer_id", answerId)
-          .eq("user_id", user.id);
-
+        const { error } = await supabase.from("qna_answer_votes").delete().eq("answer_id", answerId).eq("user_id", user.id);
         if (error) {
           console.error(error);
           return;
@@ -851,11 +930,7 @@ function QnAMiddle() {
           })
         );
       } else {
-        const { error } = await supabase.from("qna_answer_votes").insert({
-          answer_id: answerId,
-          user_id: user.id,
-        });
-
+        const { error } = await supabase.from("qna_answer_votes").insert({ answer_id: answerId, user_id: user.id });
         if (error) {
           console.error(error);
           return;
@@ -1282,8 +1357,7 @@ function QnAMiddle() {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {answers.map((a) => {
-                    const p = pickProfile(a.profiles);
-                    const name = p?.full_name || "Quantum5ocial member";
+                    const name = a.profile?.full_name || "Quantum5ocial member";
                     const aid = a.id;
                     const mine = !!myAnswerVotes[aid];
                     const v = a.qna_answer_votes?.[0]?.count ?? 0;
@@ -1301,7 +1375,7 @@ function QnAMiddle() {
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                            {avatarBubble(name, p?.avatar_url || null, 26)}
+                            {avatarBubble(name, a.profile?.avatar_url || null, 26)}
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 12, fontWeight: 800 }}>{name}</div>
                               <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>{timeAgo(a.created_at)} ago</div>
