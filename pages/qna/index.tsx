@@ -2,8 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { supabase } from "../lib/supabaseClient";
-import { useSupabaseUser } from "../lib/useSupabaseUser";
+import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 type ProfileLite = {
   full_name: string | null;
