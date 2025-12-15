@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import { createPortal } from "react-dom";
 
 type ProfileLite = {
   full_name: string | null;
@@ -41,7 +42,16 @@ type MyProfileMini = {
   full_name: string | null;
   avatar_url: string | null;
 };
+function BodyPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
 function pickProfile(p: ProfileMaybe): ProfileLite | null {
   if (!p) return null;
   return Array.isArray(p) ? (p[0] ?? null) : p;
@@ -555,91 +565,217 @@ function QnAComposerStrip({
 
       {/* MODAL (homepage feel) */}
       {open && (
+  <BodyPortal>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(2,6,23,0.62)",
+        backdropFilter: "blur(8px)",
+        zIndex: 999999,
+        display: "flex",
+        alignItems: isMobile ? "flex-end" : "center",
+        justifyContent: "center",
+        padding: isMobile ? 10 : 18,
+      }}
+      onMouseDown={(e) => {
+        // close only if clicking the backdrop
+        if (e.target === e.currentTarget) closeComposer();
+      }}
+    >
+      <div
+        style={{
+          width: "min(760px, 100%)",
+          borderRadius: isMobile ? "18px 18px 0 0" : 18,
+          border: "1px solid rgba(148,163,184,0.22)",
+          background:
+            "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+          overflow: "hidden",
+          maxHeight: isMobile ? "86vh" : "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {/* ================= HEADER ================= */}
         <div
-          style={modalBackdrop}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeComposer();
+          style={{
+            padding: "14px 16px",
+            borderBottom: "1px solid rgba(148,163,184,0.22)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
           }}
         >
-          <div style={modalCard}>
-            <div style={modalHeader}>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>Ask a question</div>
-
-              <button
-                type="button"
-                style={closeBtn}
-                onClick={closeComposer}
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={modalBody}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              overflow: "hidden",
+              border: "1px solid rgba(148,163,184,0.4)",
+              flexShrink: 0,
+            }}
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={firstName}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
               <div
                 style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                   display: "flex",
                   alignItems: "center",
-                  gap: 12,
-                  marginBottom: 12,
+                  justifyContent: "center",
+                  fontWeight: 700,
+                  color: "#0f172a",
                 }}
               >
-                {avatarNode}
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
-                    {displayName}
-                  </div>
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                    Public · Q&amp;A
-                  </div>
-                </div>
+                {firstName.charAt(0).toUpperCase()}
               </div>
+            )}
+          </div>
 
-              <input
-                value={askTitle}
-                onChange={(e) => setAskTitle(e.target.value)}
-                placeholder="Question title (be specific)"
-                style={smallInput}
-              />
-
-              <div style={{ height: 10 }} />
-
-              <textarea
-                value={askBody}
-                onChange={(e) => setAskBody(e.target.value)}
-                placeholder="Add context, details, constraints, what you already tried…"
-                style={{ ...bigTextarea, minHeight: isMobile ? 140 : 150 }}
-              />
-
-              <div style={{ height: 10 }} />
-
-              <input
-                value={askTags}
-                onChange={(e) => setAskTags(e.target.value)}
-                placeholder="Tags (comma-separated), e.g. Hardware, Cryo, Careers"
-                style={smallInput}
-              />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>
+              {firstName}
             </div>
-
-            <div style={footerBar}>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
-                <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
-                <ActionButton icon={<MiniIcon path="M12 22V12m0 0l4 4m-4-4l-4 4M4 6h16" />} label="Attach" title="Attach later" />
-              </div>
-
-              <button
-                type="button"
-                style={primaryBtn(!canSubmit)}
-                disabled={!canSubmit}
-                onClick={submit}
-              >
-                {saving ? "Posting…" : "Ask"}
-              </button>
+            <div style={{ fontSize: 12, opacity: 0.7 }}>
+              Public · Q&amp;A
             </div>
           </div>
+
+          <button
+            onClick={closeComposer}
+            style={{
+              marginLeft: "auto",
+              border: "none",
+              background: "transparent",
+              color: "rgba(226,232,240,0.8)",
+              fontSize: 18,
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
         </div>
-      )}
+
+        {/* ================= BODY ================= */}
+        <div
+          style={{
+            padding: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            overflowY: "auto",
+          }}
+        >
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Question title (be specific)"
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              padding: "12px 14px",
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "rgba(15,23,42,0.6)",
+              color: "#e5e7eb",
+              fontSize: 15,
+              outline: "none",
+            }}
+          />
+
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Add context, details, constraints, what you already tried…"
+            rows={6}
+            style={{
+              width: "100%",
+              borderRadius: 14,
+              padding: "12px 14px",
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "rgba(15,23,42,0.6)",
+              color: "#e5e7eb",
+              fontSize: 14,
+              outline: "none",
+              resize: "vertical",
+              lineHeight: 1.5,
+            }}
+          />
+
+          <input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="Tags (comma-separated) e.g. Hardware, Cryo, Careers"
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              padding: "10px 12px",
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "rgba(15,23,42,0.6)",
+              color: "#e5e7eb",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </div>
+
+        {/* ================= FOOTER ================= */}
+        <div
+          style={{
+            padding: "14px 16px",
+            borderTop: "1px solid rgba(148,163,184,0.22)",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+          }}
+        >
+          <button
+            onClick={closeComposer}
+            style={{
+              padding: "9px 14px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.45)",
+              background: "transparent",
+              color: "rgba(226,232,240,0.9)",
+              fontSize: 13,
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={submitQuestion}
+            disabled={!title.trim() || !body.trim() || submitting}
+            style={{
+              padding: "9px 18px",
+              borderRadius: 999,
+              border: "none",
+              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+              color: "#0f172a",
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: submitting ? "default" : "pointer",
+              opacity:
+                submitting || !title.trim() || !body.trim() ? 0.65 : 1,
+            }}
+          >
+            {submitting ? "Posting…" : "Post question"}
+          </button>
+        </div>
+      </div>
+    </div>
+  </BodyPortal>
+)}
     </>
   );
 }
