@@ -2,9 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { createPortal } from "react-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import { createPortal } from "react-dom";
 
 type ProfileLite = {
   full_name: string | null;
@@ -42,6 +42,7 @@ type MyProfileMini = {
   full_name: string | null;
   avatar_url: string | null;
 };
+
 function BodyPortal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
@@ -52,6 +53,7 @@ function BodyPortal({ children }: { children: React.ReactNode }) {
   if (!mounted) return null;
   return createPortal(children, document.body);
 }
+
 function pickProfile(p: ProfileMaybe): ProfileLite | null {
   if (!p) return null;
   return Array.isArray(p) ? (p[0] ?? null) : p;
@@ -121,57 +123,6 @@ function avatarBubble(name: string, avatar_url: string | null, size = 28) {
   );
 }
 
-/* =========================
-   Composer bits (homepage-like)
-   ========================= */
-
-function MiniIcon({ path }: { path: string }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-      <path
-        d={path}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  title,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  title?: string;
-}) {
-  return (
-    <button
-      type="button"
-      title={title || label}
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "8px 10px",
-        borderRadius: 999,
-        border: "1px solid rgba(148,163,184,0.18)",
-        background: "rgba(2,6,23,0.22)",
-        color: "rgba(226,232,240,0.92)",
-        fontSize: 13,
-        cursor: "pointer",
-      }}
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
-      <span style={{ opacity: 0.95 }}>{label}</span>
-    </button>
-  );
-}
-
 function useIsMobile(maxWidth = 520) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -199,11 +150,11 @@ function useIsMobile(maxWidth = 520) {
   return isMobile;
 }
 
-function QnAComposerStrip({
-  onCreated,
-}: {
-  onCreated: (newQ: QQuestion) => void;
-}) {
+/* =========================
+   QnA Composer (homepage-like, Ask-only)
+   ========================= */
+
+function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void }) {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
   const isMobile = useIsMobile(520);
@@ -245,6 +196,7 @@ function QnAComposerStrip({
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
   const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
+  const avatarUrl = me?.avatar_url ?? null;
 
   const initials =
     (me?.full_name || "")
@@ -274,16 +226,11 @@ function QnAComposerStrip({
       aria-label="Your avatar"
       title={displayName}
     >
-      {me?.avatar_url ? (
+      {avatarUrl ? (
         <img
-          src={me.avatar_url}
+          src={avatarUrl}
           alt={displayName}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       ) : (
         initials
@@ -294,8 +241,7 @@ function QnAComposerStrip({
   const shellStyle: React.CSSProperties = {
     borderRadius: 18,
     border: "1px solid rgba(148,163,184,0.18)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.70), rgba(15,23,42,0.86))",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.70), rgba(15,23,42,0.86))",
     boxShadow: "0 18px 40px rgba(15,23,42,0.35)",
     padding: isMobile ? 12 : 14,
     marginTop: 14,
@@ -316,105 +262,6 @@ function QnAComposerStrip({
     minWidth: 0,
   };
 
-  const modalBackdrop: React.CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(2,6,23,0.62)",
-    backdropFilter: "blur(8px)",
-    zIndex: 1000,
-    display: "flex",
-    alignItems: isMobile ? "flex-end" : "center",
-    justifyContent: "center",
-    padding: isMobile ? 10 : 18,
-  };
-
-  const modalCard: React.CSSProperties = {
-    width: "min(740px, 100%)",
-    borderRadius: isMobile ? "18px 18px 0 0" : 18,
-    border: "1px solid rgba(148,163,184,0.22)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-    overflow: "hidden",
-    maxHeight: isMobile ? "86vh" : undefined,
-  };
-
-  const modalHeader: React.CSSProperties = {
-    padding: "14px 16px",
-    borderBottom: "1px solid rgba(148,163,184,0.14)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  };
-
-  const closeBtn: React.CSSProperties = {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.18)",
-    background: "rgba(2,6,23,0.2)",
-    color: "rgba(226,232,240,0.92)",
-    cursor: "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  };
-
-  const modalBody: React.CSSProperties = {
-    padding: 16,
-    overflowY: isMobile ? "auto" : undefined,
-  };
-
-  const bigTextarea: React.CSSProperties = {
-    width: "100%",
-    minHeight: isMobile ? 140 : 160,
-    borderRadius: 14,
-    border: "1px solid rgba(148,163,184,0.2)",
-    background: "rgba(2,6,23,0.26)",
-    color: "rgba(226,232,240,0.94)",
-    padding: 14,
-    fontSize: 15,
-    lineHeight: 1.45,
-    outline: "none",
-    resize: "vertical",
-  };
-
-  const smallInput: React.CSSProperties = {
-    width: "100%",
-    height: 42,
-    borderRadius: 12,
-    border: "1px solid rgba(148,163,184,0.2)",
-    background: "rgba(2,6,23,0.26)",
-    color: "rgba(226,232,240,0.94)",
-    padding: "0 12px",
-    fontSize: 14,
-    outline: "none",
-  };
-
-  const footerBar: React.CSSProperties = {
-    padding: "12px 16px",
-    borderTop: "1px solid rgba(148,163,184,0.14)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  };
-
-  const primaryBtn = (disabled?: boolean): React.CSSProperties => ({
-    padding: "9px 16px",
-    borderRadius: 999,
-    border: "none",
-    fontSize: 13,
-    fontWeight: 800,
-    cursor: disabled ? "default" : "pointer",
-    opacity: disabled ? 0.55 : 1,
-    background: "linear-gradient(135deg,#a78bfa,#3bc7f3)",
-    color: "#0f172a",
-  });
-
   const openComposer = () => {
     if (!isAuthed) {
       router.push("/auth?redirect=/qna");
@@ -425,11 +272,17 @@ function QnAComposerStrip({
 
   const closeComposer = () => setOpen(false);
 
-  const collapsedPlaceholder = isMobile
-    ? "Ask a question…"
-    : `Ask the quantum community, ${firstName}…`;
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeComposer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
-  const canSubmit = !!askTitle.trim() && !!askBody.trim() && !saving;
+  const collapsedPlaceholder = isMobile ? "Ask a question…" : `Ask the quantum community, ${firstName}…`;
 
   const submit = async () => {
     if (!user) {
@@ -451,12 +304,7 @@ function QnAComposerStrip({
     try {
       const { data, error } = await supabase
         .from("qna_questions")
-        .insert({
-          user_id: user.id,
-          title,
-          body,
-          tags,
-        })
+        .insert({ user_id: user.id, title, body, tags })
         .select(
           `
           id, user_id, title, body, tags, created_at,
@@ -473,11 +321,7 @@ function QnAComposerStrip({
       }
 
       if (data) {
-        const normalized = {
-          ...(data as any),
-          profiles: pickProfile((data as any).profiles),
-        } as QQuestion;
-
+        const normalized = { ...(data as any), profiles: pickProfile((data as any).profiles) } as QQuestion;
         onCreated(normalized);
 
         setAskTitle("");
@@ -490,25 +334,17 @@ function QnAComposerStrip({
     }
   };
 
+  const canSubmit = !!askTitle.trim() && !!askBody.trim() && !saving;
+
   return (
     <>
-      {/* HOMEPAGE-LIKE COMPOSER STRIP (ASK-focused) */}
+      {/* STRIP */}
       <div style={shellStyle}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {avatarNode}
 
           <div
-            style={{
-              ...collapsedInputStyle,
-              flex: "1 1 260px",
-            }}
+            style={{ ...collapsedInputStyle, flex: "1 1 260px" }}
             onClick={openComposer}
             role="button"
             tabIndex={0}
@@ -530,16 +366,7 @@ function QnAComposerStrip({
               {collapsedPlaceholder}
             </span>
 
-            <span
-              style={{
-                marginLeft: "auto",
-                opacity: 0.75,
-                fontSize: 12,
-                flexShrink: 0,
-              }}
-            >
-              ❓
-            </span>
+            <span style={{ marginLeft: "auto", opacity: 0.75, fontSize: 12, flexShrink: 0 }}>❓</span>
           </div>
 
           <button
@@ -563,219 +390,217 @@ function QnAComposerStrip({
         </div>
       </div>
 
-      {/* MODAL (homepage feel) */}
+      {/* MODAL (ported to body so it never gets clipped / “interfered” with) */}
       {open && (
-  <BodyPortal>
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(2,6,23,0.62)",
-        backdropFilter: "blur(8px)",
-        zIndex: 999999,
-        display: "flex",
-        alignItems: isMobile ? "flex-end" : "center",
-        justifyContent: "center",
-        padding: isMobile ? 10 : 18,
-      }}
-      onMouseDown={(e) => {
-        // close only if clicking the backdrop
-        if (e.target === e.currentTarget) closeComposer();
-      }}
-    >
-      <div
-        style={{
-          width: "min(760px, 100%)",
-          borderRadius: isMobile ? "18px 18px 0 0" : 18,
-          border: "1px solid rgba(148,163,184,0.22)",
-          background:
-            "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-          overflow: "hidden",
-          maxHeight: isMobile ? "86vh" : "90vh",
-          display: "flex",
-          flexDirection: "column",
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {/* ================= HEADER ================= */}
-        <div
-          style={{
-            padding: "14px 16px",
-            borderBottom: "1px solid rgba(148,163,184,0.22)",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
+        <BodyPortal>
           <div
             style={{
-              width: 34,
-              height: 34,
-              borderRadius: "50%",
-              overflow: "hidden",
-              border: "1px solid rgba(148,163,184,0.4)",
-              flexShrink: 0,
+              position: "fixed",
+              inset: 0,
+              background: "rgba(2,6,23,0.62)",
+              backdropFilter: "blur(8px)",
+              zIndex: 999999,
+              display: "flex",
+              alignItems: isMobile ? "flex-end" : "center",
+              justifyContent: "center",
+              padding: isMobile ? 10 : 18,
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) closeComposer();
             }}
           >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={firstName}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
+            <div
+              style={{
+                width: "min(760px, 100%)",
+                borderRadius: isMobile ? "18px 18px 0 0" : 18,
+                border: "1px solid rgba(148,163,184,0.22)",
+                background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+                boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+                overflow: "hidden",
+                maxHeight: isMobile ? "86vh" : "90vh",
+                display: "flex",
+                flexDirection: "column",
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {/* HEADER */}
               <div
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  padding: "14px 16px",
+                  borderBottom: "1px solid rgba(148,163,184,0.22)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  color: "#0f172a",
+                  gap: 12,
                 }}
               >
-                {firstName.charAt(0).toUpperCase()}
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={firstName}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 800,
+                        color: "#0f172a",
+                      }}
+                    >
+                      {firstName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.1 }}>{displayName}</div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>Public · Q&amp;A</div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeComposer}
+                  style={{
+                    marginLeft: "auto",
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    background: "rgba(2,6,23,0.2)",
+                    color: "rgba(226,232,240,0.92)",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
               </div>
-            )}
-          </div>
 
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>
-              {firstName}
+              {/* BODY */}
+              <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+                <input
+                  value={askTitle}
+                  onChange={(e) => setAskTitle(e.target.value)}
+                  placeholder="Question title (be specific)"
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    background: "rgba(15,23,42,0.6)",
+                    color: "#e5e7eb",
+                    fontSize: 15,
+                    outline: "none",
+                  }}
+                />
+
+                <textarea
+                  value={askBody}
+                  onChange={(e) => setAskBody(e.target.value)}
+                  placeholder="Add context, details, constraints, what you already tried…"
+                  rows={6}
+                  style={{
+                    width: "100%",
+                    borderRadius: 14,
+                    padding: "12px 14px",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    background: "rgba(15,23,42,0.6)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    outline: "none",
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                  }}
+                />
+
+                <input
+                  value={askTags}
+                  onChange={(e) => setAskTags(e.target.value)}
+                  placeholder="Tags (comma-separated) e.g. Hardware, Cryo, Careers"
+                  style={{
+                    width: "100%",
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    background: "rgba(15,23,42,0.6)",
+                    color: "#e5e7eb",
+                    fontSize: 13,
+                    outline: "none",
+                  }}
+                />
+              </div>
+
+              {/* FOOTER */}
+              <div
+                style={{
+                  padding: "14px 16px",
+                  borderTop: "1px solid rgba(148,163,184,0.22)",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={closeComposer}
+                  disabled={saving}
+                  style={{
+                    padding: "9px 14px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.45)",
+                    background: "transparent",
+                    color: "rgba(226,232,240,0.9)",
+                    fontSize: 13,
+                    cursor: saving ? "default" : "pointer",
+                    opacity: saving ? 0.7 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={!canSubmit}
+                  style={{
+                    padding: "9px 18px",
+                    borderRadius: 999,
+                    border: "none",
+                    background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+                    color: "#0f172a",
+                    fontSize: 13,
+                    fontWeight: 800,
+                    cursor: !canSubmit ? "default" : "pointer",
+                    opacity: !canSubmit ? 0.65 : 1,
+                  }}
+                >
+                  {saving ? "Posting…" : "Post question"}
+                </button>
+              </div>
             </div>
-            <div style={{ fontSize: 12, opacity: 0.7 }}>
-              Public · Q&amp;A
-            </div>
           </div>
-
-          <button
-            onClick={closeComposer}
-            style={{
-              marginLeft: "auto",
-              border: "none",
-              background: "transparent",
-              color: "rgba(226,232,240,0.8)",
-              fontSize: 18,
-              cursor: "pointer",
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* ================= BODY ================= */}
-        <div
-          style={{
-            padding: 16,
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            overflowY: "auto",
-          }}
-        >
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Question title (be specific)"
-            style={{
-              width: "100%",
-              borderRadius: 12,
-              padding: "12px 14px",
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(15,23,42,0.6)",
-              color: "#e5e7eb",
-              fontSize: 15,
-              outline: "none",
-            }}
-          />
-
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Add context, details, constraints, what you already tried…"
-            rows={6}
-            style={{
-              width: "100%",
-              borderRadius: 14,
-              padding: "12px 14px",
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(15,23,42,0.6)",
-              color: "#e5e7eb",
-              fontSize: 14,
-              outline: "none",
-              resize: "vertical",
-              lineHeight: 1.5,
-            }}
-          />
-
-          <input
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="Tags (comma-separated) e.g. Hardware, Cryo, Careers"
-            style={{
-              width: "100%",
-              borderRadius: 12,
-              padding: "10px 12px",
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(15,23,42,0.6)",
-              color: "#e5e7eb",
-              fontSize: 13,
-              outline: "none",
-            }}
-          />
-        </div>
-
-        {/* ================= FOOTER ================= */}
-        <div
-          style={{
-            padding: "14px 16px",
-            borderTop: "1px solid rgba(148,163,184,0.22)",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-          }}
-        >
-          <button
-            onClick={closeComposer}
-            style={{
-              padding: "9px 14px",
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.45)",
-              background: "transparent",
-              color: "rgba(226,232,240,0.9)",
-              fontSize: 13,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-
-          <button
-            onClick={submitQuestion}
-            disabled={!title.trim() || !body.trim() || submitting}
-            style={{
-              padding: "9px 18px",
-              borderRadius: 999,
-              border: "none",
-              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
-              color: "#0f172a",
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: submitting ? "default" : "pointer",
-              opacity:
-                submitting || !title.trim() || !body.trim() ? 0.65 : 1,
-            }}
-          >
-            {submitting ? "Posting…" : "Post question"}
-          </button>
-        </div>
-      </div>
-    </div>
-  </BodyPortal>
-)}
+        </BodyPortal>
+      )}
     </>
   );
 }
@@ -960,11 +785,7 @@ function QnAMiddle() {
     try {
       const { data, error } = await supabase
         .from("qna_answers")
-        .insert({
-          question_id: openQ.id,
-          user_id: user.id,
-          body,
-        })
+        .insert({ question_id: openQ.id, user_id: user.id, body })
         .select(
           `
           id, question_id, user_id, body, created_at,
@@ -1085,8 +906,7 @@ function QnAMiddle() {
           className="card"
           style={{
             padding: 16,
-            background:
-              "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.98))",
+            background: "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.18), rgba(15,23,42,0.98))",
             border: "1px solid rgba(148,163,184,0.35)",
             boxShadow: "0 18px 45px rgba(15,23,42,0.8)",
           }}
@@ -1137,18 +957,16 @@ function QnAMiddle() {
             </div>
           </div>
 
-          {/* ✅ Proper ask composer (homepage-like) */}
+          {/* Ask composer (homepage-like) */}
           <QnAComposerStrip
             onCreated={(newQ) => {
               setQuestions((prev) => [newQ, ...prev]);
             }}
           />
 
-          {/* Search (kept as-is) */}
+          {/* Search */}
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6, paddingLeft: 4 }}>
-              Search questions
-            </div>
+            <div style={{ fontSize: 12, opacity: 0.85, marginBottom: 6, paddingLeft: 4 }}>Search questions</div>
 
             <div className="jobs-main-search">
               <div
@@ -1393,9 +1211,7 @@ function QnAMiddle() {
         </div>
       )}
 
-      {/* =========================
-          THREAD PANEL
-      ========================== */}
+      {/* THREAD PANEL */}
       {openQ && (
         <div
           onClick={closeThread}
