@@ -671,63 +671,65 @@ function QnAMiddle() {
   }, [user]);
 
   const openThread = async (qq: QQuestion) => {
-    setOpenQ(qq);
-    setAnswers([]);
-    setAnswerBody("");
-    setLoadingAnswers(true);
-    setMyAnswerVotes({});
+  setOpenQ(qq);
+  setAnswers([]);
+  setAnswerBody("");
+  setLoadingAnswers(true);
+  setMyAnswerVotes({});
 
-    try {
-      const { data, error } = await supabase
-        .from("qna_answers")
-        .select(
-          `
-          id,
-          answer_id,
-          question_id,
-          user_id,
-          body,
-          created_at,
-          profiles:profiles ( full_name, avatar_url ),
-          qna_answer_votes(count)
+  try {
+    const { data, error } = await supabase
+      .from("qna_answers")
+      .select(
         `
-        )
-        .eq("question_id", qq.id)
-        .order("created_at", { ascending: true });
+        id,
+        question_id,
+        user_id,
+        body,
+        created_at,
+        profiles:profiles ( full_name, avatar_url ),
+        qna_answer_votes(count)
+      `
+      )
+      .eq("question_id", qq.id)
+      .order("created_at", { ascending: true });
 
-      if (error) {
-        console.error("openThread answers error:", error);
-        setAnswers([]);
-        return;
-      }
-
-      const normalized = (data || []).map((row: any) => ({
-        ...row,
-        id: pickId(row),
-        profiles: pickProfile(row.profiles),
-      })) as QAnswer[];
-
-      setAnswers(normalized);
-
-      // Load my answer votes for just these answers (for toggle UI)
-      if (user && normalized.length > 0) {
-        const ids = normalized.map((a) => a.id).filter(Boolean);
-        const { data: vd, error: ve } = await supabase
-          .from("qna_answer_votes")
-          .select("answer_id")
-          .eq("user_id", user.id)
-          .in("answer_id", ids);
-
-        if (!ve) {
-          const map: Record<string, boolean> = {};
-          (vd || []).forEach((r: any) => (map[r.answer_id] = true));
-          setMyAnswerVotes(map);
-        }
-      }
-    } finally {
-      setLoadingAnswers(false);
+    if (error) {
+      console.error("openThread answers error:", error);
+      setAnswers([]);
+      return;
     }
-  };
+
+    const normalized = (data || []).map((row: any) => ({
+      ...row,
+      // ensure profiles is object not array
+      profiles: pickProfile(row.profiles),
+    })) as QAnswer[];
+
+    setAnswers(normalized);
+
+    // Load my votes for answers in this thread
+    if (user && normalized.length > 0) {
+      const ids = normalized.map((a) => a.id).filter(Boolean);
+
+      const { data: vd, error: ve } = await supabase
+        .from("qna_answer_votes")
+        .select("answer_id")
+        .eq("user_id", user.id)
+        .in("answer_id", ids);
+
+      if (ve) {
+        console.error("answer votes load error:", ve);
+      } else {
+        const map: Record<string, boolean> = {};
+        (vd || []).forEach((r: any) => (map[r.answer_id] = true));
+        setMyAnswerVotes(map);
+      }
+    }
+  } finally {
+    setLoadingAnswers(false);
+  }
+};
 
   const closeThread = () => {
     setOpenQ(null);
@@ -756,17 +758,16 @@ function QnAMiddle() {
           body,
         })
         .select(
-          `
-          id,
-          answer_id,
-          question_id,
-          user_id,
-          body,
-          created_at,
-          profiles:profiles ( full_name, avatar_url ),
-          qna_answer_votes(count)
-        `
-        )
+  `
+  id,
+  question_id,
+  user_id,
+  body,
+  created_at,
+  profiles:profiles ( full_name, avatar_url ),
+  qna_answer_votes(count)
+`
+)
         .maybeSingle();
 
       if (error) {
