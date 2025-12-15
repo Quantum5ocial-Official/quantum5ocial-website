@@ -2,9 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { createPortal } from "react-dom";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import { createPortal } from "react-dom";
 
 type ProfileLite = {
   full_name: string | null;
@@ -35,9 +35,6 @@ type QAnswer = {
   body: string;
   created_at: string;
   profiles?: ProfileMaybe;
-
-  // embedded count fields
-  qna_answer_votes?: { count: number }[] | null;
 };
 
 type MyProfileMini = {
@@ -48,7 +45,11 @@ type MyProfileMini = {
 
 function BodyPortal({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   if (!mounted) return null;
   return createPortal(children, document.body);
 }
@@ -130,9 +131,11 @@ function useIsMobile(maxWidth = 520) {
 
     const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
     const set = () => setIsMobile(mq.matches);
+
     set();
 
     const anyMq = mq as any;
+
     if (mq.addEventListener) {
       mq.addEventListener("change", set);
       return () => mq.removeEventListener("change", set);
@@ -141,14 +144,16 @@ function useIsMobile(maxWidth = 520) {
       anyMq.addListener(set);
       return () => anyMq.removeListener(set);
     }
+    return;
   }, [maxWidth]);
 
   return isMobile;
 }
 
 /* =========================
-   Homepage-like Ask Composer
+   QnA Composer (homepage-like, Ask-only)
    ========================= */
+
 function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void }) {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
@@ -191,7 +196,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
   const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
-  const avatarUrl = me?.avatar_url || null;
+  const avatarUrl = me?.avatar_url ?? null;
 
   const initials =
     (me?.full_name || "")
@@ -201,6 +206,62 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
       .map((x) => x[0]?.toUpperCase())
       .join("") || "U";
 
+  const avatarNode = (
+    <div
+      style={{
+        width: isMobile ? 36 : 40,
+        height: isMobile ? 36 : 40,
+        borderRadius: 999,
+        overflow: "hidden",
+        flexShrink: 0,
+        border: "1px solid rgba(148,163,184,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+        color: "#fff",
+        fontWeight: 800,
+        letterSpacing: 0.5,
+      }}
+      aria-label="Your avatar"
+      title={displayName}
+    >
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+
+  const shellStyle: React.CSSProperties = {
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.70), rgba(15,23,42,0.86))",
+    boxShadow: "0 18px 40px rgba(15,23,42,0.35)",
+    padding: isMobile ? 12 : 14,
+    marginTop: 14,
+  };
+
+  const collapsedInputStyle: React.CSSProperties = {
+    height: isMobile ? 40 : 42,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "rgba(2,6,23,0.35)",
+    color: "rgba(226,232,240,0.92)",
+    padding: "0 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    cursor: "pointer",
+    userSelect: "none",
+    minWidth: 0,
+  };
+
   const openComposer = () => {
     if (!isAuthed) {
       router.push("/auth?redirect=/qna");
@@ -208,7 +269,18 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
     }
     setOpen(true);
   };
+
   const closeComposer = () => setOpen(false);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeComposer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   const collapsedPlaceholder = isMobile ? "Ask a question…" : `Ask the quantum community, ${firstName}…`;
 
@@ -232,12 +304,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
     try {
       const { data, error } = await supabase
         .from("qna_questions")
-        .insert({
-          user_id: user.id,
-          title,
-          body,
-          tags,
-        })
+        .insert({ user_id: user.id, title, body, tags })
         .select(
           `
           id, user_id, title, body, tags, created_at,
@@ -249,16 +316,12 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
         .maybeSingle();
 
       if (error) {
-        console.error("create question error:", error);
+        console.error(error);
         return;
       }
 
       if (data) {
-        const normalized = {
-          ...(data as any),
-          profiles: pickProfile((data as any).profiles),
-        } as QQuestion;
-
+        const normalized = { ...(data as any), profiles: pickProfile((data as any).profiles) } as QQuestion;
         onCreated(normalized);
 
         setAskTitle("");
@@ -271,72 +334,38 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
     }
   };
 
+  const canSubmit = !!askTitle.trim() && !!askBody.trim() && !saving;
+
   return (
     <>
-      {/* Composer strip */}
-      <div
-        style={{
-          borderRadius: 18,
-          border: "1px solid rgba(148,163,184,0.18)",
-          background: "linear-gradient(135deg, rgba(15,23,42,0.70), rgba(15,23,42,0.86))",
-          boxShadow: "0 18px 40px rgba(15,23,42,0.35)",
-          padding: isMobile ? 12 : 14,
-          marginTop: 14,
-        }}
-      >
+      {/* STRIP */}
+      <div style={shellStyle}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div
-            style={{
-              width: isMobile ? 36 : 40,
-              height: isMobile ? 36 : 40,
-              borderRadius: 999,
-              overflow: "hidden",
-              flexShrink: 0,
-              border: "1px solid rgba(148,163,184,0.35)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-              color: "#fff",
-              fontWeight: 800,
-              letterSpacing: 0.5,
-            }}
-            aria-label="Your avatar"
-            title={displayName}
-          >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              initials
-            )}
-          </div>
+          {avatarNode}
 
           <div
-            style={{
-              height: isMobile ? 40 : 42,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background: "rgba(2,6,23,0.35)",
-              color: "rgba(226,232,240,0.92)",
-              padding: "0 14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              cursor: "pointer",
-              userSelect: "none",
-              minWidth: 0,
-              flex: "1 1 260px",
-            }}
+            style={{ ...collapsedInputStyle, flex: "1 1 260px" }}
             onClick={openComposer}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && openComposer()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") openComposer();
+            }}
             aria-label="Ask a question"
             title="Ask a question"
           >
-            <span style={{ opacity: 0.9, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span
+              style={{
+                opacity: 0.9,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {collapsedPlaceholder}
             </span>
+
             <span style={{ marginLeft: "auto", opacity: 0.75, fontSize: 12, flexShrink: 0 }}>❓</span>
           </div>
 
@@ -361,7 +390,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
         </div>
       </div>
 
-      {/* Modal */}
+      {/* MODAL (ported to body so it never gets clipped / “interfered” with) */}
       {open && (
         <BodyPortal>
           <div
@@ -394,7 +423,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
               }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {/* header */}
+              {/* HEADER */}
               <div
                 style={{
                   padding: "14px 16px",
@@ -415,7 +444,11 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                   }}
                 >
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt={firstName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img
+                      src={avatarUrl}
+                      alt={firstName}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
                   ) : (
                     <div
                       style={{
@@ -435,24 +468,26 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                 </div>
 
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{firstName}</div>
-                  <div style={{ fontSize: 12, opacity: 0.7 }}>Public · Q&amp;A</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, lineHeight: 1.1 }}>{displayName}</div>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>Public · Q&amp;A</div>
                 </div>
 
                 <button
+                  type="button"
                   onClick={closeComposer}
                   style={{
                     marginLeft: "auto",
-                    border: "1px solid rgba(148,163,184,0.25)",
-                    background: "rgba(2,6,23,0.2)",
-                    color: "rgba(226,232,240,0.85)",
                     width: 34,
                     height: 34,
                     borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    background: "rgba(2,6,23,0.2)",
+                    color: "rgba(226,232,240,0.92)",
                     cursor: "pointer",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    flexShrink: 0,
                   }}
                   aria-label="Close"
                 >
@@ -460,7 +495,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                 </button>
               </div>
 
-              {/* body */}
+              {/* BODY */}
               <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
                 <input
                   value={askTitle}
@@ -514,7 +549,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                 />
               </div>
 
-              {/* footer */}
+              {/* FOOTER */}
               <div
                 style={{
                   padding: "14px 16px",
@@ -522,9 +557,11 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                   display: "flex",
                   justifyContent: "flex-end",
                   gap: 10,
+                  flexWrap: "wrap",
                 }}
               >
                 <button
+                  type="button"
                   onClick={closeComposer}
                   disabled={saving}
                   style={{
@@ -542,8 +579,9 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                 </button>
 
                 <button
+                  type="button"
                   onClick={submit}
-                  disabled={saving || !askTitle.trim() || !askBody.trim()}
+                  disabled={!canSubmit}
                   style={{
                     padding: "9px 18px",
                     borderRadius: 999,
@@ -551,9 +589,9 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
                     background: "linear-gradient(90deg,#22d3ee,#6366f1)",
                     color: "#0f172a",
                     fontSize: 13,
-                    fontWeight: 900,
-                    cursor: saving ? "default" : "pointer",
-                    opacity: saving || !askTitle.trim() || !askBody.trim() ? 0.65 : 1,
+                    fontWeight: 800,
+                    cursor: !canSubmit ? "default" : "pointer",
+                    opacity: !canSubmit ? 0.65 : 1,
                   }}
                 >
                   {saving ? "Posting…" : "Post question"}
@@ -570,6 +608,7 @@ function QnAComposerStrip({ onCreated }: { onCreated: (newQ: QQuestion) => void 
 /* =========================
    Main
    ========================= */
+
 function QnAMiddle() {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -588,15 +627,11 @@ function QnAMiddle() {
   const [answerBody, setAnswerBody] = useState("");
   const [answerSaving, setAnswerSaving] = useState(false);
 
-  // question votes
+  // vote state per user
   const [myVotes, setMyVotes] = useState<Record<string, boolean>>({});
   const [voteLoadingIds, setVoteLoadingIds] = useState<string[]>([]);
-  const isVoteLoading = (qid: string) => voteLoadingIds.includes(qid);
 
-  // answer votes
-  const [myAnswerVotes, setMyAnswerVotes] = useState<Record<string, boolean>>({});
-  const [answerVoteLoadingIds, setAnswerVoteLoadingIds] = useState<string[]>([]);
-  const isAnswerVoteLoading = (aid: string) => answerVoteLoadingIds.includes(aid);
+  const isVoteLoading = (qid: string) => voteLoadingIds.includes(qid);
 
   const suggestedTags = useMemo(
     () => ["Hardware", "Software", "Careers", "Cryo", "Microwave", "Qubits", "Fabrication", "Theory", "Sensing"],
@@ -629,10 +664,11 @@ function QnAMiddle() {
         if (activeTag) q = q.contains("tags", [activeTag]);
 
         const { data, error } = await q.limit(100);
+
         if (cancelled) return;
 
         if (error) {
-          console.error("questions load error:", error);
+          console.error(error);
           setErr("Could not load QnA.");
           setQuestions([]);
         } else {
@@ -659,7 +695,7 @@ function QnAMiddle() {
     };
   }, [search, activeTag]);
 
-  // Load my question votes
+  // Load my votes (for toggle UI)
   useEffect(() => {
     let cancelled = false;
 
@@ -696,43 +732,6 @@ function QnAMiddle() {
     };
   }, [user]);
 
-  // Load my answer votes (global)
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadMyAnswerVotes = async () => {
-      if (!user) {
-        setMyAnswerVotes({});
-        return;
-      }
-      try {
-        const { data, error } = await supabase.from("qna_answer_votes").select("answer_id").eq("user_id", user.id);
-
-        if (cancelled) return;
-
-        if (error) {
-          console.error("answer votes load error", error);
-          setMyAnswerVotes({});
-          return;
-        }
-
-        const map: Record<string, boolean> = {};
-        (data || []).forEach((r: any) => (map[r.answer_id] = true));
-        setMyAnswerVotes(map);
-      } catch (e) {
-        if (!cancelled) {
-          console.error(e);
-          setMyAnswerVotes({});
-        }
-      }
-    };
-
-    loadMyAnswerVotes();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
   const openThread = async (qq: QQuestion) => {
     setOpenQ(qq);
     setAnswers([]);
@@ -745,15 +744,14 @@ function QnAMiddle() {
         .select(
           `
           id, question_id, user_id, body, created_at,
-          profiles:profiles ( full_name, avatar_url ),
-          qna_answer_votes(count)
+          profiles:profiles ( full_name, avatar_url )
         `
         )
         .eq("question_id", qq.id)
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.error("openThread answers error:", error);
+        console.error(error);
         setAnswers([]);
       } else {
         const normalized = (data || []).map((row: any) => ({
@@ -787,28 +785,23 @@ function QnAMiddle() {
     try {
       const { data, error } = await supabase
         .from("qna_answers")
-        .insert({
-          question_id: openQ.id,
-          user_id: user.id,
-          body,
-        })
+        .insert({ question_id: openQ.id, user_id: user.id, body })
         .select(
           `
           id, question_id, user_id, body, created_at,
-          profiles:profiles ( full_name, avatar_url ),
-          qna_answer_votes(count)
+          profiles:profiles ( full_name, avatar_url )
         `
         )
         .maybeSingle();
 
       if (error) {
-        console.error("add answer error:", error);
+        console.error(error);
         return;
       }
 
       if (data) {
-        const normalized = { ...(data as any), profiles: pickProfile((data as any).profiles) } as QAnswer;
-        setAnswers((prev) => [...prev, normalized]);
+        const normalized = { ...(data as any), profiles: pickProfile((data as any).profiles) };
+        setAnswers((prev) => [...prev, normalized as any]);
         setAnswerBody("");
 
         // bump answer count locally in the list
@@ -840,6 +833,7 @@ function QnAMiddle() {
     if (isVoteLoading(qid)) return;
 
     setVoteLoadingIds((p) => [...p, qid]);
+
     const already = !!myVotes[qid];
 
     try {
@@ -856,6 +850,7 @@ function QnAMiddle() {
           return c;
         });
 
+        // decrement UI counts
         setQuestions((prev) =>
           prev.map((q) => {
             if (q.id !== qid) return q;
@@ -877,6 +872,7 @@ function QnAMiddle() {
 
         setMyVotes((prev) => ({ ...prev, [qid]: true }));
 
+        // increment UI counts
         setQuestions((prev) =>
           prev.map((q) => {
             if (q.id !== qid) return q;
@@ -892,59 +888,6 @@ function QnAMiddle() {
       }
     } finally {
       setVoteLoadingIds((p) => p.filter((x) => x !== qid));
-    }
-  };
-
-  const toggleAnswerVote = async (aid: string) => {
-    if (!user) {
-      router.push("/auth?redirect=/qna");
-      return;
-    }
-    if (isAnswerVoteLoading(aid)) return;
-
-    setAnswerVoteLoadingIds((p) => [...p, aid]);
-    const already = !!myAnswerVotes[aid];
-
-    try {
-      if (already) {
-        const { error } = await supabase.from("qna_answer_votes").delete().eq("answer_id", aid).eq("user_id", user.id);
-        if (error) {
-          console.error(error);
-          return;
-        }
-
-        setMyAnswerVotes((prev) => {
-          const c = { ...prev };
-          delete c[aid];
-          return c;
-        });
-
-        setAnswers((prev) =>
-          prev.map((a) => {
-            if (a.id !== aid) return a;
-            const cur = Math.max(0, (a.qna_answer_votes?.[0]?.count ?? 0) - 1);
-            return { ...a, qna_answer_votes: [{ count: cur }] as any };
-          })
-        );
-      } else {
-        const { error } = await supabase.from("qna_answer_votes").insert({ answer_id: aid, user_id: user.id });
-        if (error) {
-          console.error(error);
-          return;
-        }
-
-        setMyAnswerVotes((prev) => ({ ...prev, [aid]: true }));
-
-        setAnswers((prev) =>
-          prev.map((a) => {
-            if (a.id !== aid) return a;
-            const cur = (a.qna_answer_votes?.[0]?.count ?? 0) + 1;
-            return { ...a, qna_answer_votes: [{ count: cur }] as any };
-          })
-        );
-      }
-    } finally {
-      setAnswerVoteLoadingIds((p) => p.filter((x) => x !== aid));
     }
   };
 
@@ -1014,7 +957,7 @@ function QnAMiddle() {
             </div>
           </div>
 
-          {/* Ask composer */}
+          {/* Ask composer (homepage-like) */}
           <QnAComposerStrip
             onCreated={(newQ) => {
               setQuestions((prev) => [newQ, ...prev]);
@@ -1104,7 +1047,11 @@ function QnAMiddle() {
           {/* Tag chips */}
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             {filteredTagChips.map((t) => (
-              <span key={t} onClick={() => setActiveTag((prev) => (prev === t ? null : t))} style={pillTagStyle(activeTag === t)}>
+              <span
+                key={t}
+                onClick={() => setActiveTag((prev) => (prev === t ? null : t))}
+                style={pillTagStyle(activeTag === t)}
+              >
                 {t}
               </span>
             ))}
@@ -1121,7 +1068,9 @@ function QnAMiddle() {
       )}
 
       {!loading && !err && questions.length === 0 && (
-        <div className="products-empty">No questions yet. Be the first to ask something (hardware, qubits, fabrication, careers…).</div>
+        <div className="products-empty">
+          No questions yet. Be the first to ask something (hardware, qubits, fabrication, careers…).
+        </div>
       )}
 
       {/* List */}
@@ -1153,10 +1102,20 @@ function QnAMiddle() {
                     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                       {avatarBubble(author, p?.avatar_url || null, 30)}
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {author}
                         </div>
-                        <div style={{ fontSize: 12, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>{timeAgo(q.created_at)} ago</div>
+                        <div style={{ fontSize: 12, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
+                          {timeAgo(q.created_at)} ago
+                        </div>
                       </div>
                     </div>
 
@@ -1171,7 +1130,9 @@ function QnAMiddle() {
                         style={{
                           borderRadius: 12,
                           padding: "7px 10px",
-                          border: mine ? "1px solid rgba(34,211,238,0.8)" : "1px solid rgba(148,163,184,0.45)",
+                          border: mine
+                            ? "1px solid rgba(34,211,238,0.8)"
+                            : "1px solid rgba(148,163,184,0.45)",
                           background: mine ? "rgba(34,211,238,0.12)" : "rgba(15,23,42,0.6)",
                           color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
                           cursor: isVoteLoading(q.id) ? "default" : "pointer",
@@ -1207,7 +1168,16 @@ function QnAMiddle() {
 
                   <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.25 }}>{q.title}</div>
 
-                  <div style={{ marginTop: 8, fontSize: 12, color: "rgba(148,163,184,0.95)", lineHeight: 1.45, maxHeight: 68, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontSize: 12,
+                      color: "rgba(148,163,184,0.95)",
+                      lineHeight: 1.45,
+                      maxHeight: 68,
+                      overflow: "hidden",
+                    }}
+                  >
                     {q.body}
                   </div>
 
@@ -1241,9 +1211,7 @@ function QnAMiddle() {
         </div>
       )}
 
-      {/* =========================
-          THREAD PANEL
-      ========================== */}
+      {/* THREAD PANEL */}
       {openQ && (
         <div
           onClick={closeThread}
@@ -1290,7 +1258,9 @@ function QnAMiddle() {
 
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.25 }}>{openQ.title}</div>
-              <div style={{ marginTop: 8, fontSize: 13, color: "rgba(226,232,240,0.92)", lineHeight: 1.55 }}>{openQ.body}</div>
+              <div style={{ marginTop: 8, fontSize: 13, color: "rgba(226,232,240,0.92)", lineHeight: 1.55 }}>
+                {openQ.body}
+              </div>
 
               <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button
@@ -1300,7 +1270,9 @@ function QnAMiddle() {
                   style={{
                     borderRadius: 12,
                     padding: "7px 10px",
-                    border: myVotes[openQ.id] ? "1px solid rgba(34,211,238,0.8)" : "1px solid rgba(148,163,184,0.45)",
+                    border: myVotes[openQ.id]
+                      ? "1px solid rgba(34,211,238,0.8)"
+                      : "1px solid rgba(148,163,184,0.45)",
                     background: myVotes[openQ.id] ? "rgba(34,211,238,0.12)" : "rgba(15,23,42,0.6)",
                     color: myVotes[openQ.id] ? "#7dd3fc" : "rgba(226,232,240,0.9)",
                     cursor: isVoteLoading(openQ.id) ? "default" : "pointer",
@@ -1354,9 +1326,6 @@ function QnAMiddle() {
                   {answers.map((a) => {
                     const p = pickProfile(a.profiles);
                     const name = p?.full_name || "Quantum5ocial member";
-                    const avotes = a.qna_answer_votes?.[0]?.count ?? 0;
-                    const mine = !!myAnswerVotes[a.id];
-
                     return (
                       <div
                         key={a.id}
@@ -1368,41 +1337,15 @@ function QnAMiddle() {
                           border: "1px solid rgba(148,163,184,0.22)",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                            {avatarBubble(name, p?.avatar_url || null, 26)}
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 800 }}>{name}</div>
-                              <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
-                                {timeAgo(a.created_at)} ago
-                              </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          {avatarBubble(name, p?.avatar_url || null, 26)}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800 }}>{name}</div>
+                            <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
+                              {timeAgo(a.created_at)} ago
                             </div>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => toggleAnswerVote(a.id)}
-                            disabled={isAnswerVoteLoading(a.id)}
-                            style={{
-                              borderRadius: 12,
-                              padding: "7px 10px",
-                              border: mine ? "1px solid rgba(34,211,238,0.8)" : "1px solid rgba(148,163,184,0.45)",
-                              background: mine ? "rgba(34,211,238,0.12)" : "rgba(15,23,42,0.6)",
-                              color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
-                              cursor: isAnswerVoteLoading(a.id) ? "default" : "pointer",
-                              fontSize: 12,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                              opacity: isAnswerVoteLoading(a.id) ? 0.7 : 1,
-                              flexShrink: 0,
-                            }}
-                            title={mine ? "Remove upvote" : "Upvote this answer"}
-                          >
-                            ▲ {avotes}
-                          </button>
                         </div>
-
                         <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "rgba(226,232,240,0.92)" }}>
                           {a.body}
                         </div>
