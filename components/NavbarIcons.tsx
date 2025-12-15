@@ -494,7 +494,7 @@ export default function NavbarIcons() {
                 fontSize: 16,
                 display: "flex",
                 alignItems: "center",
-                gap: 24,
+                gap: 12,
               }}
             >
               {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
