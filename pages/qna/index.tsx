@@ -1,5 +1,5 @@
 // pages/qna/index.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { createPortal } from "react-dom";
@@ -137,7 +137,6 @@ function useIsMobile(maxWidth = 520) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // ✅ FIX: matchMedia string must be quoted with a template string
     const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
     const set = () => setIsMobile(mq.matches);
 
@@ -226,7 +225,6 @@ function QnAComposerStrip({
 
   const closeComposer = () => setOpen(false);
 
-  // ✅ FIX: template string
   const collapsedPlaceholder = isMobile
     ? "Ask a question…"
     : `Ask the quantum community, ${firstName}…`;
@@ -259,7 +257,6 @@ function QnAComposerStrip({
           body,
           tags,
         })
-        // ✅ FIX: select must be a single string
         .select(
           `
           id, user_id, title, body, tags, created_at,
@@ -282,6 +279,13 @@ function QnAComposerStrip({
         } as QQuestion;
 
         onCreated(normalized);
+
+        // ✅ UX: focus the new question right away (so notifications + deep links match)
+        router.replace(
+          { pathname: "/qna", query: { focus: normalized.id } },
+          undefined,
+          { shallow: true }
+        );
 
         setAskTitle("");
         setAskBody("");
@@ -640,6 +644,12 @@ function QnAMiddle() {
   const router = useRouter();
   const { user } = useSupabaseUser();
 
+  // ✅ deep-link focus support: /qna?focus=<question_id>&answer=<answer_id>
+  const focusQid =
+    typeof router.query.focus === "string" ? router.query.focus : null;
+  const focusAid =
+    typeof router.query.answer === "string" ? router.query.answer : null;
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -664,7 +674,14 @@ function QnAMiddle() {
     {}
   );
   const [answerVoteLoadingIds, setAnswerVoteLoadingIds] = useState<string[]>([]);
-  const isAnswerVoteLoading = (aid: string) => answerVoteLoadingIds.includes(aid);
+  const isAnswerVoteLoading = (aid: string) =>
+    answerVoteLoadingIds.includes(aid);
+
+  // ✅ refs for scroll-to-focus
+  const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const answerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const didAutoFocusQuestionRef = useRef(false);
+  const didAutoFocusAnswerRef = useRef(false);
 
   const suggestedTags = useMemo(
     () => [
@@ -776,6 +793,8 @@ function QnAMiddle() {
     setAnswerBody("");
     setLoadingAnswers(true);
     setMyAnswerVotes({});
+    didAutoFocusAnswerRef.current = false;
+    answerRefs.current = {};
 
     try {
       const { data: ans, error: ansErr } = await supabase
@@ -867,6 +886,48 @@ function QnAMiddle() {
     setAnswerBody("");
     setMyAnswerVotes({});
   };
+
+  // ✅ Auto-focus question when /qna?focus=...
+  useEffect(() => {
+    if (!focusQid) return;
+    if (loading || err) return;
+    if (didAutoFocusQuestionRef.current) return;
+
+    const q = questions.find((x) => x.id === focusQid);
+    if (!q) return;
+
+    didAutoFocusQuestionRef.current = true;
+
+    // scroll the card into view first (if present), then open thread
+    const el = questionRefs.current[focusQid];
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    // open the thread (shows the focused content even if card isn't rendered)
+    openThread(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusQid, loading, err, questions]);
+
+  // ✅ Auto-focus answer when /qna?focus=...&answer=...
+  useEffect(() => {
+    if (!focusAid) return;
+    if (!openQ) return;
+    if (openQ.id !== focusQid) return;
+    if (loadingAnswers) return;
+    if (didAutoFocusAnswerRef.current) return;
+
+    // wait a tick so refs mount
+    const t = window.setTimeout(() => {
+      const el = answerRefs.current[focusAid];
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      didAutoFocusAnswerRef.current = true;
+    }, 60);
+
+    return () => window.clearTimeout(t);
+  }, [focusAid, focusQid, openQ, loadingAnswers]);
 
   const handleAddAnswer = async () => {
     if (!user) {
@@ -1264,7 +1325,9 @@ function QnAMiddle() {
           </div>
 
           {/* Tag chips */}
-          <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div
+            style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}
+          >
             {filteredTagChips.map((t) => (
               <span
                 key={t}
@@ -1293,7 +1356,13 @@ function QnAMiddle() {
       )}
 
       {!loading && !err && questions.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 16 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+            gap: 16,
+          }}
+        >
           {questions.map((q) => {
             const p = pickProfile(q.profiles);
             const author = p?.full_name || "Quantum5ocial member";
@@ -1301,9 +1370,14 @@ function QnAMiddle() {
             const ansCount = q.qna_answers?.[0]?.count ?? 0;
             const mine = !!myVotes[q.id];
 
+            const isFocused = !!focusQid && q.id === focusQid;
+
             return (
               <div
                 key={q.id}
+                ref={(el) => {
+                  questionRefs.current[q.id] = el;
+                }}
                 className="card"
                 style={{
                   padding: 14,
@@ -1312,24 +1386,63 @@ function QnAMiddle() {
                   justifyContent: "space-between",
                   minHeight: 220,
                   cursor: "pointer",
+                  border: isFocused
+                    ? "1px solid rgba(56,189,248,0.85)"
+                    : undefined,
+                  background: isFocused
+                    ? "radial-gradient(circle at top left, rgba(34,211,238,0.16), rgba(15,23,42,0.98))"
+                    : undefined,
+                  boxShadow: isFocused
+                    ? "0 0 0 2px rgba(56,189,248,0.15), 0 18px 45px rgba(15,23,42,0.75)"
+                    : undefined,
                 }}
                 onClick={() => openThread(q)}
               >
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                      }}
+                    >
                       {avatarBubble(author, p?.avatar_url || null, 30)}
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {author}
                         </div>
-                        <div style={{ fontSize: 12, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "rgba(148,163,184,0.95)",
+                            marginTop: 2,
+                          }}
+                        >
                           {timeAgo(q.created_at)} ago
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div
+                      style={{ display: "flex", gap: 8, alignItems: "center" }}
+                    >
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1340,8 +1453,12 @@ function QnAMiddle() {
                         style={{
                           borderRadius: 12,
                           padding: "7px 10px",
-                          border: mine ? "1px solid rgba(34,211,238,0.8)" : "1px solid rgba(148,163,184,0.45)",
-                          background: mine ? "rgba(34,211,238,0.12)" : "rgba(15,23,42,0.6)",
+                          border: mine
+                            ? "1px solid rgba(34,211,238,0.8)"
+                            : "1px solid rgba(148,163,184,0.45)",
+                          background: mine
+                            ? "rgba(34,211,238,0.12)"
+                            : "rgba(15,23,42,0.6)",
                           color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
                           cursor: isVoteLoading(q.id) ? "default" : "pointer",
                           fontSize: 12,
@@ -1374,7 +1491,9 @@ function QnAMiddle() {
                     </div>
                   </div>
 
-                  <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.25 }}>{q.title}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.25 }}>
+                    {q.title}
+                  </div>
 
                   <div
                     style={{
@@ -1390,7 +1509,14 @@ function QnAMiddle() {
                   </div>
 
                   {(q.tags || []).length > 0 && (
-                    <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        marginTop: 10,
+                        display: "flex",
+                        gap: 6,
+                        flexWrap: "wrap",
+                      }}
+                    >
                       {(q.tags || []).slice(0, 5).map((t) => (
                         <span
                           key={t}
@@ -1447,8 +1573,33 @@ function QnAMiddle() {
               overflow: "auto",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-              <div style={{ fontSize: 14, fontWeight: 800 }}>Thread</div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 800 }}>
+                Thread{" "}
+                {focusQid && openQ.id === focusQid ? (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 11,
+                      padding: "3px 8px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(56,189,248,0.45)",
+                      background: "rgba(56,189,248,0.12)",
+                      color: "#7dd3fc",
+                      verticalAlign: "middle",
+                    }}
+                  >
+                    Focused
+                  </span>
+                ) : null}
+              </div>
               <button
                 type="button"
                 onClick={closeThread}
@@ -1466,12 +1617,29 @@ function QnAMiddle() {
             </div>
 
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.25 }}>{openQ.title}</div>
-              <div style={{ marginTop: 8, fontSize: 13, color: "rgba(226,232,240,0.92)", lineHeight: 1.55 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.25 }}>
+                {openQ.title}
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 13,
+                  color: "rgba(226,232,240,0.92)",
+                  lineHeight: 1.55,
+                }}
+              >
                 {openQ.body}
               </div>
 
-              <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div
+                style={{
+                  marginTop: 10,
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => toggleVote(openQ.id)}
@@ -1479,9 +1647,15 @@ function QnAMiddle() {
                   style={{
                     borderRadius: 12,
                     padding: "7px 10px",
-                    border: myVotes[openQ.id] ? "1px solid rgba(34,211,238,0.8)" : "1px solid rgba(148,163,184,0.45)",
-                    background: myVotes[openQ.id] ? "rgba(34,211,238,0.12)" : "rgba(15,23,42,0.6)",
-                    color: myVotes[openQ.id] ? "#7dd3fc" : "rgba(226,232,240,0.9)",
+                    border: myVotes[openQ.id]
+                      ? "1px solid rgba(34,211,238,0.8)"
+                      : "1px solid rgba(148,163,184,0.45)",
+                    background: myVotes[openQ.id]
+                      ? "rgba(34,211,238,0.12)"
+                      : "rgba(15,23,42,0.6)",
+                    color: myVotes[openQ.id]
+                      ? "#7dd3fc"
+                      : "rgba(226,232,240,0.9)",
                     cursor: isVoteLoading(openQ.id) ? "default" : "pointer",
                     fontSize: 12,
                     display: "inline-flex",
@@ -1511,7 +1685,13 @@ function QnAMiddle() {
               </div>
             </div>
 
-            <div style={{ marginTop: 16, borderTop: "1px solid rgba(148,163,184,0.22)", paddingTop: 12 }}>
+            <div
+              style={{
+                marginTop: 16,
+                borderTop: "1px solid rgba(148,163,184,0.22)",
+                paddingTop: 12,
+              }}
+            >
               <div
                 style={{
                   fontSize: 12,
@@ -1527,7 +1707,9 @@ function QnAMiddle() {
               {loadingAnswers ? (
                 <div className="products-status">Loading answers…</div>
               ) : answers.length === 0 ? (
-                <div className="products-empty">No answers yet. Be the first to help.</div>
+                <div className="products-empty">
+                  No answers yet. Be the first to help.
+                </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {answers.map((a) => {
@@ -1535,24 +1717,73 @@ function QnAMiddle() {
                     const aid = a.id;
                     const mine = !!myAnswerVotes[aid];
                     const v = a.qna_answer_votes?.[0]?.count ?? 0;
+                    const isFocusedAnswer = !!focusAid && aid === focusAid;
 
                     return (
                       <div
                         key={aid}
+                        ref={(el) => {
+                          answerRefs.current[aid] = el;
+                        }}
                         className="card"
                         style={{
                           padding: 12,
                           borderRadius: 14,
-                          background: "rgba(2,6,23,0.35)",
-                          border: "1px solid rgba(148,163,184,0.22)",
+                          background: isFocusedAnswer
+                            ? "radial-gradient(circle at top left, rgba(34,211,238,0.16), rgba(2,6,23,0.35))"
+                            : "rgba(2,6,23,0.35)",
+                          border: isFocusedAnswer
+                            ? "1px solid rgba(56,189,248,0.75)"
+                            : "1px solid rgba(148,163,184,0.22)",
+                          boxShadow: isFocusedAnswer
+                            ? "0 0 0 2px rgba(56,189,248,0.12)"
+                            : undefined,
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              minWidth: 0,
+                            }}
+                          >
                             {avatarBubble(name, a.profile?.avatar_url || null, 26)}
                             <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 800 }}>{name}</div>
-                              <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
+                              <div style={{ fontSize: 12, fontWeight: 800 }}>
+                                {name}
+                                {isFocusedAnswer ? (
+                                  <span
+                                    style={{
+                                      marginLeft: 8,
+                                      fontSize: 10.5,
+                                      padding: "2px 7px",
+                                      borderRadius: 999,
+                                      border: "1px solid rgba(56,189,248,0.45)",
+                                      background: "rgba(56,189,248,0.12)",
+                                      color: "#7dd3fc",
+                                      verticalAlign: "middle",
+                                    }}
+                                  >
+                                    Focus
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.95)",
+                                  marginTop: 2,
+                                }}
+                              >
                                 {timeAgo(a.created_at)} ago
                               </div>
                             </div>
@@ -1565,10 +1796,16 @@ function QnAMiddle() {
                             style={{
                               borderRadius: 12,
                               padding: "7px 10px",
-                              border: mine ? "1px solid rgba(34,211,238,0.8)" : "1px solid rgba(148,163,184,0.35)",
-                              background: mine ? "rgba(34,211,238,0.12)" : "rgba(15,23,42,0.55)",
+                              border: mine
+                                ? "1px solid rgba(34,211,238,0.8)"
+                                : "1px solid rgba(148,163,184,0.35)",
+                              background: mine
+                                ? "rgba(34,211,238,0.12)"
+                                : "rgba(15,23,42,0.55)",
                               color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
-                              cursor: isAnswerVoteLoading(aid) ? "default" : "pointer",
+                              cursor: isAnswerVoteLoading(aid)
+                                ? "default"
+                                : "pointer",
                               fontSize: 12,
                               display: "inline-flex",
                               alignItems: "center",
@@ -1581,7 +1818,14 @@ function QnAMiddle() {
                           </button>
                         </div>
 
-                        <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "rgba(226,232,240,0.92)" }}>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 13,
+                            lineHeight: 1.55,
+                            color: "rgba(226,232,240,0.92)",
+                          }}
+                        >
                           {a.body}
                         </div>
                       </div>
@@ -1623,7 +1867,14 @@ function QnAMiddle() {
                   }}
                 />
 
-                <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 10,
+                  }}
+                >
                   {!user ? (
                     <button
                       type="button"
@@ -1665,8 +1916,15 @@ function QnAMiddle() {
               </div>
             </div>
 
-            <div style={{ marginTop: 18, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-              Tip: keep answers specific — include links, papers, and measured values when possible.
+            <div
+              style={{
+                marginTop: 18,
+                fontSize: 12,
+                color: "rgba(148,163,184,0.9)",
+              }}
+            >
+              Tip: keep answers specific — include links, papers, and measured
+              values when possible.
             </div>
           </div>
         </div>
