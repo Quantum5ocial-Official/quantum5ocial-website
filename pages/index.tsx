@@ -56,7 +56,9 @@ export default function Home() {
         <div>
           <h1 className="hero-title">
             Discover{" "}
-            <span className="hero-highlight">jobs, products &amp; services</span>{" "}
+            <span className="hero-highlight">
+              jobs, products &amp; services
+            </span>{" "}
             shaping the future of quantum technology.
           </h1>
           <p className="hero-sub">
@@ -123,8 +125,12 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">Built for the entire quantum community</div>
-            <div className="section-sub">Different paths, one shared platform.</div>
+            <div className="section-title">
+              Built for the entire quantum community
+            </div>
+            <div className="section-sub">
+              Different paths, one shared platform.
+            </div>
           </div>
         </div>
 
@@ -266,7 +272,9 @@ function HomeComposerStrip() {
     "concept"
   );
 
+  // submit state / visible errors
   const [askSaving, setAskSaving] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
 
   const isMobile = useIsMobile(520);
 
@@ -515,6 +523,7 @@ function HomeComposerStrip() {
       window.location.href = "/auth?redirect=/";
       return;
     }
+    setAskError(null);
     setOpen(true);
   };
 
@@ -546,23 +555,46 @@ function HomeComposerStrip() {
     if (!title || !body) return;
 
     setAskSaving(true);
-    try {
-      const tags = [askType]; // map askType -> qna tag (simple + consistent)
+    setAskError(null);
 
-      const { data, error } = await supabase
+    try {
+      // Attempt 1: insert WITH tags (if your column supports it)
+      let insertedId: string | null = null;
+
+      const attempt1 = await supabase
         .from("qna_questions")
         .insert({
           user_id: user.id,
           title,
           body,
-          tags,
+          tags: [askType],
         })
         .select("id")
         .maybeSingle();
 
-      if (error) {
-        console.error("insert qna question (from home) error:", error);
-        return;
+      if (!attempt1.error) {
+        insertedId = (attempt1.data as any)?.id ?? null;
+      } else {
+        // Attempt 2: insert WITHOUT tags (common if tags column type differs)
+        const attempt2 = await supabase
+          .from("qna_questions")
+          .insert({
+            user_id: user.id,
+            title,
+            body,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (attempt2.error) {
+          const msg =
+            attempt2.error.message ||
+            attempt2.error.details ||
+            "Failed to post question";
+          throw new Error(msg);
+        }
+
+        insertedId = (attempt2.data as any)?.id ?? null;
       }
 
       // reset + close
@@ -571,10 +603,18 @@ function HomeComposerStrip() {
       setAskType("concept");
       closeComposer();
 
-      // go to qna and open thread
-      const newId = (data as any)?.id;
-      if (newId) router.push(`/qna?open=${newId}`);
-      else router.push(`/qna`);
+      // go to qna (even if we can't read id due to RLS select)
+      if (insertedId) {
+        router.push(`/qna?open=${insertedId}`);
+      } else {
+        router.push(`/qna`);
+      }
+    } catch (e: any) {
+      console.error("submitAskToQnA error:", e);
+      setAskError(
+        e?.message ||
+          "Could not post your question. Check Supabase RLS/policies for qna_questions."
+      );
     } finally {
       setAskSaving(false);
     }
@@ -786,6 +826,23 @@ function HomeComposerStrip() {
                     placeholder="Add context, details, constraints, what you already tried…"
                     style={{ ...bigTextarea, minHeight: isMobile ? 140 : 150 }}
                   />
+
+                  {askError && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.35)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,226,226,0.95)",
+                        fontSize: 13,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {askError}
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -822,9 +879,21 @@ function HomeComposerStrip() {
                   </>
                 ) : (
                   <>
-                    <ActionButton icon="❓" label="Add details" title="Add more context" />
-                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
-                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
+                    <ActionButton
+                      icon="❓"
+                      label="Add details"
+                      title="Add more context"
+                    />
+                    <ActionButton
+                      icon="🔗"
+                      label="Add link"
+                      title="Link to paper/code"
+                    />
+                    <ActionButton
+                      icon="🧪"
+                      label="Add tags"
+                      title="Tag it for discovery"
+                    />
                   </>
                 )}
               </div>
@@ -834,7 +903,6 @@ function HomeComposerStrip() {
                 style={primaryBtn(!canSubmit)}
                 disabled={!canSubmit}
                 onClick={() => {
-                  // placeholders for now — later: insert into tables
                   if (mode === "post") {
                     setPostText("");
                     closeComposer();
@@ -970,7 +1038,9 @@ function HomeRightSidebar() {
       ? memberName.split(" ")[0] || memberName
       : "Member";
 
-  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
+  const memberProfileHref = latestMember
+    ? `/profile/${latestMember.id}`
+    : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -1144,7 +1214,11 @@ function HomeRightSidebar() {
                     lineHeight: 1.35,
                   }}
                 >
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+                  {[
+                    latestProduct.company_name,
+                    latestProduct.category,
+                    formatPrice(latestProduct),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
@@ -1245,7 +1319,10 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
+                <Link
+                  href={memberProfileHref}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
                   {/* Keep member name white */}
                   <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                     {memberName}
@@ -1259,9 +1336,11 @@ function HomeRightSidebar() {
                       lineHeight: 1.35,
                     }}
                   >
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
-                      .filter(Boolean)
-                      .join(" · ") || "Quantum5ocial community member"}
+                    {[
+                      latestMember.highest_education,
+                      latestMember.role,
+                      latestMember.affiliation,
+                    ].filter(Boolean).join(" · ") || "Quantum5ocial community member"}
                   </div>
 
                   {latestMember.short_bio && (
