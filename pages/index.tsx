@@ -227,7 +227,7 @@ function useIsMobile(maxWidth = 520) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const mq = window.matchMedia((max-width: ${maxWidth}px));
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
     const set = () => setIsMobile(mq.matches);
 
     set();
