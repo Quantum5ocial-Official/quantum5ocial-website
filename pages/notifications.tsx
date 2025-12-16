@@ -43,7 +43,7 @@ type MiniProfile = {
 
 type EntanglementItem = {
   id: string; // connection id
-  requester_id: string; // ✅ who sent the request (to notify on accept)
+  requester_id: string; // who sent the request (to notify on accept)
   message: string;
   created_at: string | null;
   otherProfile: MiniProfile | null;
@@ -273,7 +273,53 @@ function NotificationsMiddle() {
           setOtherNotifications([]);
         }
 
-        // 5) Build ONE unified feed (newest first)
+        // 5) Build ONE unified feed (newest first), and de-dupe entanglement-accept duplicates
+        // If two notifications exist for the same accept, keep only the best one.
+        const notifFeedAll: FeedItem[] = (notifRowsSafe || []).map((n) => ({
+          kind: "notif",
+          created_at: n.created_at,
+          notification: n,
+        }));
+
+        // Prefer the "X accepted your entanglement request" over generic variants
+        const isEntAccept = (n: Notification) =>
+          (n.type || "").toLowerCase() === "entanglement" &&
+          (n.title || "").toLowerCase().includes("accepted");
+
+        const acceptQuality = (n: Notification) => {
+          const msg = (n.message || "").toLowerCase();
+          // prefer messages that include "accepted your entanglement request"
+          if (msg.includes("accepted your entanglement request")) return 3;
+          // generic "your entanglement request was accepted"
+          if (msg.includes("your entanglement request") && msg.includes("accepted"))
+            return 2;
+          // fallback
+          return 1;
+        };
+
+        const bestAcceptByLink = new Map<string, Notification>();
+        const acceptKeysToKeep = new Set<string>();
+
+        for (const n of notifRowsSafe || []) {
+          if (!isEntAccept(n)) continue;
+          const key = n.link_url || `no_link_${n.id}`;
+          const cur = bestAcceptByLink.get(key);
+          if (!cur || acceptQuality(n) > acceptQuality(cur)) {
+            bestAcceptByLink.set(key, n);
+          }
+        }
+        for (const [key, n] of bestAcceptByLink.entries()) {
+          acceptKeysToKeep.add(n.id);
+        }
+
+        const notifFeed: FeedItem[] = notifFeedAll.filter((it) => {
+          if (it.kind !== "notif") return true;
+          const n = it.notification;
+          if (!isEntAccept(n)) return true;
+          // keep only the best entanglement-accept per link_url
+          return acceptKeysToKeep.has(n.id);
+        });
+
         const acceptedFeed: FeedItem[] = accepted.map((c) => {
           const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
           const other = profileMap.get(otherId) || null;
@@ -286,12 +332,6 @@ function NotificationsMiddle() {
             message: `You are now entangled with ${name}`,
           };
         });
-
-        const notifFeed: FeedItem[] = (notifRowsSafe || []).map((n) => ({
-          kind: "notif",
-          created_at: n.created_at,
-          notification: n,
-        }));
 
         const merged = [...notifFeed, ...acceptedFeed].sort(
           (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
@@ -414,6 +454,7 @@ function NotificationsMiddle() {
         }
 
         // ✅ ONLY on ACCEPT: notify the requester via notifications table
+        // ✅ ALSO de-dupe: keep ONLY this "X accepted your entanglement request" notif
         try {
           const { data: meP } = await supabase
             .from("profiles")
@@ -422,17 +463,33 @@ function NotificationsMiddle() {
             .maybeSingle();
 
           const myName = meP?.full_name || "Someone";
+          const linkUrl = `/profile/${user.id}`;
 
-          await supabase.from("notifications").insert({
-            user_id: item.requester_id, // requester gets this notif
-            type: "entanglement",
-            title: "Entanglement accepted",
-            message: `${myName} accepted your entanglement request.`,
-            link_url: `/profile/${user.id}`,
-            is_read: false,
-          });
+          const { data: inserted, error: insErr } = await supabase
+            .from("notifications")
+            .insert({
+              user_id: item.requester_id, // requester gets this notif
+              type: "entanglement",
+              title: "Entanglement accepted",
+              message: `${myName} accepted your entanglement request.`,
+              link_url: linkUrl,
+              is_read: false,
+            })
+            .select("id")
+            .maybeSingle();
+
+          // Delete duplicates for the same (user_id, type, link_url) — keep the newest inserted one
+          if (!insErr && inserted?.id) {
+            await supabase
+              .from("notifications")
+              .delete()
+              .eq("user_id", item.requester_id)
+              .eq("type", "entanglement")
+              .eq("link_url", linkUrl)
+              .neq("id", inserted.id);
+          }
         } catch (e) {
-          console.warn("accept notification insert failed:", e);
+          console.warn("accept notification insert/dedupe failed:", e);
         }
 
         // remove from pending UI
@@ -948,7 +1005,13 @@ function NotificationsMiddle() {
                           gap: 12,
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
                           <div
                             style={{
                               width: 32,
@@ -959,7 +1022,8 @@ function NotificationsMiddle() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                              background:
+                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
                               color: "#fff",
                               fontWeight: 700,
                               fontSize: 14,
