@@ -43,7 +43,7 @@ type MiniProfile = {
 
 type EntanglementItem = {
   id: string; // connection id
-  requester_id: string; // ✅ who sent the request (to notify on accept)
+  requester_id: string; // who sent the request
   message: string;
   created_at: string | null;
   otherProfile: MiniProfile | null;
@@ -63,9 +63,7 @@ type FeedItem =
       message: string;
     };
 
-type NotificationsCtx = {
-  // (Nothing shared yet — this is here so later you can add right-drawer state cleanly.)
-};
+type NotificationsCtx = {};
 
 const NotificationsContext = createContext<NotificationsCtx | null>(null);
 
@@ -100,8 +98,8 @@ function NotificationsRightSidebar() {
             lineHeight: 1.5,
           }}
         >
-          In future we can let users fine-tune which notifications they receive
-          – for example only job updates, only entanglement requests, or only
+          In future we can let users fine-tune which notifications they receive –
+          for example only job updates, only entanglement requests, or only
           organization activity.
         </p>
 
@@ -115,9 +113,8 @@ function NotificationsRightSidebar() {
             fontSize: 12,
           }}
         >
-          For now, this page focuses on entanglement requests, past entanglement
-          notifications, and any additional activity routed through the
-          notifications system.
+          For now, this page focuses on entanglement requests and the latest
+          notifications feed.
         </div>
       </div>
 
@@ -138,8 +135,6 @@ function NotificationsRightSidebar() {
 }
 
 function NotificationsMiddle() {
-  // If you later want shared state, call useNotificationsCtx() here.
-  // const ctx = useNotificationsCtx();
   const { user } = useSupabaseUser();
   const router = useRouter();
 
@@ -150,7 +145,6 @@ function NotificationsMiddle() {
     EntanglementItem[]
   >([]);
 
-  // unified feed: newest first (no categories)
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [otherNotifications, setOtherNotifications] = useState<Notification[]>(
     []
@@ -159,7 +153,6 @@ function NotificationsMiddle() {
   const [markingAll, setMarkingAll] = useState(false);
   const [actingOnId, setActingOnId] = useState<string | null>(null);
 
-  // for horizontal scroll of request cards
   const requestsRowRef = useRef<HTMLDivElement | null>(null);
 
   const formatCreated = (created_at: string | null) => {
@@ -174,7 +167,66 @@ function NotificationsMiddle() {
     return Number.isNaN(t) ? 0 : t;
   };
 
-  // ===== LOAD DATA =====
+  // Prefer the "XXX accepted..." message over the generic one
+  const isGenericAcceptedNotif = (n: Notification) => {
+    const title = (n.title || "").toLowerCase();
+    const msg = (n.message || "").toLowerCase();
+    return (
+      title.includes("entanglement accepted") &&
+      (msg.includes("your entanglement request was accepted") ||
+        msg.startsWith("your entanglement request"))
+    );
+  };
+
+  const isNamedAcceptedNotif = (n: Notification) => {
+    const title = (n.title || "").toLowerCase();
+    const msg = (n.message || "").toLowerCase();
+    return (
+      title.includes("entanglement accepted") &&
+      msg.includes(" accepted your entanglement request")
+    );
+  };
+
+  const dedupeNotifications = (rows: Notification[]) => {
+    // Key: title + link_url (so accept for a person groups cleanly)
+    const bestByKey: Record<string, Notification> = {};
+
+    for (let i = 0; i < rows.length; i++) {
+      const n = rows[i];
+      const key = `${n.title || ""}__${n.link_url || ""}__${n.type || ""}`;
+
+      const cur = bestByKey[key];
+      if (!cur) {
+        bestByKey[key] = n;
+        continue;
+      }
+
+      const nTime = safeTime(n.created_at);
+      const curTime = safeTime(cur.created_at);
+
+      // Prefer named accepted over generic accepted
+      const nNamed = isNamedAcceptedNotif(n);
+      const curNamed = isNamedAcceptedNotif(cur);
+      const nGeneric = isGenericAcceptedNotif(n);
+      const curGeneric = isGenericAcceptedNotif(cur);
+
+      if (nNamed && curGeneric) {
+        bestByKey[key] = n;
+        continue;
+      }
+      if (curNamed && nGeneric) {
+        continue;
+      }
+
+      // Otherwise keep newest
+      if (nTime >= curTime) bestByKey[key] = n;
+    }
+
+    return Object.values(bestByKey).sort(
+      (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
+    );
+  };
+
   useEffect(() => {
     const loadAll = async () => {
       if (!user) {
@@ -199,7 +251,7 @@ function NotificationsMiddle() {
         if (pendingErr) throw pendingErr;
         const pending = (pendingRows || []) as ConnectionRow[];
 
-        // 2) Accepted entangled states (YOU in the pair) — for feed
+        // 2) Accepted connections (YOU in the pair) — used for feed "You are now entangled..."
         const { data: acceptedRows, error: acceptedErr } = await supabase
           .from("connections")
           .select("id, user_id, target_user_id, status, created_at")
@@ -236,22 +288,20 @@ function NotificationsMiddle() {
           );
         }
 
-        // Pending requests block (actionable)
         const reqItems: EntanglementItem[] = pending.map((c) => {
           const other = profileMap.get(c.user_id) || null; // requester
           const name = other?.full_name || "Quantum member";
           return {
             id: c.id,
-            requester_id: c.user_id, // ✅
+            requester_id: c.user_id,
             message: `${name} wants to entangle with you`,
             created_at: c.created_at,
             otherProfile: other,
           };
         });
-
         setEntanglementRequests(reqItems);
 
-        // 4) Notifications table (optional extra notifications)
+        // 4) Notifications table
         let notifRowsSafe: Notification[] = [];
         try {
           const { data: notifRows, error: notifErr } = await supabase
@@ -261,7 +311,7 @@ function NotificationsMiddle() {
             .order("created_at", { ascending: false });
 
           if (!notifErr && notifRows) {
-            notifRowsSafe = notifRows as Notification[];
+            notifRowsSafe = dedupeNotifications(notifRows as Notification[]);
             setOtherNotifications(notifRowsSafe);
           } else {
             setOtherNotifications([]);
@@ -272,46 +322,7 @@ function NotificationsMiddle() {
           setOtherNotifications([]);
         }
 
-        // 5) Build ONE unified feed (newest first), and de-dupe entanglement-accept duplicates
-        const isEntAccept = (n: Notification) =>
-          (n.type || "").toLowerCase() === "entanglement" &&
-          (n.title || "").toLowerCase().includes("accepted");
-
-        const acceptQuality = (n: Notification) => {
-          const msg = (n.message || "").toLowerCase();
-          if (msg.includes("accepted your entanglement request")) return 3; // preferred
-          if (
-            msg.includes("your entanglement request") &&
-            msg.includes("accepted")
-          )
-            return 2;
-          return 1;
-        };
-
-        const bestAcceptByLink = new Map<string, Notification>();
-        for (const n of notifRowsSafe || []) {
-          if (!isEntAccept(n)) continue;
-          const key = n.link_url || `no_link_${n.id}`;
-          const cur = bestAcceptByLink.get(key);
-          if (!cur || acceptQuality(n) > acceptQuality(cur)) {
-            bestAcceptByLink.set(key, n);
-          }
-        }
-
-        const acceptIdsToKeep = new Set<string>();
-        bestAcceptByLink.forEach((n) => acceptIdsToKeep.add(n.id));
-
-        const notifFeed: FeedItem[] = (notifRowsSafe || [])
-          .filter((n) => {
-            if (!isEntAccept(n)) return true;
-            return acceptIdsToKeep.has(n.id);
-          })
-          .map((n) => ({
-            kind: "notif",
-            created_at: n.created_at,
-            notification: n,
-          }));
-
+        // 5) Build unified feed: notif rows + accepted connections
         const acceptedFeed: FeedItem[] = accepted.map((c) => {
           const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
           const other = profileMap.get(otherId) || null;
@@ -324,6 +335,12 @@ function NotificationsMiddle() {
             message: `You are now entangled with ${name}`,
           };
         });
+
+        const notifFeed: FeedItem[] = (notifRowsSafe || []).map((n) => ({
+          kind: "notif",
+          created_at: n.created_at,
+          notification: n,
+        }));
 
         const merged = [...notifFeed, ...acceptedFeed].sort(
           (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
@@ -344,24 +361,21 @@ function NotificationsMiddle() {
     loadAll();
   }, [user]);
 
-  // ===== VISIBLE (DE-DUPED) NOTIF IDS FOR COUNTS/ACTIONS =====
-  const visibleNotifs = feed
-    .filter((it) => it.kind === "notif")
-    .map((it) => (it as any).notification as Notification);
+  // ✅ unread should match what you SHOW
+  const unreadNotifShownCount = feed.reduce((acc, it) => {
+    if (it.kind !== "notif") return acc;
+    return acc + (!it.notification.is_read ? 1 : 0);
+  }, 0);
 
-  const visibleUnreadNotifIds = visibleNotifs
-    .filter((n) => !n.is_read)
-    .map((n) => n.id);
+  const unreadCount = (entanglementRequests?.length || 0) + unreadNotifShownCount;
 
-  // ===== COUNTS =====
-  const unreadOtherCount = visibleUnreadNotifIds.length; // ✅ match what user actually sees
-  const unreadCount = (entanglementRequests?.length || 0) + unreadOtherCount;
-
-  // ===== HANDLERS =====
   const handleMarkAllRead = async () => {
     if (!user) return;
 
-    const unreadNotifIds = visibleUnreadNotifIds; // ✅ only visible unread
+    const unreadNotifIds = feed
+      .filter((it) => it.kind === "notif" && !it.notification.is_read)
+      .map((it) => (it as any).notification.id as string);
+
     if (unreadNotifIds.length === 0) return;
 
     setMarkingAll(true);
@@ -374,7 +388,6 @@ function NotificationsMiddle() {
       if (error) {
         console.error("Error marking notifications as read", error);
       } else {
-        // keep otherNotifications in sync too (even if it contains hidden duplicates)
         setOtherNotifications((prev) =>
           prev.map((n) =>
             unreadNotifIds.includes(n.id) ? { ...n, is_read: true } : n
@@ -452,50 +465,13 @@ function NotificationsMiddle() {
           return;
         }
 
-        // ✅ ONLY on ACCEPT: notify requester
-        // ✅ Also delete duplicates for same (user_id, type, link_url) keeping the newly inserted one
-        try {
-          const { data: meP } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", user.id)
-            .maybeSingle();
+        // ✅ IMPORTANT: do NOT insert notification here.
+        // DB trigger handles notifying the requester.
 
-          const myName = meP?.full_name || "Someone";
-          const linkUrl = `/profile/${user.id}`;
-
-          const { data: inserted, error: insErr } = await supabase
-            .from("notifications")
-            .insert({
-              user_id: item.requester_id,
-              type: "entanglement",
-              title: "Entanglement accepted",
-              message: `${myName} accepted your entanglement request.`,
-              link_url: linkUrl,
-              is_read: false,
-            })
-            .select("id")
-            .maybeSingle();
-
-          if (!insErr && inserted?.id) {
-            await supabase
-              .from("notifications")
-              .delete()
-              .eq("user_id", item.requester_id)
-              .eq("type", "entanglement")
-              .eq("link_url", linkUrl)
-              .neq("id", inserted.id);
-          }
-        } catch (e) {
-          console.warn("accept notification insert/dedupe failed:", e);
-        }
-
-        // remove from pending UI
         setEntanglementRequests((prev) =>
           prev.filter((req) => req.id !== item.id)
         );
 
-        // add into unified feed immediately (top) as "entangled"
         const name = item.otherProfile?.full_name || "Quantum member";
         const newFeedItem: FeedItem = {
           kind: "entangled",
@@ -507,26 +483,14 @@ function NotificationsMiddle() {
 
         setFeed((prev) => [newFeedItem, ...prev]);
       } else {
-        // ✅ DECLINE: do NOT notify
+        // decline: no notify (and your DB doesn’t allow "declined" anyway)
         const { error } = await supabase
           .from("connections")
-          .update({ status: "declined" })
-          .eq("id", item.id);
+          .delete()
+          .eq("id", item.id)
+          .eq("target_user_id", user.id);
 
-        if (error) {
-          console.error(
-            "Decline entanglement error, falling back to delete",
-            error
-          );
-
-          const { error: deleteError } = await supabase
-            .from("connections")
-            .delete()
-            .eq("id", item.id);
-          if (deleteError) {
-            console.error("Error deleting connection on decline", deleteError);
-          }
-        }
+        if (error) console.error("Decline(delete) entanglement error", error);
 
         setEntanglementRequests((prev) =>
           prev.filter((req) => req.id !== item.id)
@@ -546,30 +510,44 @@ function NotificationsMiddle() {
     node.scrollBy({ left: delta, behavior: "smooth" });
   };
 
+  const pillBtnStyle: React.CSSProperties = {
+    fontSize: 13,
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.45)",
+    background: "rgba(15,23,42,0.65)",
+    color: "rgba(226,232,240,0.95)",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+
   return (
     <section className="section">
-      {/* Header */}
       <div className="section-header">
         <div>
           <div
             className="section-title"
-            style={{ display: "flex", alignItems: "center", gap: 10 }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
           >
             Notifications
             {!loading && !error && (
               <span
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  whiteSpace: "nowrap",
                   fontSize: 12,
-                  padding: "4px 10px",
+                  padding: "3px 9px",
                   borderRadius: 999,
                   background: "rgba(56,189,248,0.13)",
                   border: "1px solid rgba(56,189,248,0.35)",
                   color: "#7dd3fc",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  whiteSpace: "nowrap", // ✅ single line
-                  lineHeight: 1.1,
                 }}
               >
                 {unreadCount} unread
@@ -584,31 +562,18 @@ function NotificationsMiddle() {
           </div>
         </div>
 
-        {totalItems > 0 && unreadOtherCount > 0 && (
+        {totalItems > 0 && unreadNotifShownCount > 0 && (
           <button
             type="button"
+            style={pillBtnStyle}
             disabled={markingAll}
             onClick={handleMarkAllRead}
-            style={{
-              borderRadius: 999,
-              padding: "8px 12px",
-              fontSize: 13,
-              fontWeight: 700,
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(15,23,42,0.55)",
-              color: "rgba(226,232,240,0.92)",
-              cursor: markingAll ? "default" : "pointer",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-              width: "auto", // ✅ stop full-width stretch
-            }}
           >
             {markingAll ? "Marking…" : "Mark all as read"}
           </button>
         )}
       </div>
 
-      {/* Status / empty */}
       {loading && <div className="products-status">Loading notifications…</div>}
 
       {error && !loading && (
@@ -626,7 +591,6 @@ function NotificationsMiddle() {
 
       {!loading && !error && totalItems > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {/* ACTIONABLE: Entanglement requests */}
           {entanglementRequests.length > 0 && (
             <div>
               <div
@@ -772,36 +736,14 @@ function NotificationsMiddle() {
 
                           <div style={{ minWidth: 0 }}>
                             <div
+                              className="card-title"
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                marginBottom: 2,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
                             >
-                              <div
-                                className="card-title"
-                                style={{
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                {name}
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: 10.5,
-                                  borderRadius: 999,
-                                  padding: "2px 7px",
-                                  border: "1px solid rgba(148,163,184,0.7)",
-                                  color: "rgba(226,232,240,0.95)",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.08em",
-                                }}
-                              >
-                                Member
-                              </span>
+                              {name}
                             </div>
                             <div
                               className="card-meta"
@@ -842,23 +784,13 @@ function NotificationsMiddle() {
                           </div>
                         </div>
 
-                        <div
-                          style={{
-                            marginTop: 8,
-                            display: "flex",
-                            gap: 8,
-                            flexWrap: "wrap",
-                          }}
-                        >
+                        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
                           <button
                             type="button"
                             disabled={actingOnId === item.id}
-                            onClick={() =>
-                              handleRespondRequest(item, "accept")
-                            }
+                            onClick={() => handleRespondRequest(item, "accept")}
                             style={{
                               flex: 1,
-                              minWidth: 120,
                               padding: "7px 0",
                               borderRadius: 10,
                               border: "none",
@@ -866,11 +798,9 @@ function NotificationsMiddle() {
                                 "linear-gradient(90deg,#22c55e,#16a34a)",
                               color: "#0f172a",
                               fontSize: 12,
-                              fontWeight: 600,
+                              fontWeight: 700,
                               cursor:
-                                actingOnId === item.id
-                                  ? "default"
-                                  : "pointer",
+                                actingOnId === item.id ? "default" : "pointer",
                               opacity: actingOnId === item.id ? 0.7 : 1,
                             }}
                           >
@@ -882,12 +812,9 @@ function NotificationsMiddle() {
                           <button
                             type="button"
                             disabled={actingOnId === item.id}
-                            onClick={() =>
-                              handleRespondRequest(item, "decline")
-                            }
+                            onClick={() => handleRespondRequest(item, "decline")}
                             style={{
                               flex: 1,
-                              minWidth: 100,
                               padding: "7px 0",
                               borderRadius: 10,
                               border: "1px solid rgba(148,163,184,0.7)",
@@ -895,9 +822,7 @@ function NotificationsMiddle() {
                               color: "rgba(248,250,252,0.9)",
                               fontSize: 12,
                               cursor:
-                                actingOnId === item.id
-                                  ? "default"
-                                  : "pointer",
+                                actingOnId === item.id ? "default" : "pointer",
                               opacity: actingOnId === item.id ? 0.7 : 1,
                             }}
                           >
@@ -912,7 +837,6 @@ function NotificationsMiddle() {
             </div>
           )}
 
-          {/* UNIFIED FEED */}
           {feed.length > 0 && (
             <div>
               <div
@@ -959,18 +883,13 @@ function NotificationsMiddle() {
                           }}
                         >
                           <div>
-                            <div
-                              style={{
-                                fontSize: 14,
-                                fontWeight: 700,
-                                marginBottom: 3,
-                              }}
-                            >
+                            <div style={{ fontSize: 14, fontWeight: 800 }}>
                               {n.title || "Notification"}
                             </div>
                             {n.message && (
                               <div
                                 style={{
+                                  marginTop: 4,
                                   fontSize: 12,
                                   color: "var(--text-muted)",
                                   lineHeight: 1.4,
@@ -996,7 +915,6 @@ function NotificationsMiddle() {
                     );
                   }
 
-                  // entangled item
                   const other = item.otherProfile;
                   const name = other?.full_name || "Quantum member";
                   const avatarUrl = other?.avatar_url || null;
@@ -1020,7 +938,13 @@ function NotificationsMiddle() {
                           gap: 12,
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
                           <div
                             style={{
                               width: 32,
@@ -1053,7 +977,7 @@ function NotificationsMiddle() {
                             )}
                           </div>
 
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>
                             {other?.id ? (
                               <>
                                 You are now entangled with{" "}
@@ -1062,7 +986,7 @@ function NotificationsMiddle() {
                                   style={{
                                     color: "#7dd3fc",
                                     textDecoration: "none",
-                                    fontWeight: 800,
+                                    fontWeight: 900,
                                   }}
                                 >
                                   {name}
@@ -1106,12 +1030,10 @@ function NotificationsTwoColumnShell() {
         minHeight: "100vh",
       }}
     >
-      {/* MIDDLE */}
       <div style={{ paddingRight: 16 }}>
         <NotificationsMiddle />
       </div>
 
-      {/* DIVIDER */}
       <div
         style={{
           background: "rgba(148,163,184,0.35)",
@@ -1120,7 +1042,6 @@ function NotificationsTwoColumnShell() {
         }}
       />
 
-      {/* RIGHT */}
       <div
         style={{
           paddingLeft: 16,
