@@ -1,6 +1,7 @@
 // pages/index.tsx
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
@@ -55,9 +56,7 @@ export default function Home() {
         <div>
           <h1 className="hero-title">
             Discover{" "}
-            <span className="hero-highlight">
-              jobs, products &amp; services
-            </span>{" "}
+            <span className="hero-highlight">jobs, products &amp; services</span>{" "}
             shaping the future of quantum technology.
           </h1>
           <p className="hero-sub">
@@ -124,9 +123,7 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">
-              Built for the entire quantum community
-            </div>
+            <div className="section-title">Built for the entire quantum community</div>
             <div className="section-sub">Different paths, one shared platform.</div>
           </div>
         </div>
@@ -252,6 +249,7 @@ function useIsMobile(maxWidth = 520) {
 }
 
 function HomeComposerStrip() {
+  const router = useRouter();
   const { user, loading } = useSupabaseUser();
   const [me, setMe] = useState<MyProfileMini | null>(null);
 
@@ -267,6 +265,8 @@ function HomeComposerStrip() {
   const [askType, setAskType] = useState<"concept" | "experiment" | "career">(
     "concept"
   );
+
+  const [askSaving, setAskSaving] = useState(false);
 
   const isMobile = useIsMobile(520);
 
@@ -533,7 +533,52 @@ function HomeComposerStrip() {
   const canSubmit =
     mode === "post"
       ? !!postText.trim()
-      : !!askTitle.trim() && !!askBody.trim();
+      : !!askTitle.trim() && !!askBody.trim() && !askSaving;
+
+  const submitAskToQnA = async () => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+
+    const title = askTitle.trim();
+    const body = askBody.trim();
+    if (!title || !body) return;
+
+    setAskSaving(true);
+    try {
+      const tags = [askType]; // map askType -> qna tag (simple + consistent)
+
+      const { data, error } = await supabase
+        .from("qna_questions")
+        .insert({
+          user_id: user.id,
+          title,
+          body,
+          tags,
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
+        console.error("insert qna question (from home) error:", error);
+        return;
+      }
+
+      // reset + close
+      setAskTitle("");
+      setAskBody("");
+      setAskType("concept");
+      closeComposer();
+
+      // go to qna and open thread
+      const newId = (data as any)?.id;
+      if (newId) router.push(`/qna?open=${newId}`);
+      else router.push(`/qna`);
+    } finally {
+      setAskSaving(false);
+    }
+  };
 
   return (
     <>
@@ -777,21 +822,9 @@ function HomeComposerStrip() {
                   </>
                 ) : (
                   <>
-                    <ActionButton
-                      icon="❓"
-                      label="Add details"
-                      title="Add more context"
-                    />
-                    <ActionButton
-                      icon="🔗"
-                      label="Add link"
-                      title="Link to paper/code"
-                    />
-                    <ActionButton
-                      icon="🧪"
-                      label="Add tags"
-                      title="Tag it for discovery"
-                    />
+                    <ActionButton icon="❓" label="Add details" title="Add more context" />
+                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
+                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
                   </>
                 )}
               </div>
@@ -804,15 +837,13 @@ function HomeComposerStrip() {
                   // placeholders for now — later: insert into tables
                   if (mode === "post") {
                     setPostText("");
+                    closeComposer();
                   } else {
-                    setAskTitle("");
-                    setAskBody("");
-                    setAskType("concept");
+                    submitAskToQnA();
                   }
-                  closeComposer();
                 }}
               >
-                {mode === "post" ? "Post" : "Ask"}
+                {mode === "post" ? "Post" : askSaving ? "Asking…" : "Ask"}
               </button>
             </div>
           </div>
@@ -939,9 +970,7 @@ function HomeRightSidebar() {
       ? memberName.split(" ")[0] || memberName
       : "Member";
 
-  const memberProfileHref = latestMember
-    ? `/profile/${latestMember.id}`
-    : "/community";
+  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -1115,11 +1144,7 @@ function HomeRightSidebar() {
                     lineHeight: 1.35,
                   }}
                 >
-                  {[
-                    latestProduct.company_name,
-                    latestProduct.category,
-                    formatPrice(latestProduct),
-                  ]
+                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
@@ -1220,10 +1245,7 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link
-                  href={memberProfileHref}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
+                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
                   {/* Keep member name white */}
                   <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                     {memberName}
@@ -1237,11 +1259,9 @@ function HomeRightSidebar() {
                       lineHeight: 1.35,
                     }}
                   >
-                    {[
-                      latestMember.highest_education,
-                      latestMember.role,
-                      latestMember.affiliation,
-                    ].filter(Boolean).join(" · ") || "Quantum5ocial community member"}
+                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+                      .filter(Boolean)
+                      .join(" · ") || "Quantum5ocial community member"}
                   </div>
 
                   {latestMember.short_bio && (
