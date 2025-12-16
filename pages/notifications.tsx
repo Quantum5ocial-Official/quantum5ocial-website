@@ -3,7 +3,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
-  useRef,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -42,14 +42,40 @@ type MiniProfile = {
 };
 
 type EntanglementItem = {
-  id: string;
+  id: string; // connection id
   message: string;
   created_at: string | null;
   otherProfile: MiniProfile | null;
 };
 
+type FeedItem =
+  | {
+      kind: "entanglement_request";
+      id: string; // connection id
+      created_at: string | null;
+      message: string;
+      otherProfile: MiniProfile | null;
+    }
+  | {
+      kind: "entanglement_update";
+      id: string; // connection id
+      created_at: string | null;
+      message: string;
+      otherProfile: MiniProfile | null;
+    }
+  | {
+      kind: "notification";
+      id: string; // notification id
+      created_at: string | null;
+      type: string | null;
+      title: string | null;
+      message: string | null;
+      link_url: string | null;
+      is_read: boolean;
+    };
+
 type NotificationsCtx = {
-  // (Nothing shared yet — this is here so later you can add right-drawer state cleanly.)
+  // reserved for future
 };
 
 const NotificationsContext = createContext<NotificationsCtx | null>(null);
@@ -73,7 +99,6 @@ function useNotificationsCtx() {
 }
 
 function NotificationsRightSidebar() {
-  // (kept identical)
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
       <div className="sidebar-card">
@@ -101,9 +126,7 @@ function NotificationsRightSidebar() {
             fontSize: 12,
           }}
         >
-          For now, this page focuses on entanglement requests, past entanglement
-          notifications, and any additional activity routed through the
-          notifications system.
+          For now, this page shows a single feed of your latest notifications.
         </div>
       </div>
 
@@ -124,7 +147,6 @@ function NotificationsRightSidebar() {
 }
 
 function NotificationsMiddle() {
-  // If you later want shared state, call useNotificationsCtx() here.
   // const ctx = useNotificationsCtx();
   const { user } = useSupabaseUser();
   const router = useRouter();
@@ -145,14 +167,17 @@ function NotificationsMiddle() {
   const [markingAll, setMarkingAll] = useState(false);
   const [actingOnId, setActingOnId] = useState<string | null>(null);
 
-  // for horizontal scroll of request cards
-  const requestsRowRef = useRef<HTMLDivElement | null>(null);
-
   const formatCreated = (created_at: string | null) => {
     if (!created_at) return "";
     const t = Date.parse(created_at);
     if (Number.isNaN(t)) return "";
     return new Date(t).toLocaleString();
+  };
+
+  const sortByCreatedDesc = (a: { created_at: string | null }, b: { created_at: string | null }) => {
+    const ta = a.created_at ? Date.parse(a.created_at) : 0;
+    const tb = b.created_at ? Date.parse(b.created_at) : 0;
+    return tb - ta;
   };
 
   // ===== LOAD DATA =====
@@ -217,7 +242,7 @@ function NotificationsMiddle() {
           );
         }
 
-        // Pending requests block
+        // Pending requests
         const reqItems: EntanglementItem[] = pending.map((c) => {
           const other = profileMap.get(c.user_id) || null; // requester
           const name = other?.full_name || "Quantum member";
@@ -229,7 +254,7 @@ function NotificationsMiddle() {
           };
         });
 
-        // Accepted updates block
+        // Accepted updates
         const updItems: EntanglementItem[] = accepted.map((c) => {
           const otherId = c.user_id === user.id ? c.target_user_id : c.user_id;
           const other = profileMap.get(otherId) || null;
@@ -277,10 +302,43 @@ function NotificationsMiddle() {
     loadAll();
   }, [user]);
 
-  // ===== HANDLERS =====
+  // ===== COUNTS =====
   const unreadOtherCount = otherNotifications.filter((n) => !n.is_read).length;
   const unreadCount = (entanglementRequests?.length || 0) + unreadOtherCount;
 
+  // ===== FEED (single, latest-first) =====
+  const feed: FeedItem[] = useMemo(() => {
+    const req: FeedItem[] = entanglementRequests.map((x) => ({
+      kind: "entanglement_request",
+      id: x.id,
+      created_at: x.created_at,
+      message: x.message,
+      otherProfile: x.otherProfile,
+    }));
+
+    const upd: FeedItem[] = entangledUpdates.map((x) => ({
+      kind: "entanglement_update",
+      id: x.id,
+      created_at: x.created_at,
+      message: x.message,
+      otherProfile: x.otherProfile,
+    }));
+
+    const oth: FeedItem[] = otherNotifications.map((n) => ({
+      kind: "notification",
+      id: n.id,
+      created_at: n.created_at,
+      type: n.type ?? null,
+      title: n.title ?? null,
+      message: n.message ?? null,
+      link_url: n.link_url ?? null,
+      is_read: !!n.is_read,
+    }));
+
+    return [...req, ...upd, ...oth].sort(sortByCreatedDesc);
+  }, [entanglementRequests, entangledUpdates, otherNotifications]);
+
+  // ===== HANDLERS =====
   const handleMarkAllRead = async () => {
     if (!user) return;
 
@@ -310,24 +368,24 @@ function NotificationsMiddle() {
     }
   };
 
-  const handleOpenNotification = async (notification: Notification) => {
-    if (!notification.link_url) return;
+  const handleOpenNotification = async (notificationId: string) => {
+    const n = otherNotifications.find((x) => x.id === notificationId);
+    if (!n || !n.link_url) return;
 
-    if (!notification.is_read) {
+    if (!n.is_read) {
       const { error } = await supabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("id", notification.id);
+        .eq("id", n.id);
+
       if (!error) {
         setOtherNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, is_read: true } : n
-          )
+          prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x))
         );
       }
     }
 
-    router.push(notification.link_url);
+    router.push(n.link_url);
   };
 
   const handleRespondRequest = async (
@@ -390,18 +448,6 @@ function NotificationsMiddle() {
     }
   };
 
-  const totalItems =
-    entanglementRequests.length +
-    entangledUpdates.length +
-    otherNotifications.length;
-
-  const scrollRequests = (direction: "left" | "right") => {
-    const node = requestsRowRef.current;
-    if (!node) return;
-    const delta = direction === "left" ? -320 : 320;
-    node.scrollBy({ left: delta, behavior: "smooth" });
-  };
-
   return (
     <section className="section">
       {/* Header */}
@@ -429,13 +475,13 @@ function NotificationsMiddle() {
           </div>
           <div
             className="section-sub"
-            style={{ maxWidth: 480, lineHeight: 1.45 }}
+            style={{ maxWidth: 520, lineHeight: 1.45 }}
           >
-            Your requests here:
+            Latest activity first.
           </div>
         </div>
 
-        {totalItems > 0 && unreadOtherCount > 0 && (
+        {feed.length > 0 && unreadOtherCount > 0 && (
           <button
             className="nav-ghost-btn"
             style={{ fontSize: 13, cursor: "pointer" }}
@@ -456,216 +502,106 @@ function NotificationsMiddle() {
         </div>
       )}
 
-      {!loading && !error && totalItems === 0 && (
+      {!loading && !error && feed.length === 0 && (
         <div className="products-empty">
           No notifications yet. As you entangle with people and interact with
-          jobs and organizations, updates will appear here.
+          QnA, jobs, and organizations, updates will appear here.
         </div>
       )}
 
-      {!loading && !error && totalItems > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 20,
-            marginTop: 8,
-          }}
-        >
-          {/* BLOCK 1 – Entanglement requests */}
-          {entanglementRequests.length > 0 && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(148,163,184,0.9)",
-                  marginBottom: 6,
-                }}
-              >
-                Entanglement requests
-              </div>
+      {/* FEED */}
+      {!loading && !error && feed.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {feed.map((item) => {
+            if (item.kind === "entanglement_request") {
+              const other = item.otherProfile;
+              const name = other?.full_name || "Quantum member";
+              const avatarUrl = other?.avatar_url || null;
+              const education = other?.highest_education || "—";
+              const affiliation = other?.affiliation || "—";
+              const short_bio =
+                other?.short_bio ||
+                "Quantum5ocial community member exploring the quantum ecosystem.";
 
-              <div style={{ position: "relative", paddingBottom: 4 }}>
-                {entanglementRequests.length > 2 && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => scrollRequests("left")}
-                      style={{
-                        position: "absolute",
-                        left: -6,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        borderRadius: "999px",
-                        border: "1px solid rgba(148,163,184,0.6)",
-                        background: "rgba(15,23,42,0.95)",
-                        width: 24,
-                        height: 24,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 14,
-                        cursor: "pointer",
-                        zIndex: 2,
-                      }}
-                    >
-                      ‹
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => scrollRequests("right")}
-                      style={{
-                        position: "absolute",
-                        right: -6,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        borderRadius: "999px",
-                        border: "1px solid rgba(148,163,184,0.6)",
-                        background: "rgba(15,23,42,0.95)",
-                        width: 24,
-                        height: 24,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 14,
-                        cursor: "pointer",
-                        zIndex: 2,
-                      }}
-                    >
-                      ›
-                    </button>
-                  </>
-                )}
-
+              return (
                 <div
-                  ref={requestsRowRef}
+                  key={`req:${item.id}`}
+                  className="card"
                   style={{
-                    display: "flex",
-                    gap: 12,
-                    overflowX: "auto",
-                    paddingBottom: 4,
-                    scrollbarWidth: "none",
+                    padding: 14,
+                    borderRadius: 14,
+                    border: "1px solid rgba(56,189,248,0.8)",
+                    background:
+                      "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
                   }}
                 >
-                  {entanglementRequests.map((item) => {
-                    const other = item.otherProfile;
-                    const name = other?.full_name || "Quantum member";
-                    const avatarUrl = other?.avatar_url || null;
-                    const education = other?.highest_education || "—";
-                    const affiliation = other?.affiliation || "—";
-                    const short_bio =
-                      other?.short_bio ||
-                      "Quantum5ocial community member exploring the quantum ecosystem.";
-
-                    return (
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 12, minWidth: 0 }}>
                       <div
-                        key={item.id}
-                        className="card"
                         style={{
-                          minWidth: 320,
-                          maxWidth: 360,
-                          padding: 14,
-                          borderRadius: 14,
-                          border: "1px solid rgba(56,189,248,0.8)",
+                          width: 42,
+                          height: 42,
+                          borderRadius: "999px",
+                          overflow: "hidden",
+                          border: "1px solid rgba(148,163,184,0.6)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
                           background:
-                            "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
+                            "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 16,
                           flexShrink: 0,
                         }}
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 12,
-                            alignItems: "center",
-                            marginBottom: 8,
-                          }}
-                        >
-                          <div
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt={name}
                             style={{
-                              width: 48,
-                              height: 48,
-                              borderRadius: "999px",
-                              overflow: "hidden",
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              background:
-                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 18,
-                              flexShrink: 0,
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
                             }}
-                          >
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              name.charAt(0).toUpperCase()
-                            )}
-                          </div>
+                          />
+                        ) : (
+                          name.charAt(0).toUpperCase()
+                        )}
+                      </div>
 
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                marginBottom: 2,
-                              }}
-                            >
-                              <div
-                                className="card-title"
-                                style={{
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                {name}
-                              </div>
-                              <span
-                                style={{
-                                  fontSize: 10.5,
-                                  borderRadius: 999,
-                                  padding: "2px 7px",
-                                  border: "1px solid rgba(148,163,184,0.7)",
-                                  color: "rgba(226,232,240,0.95)",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.08em",
-                                }}
-                              >
-                                Member
-                              </span>
-                            </div>
-                            <div
-                              className="card-meta"
-                              style={{ fontSize: 12, lineHeight: 1.3 }}
-                            >
-                              Quantum5ocial member
-                            </div>
-                          </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: "#7dd3fc" }}>
+                          Entanglement request
                         </div>
 
                         <div
                           style={{
+                            fontSize: 14,
+                            fontWeight: 800,
+                            marginTop: 2,
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {name} wants to entangle with you
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 8,
                             fontSize: 12,
                             color: "var(--text-muted)",
                             display: "flex",
                             flexDirection: "column",
                             gap: 3,
-                            marginBottom: 8,
                           }}
                         >
                           <div>
@@ -677,295 +613,252 @@ function NotificationsMiddle() {
                             <span>{affiliation}</span>
                           </div>
                           <div style={{ marginTop: 4 }}>{short_bio}</div>
-                          <div
-                            style={{
-                              marginTop: 4,
-                              fontSize: 11,
-                              color: "rgba(148,163,184,0.9)",
-                            }}
-                          >
-                            {formatCreated(item.created_at)}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: 8,
-                            display: "flex",
-                            gap: 8,
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            disabled={actingOnId === item.id}
-                            onClick={() =>
-                              handleRespondRequest(item, "accept")
-                            }
-                            style={{
-                              flex: 1,
-                              minWidth: 120,
-                              padding: "7px 0",
-                              borderRadius: 10,
-                              border: "none",
-                              background:
-                                "linear-gradient(90deg,#22c55e,#16a34a)",
-                              color: "#0f172a",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor:
-                                actingOnId === item.id
-                                  ? "default"
-                                  : "pointer",
-                              opacity: actingOnId === item.id ? 0.7 : 1,
-                            }}
-                          >
-                            {actingOnId === item.id
-                              ? "Accepting…"
-                              : "Accept request"}
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={actingOnId === item.id}
-                            onClick={() =>
-                              handleRespondRequest(item, "decline")
-                            }
-                            style={{
-                              flex: 1,
-                              minWidth: 100,
-                              padding: "7px 0",
-                              borderRadius: 10,
-                              border: "1px solid rgba(148,163,184,0.7)",
-                              background: "transparent",
-                              color: "rgba(248,250,252,0.9)",
-                              fontSize: 12,
-                              cursor:
-                                actingOnId === item.id
-                                  ? "default"
-                                  : "pointer",
-                              opacity: actingOnId === item.id ? 0.7 : 1,
-                            }}
-                          >
-                            {actingOnId === item.id ? "Declining…" : "Decline"}
-                          </button>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "rgba(148,163,184,0.9)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatCreated(item.created_at)}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={actingOnId === item.id}
+                      onClick={() =>
+                        handleRespondRequest(
+                          {
+                            id: item.id,
+                            message: item.message,
+                            created_at: item.created_at,
+                            otherProfile: item.otherProfile,
+                          },
+                          "accept"
+                        )
+                      }
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: "none",
+                        background: "linear-gradient(90deg,#22c55e,#16a34a)",
+                        color: "#0f172a",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor:
+                          actingOnId === item.id ? "default" : "pointer",
+                        opacity: actingOnId === item.id ? 0.7 : 1,
+                      }}
+                    >
+                      {actingOnId === item.id ? "Accepting…" : "Accept"}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={actingOnId === item.id}
+                      onClick={() =>
+                        handleRespondRequest(
+                          {
+                            id: item.id,
+                            message: item.message,
+                            created_at: item.created_at,
+                            otherProfile: item.otherProfile,
+                          },
+                          "decline"
+                        )
+                      }
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        border: "1px solid rgba(148,163,184,0.7)",
+                        background: "transparent",
+                        color: "rgba(248,250,252,0.9)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor:
+                          actingOnId === item.id ? "default" : "pointer",
+                        opacity: actingOnId === item.id ? 0.7 : 1,
+                      }}
+                    >
+                      {actingOnId === item.id ? "Declining…" : "Decline"}
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            if (item.kind === "entanglement_update") {
+              const other = item.otherProfile;
+              const name = other?.full_name || "Quantum member";
+              const avatarUrl = other?.avatar_url || null;
+
+              return (
+                <div
+                  key={`upd:${item.id}`}
+                  className="card"
+                  style={{
+                    padding: 12,
+                    borderRadius: 12,
+                    border: "1px solid rgba(30,64,175,0.4)",
+                    background: "rgba(15,23,42,0.9)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "999px",
+                          overflow: "hidden",
+                          border: "1px solid rgba(148,163,184,0.6)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background:
+                            "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 14,
+                        }}
+                      >
+                        {avatarUrl ? (
+                          <img
+                            src={avatarUrl}
+                            alt={name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          name.charAt(0).toUpperCase()
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        You are now entangled with{" "}
+                        {other?.id ? (
+                          <Link
+                            href={`/profile/${other.id}`}
+                            style={{
+                              color: "#7dd3fc",
+                              textDecoration: "none",
+                              fontWeight: 800,
+                            }}
+                          >
+                            {name}
+                          </Link>
+                        ) : (
+                          <span style={{ fontWeight: 800 }}>{name}</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "rgba(148,163,184,0.9)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {formatCreated(item.created_at)}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // generic notification row
+            const read = item.is_read;
+
+            return (
+              <div
+                key={`n:${item.id}`}
+                className="card"
+                style={{
+                  padding: 12,
+                  borderRadius: 12,
+                  border: read
+                    ? "1px solid rgba(30,64,175,0.4)"
+                    : "1px solid rgba(56,189,248,0.8)",
+                  background: read
+                    ? "rgba(15,23,42,0.9)"
+                    : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
+                  cursor: item.link_url ? "pointer" : "default",
+                }}
+                onClick={() => item.link_url && handleOpenNotification(item.id)}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: 10,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color: read ? "#9ca3af" : "#7dd3fc",
+                        marginBottom: 2,
+                      }}
+                    >
+                      {item.type || "Update"}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 3 }}>
+                      {item.title || "Notification"}
+                    </div>
+                    {item.message && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--text-muted)",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {item.message}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "rgba(148,163,184,0.9)",
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatCreated(item.created_at)}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* BLOCK 2 – Past notifications */}
-          {entangledUpdates.length > 0 && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(148,163,184,0.9)",
-                  marginBottom: 6,
-                }}
-              >
-                Past notifications
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {entangledUpdates.map((item) => {
-                  const other = item.otherProfile;
-                  const name = other?.full_name || "Quantum member";
-                  const avatarUrl = other?.avatar_url || null;
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="card"
-                      style={{
-                        padding: 10,
-                        borderRadius: 10,
-                        border: "1px solid rgba(30,64,175,0.4)",
-                        background: "rgba(15,23,42,0.9)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          gap: 12,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: "999px",
-                              overflow: "hidden",
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              background:
-                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                              color: "#fff",
-                              fontWeight: 600,
-                              fontSize: 14,
-                            }}
-                          >
-                            {avatarUrl ? (
-                              <img
-                                src={avatarUrl}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                }}
-                              />
-                            ) : (
-                              name.charAt(0).toUpperCase()
-                            )}
-                          </div>
-
-                          {/* ✅ clickable name -> profile page */}
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>
-                            You are now entangled with{" "}
-                            {other?.id ? (
-                              <Link
-                                href={`/profile/${other.id}`}
-                                style={{
-                                  color: "#7dd3fc",
-                                  textDecoration: "none",
-                                  fontWeight: 700,
-                                }}
-                              >
-                                {name}
-                              </Link>
-                            ) : (
-                              <span style={{ fontWeight: 700 }}>{name}</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "rgba(148,163,184,0.9)",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {formatCreated(item.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* BLOCK 3 – Other activity */}
-          {otherNotifications.length > 0 && (
-            <div>
-              <div
-                style={{
-                  fontSize: 12,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(148,163,184,0.9)",
-                  marginBottom: 6,
-                }}
-              >
-                Other activity
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {otherNotifications.map((n) => {
-                  const read = !!n.is_read;
-                  return (
-                    <div
-                      key={n.id}
-                      className="card"
-                      style={{
-                        padding: 12,
-                        borderRadius: 12,
-                        border: read
-                          ? "1px solid rgba(30,64,175,0.4)"
-                          : "1px solid rgba(56,189,248,0.8)",
-                        background: read
-                          ? "rgba(15,23,42,0.9)"
-                          : "radial-gradient(circle at top left, rgba(34,211,238,0.18), rgba(15,23,42,1))",
-                        cursor: n.link_url ? "pointer" : "default",
-                      }}
-                      onClick={() => n.link_url && handleOpenNotification(n)}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                          gap: 10,
-                        }}
-                      >
-                        <div>
-                          <div
-                            style={{
-                              fontSize: 12,
-                              letterSpacing: "0.08em",
-                              textTransform: "uppercase",
-                              color: read ? "#9ca3af" : "#7dd3fc",
-                              marginBottom: 2,
-                            }}
-                          >
-                            {n.type || "Update"}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 14,
-                              fontWeight: 600,
-                              marginBottom: 3,
-                            }}
-                          >
-                            {n.title || "Notification"}
-                          </div>
-                          {n.message && (
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: "var(--text-muted)",
-                                lineHeight: 1.4,
-                              }}
-                            >
-                              {n.message}
-                            </div>
-                          )}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "rgba(148,163,184,0.9)",
-                            textAlign: "right",
-                          }}
-                        >
-                          {formatCreated(n.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            );
+          })}
         </div>
       )}
     </section>
@@ -1015,10 +908,6 @@ export default function NotificationsPage() {
   return <NotificationsTwoColumnShell />;
 }
 
-// ✅ same as Jobs/Products/Community:
-// - global layout left-only
-// - wrap ensures mobileMain has the same provider/state
-// - mobileMain shows only the middle on mobile
 (NotificationsPage as any).layoutProps = {
   variant: "two-left",
   right: null,
