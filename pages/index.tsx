@@ -49,13 +49,15 @@ export default function Home() {
       <section className="section" style={{ paddingTop: 0 }}>
         <HomeComposerStrip />
       </section>
-      
+
       {/* HERO */}
       <section className="hero" id="about">
         <div>
           <h1 className="hero-title">
             Discover{" "}
-            <span className="hero-highlight">jobs, products &amp; services</span>{" "}
+            <span className="hero-highlight">
+              jobs, products &amp; services
+            </span>{" "}
             shaping the future of quantum technology.
           </h1>
           <p className="hero-sub">
@@ -125,9 +127,7 @@ export default function Home() {
             <div className="section-title">
               Built for the entire quantum community
             </div>
-            <div className="section-sub">
-              Different paths, one shared platform.
-            </div>
+            <div className="section-sub">Different paths, one shared platform.</div>
           </div>
         </div>
 
@@ -297,7 +297,8 @@ function HomeComposerStrip() {
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
-  const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
+  const firstName =
+    (displayName.split(" ")[0] || displayName).trim() || "Member";
 
   const initials =
     (me?.full_name || "")
@@ -524,13 +525,15 @@ function HomeComposerStrip() {
     mode === "post"
       ? isMobile
         ? "What’s on your mind?"
-        : What’s on your mind, ${firstName}?
+        : `What’s on your mind, ${firstName}?`
       : isMobile
       ? "Ask the community…"
       : "Ask the quantum community…";
 
   const canSubmit =
-    mode === "post" ? !!postText.trim() : !!askTitle.trim() && !!askBody.trim();
+    mode === "post"
+      ? !!postText.trim()
+      : !!askTitle.trim() && !!askBody.trim();
 
   return (
     <>
@@ -607,7 +610,6 @@ function HomeComposerStrip() {
             </button>
           </div>
         </div>
-
       </div>
 
       {/* ONE modal, content switches by mode */}
@@ -679,7 +681,7 @@ function HomeComposerStrip() {
                     placeholder={
                       isMobile
                         ? "What’s on your mind?"
-                        : What’s on your mind, ${firstName}?
+                        : `What’s on your mind, ${firstName}?`
                     }
                     style={bigTextarea}
                   />
@@ -775,9 +777,21 @@ function HomeComposerStrip() {
                   </>
                 ) : (
                   <>
-                    <ActionButton icon="❓" label="Add details" title="Add more context" />
-                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
-                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
+                    <ActionButton
+                      icon="❓"
+                      label="Add details"
+                      title="Add more context"
+                    />
+                    <ActionButton
+                      icon="🔗"
+                      label="Add link"
+                      title="Link to paper/code"
+                    />
+                    <ActionButton
+                      icon="🧪"
+                      label="Add tags"
+                      title="Tag it for discovery"
+                    />
                   </>
                 )}
               </div>
@@ -815,9 +829,7 @@ function HomeComposerStrip() {
 function HomeRightSidebar() {
   const [latestJob, setLatestJob] = useState<Job | null>(null);
   const [latestProduct, setLatestProduct] = useState<Product | null>(null);
-  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(
-    null
-  );
+  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(null);
 
   const [loadingJob, setLoadingJob] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(true);
@@ -913,9 +925,7 @@ function HomeRightSidebar() {
   }, []);
 
   const formatJobMeta = (job: Job) =>
-    [job.company_name, job.location, job.remote_type]
-      .filter(Boolean)
-      .join(" · ");
+    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -930,7 +940,7 @@ function HomeRightSidebar() {
       : "Member";
 
   const memberProfileHref = latestMember
-    ? /profile/${latestMember.id}
+    ? `/profile/${latestMember.id}`
     : "/community";
 
   return (
@@ -958,13 +968,11 @@ function HomeRightSidebar() {
           {loadingJob ? (
             <p className="tile-text">Loading the newest job…</p>
           ) : !latestJob ? (
-            <p className="tile-text">
-              No jobs posted yet — be the first to add one.
-            </p>
+            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
               <Link
-                href={/jobs/${latestJob.id}}
+                href={`/jobs/${latestJob.id}`}
                 style={{ textDecoration: "none", color: "inherit" }}
               >
                 {/* Keep the actual job title white */}
@@ -1036,9 +1044,7 @@ function HomeRightSidebar() {
           {loadingProduct ? (
             <p className="tile-text">Loading the newest product…</p>
           ) : !latestProduct ? (
-            <p className="tile-text">
-              No products listed yet — add your first product.
-            </p>
+            <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
             <div
               style={{
@@ -1088,7 +1094,7 @@ function HomeRightSidebar() {
               </div>
 
               <Link
-                href={/products/${latestProduct.id}}
+                href={`/products/${latestProduct.id}`}
                 style={{
                   textDecoration: "none",
                   color: "inherit",
@@ -1235,9 +1241,7 @@ function HomeRightSidebar() {
                       latestMember.highest_education,
                       latestMember.role,
                       latestMember.affiliation,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "Quantum5ocial community member"}
+                    ].filter(Boolean).join(" · ") || "Quantum5ocial community member"}
                   </div>
 
                   {latestMember.short_bio && (
@@ -1273,6 +1277,7 @@ function HomeRightSidebar() {
     </div>
   );
 }
+
 // Tell _app.tsx to render the right sidebar for this page (no page-level AppLayout)
 (Home as any).layoutProps = {
   variant: "three",
