@@ -43,7 +43,7 @@ type MiniProfile = {
 
 type EntanglementItem = {
   id: string; // connection id
-  requester_id: string; // who sent the request (to notify on accept)
+  requester_id: string; // ✅ who sent the request (to notify on accept)
   message: string;
   created_at: string | null;
   otherProfile: MiniProfile | null;
@@ -274,31 +274,28 @@ function NotificationsMiddle() {
         }
 
         // 5) Build ONE unified feed (newest first), and de-dupe entanglement-accept duplicates
-        // If two notifications exist for the same accept, keep only the best one.
         const notifFeedAll: FeedItem[] = (notifRowsSafe || []).map((n) => ({
           kind: "notif",
           created_at: n.created_at,
           notification: n,
         }));
 
-        // Prefer the "X accepted your entanglement request" over generic variants
         const isEntAccept = (n: Notification) =>
           (n.type || "").toLowerCase() === "entanglement" &&
           (n.title || "").toLowerCase().includes("accepted");
 
         const acceptQuality = (n: Notification) => {
           const msg = (n.message || "").toLowerCase();
-          // prefer messages that include "accepted your entanglement request"
-          if (msg.includes("accepted your entanglement request")) return 3;
-          // generic "your entanglement request was accepted"
-          if (msg.includes("your entanglement request") && msg.includes("accepted"))
+          if (msg.includes("accepted your entanglement request")) return 3; // preferred
+          if (
+            msg.includes("your entanglement request") &&
+            msg.includes("accepted")
+          )
             return 2;
-          // fallback
           return 1;
         };
 
         const bestAcceptByLink = new Map<string, Notification>();
-        const acceptKeysToKeep = new Set<string>();
 
         for (const n of notifRowsSafe || []) {
           if (!isEntAccept(n)) continue;
@@ -308,16 +305,18 @@ function NotificationsMiddle() {
             bestAcceptByLink.set(key, n);
           }
         }
-        for (const [key, n] of bestAcceptByLink.entries()) {
-          acceptKeysToKeep.add(n.id);
-        }
+
+        // ✅ FIX: avoid iterating MapIterator with for..of
+        const acceptIdsToKeep = new Set<string>();
+        bestAcceptByLink.forEach((n) => {
+          acceptIdsToKeep.add(n.id);
+        });
 
         const notifFeed: FeedItem[] = notifFeedAll.filter((it) => {
           if (it.kind !== "notif") return true;
           const n = it.notification;
           if (!isEntAccept(n)) return true;
-          // keep only the best entanglement-accept per link_url
-          return acceptKeysToKeep.has(n.id);
+          return acceptIdsToKeep.has(n.id);
         });
 
         const acceptedFeed: FeedItem[] = accepted.map((c) => {
@@ -381,7 +380,6 @@ function NotificationsMiddle() {
           )
         );
 
-        // also update unified feed items
         setFeed((prev) =>
           prev.map((it) => {
             if (it.kind !== "notif") return it;
@@ -453,8 +451,8 @@ function NotificationsMiddle() {
           return;
         }
 
-        // ✅ ONLY on ACCEPT: notify the requester via notifications table
-        // ✅ ALSO de-dupe: keep ONLY this "X accepted your entanglement request" notif
+        // ✅ ONLY on ACCEPT: notify requester
+        // ✅ Also delete duplicates for same (user_id, type, link_url) keeping the newly inserted one
         try {
           const { data: meP } = await supabase
             .from("profiles")
@@ -468,7 +466,7 @@ function NotificationsMiddle() {
           const { data: inserted, error: insErr } = await supabase
             .from("notifications")
             .insert({
-              user_id: item.requester_id, // requester gets this notif
+              user_id: item.requester_id,
               type: "entanglement",
               title: "Entanglement accepted",
               message: `${myName} accepted your entanglement request.`,
@@ -478,7 +476,6 @@ function NotificationsMiddle() {
             .select("id")
             .maybeSingle();
 
-          // Delete duplicates for the same (user_id, type, link_url) — keep the newest inserted one
           if (!insErr && inserted?.id) {
             await supabase
               .from("notifications")
@@ -492,12 +489,10 @@ function NotificationsMiddle() {
           console.warn("accept notification insert/dedupe failed:", e);
         }
 
-        // remove from pending UI
         setEntanglementRequests((prev) =>
           prev.filter((req) => req.id !== item.id)
         );
 
-        // add into unified feed immediately (top) as "entangled"
         const name = item.otherProfile?.full_name || "Quantum member";
         const newFeedItem: FeedItem = {
           kind: "entangled",
@@ -550,7 +545,6 @@ function NotificationsMiddle() {
 
   return (
     <section className="section">
-      {/* Header */}
       <div className="section-header">
         <div>
           <div
@@ -593,7 +587,6 @@ function NotificationsMiddle() {
         )}
       </div>
 
-      {/* Status / empty */}
       {loading && <div className="products-status">Loading notifications…</div>}
 
       {error && !loading && (
@@ -611,7 +604,6 @@ function NotificationsMiddle() {
 
       {!loading && !error && totalItems > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {/* ACTIONABLE: Entanglement requests */}
           {entanglementRequests.length > 0 && (
             <div>
               <div
@@ -897,7 +889,6 @@ function NotificationsMiddle() {
             </div>
           )}
 
-          {/* UNIFIED FEED: newest first, no categories */}
           {feed.length > 0 && (
             <div>
               <div
@@ -981,7 +972,6 @@ function NotificationsMiddle() {
                     );
                   }
 
-                  // entangled item
                   const other = item.otherProfile;
                   const name = other?.full_name || "Quantum member";
                   const avatarUrl = other?.avatar_url || null;
@@ -1131,10 +1121,6 @@ export default function NotificationsPage() {
   return <NotificationsTwoColumnShell />;
 }
 
-// ✅ same as Jobs/Products/Community:
-// - global layout left-only
-// - wrap ensures mobileMain has the same provider/state
-// - mobileMain shows only the middle on mobile
 (NotificationsPage as any).layoutProps = {
   variant: "two-left",
   right: null,
