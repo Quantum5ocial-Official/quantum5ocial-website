@@ -1,11 +1,5 @@
 // components/NavbarIcons.tsx
-import {
-  useState,
-  useEffect,
-  useRef,
-  KeyboardEvent,
-  FormEvent,
-} from "react";
+import { useState, useEffect, useRef, KeyboardEvent, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -56,14 +50,53 @@ export default function NavbarIcons() {
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
 
-  useEffect(() => {
-  const onChanged = () => {
-    loadUnreadCount(); // whatever function you already use to query counts
+  // ✅ Central function used by both initial load + event refresh
+  const loadUnreadCount = async () => {
+    if (!user) {
+      setNotificationsCount(0);
+      return;
+    }
+
+    try {
+      // 1) Pending incoming entanglement requests
+      const { count: pendingCount, error: pendingErr } = await supabase
+        .from("connections")
+        .select("id", { count: "exact", head: true })
+        .eq("target_user_id", user.id)
+        .eq("status", "pending");
+
+      // 2) Unread notifications
+      const { count: unreadCount, error: unreadErr } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+
+      const p =
+        !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
+      const u =
+        !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
+
+      setNotificationsCount(p + u);
+    } catch (e) {
+      console.error("Error loading notifications", e);
+      setNotificationsCount(0);
+    }
   };
 
-  window.addEventListener("q5:notifications-changed", onChanged);
-  return () => window.removeEventListener("q5:notifications-changed", onChanged);
-}, [loadUnreadCount]);
+  // ✅ listen for "mark all read" / other changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onChanged = () => {
+      loadUnreadCount();
+    };
+
+    window.addEventListener("q5:notifications-changed", onChanged);
+    return () => window.removeEventListener("q5:notifications-changed", onChanged);
+    // only depend on user id so we don't need to put loadUnreadCount in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // ----- HANDLE RESPONSIVE -----
   useEffect(() => {
@@ -166,52 +199,22 @@ export default function NavbarIcons() {
     };
   }, [user, router.pathname]);
 
-  // ----- NOTIFICATIONS -----
+  // ----- NOTIFICATIONS (initial load & on route change) -----
   useEffect(() => {
     let cancelled = false;
 
-    const loadNotifications = async () => {
-      if (!user) {
-        setNotificationsCount(0);
-        return;
-      }
-
-      try {
-        // 1) Pending incoming entanglement requests
-        const { count: pendingCount, error: pendingErr } = await supabase
-          .from("connections")
-          .select("id", { count: "exact", head: true })
-          .eq("target_user_id", user.id)
-          .eq("status", "pending");
-
-        // 2) Unread notifications (accepted updates, etc.)
-        const { count: unreadCount, error: unreadErr } = await supabase
-          .from("notifications")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("is_read", false);
-
-        if (cancelled) return;
-
-        const p =
-          !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
-        const u = !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
-
-        setNotificationsCount(p + u);
-      } catch (e) {
-        if (!cancelled) {
-          console.error("Error loading notifications", e);
-          setNotificationsCount(0);
-        }
-      }
+    const run = async () => {
+      if (cancelled) return;
+      await loadUnreadCount();
     };
 
-    loadNotifications();
+    run();
 
     return () => {
       cancelled = true;
     };
-  }, [user, router.pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, router.pathname]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -366,7 +369,6 @@ export default function NavbarIcons() {
         style={{
           maxWidth: 1400,
           margin: "0 auto",
-          // ✅ mobile: minimal padding so logo can be extreme-left
           padding: isMobile ? "0 8px" : "0 24px",
           display: "flex",
           alignItems: "center",
@@ -376,13 +378,11 @@ export default function NavbarIcons() {
           gap: 16,
         }}
       >
-        {/* LEFT: brand + (mobile search pill inline) + desktop search */}
+        {/* LEFT */}
         <div
           style={{
             display: "flex",
-            // ✅ mobile: tighter spacing
             gap: isMobile ? 10 : 12,
-            // ✅ vertical centering
             alignItems: "center",
             flex: 1,
             minWidth: 0,
@@ -390,7 +390,6 @@ export default function NavbarIcons() {
         >
           {/* Brand */}
           {!isMobile ? (
-            // DESKTOP BRAND — original with subtext
             <Link href="/" className="brand-clickable">
               <div className="brand">
                 <img
@@ -409,7 +408,6 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
-            // MOBILE BRAND — logo only, extreme-left, vertically centered
             <Link
               href="/"
               className="brand-clickable"
@@ -419,22 +417,18 @@ export default function NavbarIcons() {
                 justifyContent: "flex-start",
                 gap: 0,
                 flexShrink: 0,
-                // no extra padding/margins here
               }}
             >
               <img
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial logo"
                 className="brand-logo-mobile"
-                // (size is controlled by CSS, as you said)
-                style={{
-                  display: "block",
-                }}
+                style={{ display: "block" }}
               />
             </Link>
           )}
 
-          {/* MOBILE SEARCH PILL — between logo and hamburger (vertically centered) */}
+          {/* MOBILE SEARCH PILL */}
           {isMobile && (
             <form
               onSubmit={handleGlobalSearchSubmit}
@@ -448,7 +442,6 @@ export default function NavbarIcons() {
                 borderRadius: 999,
                 border: "1px solid rgba(148,163,184,0.55)",
                 background: "rgba(15,23,42,0.55)",
-                // ✅ lock height so it visually centers in navbar block
                 height: 38,
               }}
             >
@@ -484,18 +477,16 @@ export default function NavbarIcons() {
           )}
         </div>
 
-        {/* RIGHT: desktop nav OR hamburger */}
+        {/* RIGHT */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: 12,
             flexShrink: 0,
-            // ✅ keep hamburger vertically centered as well
             height: "100%",
           }}
         >
-          {/* DESKTOP NAV (hidden on mobile) */}
           {!isMobile && (
             <nav
               className="nav-links nav-links-desktop"
@@ -509,8 +500,6 @@ export default function NavbarIcons() {
               {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
               {renderIconNavLink("/products", "Products", "/icons/products.svg")}
               {renderIconNavLink("/community", "Community", "/icons/community.svg")}
-
-              {/* ✅ QnA added here (after Community, before Notifications) */}
               {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
 
               {!loading &&
@@ -522,7 +511,6 @@ export default function NavbarIcons() {
                   notificationsCount
                 )}
 
-              {/* Theme toggle */}
               <button
                 type="button"
                 className="nav-link nav-link-button theme-toggle"
@@ -532,14 +520,12 @@ export default function NavbarIcons() {
                 {theme === "dark" ? "☀️" : "🌙"}
               </button>
 
-              {/* Logged-out CTA */}
               {!loading && !user && (
                 <Link href="/auth" className="nav-cta">
                   Login / Sign up
                 </Link>
               )}
 
-              {/* USER MENU (DESKTOP) */}
               {!loading && user && (
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
@@ -624,13 +610,7 @@ export default function NavbarIcons() {
                         My ecosystem
                       </Link>
 
-                      <div
-                        ref={dashboardRef}
-                        style={{
-                          marginTop: 4,
-                          marginBottom: 4,
-                        }}
-                      >
+                      <div ref={dashboardRef} style={{ marginTop: 4, marginBottom: 4 }}>
                         <button
                           type="button"
                           className="nav-dropdown-item"
@@ -638,13 +618,7 @@ export default function NavbarIcons() {
                           onKeyDown={toggleDashboardFromKey}
                         >
                           <span>Dashboard</span>
-                          <span
-                            style={{
-                              marginLeft: "auto",
-                              fontSize: 10,
-                              opacity: 0.8,
-                            }}
-                          >
+                          <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.8 }}>
                             {isDashboardOpen ? "▲" : "▼"}
                           </span>
                         </button>
@@ -736,7 +710,6 @@ export default function NavbarIcons() {
             </nav>
           )}
 
-          {/* MOBILE HAMBURGER – only on mobile */}
           {isMobile && (
             <button
               type="button"
@@ -744,7 +717,6 @@ export default function NavbarIcons() {
               aria-label="Open navigation"
               onClick={() => setIsMobileMenuOpen((o) => !o)}
               style={{
-                // ✅ ensure it vertically centers (some CSS sets odd line-height)
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -817,7 +789,6 @@ export default function NavbarIcons() {
             </Link>
           )}
 
-          {/* MAIN ICON NAV ITEMS */}
           <Link
             href="/jobs"
             className={`nav-item-with-icon ${isActive("/jobs") ? "nav-item-active" : ""}`}
@@ -845,7 +816,6 @@ export default function NavbarIcons() {
             <span className="nav-icon-label">Community</span>
           </Link>
 
-          {/* ✅ QnA added here (after Community, before Notifications) */}
           <Link
             href="/qna"
             className={`nav-item-with-icon ${isActive("/qna") ? "nav-item-active" : ""}`}
@@ -854,7 +824,7 @@ export default function NavbarIcons() {
             <img
               src="/icons/qna.svg"
               className="nav-icon"
-              style={{ width: 40, height: 40 }} // ✅ only QnA bigger
+              style={{ width: 40, height: 40 }}
             />
             <span className="nav-icon-label">QnA</span>
           </Link>
@@ -889,7 +859,6 @@ export default function NavbarIcons() {
             </Link>
           )}
 
-          {/* AUTH AREA */}
           {!loading && !user && (
             <Link
               href="/auth"
@@ -901,7 +870,6 @@ export default function NavbarIcons() {
             </Link>
           )}
 
-          {/* LOGOUT BUTTON */}
           {!loading && user && (
             <button
               type="button"
