@@ -56,6 +56,15 @@ export default function NavbarIcons() {
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
 
+  useEffect(() => {
+  const onChanged = () => {
+    loadUnreadCount(); // whatever function you already use to query counts
+  };
+
+  window.addEventListener("q5:notifications-changed", onChanged);
+  return () => window.removeEventListener("q5:notifications-changed", onChanged);
+}, [loadUnreadCount]);
+
   // ----- HANDLE RESPONSIVE -----
   useEffect(() => {
     if (typeof window === "undefined") return;
