@@ -1,5 +1,12 @@
 // components/NavbarIcons.tsx
-import { useState, useEffect, useRef, KeyboardEvent, FormEvent } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  KeyboardEvent,
+  FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -50,8 +57,8 @@ export default function NavbarIcons() {
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
 
-  // ✅ Central function used by both initial load + event refresh
-  const loadUnreadCount = async () => {
+  // ✅ unified unread-count loader (used by route-change + custom event)
+  const loadUnreadCount = useCallback(async () => {
     if (!user) {
       setNotificationsCount(0);
       return;
@@ -65,7 +72,7 @@ export default function NavbarIcons() {
         .eq("target_user_id", user.id)
         .eq("status", "pending");
 
-      // 2) Unread notifications
+      // 2) Unread notifications (accepted updates, etc.)
       const { count: unreadCount, error: unreadErr } = await supabase
         .from("notifications")
         .select("id", { count: "exact", head: true })
@@ -74,17 +81,21 @@ export default function NavbarIcons() {
 
       const p =
         !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
-      const u =
-        !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
+      const u = !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
 
       setNotificationsCount(p + u);
     } catch (e) {
       console.error("Error loading notifications", e);
       setNotificationsCount(0);
     }
-  };
+  }, [user]);
 
-  // ✅ listen for "mark all read" / other changes
+  // ✅ refresh unread count on route changes + user changes
+  useEffect(() => {
+    loadUnreadCount();
+  }, [loadUnreadCount, router.pathname]);
+
+  // ✅ listen for “notifications changed” to refresh badge
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -93,10 +104,9 @@ export default function NavbarIcons() {
     };
 
     window.addEventListener("q5:notifications-changed", onChanged);
-    return () => window.removeEventListener("q5:notifications-changed", onChanged);
-    // only depend on user id so we don't need to put loadUnreadCount in deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+    return () =>
+      window.removeEventListener("q5:notifications-changed", onChanged);
+  }, [loadUnreadCount]);
 
   // ----- HANDLE RESPONSIVE -----
   useEffect(() => {
@@ -123,7 +133,10 @@ export default function NavbarIcons() {
     setTheme((prev) => {
       const next: Theme = prev === "dark" ? "light" : "dark";
       if (typeof window !== "undefined") {
-        document.documentElement.classList.toggle("theme-light", next === "light");
+        document.documentElement.classList.toggle(
+          "theme-light",
+          next === "light"
+        );
         window.localStorage.setItem("q5_theme", next);
       }
       return next;
@@ -199,31 +212,20 @@ export default function NavbarIcons() {
     };
   }, [user, router.pathname]);
 
-  // ----- NOTIFICATIONS (initial load & on route change) -----
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      if (cancelled) return;
-      await loadUnreadCount();
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, router.pathname]);
-
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(e.target as Node)
+      ) {
         setIsUserMenuOpen(false);
         setIsDashboardOpen(false);
       }
-      if (dashboardRef.current && !dashboardRef.current.contains(e.target as Node)) {
+      if (
+        dashboardRef.current &&
+        !dashboardRef.current.contains(e.target as Node)
+      ) {
         setIsDashboardOpen(false);
       }
     }
@@ -289,7 +291,10 @@ export default function NavbarIcons() {
     const iconSize = isQnA ? 40 : 36; // ✅ only QnA bigger
 
     return (
-      <Link href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
+      <Link
+        href={href}
+        className={`nav-link ${active ? "nav-link-active" : ""}`}
+      >
         <div
           style={{
             position: "relative",
@@ -369,6 +374,7 @@ export default function NavbarIcons() {
         style={{
           maxWidth: 1400,
           margin: "0 auto",
+          // ✅ mobile: minimal padding so logo can be extreme-left
           padding: isMobile ? "0 8px" : "0 24px",
           display: "flex",
           alignItems: "center",
@@ -378,11 +384,13 @@ export default function NavbarIcons() {
           gap: 16,
         }}
       >
-        {/* LEFT */}
+        {/* LEFT: brand + (mobile search pill inline) + desktop search */}
         <div
           style={{
             display: "flex",
+            // ✅ mobile: tighter spacing
             gap: isMobile ? 10 : 12,
+            // ✅ vertical centering
             alignItems: "center",
             flex: 1,
             minWidth: 0,
@@ -390,6 +398,7 @@ export default function NavbarIcons() {
         >
           {/* Brand */}
           {!isMobile ? (
+            // DESKTOP BRAND — original with subtext
             <Link href="/" className="brand-clickable">
               <div className="brand">
                 <img
@@ -408,6 +417,7 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
+            // MOBILE BRAND — logo only, extreme-left, vertically centered
             <Link
               href="/"
               className="brand-clickable"
@@ -423,12 +433,14 @@ export default function NavbarIcons() {
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial logo"
                 className="brand-logo-mobile"
-                style={{ display: "block" }}
+                style={{
+                  display: "block",
+                }}
               />
             </Link>
           )}
 
-          {/* MOBILE SEARCH PILL */}
+          {/* MOBILE SEARCH PILL — between logo and hamburger (vertically centered) */}
           {isMobile && (
             <form
               onSubmit={handleGlobalSearchSubmit}
@@ -465,7 +477,10 @@ export default function NavbarIcons() {
 
           {/* Global search – desktop only */}
           {!isMobile && (
-            <form onSubmit={handleGlobalSearchSubmit} className="nav-search-desktop">
+            <form
+              onSubmit={handleGlobalSearchSubmit}
+              className="nav-search-desktop"
+            >
               <input
                 type="text"
                 value={globalSearch}
@@ -477,7 +492,7 @@ export default function NavbarIcons() {
           )}
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT: desktop nav OR hamburger */}
         <div
           style={{
             display: "flex",
@@ -487,6 +502,7 @@ export default function NavbarIcons() {
             height: "100%",
           }}
         >
+          {/* DESKTOP NAV (hidden on mobile) */}
           {!isMobile && (
             <nav
               className="nav-links nav-links-desktop"
@@ -499,7 +515,13 @@ export default function NavbarIcons() {
             >
               {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
               {renderIconNavLink("/products", "Products", "/icons/products.svg")}
-              {renderIconNavLink("/community", "Community", "/icons/community.svg")}
+              {renderIconNavLink(
+                "/community",
+                "Community",
+                "/icons/community.svg"
+              )}
+
+              {/* ✅ QnA added here (after Community, before Notifications) */}
               {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
 
               {!loading &&
@@ -511,6 +533,7 @@ export default function NavbarIcons() {
                   notificationsCount
                 )}
 
+              {/* Theme toggle */}
               <button
                 type="button"
                 className="nav-link nav-link-button theme-toggle"
@@ -520,12 +543,14 @@ export default function NavbarIcons() {
                 {theme === "dark" ? "☀️" : "🌙"}
               </button>
 
+              {/* Logged-out CTA */}
               {!loading && !user && (
                 <Link href="/auth" className="nav-cta">
                   Login / Sign up
                 </Link>
               )}
 
+              {/* USER MENU (DESKTOP) */}
               {!loading && user && (
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
@@ -563,7 +588,10 @@ export default function NavbarIcons() {
                           : "none",
                       }}
                     >
-                      <div className="nav-user-avatar" style={{ width: 36, height: 36 }}>
+                      <div
+                        className="nav-user-avatar"
+                        style={{ width: 36, height: 36 }}
+                      >
                         {avatarUrl ? (
                           <img src={avatarUrl} alt={firstName} />
                         ) : (
@@ -610,7 +638,13 @@ export default function NavbarIcons() {
                         My ecosystem
                       </Link>
 
-                      <div ref={dashboardRef} style={{ marginTop: 4, marginBottom: 4 }}>
+                      <div
+                        ref={dashboardRef}
+                        style={{
+                          marginTop: 4,
+                          marginBottom: 4,
+                        }}
+                      >
                         <button
                           type="button"
                           className="nav-dropdown-item"
@@ -618,7 +652,13 @@ export default function NavbarIcons() {
                           onKeyDown={toggleDashboardFromKey}
                         >
                           <span>Dashboard</span>
-                          <span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.8 }}>
+                          <span
+                            style={{
+                              marginLeft: "auto",
+                              fontSize: 10,
+                              opacity: 0.8,
+                            }}
+                          >
                             {isDashboardOpen ? "▲" : "▼"}
                           </span>
                         </button>
@@ -710,6 +750,7 @@ export default function NavbarIcons() {
             </nav>
           )}
 
+          {/* MOBILE HAMBURGER – only on mobile */}
           {isMobile && (
             <button
               type="button"
@@ -789,9 +830,12 @@ export default function NavbarIcons() {
             </Link>
           )}
 
+          {/* MAIN ICON NAV ITEMS */}
           <Link
             href="/jobs"
-            className={`nav-item-with-icon ${isActive("/jobs") ? "nav-item-active" : ""}`}
+            className={`nav-item-with-icon ${
+              isActive("/jobs") ? "nav-item-active" : ""
+            }`}
             onClick={closeMobileMenu}
           >
             <img src="/icons/jobs.svg" className="nav-icon" />
@@ -800,7 +844,9 @@ export default function NavbarIcons() {
 
           <Link
             href="/products"
-            className={`nav-item-with-icon ${isActive("/products") ? "nav-item-active" : ""}`}
+            className={`nav-item-with-icon ${
+              isActive("/products") ? "nav-item-active" : ""
+            }`}
             onClick={closeMobileMenu}
           >
             <img src="/icons/products.svg" className="nav-icon" />
@@ -809,16 +855,21 @@ export default function NavbarIcons() {
 
           <Link
             href="/community"
-            className={`nav-item-with-icon ${isActive("/community") ? "nav-item-active" : ""}`}
+            className={`nav-item-with-icon ${
+              isActive("/community") ? "nav-item-active" : ""
+            }`}
             onClick={closeMobileMenu}
           >
             <img src="/icons/community.svg" className="nav-icon" />
             <span className="nav-icon-label">Community</span>
           </Link>
 
+          {/* ✅ QnA added here (after Community, before Notifications) */}
           <Link
             href="/qna"
-            className={`nav-item-with-icon ${isActive("/qna") ? "nav-item-active" : ""}`}
+            className={`nav-item-with-icon ${
+              isActive("/qna") ? "nav-item-active" : ""
+            }`}
             onClick={closeMobileMenu}
           >
             <img
@@ -832,7 +883,9 @@ export default function NavbarIcons() {
           {!loading && user && (
             <Link
               href="/notifications"
-              className={`nav-item-with-icon ${isActive("/notifications") ? "nav-item-active" : ""}`}
+              className={`nav-item-with-icon ${
+                isActive("/notifications") ? "nav-item-active" : ""
+              }`}
               onClick={closeMobileMenu}
             >
               <img src="/icons/notifications.svg" className="nav-icon" />
@@ -859,6 +912,7 @@ export default function NavbarIcons() {
             </Link>
           )}
 
+          {/* AUTH AREA */}
           {!loading && !user && (
             <Link
               href="/auth"
@@ -870,6 +924,7 @@ export default function NavbarIcons() {
             </Link>
           )}
 
+          {/* LOGOUT BUTTON */}
           {!loading && user && (
             <button
               type="button"
