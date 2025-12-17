@@ -214,7 +214,8 @@ export default function Home() {
    ========================= */
 
 function HomeGlobalFeed() {
-  const { user } = useSupabaseUser();
+  const { user, loading: userLoading } = useSupabaseUser();
+  //const { user } = useSupabaseUser();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -244,7 +245,7 @@ function HomeGlobalFeed() {
     return new Date(t).toLocaleString();
   };
 
-  const loadFeed = async () => {
+  const loadFeed = async (uid: string | null) => {
     setLoading(true);
     setError(null);
 
@@ -301,7 +302,7 @@ function HomeGlobalFeed() {
       const likedByMeSet = new Set<string>();
       likeRows.forEach((r) => {
         likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
-        if (user && r.user_id === user.id) likedByMeSet.add(r.post_id);
+        if (uid && r.user_id === uid) likedByMeSet.add(r.post_id);
       });
 
       const commentCountByPost: Record<string, number> = {};
@@ -328,14 +329,15 @@ function HomeGlobalFeed() {
   };
 
   useEffect(() => {
-    loadFeed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  if (userLoading) return;
+  loadFeed(user?.id ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [userLoading, user?.id]);
+  
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const onFeedChanged = () => loadFeed();
+    const onFeedChanged = () => loadFeed(user?.id ?? null);
 
     window.addEventListener("q5:feed-changed", onFeedChanged);
     return () => window.removeEventListener("q5:feed-changed", onFeedChanged);
@@ -521,7 +523,7 @@ function HomeGlobalFeed() {
         <button
           type="button"
           style={pillBtnStyle}
-          onClick={loadFeed}
+          onClick={() => loadFeed(user?.id ?? null)}
           disabled={loading}
         >
           {loading ? "Refreshing…" : "Refresh"}
