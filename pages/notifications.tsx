@@ -63,6 +63,10 @@ type FeedItem =
       message: string;
     };
 
+// ✅ TS type-guard for narrowing
+type NotifFeedItem = Extract<FeedItem, { kind: "notif" }>;
+const isNotifFeedItem = (it: FeedItem): it is NotifFeedItem => it.kind === "notif";
+
 type NotificationsCtx = {};
 
 const NotificationsContext = createContext<NotificationsCtx | null>(null);
@@ -85,6 +89,7 @@ function useNotificationsCtx() {
   return ctx;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function NotificationsRightSidebar() {
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%" }}>
@@ -188,7 +193,7 @@ function NotificationsMiddle() {
   };
 
   const dedupeNotifications = (rows: Notification[]) => {
-    // Key: title + link_url (so accept for a person groups cleanly)
+    // Key: title + link_url + type
     const bestByKey: Record<string, Notification> = {};
 
     for (let i = 0; i < rows.length; i++) {
@@ -370,54 +375,56 @@ function NotificationsMiddle() {
   const unreadCount = (entanglementRequests?.length || 0) + unreadNotifShownCount;
 
   const handleMarkAllRead = async () => {
-  if (!user) return;
+    if (!user) return;
 
-  const unreadNotifIds = feed
-    .filter((it) => it.kind === "notif" && !it.notification.is_read)
-    .map((it) => it.notification.id);
+    // ✅ TS-safe narrowing (fixes your build error)
+    const unreadNotifIds = feed
+      .filter(isNotifFeedItem)
+      .filter((it) => !it.notification.is_read)
+      .map((it) => it.notification.id);
 
-  if (unreadNotifIds.length === 0) return;
+    if (unreadNotifIds.length === 0) return;
 
-  setMarkingAll(true);
-  try {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .in("id", unreadNotifIds);
+    setMarkingAll(true);
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .in("id", unreadNotifIds);
 
-    if (error) {
-      console.error("Error marking notifications as read", error);
-      return;
+      if (error) {
+        console.error("Error marking notifications as read", error);
+        return;
+      }
+
+      // update local state
+      setOtherNotifications((prev) =>
+        prev.map((n) =>
+          unreadNotifIds.includes(n.id) ? { ...n, is_read: true } : n
+        )
+      );
+
+      setFeed((prev) =>
+        prev.map((it) => {
+          if (it.kind !== "notif") return it;
+          if (unreadNotifIds.includes(it.notification.id)) {
+            return {
+              ...it,
+              notification: { ...it.notification, is_read: true },
+            };
+          }
+          return it;
+        })
+      );
+
+      // ✅ tell Navbar (and any listeners) to refresh badge counts
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+      }
+    } finally {
+      setMarkingAll(false);
     }
-
-    // update local state
-    setOtherNotifications((prev) =>
-      prev.map((n) =>
-        unreadNotifIds.includes(n.id) ? { ...n, is_read: true } : n
-      )
-    );
-
-    setFeed((prev) =>
-      prev.map((it) => {
-        if (it.kind !== "notif") return it;
-        if (unreadNotifIds.includes(it.notification.id)) {
-          return {
-            ...it,
-            notification: { ...it.notification, is_read: true },
-          };
-        }
-        return it;
-      })
-    );
-
-    // ✅ tell Navbar (and any listeners) to refresh badge counts
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
-    }
-  } finally {
-    setMarkingAll(false);
-  }
-};
+  };
 
   const handleOpenNotification = async (notification: Notification) => {
     if (!notification.link_url) return;
@@ -446,6 +453,11 @@ function NotificationsMiddle() {
             return it;
           })
         );
+
+        // ✅ refresh navbar badge immediately on single-open too
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+        }
       }
     }
 
@@ -472,9 +484,6 @@ function NotificationsMiddle() {
           return;
         }
 
-        // ✅ IMPORTANT: do NOT insert notification here.
-        // DB trigger handles notifying the requester.
-
         setEntanglementRequests((prev) =>
           prev.filter((req) => req.id !== item.id)
         );
@@ -489,8 +498,12 @@ function NotificationsMiddle() {
         };
 
         setFeed((prev) => [newFeedItem, ...prev]);
+
+        // ✅ pending count changed → refresh navbar badge
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+        }
       } else {
-        // decline: no notify (and your DB doesn’t allow "declined" anyway)
         const { error } = await supabase
           .from("connections")
           .delete()
@@ -502,6 +515,11 @@ function NotificationsMiddle() {
         setEntanglementRequests((prev) =>
           prev.filter((req) => req.id !== item.id)
         );
+
+        // ✅ pending count changed → refresh navbar badge
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+        }
       }
     } finally {
       setActingOnId(null);
@@ -962,7 +980,8 @@ function NotificationsMiddle() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                              background:
+                                "linear-gradient(135deg,#3bc7f3,#8468ff)",
                               color: "#fff",
                               fontWeight: 700,
                               fontSize: 14,
