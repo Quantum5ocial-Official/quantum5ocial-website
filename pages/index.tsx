@@ -1,5 +1,6 @@
 // pages/index.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -285,7 +286,7 @@ function HomeGlobalFeed() {
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
-      // 4) Comments for these posts (for counts). (Early-stage approach: fetch rows and count in JS)
+      // 4) Comments for these posts (for counts)
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -331,7 +332,6 @@ function HomeGlobalFeed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refresh feed when a post is created (or if you want: after like/comment too)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -342,15 +342,12 @@ function HomeGlobalFeed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Deep-link from notifications: /?post=<id>
   useEffect(() => {
     if (!postParam) return;
 
-    // If post not in current list, try reload once (new post etc.)
     const exists = items.some((x) => x.post.id === postParam);
     if (!exists) return;
 
-    // open comments + scroll
     setOpenComments((prev) => ({ ...prev, [postParam]: true }));
 
     const node = postRefs.current[postParam];
@@ -358,7 +355,6 @@ function HomeGlobalFeed() {
       node.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    // auto-load comments if not loaded
     if (!commentsByPost[postParam]) {
       void loadComments(postParam);
     }
@@ -375,7 +371,10 @@ function HomeGlobalFeed() {
 
       if (error) throw error;
 
-      setCommentsByPost((prev) => ({ ...prev, [postId]: (rows || []) as CommentRow[] }));
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: (rows || []) as CommentRow[],
+      }));
     } catch (e) {
       console.warn("loadComments error", e);
       setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
@@ -394,7 +393,6 @@ function HomeGlobalFeed() {
     const cur = items[idx];
     const nextLiked = !cur.likedByMe;
 
-    // optimistic UI
     setItems((prev) =>
       prev.map((x) => {
         if (x.post.id !== postId) return x;
@@ -422,13 +420,11 @@ function HomeGlobalFeed() {
         if (error) throw error;
       }
 
-      // let navbar refresh badge if your notifications page changes stuff
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
       }
     } catch (e) {
       console.warn("toggleLike error", e);
-      // rollback
       setItems((prev) =>
         prev.map((x) => {
           if (x.post.id !== postId) return x;
@@ -462,10 +458,7 @@ function HomeGlobalFeed() {
 
       if (error) throw error;
 
-      // clear draft
       setCommentDraft((p) => ({ ...p, [postId]: "" }));
-
-      // ensure comments open + reload (or append)
       setOpenComments((p) => ({ ...p, [postId]: true }));
 
       setCommentsByPost((prev) => {
@@ -473,7 +466,6 @@ function HomeGlobalFeed() {
         return { ...prev, [postId]: data ? [...cur, data as CommentRow] : cur };
       });
 
-      // bump count
       setItems((prev) =>
         prev.map((x) =>
           x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
@@ -490,7 +482,7 @@ function HomeGlobalFeed() {
     }
   };
 
-  const pillBtnStyle: React.CSSProperties = {
+  const pillBtnStyle: CSSProperties = {
     fontSize: 13,
     padding: "6px 10px",
     borderRadius: 999,
@@ -501,7 +493,7 @@ function HomeGlobalFeed() {
     whiteSpace: "nowrap",
   };
 
-  const avatarStyle = (size = 34): React.CSSProperties => ({
+  const avatarStyle = (size = 34): CSSProperties => ({
     width: size,
     height: size,
     borderRadius: 999,
@@ -526,7 +518,12 @@ function HomeGlobalFeed() {
           </div>
         </div>
 
-        <button type="button" style={pillBtnStyle} onClick={loadFeed} disabled={loading}>
+        <button
+          type="button"
+          style={pillBtnStyle}
+          onClick={loadFeed}
+          disabled={loading}
+        >
           {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
@@ -603,7 +600,10 @@ function HomeGlobalFeed() {
                           {a?.id ? (
                             <Link
                               href={`/profile/${a.id}`}
-                              style={{ color: "rgba(226,232,240,0.95)", textDecoration: "none" }}
+                              style={{
+                                color: "rgba(226,232,240,0.95)",
+                                textDecoration: "none",
+                              }}
                             >
                               {name}
                             </Link>
@@ -655,7 +655,9 @@ function HomeGlobalFeed() {
                           border: it.likedByMe
                             ? "1px solid rgba(34,211,238,0.65)"
                             : "1px solid rgba(148,163,184,0.35)",
-                          background: it.likedByMe ? "rgba(34,211,238,0.12)" : "rgba(2,6,23,0.2)",
+                          background: it.likedByMe
+                            ? "rgba(34,211,238,0.12)"
+                            : "rgba(2,6,23,0.2)",
                           color: "rgba(226,232,240,0.92)",
                           cursor: "pointer",
                           fontSize: 13,
@@ -694,13 +696,7 @@ function HomeGlobalFeed() {
 
                     {isOpen && (
                       <div style={{ marginTop: 12 }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "flex-start",
-                          }}
-                        >
+                        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                           <div style={avatarStyle(30)}>
                             {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
                           </div>
@@ -731,21 +727,29 @@ function HomeGlobalFeed() {
                               }}
                             />
 
-                            <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                            <div
+                              style={{
+                                marginTop: 8,
+                                display: "flex",
+                                justifyContent: "flex-end",
+                              }}
+                            >
                               <button
                                 type="button"
                                 onClick={() => submitComment(p.id)}
-                                disabled={!user || commentSaving[p.id] || !(commentDraft[p.id] || "").trim()}
+                                disabled={
+                                  !user ||
+                                  commentSaving[p.id] ||
+                                  !(commentDraft[p.id] || "").trim()
+                                }
                                 style={{
                                   padding: "8px 14px",
                                   borderRadius: 999,
                                   border: "none",
                                   fontSize: 13,
                                   fontWeight: 900,
-                                  cursor:
-                                    !user || commentSaving[p.id] ? "default" : "pointer",
-                                  opacity:
-                                    !user || commentSaving[p.id] ? 0.6 : 1,
+                                  cursor: !user || commentSaving[p.id] ? "default" : "pointer",
+                                  opacity: !user || commentSaving[p.id] ? 0.6 : 1,
                                   background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                                   color: "#0f172a",
                                 }}
@@ -756,7 +760,14 @@ function HomeGlobalFeed() {
                           </div>
                         </div>
 
-                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div
+                          style={{
+                            marginTop: 10,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                          }}
+                        >
                           {comments.length === 0 ? (
                             <div style={{ fontSize: 12, opacity: 0.75 }}>
                               No comments yet.
@@ -857,7 +868,6 @@ function useIsMobile(maxWidth = 520) {
 
     set();
 
-    // Safari / older browsers fallback
     const anyMq = mq as any;
 
     if (mq.addEventListener) {
@@ -884,19 +894,16 @@ function HomeComposerStrip() {
   const [mode, setMode] = useState<"post" | "ask">("post");
   const [open, setOpen] = useState(false);
 
-  // post
   const [postText, setPostText] = useState("");
   const [postSaving, setPostSaving] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
 
-  // ask
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
   const [askType, setAskType] = useState<"concept" | "experiment" | "career">(
     "concept"
   );
 
-  // submit state / visible errors
   const [askSaving, setAskSaving] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
 
@@ -929,8 +936,7 @@ function HomeComposerStrip() {
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
-  const firstName =
-    (displayName.split(" ")[0] || displayName).trim() || "Member";
+  const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
 
   const initials =
     (me?.full_name || "")
@@ -964,12 +970,7 @@ function HomeComposerStrip() {
         <img
           src={me.avatar_url}
           alt={displayName}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       ) : (
         initials
@@ -977,16 +978,15 @@ function HomeComposerStrip() {
     </div>
   );
 
-  const shellStyle: React.CSSProperties = {
+  const shellStyle: CSSProperties = {
     borderRadius: 18,
     border: "1px solid rgba(148,163,184,0.18)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
     boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
     padding: isMobile ? 12 : 14,
   };
 
-  const collapsedInputStyle: React.CSSProperties = {
+  const collapsedInputStyle: CSSProperties = {
     height: isMobile ? 40 : 42,
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.22)",
@@ -1001,7 +1001,7 @@ function HomeComposerStrip() {
     minWidth: 0,
   };
 
-  const toggleShell: React.CSSProperties = {
+  const toggleShell: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
@@ -1011,7 +1011,7 @@ function HomeComposerStrip() {
     background: "rgba(2,6,23,0.22)",
   };
 
-  const toggleBtn = (active: boolean): React.CSSProperties => ({
+  const toggleBtn = (active: boolean): CSSProperties => ({
     padding: isMobile ? "7px 10px" : "7px 11px",
     borderRadius: 999,
     border: "none",
@@ -1023,7 +1023,7 @@ function HomeComposerStrip() {
     whiteSpace: "nowrap",
   });
 
-  const modalBackdrop: React.CSSProperties = {
+  const modalBackdrop: CSSProperties = {
     position: "fixed",
     inset: 0,
     background: "rgba(2,6,23,0.62)",
@@ -1035,18 +1035,17 @@ function HomeComposerStrip() {
     padding: isMobile ? 10 : 18,
   };
 
-  const modalCard: React.CSSProperties = {
+  const modalCard: CSSProperties = {
     width: "min(740px, 100%)",
     borderRadius: isMobile ? "18px 18px 0 0" : 18,
     border: "1px solid rgba(148,163,184,0.22)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
     boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
     overflow: "hidden",
     maxHeight: isMobile ? "86vh" : undefined,
   };
 
-  const modalHeader: React.CSSProperties = {
+  const modalHeader: CSSProperties = {
     padding: "14px 16px",
     borderBottom: "1px solid rgba(148,163,184,0.14)",
     display: "flex",
@@ -1055,7 +1054,7 @@ function HomeComposerStrip() {
     gap: 12,
   };
 
-  const closeBtn: React.CSSProperties = {
+  const closeBtn: CSSProperties = {
     width: 34,
     height: 34,
     borderRadius: 999,
@@ -1069,12 +1068,12 @@ function HomeComposerStrip() {
     flexShrink: 0,
   };
 
-  const modalBody: React.CSSProperties = {
+  const modalBody: CSSProperties = {
     padding: 16,
     overflowY: isMobile ? "auto" : undefined,
   };
 
-  const bigTextarea: React.CSSProperties = {
+  const bigTextarea: CSSProperties = {
     width: "100%",
     minHeight: isMobile ? 140 : 160,
     borderRadius: 14,
@@ -1088,7 +1087,7 @@ function HomeComposerStrip() {
     resize: "vertical",
   };
 
-  const smallInput: React.CSSProperties = {
+  const smallInput: CSSProperties = {
     width: "100%",
     height: 42,
     borderRadius: 12,
@@ -1100,7 +1099,7 @@ function HomeComposerStrip() {
     outline: "none",
   };
 
-  const footerBar: React.CSSProperties = {
+  const footerBar: CSSProperties = {
     padding: "12px 16px",
     borderTop: "1px solid rgba(148,163,184,0.14)",
     display: "flex",
@@ -1110,7 +1109,7 @@ function HomeComposerStrip() {
     flexWrap: "wrap",
   };
 
-  const primaryBtn = (disabled?: boolean): React.CSSProperties => ({
+  const primaryBtn = (disabled?: boolean): CSSProperties => ({
     padding: "9px 16px",
     borderRadius: 999,
     border: "none",
@@ -1125,7 +1124,7 @@ function HomeComposerStrip() {
     color: "#0f172a",
   });
 
-  const typeChip = (active: boolean): React.CSSProperties => ({
+  const typeChip = (active: boolean): CSSProperties => ({
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
@@ -1154,7 +1153,6 @@ function HomeComposerStrip() {
 
   const closeComposer = () => setOpen(false);
 
-  // mobile-friendly placeholders (avoid awkward wrapping)
   const collapsedPlaceholder =
     mode === "post"
       ? isMobile
@@ -1217,7 +1215,6 @@ function HomeComposerStrip() {
     setAskError(null);
 
     try {
-      // Attempt 1: insert WITH tags (if your column supports it)
       let insertedId: string | null = null;
 
       const attempt1 = await supabase
@@ -1234,7 +1231,6 @@ function HomeComposerStrip() {
       if (!attempt1.error) {
         insertedId = (attempt1.data as any)?.id ?? null;
       } else {
-        // Attempt 2: insert WITHOUT tags (common if tags column type differs)
         const attempt2 = await supabase
           .from("qna_questions")
           .insert({
@@ -1256,13 +1252,11 @@ function HomeComposerStrip() {
         insertedId = (attempt2.data as any)?.id ?? null;
       }
 
-      // reset + close
       setAskTitle("");
       setAskBody("");
       setAskType("concept");
       closeComposer();
 
-      // go to qna (even if we can't read id due to RLS select)
       if (insertedId) {
         router.push(`/qna?open=${insertedId}`);
       } else {
@@ -1281,24 +1275,12 @@ function HomeComposerStrip() {
 
   return (
     <>
-      {/* ONE merged composer */}
       <div style={shellStyle}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           {avatarNode}
 
-          {/* Input grows full width on small screens, and ellipsizes */}
           <div
-            style={{
-              ...collapsedInputStyle,
-              flex: "1 1 260px",
-            }}
+            style={{ ...collapsedInputStyle, flex: "1 1 260px" }}
             onClick={openComposer}
             role="button"
             tabIndex={0}
@@ -1317,46 +1299,25 @@ function HomeComposerStrip() {
             >
               {collapsedPlaceholder}
             </span>
-            <span
-              style={{
-                marginLeft: "auto",
-                opacity: 0.7,
-                fontSize: 12,
-                flexShrink: 0,
-              }}
-            >
+            <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12, flexShrink: 0 }}>
               {mode === "post" ? "✨" : "❓"}
             </span>
           </div>
 
-          {/* Toggle drops below if needed */}
           <div
-            style={{
-              ...toggleShell,
-              flex: "0 0 auto",
-              marginLeft: "auto",
-            }}
+            style={{ ...toggleShell, flex: "0 0 auto", marginLeft: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              style={toggleBtn(mode === "post")}
-              onClick={() => setMode("post")}
-            >
+            <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
               Post
             </button>
-            <button
-              type="button"
-              style={toggleBtn(mode === "ask")}
-              onClick={() => setMode("ask")}
-            >
+            <button type="button" style={toggleBtn(mode === "ask")} onClick={() => setMode("ask")}>
               Ask
             </button>
           </div>
         </div>
       </div>
 
-      {/* ONE modal, content switches by mode */}
       {open && (
         <div
           style={modalBackdrop}
@@ -1371,46 +1332,24 @@ function HomeComposerStrip() {
               </div>
 
               <div style={toggleShell}>
-                <button
-                  type="button"
-                  style={toggleBtn(mode === "post")}
-                  onClick={() => setMode("post")}
-                >
+                <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
                   Post
                 </button>
-                <button
-                  type="button"
-                  style={toggleBtn(mode === "ask")}
-                  onClick={() => setMode("ask")}
-                >
+                <button type="button" style={toggleBtn(mode === "ask")} onClick={() => setMode("ask")}>
                   Ask
                 </button>
               </div>
 
-              <button
-                type="button"
-                style={closeBtn}
-                onClick={closeComposer}
-                aria-label="Close"
-              >
+              <button type="button" style={closeBtn} onClick={closeComposer} aria-label="Close">
                 ✕
               </button>
             </div>
 
             <div style={modalBody}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  marginBottom: 12,
-                }}
-              >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                 {avatarNode}
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
-                    {displayName}
-                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>{displayName}</div>
                   <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
                     {mode === "post" ? "Public · Quantum5ocial" : "Public · Q&A"}
                   </div>
@@ -1422,11 +1361,7 @@ function HomeComposerStrip() {
                   <textarea
                     value={postText}
                     onChange={(e) => setPostText(e.target.value)}
-                    placeholder={
-                      isMobile
-                        ? "What’s on your mind?"
-                        : `What’s on your mind, ${firstName}?`
-                    }
+                    placeholder={isMobile ? "What’s on your mind?" : `What’s on your mind, ${firstName}?`}
                     style={bigTextarea}
                   />
 
@@ -1449,39 +1384,16 @@ function HomeComposerStrip() {
                 </>
               ) : (
                 <>
-                  {/* type selector */}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      flexWrap: "wrap",
-                      marginBottom: 12,
-                    }}
-                  >
-                    <div
-                      style={typeChip(askType === "concept")}
-                      onClick={() => setAskType("concept")}
-                      role="button"
-                      tabIndex={0}
-                    >
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                    <div style={typeChip(askType === "concept")} onClick={() => setAskType("concept")} role="button" tabIndex={0}>
                       <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
                       Concept
                     </div>
-                    <div
-                      style={typeChip(askType === "experiment")}
-                      onClick={() => setAskType("experiment")}
-                      role="button"
-                      tabIndex={0}
-                    >
+                    <div style={typeChip(askType === "experiment")} onClick={() => setAskType("experiment")} role="button" tabIndex={0}>
                       <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
                       Experiment
                     </div>
-                    <div
-                      style={typeChip(askType === "career")}
-                      onClick={() => setAskType("career")}
-                      role="button"
-                      tabIndex={0}
-                    >
+                    <div style={typeChip(askType === "career")} onClick={() => setAskType("career")} role="button" tabIndex={0}>
                       <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
                       Career
                     </div>
@@ -1524,32 +1436,19 @@ function HomeComposerStrip() {
             </div>
 
             <div style={footerBar}>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                }}
-              >
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 {mode === "post" ? (
                   <>
                     <ActionButton
-                      icon={
-                        <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                      }
+                      icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
                       label="Photo"
                     />
                     <ActionButton
-                      icon={
-                        <MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />
-                      }
+                      icon={<MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />}
                       label="Video"
                     />
                     <ActionButton
-                      icon={
-                        <MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
-                      }
+                      icon={<MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />}
                       label="Link"
                     />
                   </>
@@ -1567,11 +1466,8 @@ function HomeComposerStrip() {
                 style={primaryBtn(!canSubmit)}
                 disabled={!canSubmit}
                 onClick={() => {
-                  if (mode === "post") {
-                    submitPost();
-                  } else {
-                    submitAskToQnA();
-                  }
+                  if (mode === "post") submitPost();
+                  else submitAskToQnA();
                 }}
               >
                 {mode === "post" ? (postSaving ? "Posting…" : "Post") : askSaving ? "Asking…" : "Ask"}
@@ -1597,11 +1493,10 @@ function HomeRightSidebar() {
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [loadingMember, setLoadingMember] = useState(true);
 
-  // Accent colors (match your dashboard tiles)
   const ACCENT = {
-    members: "#22d3ee", // cyan/teal
-    jobs: "#22c55e", // green
-    products: "#fbbf24", // amber/yellow
+    members: "#22d3ee",
+    jobs: "#22c55e",
+    products: "#fbbf24",
   };
 
   useEffect(() => {
@@ -1612,7 +1507,6 @@ function HomeRightSidebar() {
       select: string,
       fallbackOrderCol: string
     ): Promise<T | null> => {
-      // 1) Try featured first (ranked, then most recently featured, then newest)
       const { data: featured, error: featErr } = await supabase
         .from(table)
         .select(select)
@@ -1624,7 +1518,6 @@ function HomeRightSidebar() {
 
       if (!featErr && featured && featured.length > 0) return featured[0] as T;
 
-      // 2) Fallback: latest
       const { data: latest, error: latErr } = await supabase
         .from(table)
         .select(select)
@@ -1701,27 +1594,16 @@ function HomeRightSidebar() {
       ? memberName.split(" ")[0] || memberName
       : "Member";
 
-  const memberProfileHref = latestMember
-    ? `/profile/${latestMember.id}`
-    : "/community";
+  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
-      {/* JOBS TILE */}
       <Link href="/jobs" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
 
           <div className="tile-title-row">
-            {/* Accent header (NOT white bold) */}
-            <div
-              className="tile-title"
-              style={{
-                color: ACCENT.jobs,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-              }}
-            >
+            <div className="tile-title" style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}>
               Hot opening
             </div>
             <div className="tile-icon-orbit">🧪</div>
@@ -1733,35 +1615,17 @@ function HomeRightSidebar() {
             <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link
-                href={`/jobs/${latestJob.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
-                {/* Keep the actual job title white */}
+              <Link href={`/jobs/${latestJob.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    opacity: 0.85,
-                    marginTop: 4,
-                    lineHeight: 1.35,
-                  }}
-                >
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
 
                 {latestJob.short_description && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.9,
-                      marginTop: 6,
-                      lineHeight: 1.35,
-                    }}
-                  >
+                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
@@ -1783,21 +1647,12 @@ function HomeRightSidebar() {
         </div>
       </Link>
 
-      {/* PRODUCTS TILE */}
       <Link href="/products" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured product</div>
 
           <div className="tile-title-row">
-            {/* Accent header */}
-            <div
-              className="tile-title"
-              style={{
-                color: ACCENT.products,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-              }}
-            >
+            <div className="tile-title" style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}>
               Product of the week
             </div>
             <div className="tile-icon-orbit">🔧</div>
@@ -1808,14 +1663,7 @@ function HomeRightSidebar() {
           ) : !latestProduct ? (
             <p className="tile-text">No products listed yet — add your first product.</p>
           ) : (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-              }}
-            >
+            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
               <div
                 style={{
                   width: 46,
@@ -1831,12 +1679,7 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
                   <div
@@ -1855,46 +1698,17 @@ function HomeRightSidebar() {
                 )}
               </div>
 
-              <Link
-                href={`/products/${latestProduct.id}`}
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                {/* Keep the actual product name white */}
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                  {latestProduct.name}
-                </div>
+              <Link href={`/products/${latestProduct.id}`} style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{latestProduct.name}</div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    opacity: 0.85,
-                    marginTop: 4,
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {[
-                    latestProduct.company_name,
-                    latestProduct.category,
-                    formatPrice(latestProduct),
-                  ]
+                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
 
                 {latestProduct.short_description && (
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.9,
-                      marginTop: 6,
-                      lineHeight: 1.35,
-                    }}
-                  >
+                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
@@ -1916,21 +1730,12 @@ function HomeRightSidebar() {
         </div>
       </Link>
 
-      {/* COMMUNITY TILE */}
       <Link href="/community" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured member</div>
 
           <div className="tile-title-row">
-            {/* Accent header */}
-            <div
-              className="tile-title"
-              style={{
-                color: ACCENT.members,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-              }}
-            >
+            <div className="tile-title" style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}>
               Spotlight
             </div>
             <div className="tile-icon-orbit">🤝</div>
@@ -1941,14 +1746,7 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-              }}
-            >
+            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
               <div
                 style={{
                   width: 46,
@@ -1969,12 +1767,7 @@ function HomeRightSidebar() {
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
@@ -1982,39 +1775,16 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link
-                  href={memberProfileHref}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  {/* Keep member name white */}
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
-                    {memberName}
-                  </div>
+                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{memberName}</div>
 
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.85,
-                      marginTop: 4,
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {[
-                      latestMember.highest_education,
-                      latestMember.role,
-                      latestMember.affiliation,
-                    ].filter(Boolean).join(" · ") || "Quantum5ocial community member"}
+                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation].filter(Boolean).join(" · ") ||
+                      "Quantum5ocial community member"}
                   </div>
 
                   {latestMember.short_bio && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        opacity: 0.9,
-                        marginTop: 6,
-                        lineHeight: 1.35,
-                      }}
-                    >
+                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
                       {latestMember.short_bio.length > 90
                         ? latestMember.short_bio.slice(0, 87) + "..."
                         : latestMember.short_bio}
@@ -2040,7 +1810,6 @@ function HomeRightSidebar() {
   );
 }
 
-// Tell _app.tsx to render the right sidebar for this page (no page-level AppLayout)
 (Home as any).layoutProps = {
   variant: "three",
   right: <HomeRightSidebar />,
