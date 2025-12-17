@@ -375,56 +375,40 @@ function NotificationsMiddle() {
   const unreadCount = (entanglementRequests?.length || 0) + unreadNotifShownCount;
 
   const handleMarkAllRead = async () => {
-    if (!user) return;
+  if (!user) return;
 
-    // ✅ TS-safe narrowing (fixes your build error)
-    const unreadNotifIds = feed
-      .filter(isNotifFeedItem)
-      .filter((it) => !it.notification.is_read)
-      .map((it) => it.notification.id);
+  setMarkingAll(true);
+  try {
+    // ✅ Mark ALL unread notifications for this user (including ones not shown due to dedupe)
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
 
-    if (unreadNotifIds.length === 0) return;
-
-    setMarkingAll(true);
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .in("id", unreadNotifIds);
-
-      if (error) {
-        console.error("Error marking notifications as read", error);
-        return;
-      }
-
-      // update local state
-      setOtherNotifications((prev) =>
-        prev.map((n) =>
-          unreadNotifIds.includes(n.id) ? { ...n, is_read: true } : n
-        )
-      );
-
-      setFeed((prev) =>
-        prev.map((it) => {
-          if (it.kind !== "notif") return it;
-          if (unreadNotifIds.includes(it.notification.id)) {
-            return {
-              ...it,
-              notification: { ...it.notification, is_read: true },
-            };
-          }
-          return it;
-        })
-      );
-
-      // ✅ tell Navbar (and any listeners) to refresh badge counts
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
-      }
-    } finally {
-      setMarkingAll(false);
+    if (error) {
+      console.error("Error marking notifications as read", error);
+      return;
     }
-  };
+
+    // update local state
+    setOtherNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+
+    setFeed((prev) =>
+      prev.map((it) => {
+        if (it.kind !== "notif") return it;
+        return { ...it, notification: { ...it.notification, is_read: true } };
+      })
+    );
+
+    // ✅ refresh navbar badge
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+    }
+  } finally {
+    setMarkingAll(false);
+  }
+};
 
   const handleOpenNotification = async (notification: Notification) => {
     if (!notification.link_url) return;
