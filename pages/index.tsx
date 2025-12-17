@@ -1,5 +1,5 @@
 // pages/index.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -43,12 +43,47 @@ type MyProfileMini = {
   avatar_url: string | null;
 };
 
+type FeedProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+type PostRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
+};
+
+type LikeRow = { post_id: string; user_id: string };
+type CommentRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
+};
+
+type PostVM = {
+  post: PostRow;
+  author: FeedProfile | null;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+};
+
 export default function Home() {
   return (
     <>
       {/* POST + ASK PLACEHOLDERS (between hero and earn QP) */}
       <section className="section" style={{ paddingTop: 0 }}>
         <HomeComposerStrip />
+      </section>
+
+      {/* ✅ GLOBAL FEED */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <HomeGlobalFeed />
       </section>
 
       {/* HERO */}
@@ -174,6 +209,593 @@ export default function Home() {
 }
 
 /* =========================
+   GLOBAL FEED
+   ========================= */
+
+function HomeGlobalFeed() {
+  const { user } = useSupabaseUser();
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [items, setItems] = useState<PostVM[]>([]);
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>(
+    {}
+  );
+  const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
+  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
+
+  const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const postParam = useMemo(() => {
+    const raw = router.query?.post;
+    if (!raw) return null;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    return typeof v === "string" && v.length > 0 ? v : null;
+  }, [router.query]);
+
+  const formatTime = (created_at: string | null) => {
+    if (!created_at) return "";
+    const t = Date.parse(created_at);
+    if (Number.isNaN(t)) return "";
+    return new Date(t).toLocaleString();
+  };
+
+  const loadFeed = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 1) Posts
+      const { data: postRows, error: postErr } = await supabase
+        .from("posts")
+        .select("id, user_id, body, created_at")
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (postErr) throw postErr;
+
+      const posts = (postRows || []) as PostRow[];
+      const postIds = posts.map((p) => p.id);
+      const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
+
+      // 2) Profiles for authors
+      let profileMap = new Map<string, FeedProfile>();
+      if (userIds.length > 0) {
+        const { data: profRows, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
+
+        if (!profErr && profRows) {
+          (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
+        }
+      }
+
+      // 3) Likes for these posts
+      let likeRows: LikeRow[] = [];
+      if (postIds.length > 0) {
+        const { data: likes, error: likeErr } = await supabase
+          .from("post_likes")
+          .select("post_id, user_id")
+          .in("post_id", postIds);
+
+        if (!likeErr && likes) likeRows = likes as LikeRow[];
+      }
+
+      // 4) Comments for these posts (for counts). (Early-stage approach: fetch rows and count in JS)
+      let commentRows: CommentRow[] = [];
+      if (postIds.length > 0) {
+        const { data: comments, error: cErr } = await supabase
+          .from("post_comments")
+          .select("id, post_id, user_id, body, created_at")
+          .in("post_id", postIds);
+
+        if (!cErr && comments) commentRows = comments as CommentRow[];
+      }
+
+      const likeCountByPost: Record<string, number> = {};
+      const likedByMeSet = new Set<string>();
+      likeRows.forEach((r) => {
+        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
+        if (user && r.user_id === user.id) likedByMeSet.add(r.post_id);
+      });
+
+      const commentCountByPost: Record<string, number> = {};
+      commentRows.forEach((r) => {
+        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
+      });
+
+      const vms: PostVM[] = posts.map((p) => ({
+        post: p,
+        author: profileMap.get(p.user_id) || null,
+        likeCount: likeCountByPost[p.id] || 0,
+        commentCount: commentCountByPost[p.id] || 0,
+        likedByMe: likedByMeSet.has(p.id),
+      }));
+
+      setItems(vms);
+    } catch (e: any) {
+      console.error("HomeGlobalFeed load error:", e);
+      setError(e?.message || "Could not load feed.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Refresh feed when a post is created (or if you want: after like/comment too)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onFeedChanged = () => loadFeed();
+
+    window.addEventListener("q5:feed-changed", onFeedChanged);
+    return () => window.removeEventListener("q5:feed-changed", onFeedChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Deep-link from notifications: /?post=<id>
+  useEffect(() => {
+    if (!postParam) return;
+
+    // If post not in current list, try reload once (new post etc.)
+    const exists = items.some((x) => x.post.id === postParam);
+    if (!exists) return;
+
+    // open comments + scroll
+    setOpenComments((prev) => ({ ...prev, [postParam]: true }));
+
+    const node = postRefs.current[postParam];
+    if (node) {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    // auto-load comments if not loaded
+    if (!commentsByPost[postParam]) {
+      void loadComments(postParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postParam, items]);
+
+  const loadComments = async (postId: string) => {
+    try {
+      const { data: rows, error } = await supabase
+        .from("post_comments")
+        .select("id, post_id, user_id, body, created_at")
+        .eq("post_id", postId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+
+      setCommentsByPost((prev) => ({ ...prev, [postId]: (rows || []) as CommentRow[] }));
+    } catch (e) {
+      console.warn("loadComments error", e);
+      setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
+    }
+  };
+
+  const toggleLike = async (postId: string) => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+
+    const idx = items.findIndex((x) => x.post.id === postId);
+    if (idx < 0) return;
+
+    const cur = items[idx];
+    const nextLiked = !cur.likedByMe;
+
+    // optimistic UI
+    setItems((prev) =>
+      prev.map((x) => {
+        if (x.post.id !== postId) return x;
+        return {
+          ...x,
+          likedByMe: nextLiked,
+          likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
+        };
+      })
+    );
+
+    try {
+      if (nextLiked) {
+        const { error } = await supabase.from("post_likes").insert({
+          post_id: postId,
+          user_id: user.id,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("post_likes")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      }
+
+      // let navbar refresh badge if your notifications page changes stuff
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+      }
+    } catch (e) {
+      console.warn("toggleLike error", e);
+      // rollback
+      setItems((prev) =>
+        prev.map((x) => {
+          if (x.post.id !== postId) return x;
+          return cur;
+        })
+      );
+    }
+  };
+
+  const submitComment = async (postId: string) => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+
+    const body = (commentDraft[postId] || "").trim();
+    if (!body) return;
+
+    setCommentSaving((p) => ({ ...p, [postId]: true }));
+
+    try {
+      const { data, error } = await supabase
+        .from("post_comments")
+        .insert({
+          post_id: postId,
+          user_id: user.id,
+          body,
+        })
+        .select("id, post_id, user_id, body, created_at")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // clear draft
+      setCommentDraft((p) => ({ ...p, [postId]: "" }));
+
+      // ensure comments open + reload (or append)
+      setOpenComments((p) => ({ ...p, [postId]: true }));
+
+      setCommentsByPost((prev) => {
+        const cur = prev[postId] || [];
+        return { ...prev, [postId]: data ? [...cur, data as CommentRow] : cur };
+      });
+
+      // bump count
+      setItems((prev) =>
+        prev.map((x) =>
+          x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
+        )
+      );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+      }
+    } catch (e) {
+      console.warn("submitComment error", e);
+    } finally {
+      setCommentSaving((p) => ({ ...p, [postId]: false }));
+    }
+  };
+
+  const pillBtnStyle: React.CSSProperties = {
+    fontSize: 13,
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.45)",
+    background: "rgba(15,23,42,0.65)",
+    color: "rgba(226,232,240,0.95)",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+
+  const avatarStyle = (size = 34): React.CSSProperties => ({
+    width: size,
+    height: size,
+    borderRadius: 999,
+    overflow: "hidden",
+    border: "1px solid rgba(148,163,184,0.35)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    color: "#fff",
+    fontWeight: 800,
+    flexShrink: 0,
+  });
+
+  return (
+    <div>
+      <div className="section-header" style={{ marginTop: 10 }}>
+        <div>
+          <div className="section-title">Global feed</div>
+          <div className="section-sub" style={{ maxWidth: 560 }}>
+            Public posts from across the Quantum5ocial community.
+          </div>
+        </div>
+
+        <button type="button" style={pillBtnStyle} onClick={loadFeed} disabled={loading}>
+          {loading ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+
+      {loading && <div className="products-status">Loading feed…</div>}
+
+      {error && !loading && (
+        <div className="products-status" style={{ color: "#f87171" }}>
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && items.length === 0 && (
+        <div className="products-empty">
+          No posts yet. Be the first to post something for the community.
+        </div>
+      )}
+
+      {!loading && !error && items.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {items.map((it) => {
+            const p = it.post;
+            const a = it.author;
+            const name = a?.full_name || "Quantum member";
+            const initials =
+              (a?.full_name || "")
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((x) => x[0]?.toUpperCase())
+                .join("") || "Q";
+
+            const isOpen = !!openComments[p.id];
+            const comments = commentsByPost[p.id] || [];
+
+            return (
+              <div
+                key={p.id}
+                className="card"
+                ref={(node) => {
+                  postRefs.current[p.id] = node;
+                }}
+                style={{
+                  padding: 14,
+                  borderRadius: 14,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(15,23,42,0.92)",
+                }}
+              >
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={avatarStyle(38)}>
+                    {a?.avatar_url ? (
+                      <img
+                        src={a.avatar_url}
+                        alt={name}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 900, fontSize: 13 }}>
+                          {a?.id ? (
+                            <Link
+                              href={`/profile/${a.id}`}
+                              style={{ color: "rgba(226,232,240,0.95)", textDecoration: "none" }}
+                            >
+                              {name}
+                            </Link>
+                          ) : (
+                            name
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>
+                          {formatTime(p.created_at)}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        style={{
+                          ...pillBtnStyle,
+                          padding: "5px 10px",
+                          fontSize: 12,
+                        }}
+                        onClick={() => {
+                          navigator.clipboard
+                            ?.writeText(`${window.location.origin}/?post=${p.id}`)
+                            .catch(() => {});
+                        }}
+                      >
+                        Copy link
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
+                      {p.body}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 12,
+                        display: "flex",
+                        gap: 10,
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleLike(p.id)}
+                        style={{
+                          padding: "7px 12px",
+                          borderRadius: 999,
+                          border: it.likedByMe
+                            ? "1px solid rgba(34,211,238,0.65)"
+                            : "1px solid rgba(148,163,184,0.35)",
+                          background: it.likedByMe ? "rgba(34,211,238,0.12)" : "rgba(2,6,23,0.2)",
+                          color: "rgba(226,232,240,0.92)",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {it.likedByMe ? "♥ Liked" : "♡ Like"}{" "}
+                        <span style={{ opacity: 0.85, fontWeight: 700 }}>
+                          · {it.likeCount}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
+                          if (!commentsByPost[p.id]) void loadComments(p.id);
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(148,163,184,0.35)",
+                          background: "rgba(2,6,23,0.2)",
+                          color: "rgba(226,232,240,0.92)",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 800,
+                        }}
+                      >
+                        💬 Comment{" "}
+                        <span style={{ opacity: 0.85, fontWeight: 700 }}>
+                          · {it.commentCount}
+                        </span>
+                      </button>
+                    </div>
+
+                    {isOpen && (
+                      <div style={{ marginTop: 12 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <div style={avatarStyle(30)}>
+                            {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
+                          </div>
+
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <textarea
+                              value={commentDraft[p.id] || ""}
+                              onChange={(e) =>
+                                setCommentDraft((prev) => ({
+                                  ...prev,
+                                  [p.id]: e.target.value,
+                                }))
+                              }
+                              placeholder={user ? "Write a comment…" : "Login to comment…"}
+                              disabled={!user}
+                              style={{
+                                width: "100%",
+                                minHeight: 54,
+                                borderRadius: 12,
+                                border: "1px solid rgba(148,163,184,0.2)",
+                                background: "rgba(2,6,23,0.26)",
+                                color: "rgba(226,232,240,0.94)",
+                                padding: 10,
+                                fontSize: 13,
+                                lineHeight: 1.45,
+                                outline: "none",
+                                resize: "vertical",
+                              }}
+                            />
+
+                            <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                              <button
+                                type="button"
+                                onClick={() => submitComment(p.id)}
+                                disabled={!user || commentSaving[p.id] || !(commentDraft[p.id] || "").trim()}
+                                style={{
+                                  padding: "8px 14px",
+                                  borderRadius: 999,
+                                  border: "none",
+                                  fontSize: 13,
+                                  fontWeight: 900,
+                                  cursor:
+                                    !user || commentSaving[p.id] ? "default" : "pointer",
+                                  opacity:
+                                    !user || commentSaving[p.id] ? 0.6 : 1,
+                                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                  color: "#0f172a",
+                                }}
+                              >
+                                {commentSaving[p.id] ? "Posting…" : "Post comment"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                          {comments.length === 0 ? (
+                            <div style={{ fontSize: 12, opacity: 0.75 }}>
+                              No comments yet.
+                            </div>
+                          ) : (
+                            comments.map((c) => (
+                              <div
+                                key={c.id}
+                                style={{
+                                  padding: 10,
+                                  borderRadius: 12,
+                                  border: "1px solid rgba(148,163,184,0.14)",
+                                  background: "rgba(2,6,23,0.18)",
+                                }}
+                              >
+                                <div style={{ fontSize: 12, opacity: 0.78 }}>
+                                  {formatTime(c.created_at)}
+                                </div>
+                                <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.45 }}>
+                                  {c.body}
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================
    POST / ASK (merged, expand modal)
    ========================= */
 
@@ -264,6 +886,8 @@ function HomeComposerStrip() {
 
   // post
   const [postText, setPostText] = useState("");
+  const [postSaving, setPostSaving] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
 
   // ask
   const [askTitle, setAskTitle] = useState("");
@@ -524,6 +1148,7 @@ function HomeComposerStrip() {
       return;
     }
     setAskError(null);
+    setPostError(null);
     setOpen(true);
   };
 
@@ -541,8 +1166,42 @@ function HomeComposerStrip() {
 
   const canSubmit =
     mode === "post"
-      ? !!postText.trim()
+      ? !!postText.trim() && !postSaving
       : !!askTitle.trim() && !!askBody.trim() && !askSaving;
+
+  const submitPost = async () => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+
+    const body = postText.trim();
+    if (!body) return;
+
+    setPostSaving(true);
+    setPostError(null);
+
+    try {
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        body,
+      });
+
+      if (error) throw error;
+
+      setPostText("");
+      closeComposer();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+    } catch (e: any) {
+      console.error("submitPost error:", e);
+      setPostError(e?.message || "Could not create post.");
+    } finally {
+      setPostSaving(false);
+    }
+  };
 
   const submitAskToQnA = async () => {
     if (!user) {
@@ -770,6 +1429,23 @@ function HomeComposerStrip() {
                     }
                     style={bigTextarea}
                   />
+
+                  {postError && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.35)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,226,226,0.95)",
+                        fontSize: 13,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {postError}
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -879,21 +1555,9 @@ function HomeComposerStrip() {
                   </>
                 ) : (
                   <>
-                    <ActionButton
-                      icon="❓"
-                      label="Add details"
-                      title="Add more context"
-                    />
-                    <ActionButton
-                      icon="🔗"
-                      label="Add link"
-                      title="Link to paper/code"
-                    />
-                    <ActionButton
-                      icon="🧪"
-                      label="Add tags"
-                      title="Tag it for discovery"
-                    />
+                    <ActionButton icon="❓" label="Add details" title="Add more context" />
+                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
+                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
                   </>
                 )}
               </div>
@@ -904,14 +1568,13 @@ function HomeComposerStrip() {
                 disabled={!canSubmit}
                 onClick={() => {
                   if (mode === "post") {
-                    setPostText("");
-                    closeComposer();
+                    submitPost();
                   } else {
                     submitAskToQnA();
                   }
                 }}
               >
-                {mode === "post" ? "Post" : askSaving ? "Asking…" : "Ask"}
+                {mode === "post" ? (postSaving ? "Posting…" : "Post") : askSaving ? "Asking…" : "Ask"}
               </button>
             </div>
           </div>
