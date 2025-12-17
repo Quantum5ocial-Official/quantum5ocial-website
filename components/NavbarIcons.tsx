@@ -81,7 +81,8 @@ export default function NavbarIcons() {
 
       const p =
         !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
-      const u = !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
+      const u =
+        !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
 
       setNotificationsCount(p + u);
     } catch (e) {
@@ -126,7 +127,10 @@ export default function NavbarIcons() {
     const initial: Theme = stored === "light" ? "light" : "dark";
 
     setTheme(initial);
-    document.documentElement.classList.toggle("theme-light", initial === "light");
+    document.documentElement.classList.toggle(
+      "theme-light",
+      initial === "light"
+    );
   }, []);
 
   const toggleTheme = () => {
@@ -374,7 +378,6 @@ export default function NavbarIcons() {
         style={{
           maxWidth: 1400,
           margin: "0 auto",
-          // ✅ mobile: minimal padding so logo can be extreme-left
           padding: isMobile ? "0 8px" : "0 24px",
           display: "flex",
           alignItems: "center",
@@ -388,9 +391,7 @@ export default function NavbarIcons() {
         <div
           style={{
             display: "flex",
-            // ✅ mobile: tighter spacing
             gap: isMobile ? 10 : 12,
-            // ✅ vertical centering
             alignItems: "center",
             flex: 1,
             minWidth: 0,
@@ -398,7 +399,6 @@ export default function NavbarIcons() {
         >
           {/* Brand */}
           {!isMobile ? (
-            // DESKTOP BRAND — original with subtext
             <Link href="/" className="brand-clickable">
               <div className="brand">
                 <img
@@ -417,7 +417,6 @@ export default function NavbarIcons() {
               </div>
             </Link>
           ) : (
-            // MOBILE BRAND — logo only, extreme-left, vertically centered
             <Link
               href="/"
               className="brand-clickable"
@@ -433,14 +432,12 @@ export default function NavbarIcons() {
                 src="/Q5_white_bg.png"
                 alt="Quantum5ocial logo"
                 className="brand-logo-mobile"
-                style={{
-                  display: "block",
-                }}
+                style={{ display: "block" }}
               />
             </Link>
           )}
 
-          {/* MOBILE SEARCH PILL — between logo and hamburger (vertically centered) */}
+          {/* MOBILE SEARCH PILL */}
           {isMobile && (
             <form
               onSubmit={handleGlobalSearchSubmit}
@@ -502,7 +499,7 @@ export default function NavbarIcons() {
             height: "100%",
           }}
         >
-          {/* DESKTOP NAV (hidden on mobile) */}
+          {/* DESKTOP NAV */}
           {!isMobile && (
             <nav
               className="nav-links nav-links-desktop"
@@ -520,8 +517,6 @@ export default function NavbarIcons() {
                 "Community",
                 "/icons/community.svg"
               )}
-
-              {/* ✅ QnA added here (after Community, before Notifications) */}
               {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
 
               {!loading &&
@@ -533,7 +528,6 @@ export default function NavbarIcons() {
                   notificationsCount
                 )}
 
-              {/* Theme toggle */}
               <button
                 type="button"
                 className="nav-link nav-link-button theme-toggle"
@@ -543,14 +537,12 @@ export default function NavbarIcons() {
                 {theme === "dark" ? "☀️" : "🌙"}
               </button>
 
-              {/* Logged-out CTA */}
               {!loading && !user && (
                 <Link href="/auth" className="nav-cta">
                   Login / Sign up
                 </Link>
               )}
 
-              {/* USER MENU (DESKTOP) */}
               {!loading && user && (
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
@@ -638,13 +630,7 @@ export default function NavbarIcons() {
                         My ecosystem
                       </Link>
 
-                      <div
-                        ref={dashboardRef}
-                        style={{
-                          marginTop: 4,
-                          marginBottom: 4,
-                        }}
-                      >
+                      <div ref={dashboardRef} style={{ marginTop: 4, marginBottom: 4 }}>
                         <button
                           type="button"
                           className="nav-dropdown-item"
@@ -750,7 +736,7 @@ export default function NavbarIcons() {
             </nav>
           )}
 
-          {/* MOBILE HAMBURGER – only on mobile */}
+          {/* MOBILE HAMBURGER */}
           {isMobile && (
             <button
               type="button"
@@ -864,7 +850,6 @@ export default function NavbarIcons() {
             <span className="nav-icon-label">Community</span>
           </Link>
 
-          {/* ✅ QnA added here (after Community, before Notifications) */}
           <Link
             href="/qna"
             className={`nav-item-with-icon ${
