@@ -90,27 +90,6 @@ export default function Home() {
         <HomeGlobalFeed />
       </section>
 
-      {/* HERO */}
-      <section className="hero" id="about">
-        <div>
-          <h1 className="hero-title">
-            Discover{" "}
-            <span className="hero-highlight">jobs, products &amp; services</span>{" "}
-            shaping the future of quantum technology.
-          </h1>
-          <p className="hero-sub">
-            Quantum5ocial connects students, researchers, and companies with curated
-            opportunities, services and products across the global quantum ecosystem.
-          </p>
-
-          <div className="hero-tags">
-            <span className="tag-chip">Intern, PhD, Postdoc, and Industry roles</span>
-            <span className="tag-chip">Startups, Vendors, and Labs</span>
-            <span className="tag-chip">Hardware · Software · Services</span>
-          </div>
-        </div>
-      </section>
-
       {/* GAMIFICATION */}
       <section className="section">
         <div className="gamify-strip">
@@ -1604,6 +1583,37 @@ function HomeComposerStrip() {
    RIGHT SIDEBAR (dynamic tiles)
    ========================= */
 
+function HomeHeroTile() {
+  return (
+    <div className="hero-tile" id="about">
+      <div className="hero-tile-inner">
+        <div className="tile-label">Quantum5ocial</div>
+
+        <div style={{ marginTop: 6, fontWeight: 900, fontSize: 16, lineHeight: 1.2 }}>
+          Discover{" "}
+          <span style={{ color: "#22d3ee" }}>jobs, products &amp; services</span>{" "}
+          shaping the future of quantum technology.
+        </div>
+
+        <p className="tile-text" style={{ marginTop: 10 }}>
+          Quantum5ocial connects students, researchers, and companies with curated
+          opportunities, services and products across the global quantum ecosystem.
+        </p>
+
+        <div className="tile-pill-row" style={{ marginTop: 12 }}>
+          <span className="tile-pill">Intern, PhD, Postdoc, and Industry roles</span>
+          <span className="tile-pill">Startups, Vendors, and Labs</span>
+          <span className="tile-pill">Hardware · Software · Services</span>
+        </div>
+
+        <div className="tile-cta" style={{ marginTop: 12 }}>
+          Learn more <span>›</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HomeRightSidebar() {
   const [latestJob, setLatestJob] = useState<Job | null>(null);
   const [latestProduct, setLatestProduct] = useState<Product | null>(null);
@@ -1718,12 +1728,18 @@ function HomeRightSidebar() {
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
+      {/* ✅ NEW: HERO TILE MOVED FROM MIDDLE */}
+      <HomeHeroTile />
+
       <Link href="/jobs" className="hero-tile">
         <div className="hero-tile-inner">
           <div className="tile-label">Featured role</div>
 
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}>
+            <div
+              className="tile-title"
+              style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}
+            >
               Hot opening
             </div>
             <div className="tile-icon-orbit">🧪</div>
@@ -1735,7 +1751,10 @@ function HomeRightSidebar() {
             <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link href={`/jobs/${latestJob.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+              <Link
+                href={`/jobs/${latestJob.id}`}
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
@@ -1772,7 +1791,10 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured product</div>
 
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}>
+            <div
+              className="tile-title"
+              style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}
+            >
               Product of the week
             </div>
             <div className="tile-icon-orbit">🔧</div>
@@ -1818,8 +1840,13 @@ function HomeRightSidebar() {
                 )}
               </div>
 
-              <Link href={`/products/${latestProduct.id}`} style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{latestProduct.name}</div>
+              <Link
+                href={`/products/${latestProduct.id}`}
+                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                  {latestProduct.name}
+                </div>
 
                 <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
                   {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
@@ -1855,7 +1882,10 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured member</div>
 
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}>
+            <div
+              className="tile-title"
+              style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}
+            >
               Spotlight
             </div>
             <div className="tile-icon-orbit">🤝</div>
@@ -1899,8 +1929,9 @@ function HomeRightSidebar() {
                   <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{memberName}</div>
 
                   <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation].filter(Boolean).join(" · ") ||
-                      "Quantum5ocial community member"}
+                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+                      .filter(Boolean)
+                      .join(" · ") || "Quantum5ocial community member"}
                   </div>
 
                   {latestMember.short_bio && (
