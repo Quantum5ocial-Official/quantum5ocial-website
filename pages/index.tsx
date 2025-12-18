@@ -6,6 +6,8 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
+const POSTS_BUCKET = "post-images"; // ✅ must exist in Supabase Storage
+
 type Job = {
   id: string;
   title: string | null;
@@ -57,7 +59,7 @@ type PostRow = {
   user_id: string;
   body: string;
   created_at: string | null;
-  image_url?: string | null; // ✅ NEW
+  image_url: string | null; // ✅ NEW
 };
 
 type LikeRow = { post_id: string; user_id: string };
@@ -91,7 +93,7 @@ export default function Home() {
         style={{
           height: 1,
           background: "rgba(148,163,184,0.18)",
-          marginTop: -12, // ✅ pulls divider up into the composer’s bottom space
+          marginTop: -12,
           marginBottom: 10,
         }}
       />
@@ -152,7 +154,9 @@ export default function Home() {
             <div className="section-title">
               Built for the entire quantum community
             </div>
-            <div className="section-sub">Different paths, one shared platform.</div>
+            <div className="section-sub">
+              Different paths, one shared platform.
+            </div>
           </div>
         </div>
 
@@ -237,11 +241,17 @@ function HomeGlobalFeed() {
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentRow[]>
+  >({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
+  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>(
+    {}
+  );
 
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commenterProfiles, setCommenterProfiles] = useState<
+    Record<string, FeedProfile>
+  >({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -288,10 +298,10 @@ function HomeGlobalFeed() {
     setError(null);
 
     try {
-      // 1) Posts
+      // 1) Posts ✅ includes image_url
       const { data: postRows, error: postErr } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at, image_url") // ✅ NEW
+        .select("id, user_id, body, created_at, image_url")
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -427,7 +437,6 @@ function HomeGlobalFeed() {
       const list = (rows || []) as CommentRow[];
       setCommentsByPost((prev) => ({ ...prev, [postId]: list }));
 
-      // fetch commenter profiles (avatar/name/edu/affiliation)
       await loadProfilesForUserIds(list.map((c) => c.user_id));
     } catch (e) {
       console.warn("loadComments error", e);
@@ -447,7 +456,6 @@ function HomeGlobalFeed() {
     const cur = items[idx];
     const nextLiked = !cur.likedByMe;
 
-    // optimistic
     setItems((prev) =>
       prev.map((x) =>
         x.post.id !== postId
@@ -481,7 +489,6 @@ function HomeGlobalFeed() {
       }
     } catch (e) {
       console.warn("toggleLike error", e);
-      // rollback
       setItems((prev) => prev.map((x) => (x.post.id !== postId ? x : cur)));
     }
   };
@@ -519,7 +526,6 @@ function HomeGlobalFeed() {
         return { ...prev, [postId]: next };
       });
 
-      // ensure commenter profile exists for rendering
       await loadProfilesForUserIds([user.id]);
 
       setItems((prev) =>
@@ -683,12 +689,10 @@ function HomeGlobalFeed() {
                             )}
                           </div>
 
-                          {/* ✅ edu + affiliation */}
                           <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
                             {formatSubtitle(a) || "Quantum5ocial member"}
                           </div>
 
-                          {/* ✅ relative time */}
                           <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
                             {formatRelativeTime(p.created_at)}
                           </div>
@@ -711,7 +715,7 @@ function HomeGlobalFeed() {
                         <LinkifyText text={p.body} />
                       </div>
 
-                      {/* ✅ NEW: post image */}
+                      {/* ✅ NEW: image render */}
                       {p.image_url && (
                         <div style={{ marginTop: 10 }}>
                           <img
@@ -721,10 +725,12 @@ function HomeGlobalFeed() {
                               width: "100%",
                               maxHeight: 420,
                               objectFit: "cover",
-                              borderRadius: 12,
-                              border: "1px solid rgba(148,163,184,0.18)",
+                              borderRadius: 14,
+                              border: "1px solid rgba(148,163,184,0.14)",
+                              background: "rgba(2,6,23,0.25)",
                               display: "block",
                             }}
+                            loading="lazy"
                           />
                         </div>
                       )}
@@ -767,7 +773,7 @@ function HomeGlobalFeed() {
                           <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
                         </button>
 
-                        {/* Comment (✅ kept EXACT as before) */}
+                        {/* Comment (kept EXACT) */}
                         <button
                           type="button"
                           onClick={() => {
@@ -852,8 +858,7 @@ function HomeGlobalFeed() {
                                     border: "none",
                                     fontSize: 13,
                                     fontWeight: 900,
-                                    cursor:
-                                      !user || commentSaving[p.id] ? "default" : "pointer",
+                                    cursor: !user || commentSaving[p.id] ? "default" : "pointer",
                                     opacity: !user || commentSaving[p.id] ? 0.6 : 1,
                                     background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                                     color: "#0f172a",
@@ -875,7 +880,9 @@ function HomeGlobalFeed() {
                             }}
                           >
                             {comments.length === 0 ? (
-                              <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
+                              <div style={{ fontSize: 12, opacity: 0.75 }}>
+                                No comments yet.
+                              </div>
                             ) : (
                               comments.map((c) => {
                                 const cp = commenterProfiles[c.user_id];
@@ -892,9 +899,7 @@ function HomeGlobalFeed() {
                                       background: "rgba(2,6,23,0.18)",
                                     }}
                                   >
-                                    <div
-                                      style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
-                                    >
+                                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                                       <div style={avatarStyle(30)}>
                                         {cp?.avatar_url ? (
                                           <img
@@ -921,13 +926,7 @@ function HomeGlobalFeed() {
                                           }}
                                         >
                                           <div style={{ minWidth: 0 }}>
-                                            <div
-                                              style={{
-                                                fontSize: 12,
-                                                fontWeight: 900,
-                                                lineHeight: 1.2,
-                                              }}
-                                            >
+                                            <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
                                               {cp?.id ? (
                                                 <Link
                                                   href={`/profile/${cp.id}`}
@@ -968,7 +967,7 @@ function HomeGlobalFeed() {
                   </div>
                 </div>
 
-                {/* ✅ CLEAN STRAIGHT DIVIDER (only addition) */}
+                {/* divider */}
                 <div
                   style={{
                     height: 1,
@@ -993,10 +992,12 @@ function ActionButton({
   icon,
   label,
   title,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   title?: string;
+  onClick?: () => void;
 }) {
   return (
     <button
@@ -1015,6 +1016,7 @@ function ActionButton({
         cursor: "pointer",
       }}
       onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
     >
       <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
       <span style={{ opacity: 0.95 }}>{label}</span>
@@ -1077,10 +1079,10 @@ function HomeComposerStrip() {
   const [postSaving, setPostSaving] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
 
-  // ✅ NEW: single image attach
+  // ✅ NEW: photo state
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [postImage, setPostImage] = useState<File | null>(null);
-  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+  const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
+  const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(null);
 
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
@@ -1116,13 +1118,12 @@ function HomeComposerStrip() {
     };
   }, [user, loading]);
 
-  // ✅ cleanup preview object URL
+  // cleanup preview object URL
   useEffect(() => {
     return () => {
-      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+      if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postImagePreview]);
+  }, [postPhotoPreview]);
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
@@ -1335,6 +1336,60 @@ function HomeComposerStrip() {
       ? !!postText.trim() && !postSaving
       : !!askTitle.trim() && !!askBody.trim() && !askSaving;
 
+  const pickPhoto = () => {
+    if (!isAuthed) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const onPhotoSelected = (file: File | null) => {
+    if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
+
+    if (!file) {
+      setPostPhotoFile(null);
+      setPostPhotoPreview(null);
+      return;
+    }
+
+    setPostPhotoFile(file);
+    setPostPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const clearPhoto = () => onPhotoSelected(null);
+
+  const uploadPostPhotoIfAny = async (): Promise<string | null> => {
+    if (!user) return null;
+    if (!postPhotoFile) return null;
+
+    // basic guard
+    if (!postPhotoFile.type.startsWith("image/")) {
+      throw new Error("Please choose an image file.");
+    }
+
+    const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `posts/${user.id}/${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(POSTS_BUCKET)
+      .upload(path, postPhotoFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: postPhotoFile.type,
+      });
+
+    if (upErr) {
+      // This is where you'd see "Bucket not found"
+      throw upErr;
+    }
+
+    const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
+    return data?.publicUrl || null;
+  };
+
   const submitPost = async () => {
     if (!user) {
       window.location.href = "/auth?redirect=/";
@@ -1348,38 +1403,18 @@ function HomeComposerStrip() {
     setPostError(null);
 
     try {
-      let image_url: string | null = null;
-
-      if (postImage) {
-        const ext = (postImage.name.split(".").pop() || "jpg").toLowerCase();
-        const path = `${user.id}/${Date.now()}.${ext}`;
-
-        const up = await supabase.storage
-          .from("post-images")
-          .upload(path, postImage, { upsert: false });
-
-        if (up.error) throw up.error;
-
-        const pub = supabase.storage.from("post-images").getPublicUrl(path);
-        image_url = pub.data.publicUrl || null;
-      }
+      const image_url = await uploadPostPhotoIfAny();
 
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
         body,
-        image_url, // ✅ NEW
+        image_url: image_url ?? null, // ✅ NEW
       });
 
       if (error) throw error;
 
       setPostText("");
-
-      // ✅ reset image
-      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
-      setPostImage(null);
-      setPostImagePreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-
+      clearPhoto();
       closeComposer();
 
       if (typeof window !== "undefined") {
@@ -1435,9 +1470,7 @@ function HomeComposerStrip() {
 
         if (attempt2.error) {
           const msg =
-            attempt2.error.message ||
-            attempt2.error.details ||
-            "Failed to post question";
+            attempt2.error.message || attempt2.error.details || "Failed to post question";
           throw new Error(msg);
         }
 
@@ -1463,13 +1496,6 @@ function HomeComposerStrip() {
     } finally {
       setAskSaving(false);
     }
-  };
-
-  const removePhoto = () => {
-    if (postImagePreview) URL.revokeObjectURL(postImagePreview);
-    setPostImage(null);
-    setPostImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
@@ -1594,38 +1620,48 @@ function HomeComposerStrip() {
                     style={bigTextarea}
                   />
 
-                  {/* ✅ NEW: image preview */}
-                  {postImagePreview && (
-                    <div style={{ marginTop: 10 }}>
-                      <img
-                        src={postImagePreview}
-                        alt="Preview"
-                        style={{
-                          width: "100%",
-                          maxHeight: 260,
-                          objectFit: "cover",
-                          borderRadius: 12,
-                          border: "1px solid rgba(148,163,184,0.18)",
-                          display: "block",
-                        }}
-                      />
-                      <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                  {/* ✅ NEW: photo preview */}
+                  {postPhotoPreview && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        background: "rgba(2,6,23,0.22)",
+                        padding: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>Photo attached</div>
                         <button
                           type="button"
-                          onClick={removePhoto}
+                          onClick={clearPhoto}
                           style={{
-                            padding: "8px 12px",
+                            padding: "6px 10px",
                             borderRadius: 999,
-                            border: "1px solid rgba(148,163,184,0.18)",
-                            background: "rgba(2,6,23,0.22)",
-                            color: "rgba(226,232,240,0.92)",
+                            border: "1px solid rgba(248,113,113,0.35)",
+                            background: "rgba(248,113,113,0.10)",
+                            color: "rgba(254,226,226,0.95)",
                             fontSize: 12,
                             cursor: "pointer",
                             fontWeight: 800,
                           }}
                         >
-                          Remove photo
+                          Remove
                         </button>
+                      </div>
+                      <div style={{ marginTop: 8 }}>
+                        <img
+                          src={postPhotoPreview}
+                          alt="Preview"
+                          style={{
+                            width: "100%",
+                            maxHeight: 360,
+                            objectFit: "cover",
+                            borderRadius: 12,
+                            display: "block",
+                          }}
+                        />
                       </div>
                     </div>
                   )}
@@ -1704,48 +1740,18 @@ function HomeComposerStrip() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 {mode === "post" ? (
                   <>
-                    {/* ✅ NEW: hidden input */}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] || null;
-                        if (postImagePreview) URL.revokeObjectURL(postImagePreview);
-                        setPostImage(f);
-                        setPostImagePreview(f ? URL.createObjectURL(f) : null);
-                      }}
-                    />
-
-                    {/* ✅ NEW: make Photo active */}
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") fileInputRef.current?.click();
-                      }}
-                      style={{ display: "inline-flex" }}
-                    >
-                      <ActionButton
-                        icon={
-                          <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                        }
-                        label={postImage ? "Photo ✓" : "Photo"}
-                      />
-                    </div>
-
+                    {/* ✅ Photo button now active */}
                     <ActionButton
-                      icon={
-                        <MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />
-                      }
+                      icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
+                      label="Photo"
+                      onClick={pickPhoto}
+                    />
+                    <ActionButton
+                      icon={<MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />}
                       label="Video"
                     />
                     <ActionButton
-                      icon={
-                        <MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
-                      }
+                      icon={<MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />}
                       label="Link"
                     />
                   </>
@@ -1770,6 +1776,20 @@ function HomeComposerStrip() {
                 {mode === "post" ? (postSaving ? "Posting…" : "Post") : askSaving ? "Asking…" : "Ask"}
               </button>
             </div>
+
+            {/* ✅ hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                onPhotoSelected(f);
+                // allow re-select same file
+                e.currentTarget.value = "";
+              }}
+            />
           </div>
         </div>
       )}
@@ -1788,8 +1808,7 @@ function HomeHeroTile() {
         <div className="tile-label">Quantum5ocial</div>
 
         <div style={{ marginTop: 6, fontWeight: 900, fontSize: 16, lineHeight: 1.2 }}>
-          Discover{" "}
-          <span style={{ color: "#22d3ee" }}>jobs, products &amp; services</span>{" "}
+          Discover <span style={{ color: "#22d3ee" }}>jobs, products &amp; services</span>{" "}
           shaping the future of quantum technology.
         </div>
 
@@ -1920,7 +1939,6 @@ function HomeRightSidebar() {
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
-      {/* ✅ NEW: HERO TILE MOVED FROM MIDDLE */}
       <HomeHeroTile />
 
       <Link href="/jobs" className="hero-tile">
