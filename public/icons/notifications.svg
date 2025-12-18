@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg
   xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 22.5 22.5"
-  width="60"
-  height="60"
+  viewBox="4.5 2.4 13.5 17.2"
   fill="none"
 >
   <defs>
@@ -57,26 +55,10 @@
   />
 
   <!-- Bell neck -->
-  <path
-    class="outer"
-    d="M9.1 16.6h4.3"
-  />
-  <path
-    class="inner"
-    d="M9.6 16.6h3.3"
-  />
+  <path class="outer" d="M9.1 16.6h4.3" />
+  <path class="inner" d="M9.6 16.6h3.3" />
 
   <!-- Clapper -->
-  <circle
-    class="outer"
-    cx="11.25"
-    cy="18.3"
-    r="1.05"
-  />
-  <circle
-    class="inner"
-    cx="11.25"
-    cy="18.3"
-    r="0.55"
-  />
+  <circle class="outer" cx="11.25" cy="18.3" r="1.05" />
+  <circle class="inner" cx="11.25" cy="18.3" r="0.55" />
 </svg>
