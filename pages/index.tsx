@@ -90,7 +90,8 @@ export default function Home() {
   style={{
     height: 1,
     background: "rgba(148,163,184,0.18)",
-    margin: "6px 0 10px",
+    marginTop: -12,  // ✅ pulls divider up into the composer’s bottom space
+    marginBottom: 10,
   }}
 />
 
