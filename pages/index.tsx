@@ -85,6 +85,15 @@ export default function Home() {
         <HomeComposerStrip />
       </section>
 
+      {/* ✅ divider after composer */}
+<div
+  style={{
+    height: 1,
+    background: "rgba(148,163,184,0.18)",
+    margin: "6px 0 10px",
+  }}
+/>
+
       {/* ✅ GLOBAL FEED */}
       <section className="section" style={{ paddingTop: 0 }}>
         <HomeGlobalFeed />
@@ -541,7 +550,7 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
 }
   return (
     <div>
-      <div className="section-header" style={{ marginTop: 10 }}>
+      <div className="section-header" style={{ marginTop: 0 }}>
         <div>
           <div className="section-title">My Q5-feed</div>
         </div>
