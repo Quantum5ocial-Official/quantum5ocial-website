@@ -57,6 +57,7 @@ type PostRow = {
   user_id: string;
   body: string;
   created_at: string | null;
+  image_url?: string | null; // ✅ NEW
 };
 
 type LikeRow = { post_id: string; user_id: string };
@@ -82,18 +83,18 @@ export default function Home() {
     <>
       {/* POST + ASK PLACEHOLDERS */}
       <section className="section" style={{ paddingTop: 0, paddingBottom: 0 }}>
-  <HomeComposerStrip />
-</section>
-      
+        <HomeComposerStrip />
+      </section>
+
       {/* ✅ divider after composer */}
-<div
-  style={{
-    height: 1,
-    background: "rgba(148,163,184,0.18)",
-    marginTop: -12,  // ✅ pulls divider up into the composer’s bottom space
-    marginBottom: 10,
-  }}
-/>
+      <div
+        style={{
+          height: 1,
+          background: "rgba(148,163,184,0.18)",
+          marginTop: -12, // ✅ pulls divider up into the composer’s bottom space
+          marginBottom: 10,
+        }}
+      />
 
       {/* ✅ GLOBAL FEED */}
       <section className="section" style={{ paddingTop: 0 }}>
@@ -115,7 +116,10 @@ export default function Home() {
             <ul className="gamify-list">
               <li>Complete your profile → gain QP and visibility</li>
               <li>Post roles or products → earn vendor &amp; mentor badges</li>
-              <li>Explore and engage → unlock levels like Superposition, Entangled, Resonant</li>
+              <li>
+                Explore and engage → unlock levels like Superposition, Entangled,
+                Resonant
+              </li>
             </ul>
           </div>
           <div className="gamify-badges">
@@ -145,7 +149,9 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">Built for the entire quantum community</div>
+            <div className="section-title">
+              Built for the entire quantum community
+            </div>
             <div className="section-sub">Different paths, one shared platform.</div>
           </div>
         </div>
@@ -157,8 +163,8 @@ export default function Home() {
               <span className="who-title">Students &amp; early-career</span>
             </div>
             <p className="who-text">
-              Explore internships, MSc/PhD projects, and your first postdoc or industry
-              role. Build your profile as you grow into the field.
+              Explore internships, MSc/PhD projects, and your first postdoc or
+              industry role. Build your profile as you grow into the field.
             </p>
           </div>
 
@@ -168,8 +174,8 @@ export default function Home() {
               <span className="who-title">Researchers &amp; labs</span>
             </div>
             <p className="who-text">
-              Showcase your group, attract collaborators, and make it easier to find the
-              right candidates for your quantum projects.
+              Showcase your group, attract collaborators, and make it easier to
+              find the right candidates for your quantum projects.
             </p>
           </div>
 
@@ -179,8 +185,8 @@ export default function Home() {
               <span className="who-title">Companies &amp; startups</span>
             </div>
             <p className="who-text">
-              Post jobs, list your hero products, and reach a focused audience that already
-              cares about quantum technologies.
+              Post jobs, list your hero products, and reach a focused audience
+              that already cares about quantum technologies.
             </p>
           </div>
         </div>
@@ -188,6 +194,7 @@ export default function Home() {
     </>
   );
 }
+
 function LinkifyText({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
 
@@ -216,6 +223,7 @@ function LinkifyText({ text }: { text: string }) {
     </>
   );
 }
+
 /* =========================
    GLOBAL FEED
    ========================= */
@@ -283,7 +291,7 @@ function HomeGlobalFeed() {
       // 1) Posts
       const { data: postRows, error: postErr } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at")
+        .select("id, user_id, body, created_at, image_url") // ✅ NEW
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -563,19 +571,21 @@ function HomeGlobalFeed() {
       .slice(0, 2)
       .map((x) => x[0]?.toUpperCase())
       .join("") || "Q";
-function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path
-        d={path}
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+
+  function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <path
+          d={path}
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <div>
       <div className="section-header" style={{ marginTop: 0 }}>
@@ -610,344 +620,365 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
       {!loading && !error && items.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {items.map((it) => {
-  const p = it.post;
-  const a = it.author;
+            const p = it.post;
+            const a = it.author;
 
-  const name = a?.full_name || "Quantum member";
-  const initials = initialsOf(a?.full_name);
+            const name = a?.full_name || "Quantum member";
+            const initials = initialsOf(a?.full_name);
 
-  const isOpen = !!openComments[p.id];
-  const comments = commentsByPost[p.id] || [];
+            const isOpen = !!openComments[p.id];
+            const comments = commentsByPost[p.id] || [];
 
-  return (
-    <div key={p.id}>
-      <div
-        className="card"
-        ref={(node) => {
-          postRefs.current[p.id] = node;
-        }}
-        style={{
-          padding: 14,
-          borderRadius: 14,
-          border: "1px solid rgba(148,163,184,0.18)",
-          background: "rgba(15,23,42,0.92)",
-        }}
-      >
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <div style={avatarStyle(40)}>
-            {a?.avatar_url ? (
-              <img
-                src={a.avatar_url}
-                alt={name}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              initials
-            )}
-          </div>
-
-          <div style={{ flex: 1, minWidth: 0 }}>
-            {/* HEADER */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 10,
-                alignItems: "flex-start",
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
-                  {a?.id ? (
-                    <Link
-                      href={`/profile/${a.id}`}
-                      style={{
-                        color: "rgba(226,232,240,0.95)",
-                        textDecoration: "none",
-                      }}
-                    >
-                      {name}
-                    </Link>
-                  ) : (
-                    name
-                  )}
-                </div>
-
-                {/* ✅ edu + affiliation */}
-                <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
-                  {formatSubtitle(a) || "Quantum5ocial member"}
-                </div>
-
-                {/* ✅ relative time */}
-                <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
-                  {formatRelativeTime(p.created_at)}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
-                onClick={() => {
-                  navigator.clipboard
-                    ?.writeText(`${window.location.origin}/?post=${p.id}`)
-                    .catch(() => {});
-                }}
-              >
-                Copy link
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
-              <LinkifyText text={p.body} />
-            </div>
-
-            <div
-              style={{
-                marginTop: 12,
-                display: "flex",
-                gap: 10,
-                alignItems: "center",
-              }}
-            >
-              {/* Like */}
-              <button
-                type="button"
-                onClick={() => toggleLike(p.id)}
-                aria-label="Like"
-                title="Like"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 10px",
-                  borderRadius: 999,
-                  border: it.likedByMe
-                    ? "1px solid rgba(34,211,238,0.65)"
-                    : "1px solid rgba(148,163,184,0.35)",
-                  background: it.likedByMe
-                    ? "rgba(34,211,238,0.12)"
-                    : "rgba(2,6,23,0.2)",
-                  color: "rgba(226,232,240,0.92)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 800,
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center" }}>
-                  <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
-                </span>
-                <span style={{ opacity: 0.85, fontWeight: 700 }}>
-                  {it.likeCount}
-                </span>
-              </button>
-
-              {/* Comment (✅ kept EXACT as before) */}
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
-                  if (!commentsByPost[p.id]) void loadComments(p.id);
-                }}
-                aria-label="Comment"
-                title="Comment"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "7px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.35)",
-                  background: "rgba(2,6,23,0.2)",
-                  color: "rgba(226,232,240,0.92)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: 800,
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center" }}>
-                  <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
-                </span>
-                <span style={{ opacity: 0.85, fontWeight: 700 }}>
-                  {it.commentCount}
-                </span>
-              </button>
-            </div>
-
-            {isOpen && (
-              <div style={{ marginTop: 12 }}>
-                {/* composer */}
-                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <div style={avatarStyle(30)}>
-                    {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <textarea
-                      value={commentDraft[p.id] || ""}
-                      onChange={(e) =>
-                        setCommentDraft((prev) => ({
-                          ...prev,
-                          [p.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={user ? "Write a comment…" : "Login to comment…"}
-                      disabled={!user}
-                      style={{
-                        width: "100%",
-                        minHeight: 54,
-                        borderRadius: 12,
-                        border: "1px solid rgba(148,163,184,0.2)",
-                        background: "rgba(2,6,23,0.26)",
-                        color: "rgba(226,232,240,0.94)",
-                        padding: 10,
-                        fontSize: 13,
-                        lineHeight: 1.45,
-                        outline: "none",
-                        resize: "vertical",
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        marginTop: 8,
-                        display: "flex",
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => submitComment(p.id)}
-                        disabled={
-                          !user ||
-                          commentSaving[p.id] ||
-                          !(commentDraft[p.id] || "").trim()
-                        }
-                        style={{
-                          padding: "8px 14px",
-                          borderRadius: 999,
-                          border: "none",
-                          fontSize: 13,
-                          fontWeight: 900,
-                          cursor: !user || commentSaving[p.id] ? "default" : "pointer",
-                          opacity: !user || commentSaving[p.id] ? 0.6 : 1,
-                          background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                          color: "#0f172a",
-                        }}
-                      >
-                        {commentSaving[p.id] ? "Posting…" : "Post comment"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* comments list */}
+            return (
+              <div key={p.id}>
                 <div
+                  className="card"
+                  ref={(node) => {
+                    postRefs.current[p.id] = node;
+                  }}
                   style={{
-                    marginTop: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
+                    padding: 14,
+                    borderRadius: 14,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    background: "rgba(15,23,42,0.92)",
                   }}
                 >
-                  {comments.length === 0 ? (
-                    <div style={{ fontSize: 12, opacity: 0.75 }}>
-                      No comments yet.
+                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <div style={avatarStyle(40)}>
+                      {a?.avatar_url ? (
+                        <img
+                          src={a.avatar_url}
+                          alt={name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        initials
+                      )}
                     </div>
-                  ) : (
-                    comments.map((c) => {
-                      const cp = commenterProfiles[c.user_id];
-                      const cName = cp?.full_name || "Quantum member";
-                      const cInitials = initialsOf(cp?.full_name);
 
-                      return (
-                        <div
-                          key={c.id}
-                          style={{
-                            padding: 10,
-                            borderRadius: 12,
-                            border: "1px solid rgba(148,163,184,0.14)",
-                            background: "rgba(2,6,23,0.18)",
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* HEADER */}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
+                            {a?.id ? (
+                              <Link
+                                href={`/profile/${a.id}`}
+                                style={{
+                                  color: "rgba(226,232,240,0.95)",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                {name}
+                              </Link>
+                            ) : (
+                              name
+                            )}
+                          </div>
+
+                          {/* ✅ edu + affiliation */}
+                          <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
+                            {formatSubtitle(a) || "Quantum5ocial member"}
+                          </div>
+
+                          {/* ✅ relative time */}
+                          <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
+                            {formatRelativeTime(p.created_at)}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
+                          onClick={() => {
+                            navigator.clipboard
+                              ?.writeText(`${window.location.origin}/?post=${p.id}`)
+                              .catch(() => {});
                           }}
                         >
+                          Copy link
+                        </button>
+                      </div>
+
+                      <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
+                        <LinkifyText text={p.body} />
+                      </div>
+
+                      {/* ✅ NEW: post image */}
+                      {p.image_url && (
+                        <div style={{ marginTop: 10 }}>
+                          <img
+                            src={p.image_url}
+                            alt="Post image"
+                            style={{
+                              width: "100%",
+                              maxHeight: 420,
+                              objectFit: "cover",
+                              borderRadius: 12,
+                              border: "1px solid rgba(148,163,184,0.18)",
+                              display: "block",
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          marginTop: 12,
+                          display: "flex",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        {/* Like */}
+                        <button
+                          type="button"
+                          onClick={() => toggleLike(p.id)}
+                          aria-label="Like"
+                          title="Like"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "7px 10px",
+                            borderRadius: 999,
+                            border: it.likedByMe
+                              ? "1px solid rgba(34,211,238,0.65)"
+                              : "1px solid rgba(148,163,184,0.35)",
+                            background: it.likedByMe
+                              ? "rgba(34,211,238,0.12)"
+                              : "rgba(2,6,23,0.2)",
+                            color: "rgba(226,232,240,0.92)",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            fontWeight: 800,
+                          }}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center" }}>
+                            <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+                          </span>
+                          <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
+                        </button>
+
+                        {/* Comment (✅ kept EXACT as before) */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
+                            if (!commentsByPost[p.id]) void loadComments(p.id);
+                          }}
+                          aria-label="Comment"
+                          title="Comment"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "7px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(148,163,184,0.35)",
+                            background: "rgba(2,6,23,0.2)",
+                            color: "rgba(226,232,240,0.92)",
+                            cursor: "pointer",
+                            fontSize: 13,
+                            fontWeight: 800,
+                          }}
+                        >
+                          <span style={{ display: "inline-flex", alignItems: "center" }}>
+                            <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+                          </span>
+                          <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.commentCount}</span>
+                        </button>
+                      </div>
+
+                      {isOpen && (
+                        <div style={{ marginTop: 12 }}>
+                          {/* composer */}
                           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                             <div style={avatarStyle(30)}>
-                              {cp?.avatar_url ? (
-                                <img
-                                  src={cp.avatar_url}
-                                  alt={cName}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              ) : (
-                                cInitials
-                              )}
+                              {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
                             </div>
 
                             <div style={{ flex: 1, minWidth: 0 }}>
+                              <textarea
+                                value={commentDraft[p.id] || ""}
+                                onChange={(e) =>
+                                  setCommentDraft((prev) => ({
+                                    ...prev,
+                                    [p.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder={user ? "Write a comment…" : "Login to comment…"}
+                                disabled={!user}
+                                style={{
+                                  width: "100%",
+                                  minHeight: 54,
+                                  borderRadius: 12,
+                                  border: "1px solid rgba(148,163,184,0.2)",
+                                  background: "rgba(2,6,23,0.26)",
+                                  color: "rgba(226,232,240,0.94)",
+                                  padding: 10,
+                                  fontSize: 13,
+                                  lineHeight: 1.45,
+                                  outline: "none",
+                                  resize: "vertical",
+                                }}
+                              />
+
                               <div
                                 style={{
+                                  marginTop: 8,
                                   display: "flex",
-                                  justifyContent: "space-between",
-                                  gap: 10,
-                                  alignItems: "flex-start",
+                                  justifyContent: "flex-end",
                                 }}
                               >
-                                <div style={{ minWidth: 0 }}>
-                                  <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
-                                    {cp?.id ? (
-                                      <Link
-                                        href={`/profile/${cp.id}`}
-                                        style={{
-                                          color: "rgba(226,232,240,0.95)",
-                                          textDecoration: "none",
-                                        }}
-                                      >
-                                        {cName}
-                                      </Link>
-                                    ) : (
-                                      cName
-                                    )}
-                                  </div>
-                                  <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
-                                    {formatSubtitle(cp) || "Quantum5ocial member"}
-                                  </div>
-                                </div>
-
-                                <div style={{ fontSize: 11, opacity: 0.68 }}>
-                                  {formatRelativeTime(c.created_at)}
-                                </div>
-                              </div>
-
-                              <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45 }}>
-                                {c.body}
+                                <button
+                                  type="button"
+                                  onClick={() => submitComment(p.id)}
+                                  disabled={
+                                    !user ||
+                                    commentSaving[p.id] ||
+                                    !(commentDraft[p.id] || "").trim()
+                                  }
+                                  style={{
+                                    padding: "8px 14px",
+                                    borderRadius: 999,
+                                    border: "none",
+                                    fontSize: 13,
+                                    fontWeight: 900,
+                                    cursor:
+                                      !user || commentSaving[p.id] ? "default" : "pointer",
+                                    opacity: !user || commentSaving[p.id] ? 0.6 : 1,
+                                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  {commentSaving[p.id] ? "Posting…" : "Post comment"}
+                                </button>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* ✅ CLEAN STRAIGHT DIVIDER (only addition) */}
-      <div
-        style={{
-          height: 1,
-          background: "rgba(148,163,184,0.18)",
-          margin: "14px 0",
-        }}
-      />
-    </div>
-  );
-})}
+                          {/* comments list */}
+                          <div
+                            style={{
+                              marginTop: 10,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 10,
+                            }}
+                          >
+                            {comments.length === 0 ? (
+                              <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
+                            ) : (
+                              comments.map((c) => {
+                                const cp = commenterProfiles[c.user_id];
+                                const cName = cp?.full_name || "Quantum member";
+                                const cInitials = initialsOf(cp?.full_name);
+
+                                return (
+                                  <div
+                                    key={c.id}
+                                    style={{
+                                      padding: 10,
+                                      borderRadius: 12,
+                                      border: "1px solid rgba(148,163,184,0.14)",
+                                      background: "rgba(2,6,23,0.18)",
+                                    }}
+                                  >
+                                    <div
+                                      style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
+                                    >
+                                      <div style={avatarStyle(30)}>
+                                        {cp?.avatar_url ? (
+                                          <img
+                                            src={cp.avatar_url}
+                                            alt={cName}
+                                            style={{
+                                              width: "100%",
+                                              height: "100%",
+                                              objectFit: "cover",
+                                            }}
+                                          />
+                                        ) : (
+                                          cInitials
+                                        )}
+                                      </div>
+
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            gap: 10,
+                                            alignItems: "flex-start",
+                                          }}
+                                        >
+                                          <div style={{ minWidth: 0 }}>
+                                            <div
+                                              style={{
+                                                fontSize: 12,
+                                                fontWeight: 900,
+                                                lineHeight: 1.2,
+                                              }}
+                                            >
+                                              {cp?.id ? (
+                                                <Link
+                                                  href={`/profile/${cp.id}`}
+                                                  style={{
+                                                    color: "rgba(226,232,240,0.95)",
+                                                    textDecoration: "none",
+                                                  }}
+                                                >
+                                                  {cName}
+                                                </Link>
+                                              ) : (
+                                                cName
+                                              )}
+                                            </div>
+                                            <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
+                                              {formatSubtitle(cp) || "Quantum5ocial member"}
+                                            </div>
+                                          </div>
+
+                                          <div style={{ fontSize: 11, opacity: 0.68 }}>
+                                            {formatRelativeTime(c.created_at)}
+                                          </div>
+                                        </div>
+
+                                        <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45 }}>
+                                          {c.body}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ✅ CLEAN STRAIGHT DIVIDER (only addition) */}
+                <div
+                  style={{
+                    height: 1,
+                    background: "rgba(148,163,184,0.18)",
+                    margin: "14px 0",
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1046,11 +1077,14 @@ function HomeComposerStrip() {
   const [postSaving, setPostSaving] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
 
+  // ✅ NEW: single image attach
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [postImage, setPostImage] = useState<File | null>(null);
+  const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
+
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
-  const [askType, setAskType] = useState<"concept" | "experiment" | "career">(
-    "concept"
-  );
+  const [askType, setAskType] = useState<"concept" | "experiment" | "career">("concept");
 
   const [askSaving, setAskSaving] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -1081,6 +1115,14 @@ function HomeComposerStrip() {
       cancelled = true;
     };
   }, [user, loading]);
+
+  // ✅ cleanup preview object URL
+  useEffect(() => {
+    return () => {
+      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postImagePreview]);
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
@@ -1149,16 +1191,6 @@ function HomeComposerStrip() {
     minWidth: 0,
   };
 
-  const toggleShell: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    padding: 4,
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.18)",
-    background: "rgba(2,6,23,0.22)",
-  };
-
   const toggleBtn = (active: boolean): CSSProperties => ({
     padding: isMobile ? "7px 10px" : "7px 11px",
     borderRadius: 999,
@@ -1170,18 +1202,6 @@ function HomeComposerStrip() {
     color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
     whiteSpace: "nowrap",
   });
-
-  const modalBackdrop: CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(2,6,23,0.62)",
-    backdropFilter: "blur(8px)",
-    zIndex: 1000,
-    display: "flex",
-    alignItems: isMobile ? "flex-end" : "center",
-    justifyContent: "center",
-    padding: isMobile ? 10 : 18,
-  };
 
   const modalCard: CSSProperties = {
     width: "min(740px, 100%)",
@@ -1328,14 +1348,38 @@ function HomeComposerStrip() {
     setPostError(null);
 
     try {
+      let image_url: string | null = null;
+
+      if (postImage) {
+        const ext = (postImage.name.split(".").pop() || "jpg").toLowerCase();
+        const path = `${user.id}/${Date.now()}.${ext}`;
+
+        const up = await supabase.storage
+          .from("post-images")
+          .upload(path, postImage, { upsert: false });
+
+        if (up.error) throw up.error;
+
+        const pub = supabase.storage.from("post-images").getPublicUrl(path);
+        image_url = pub.data.publicUrl || null;
+      }
+
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
         body,
+        image_url, // ✅ NEW
       });
 
       if (error) throw error;
 
       setPostText("");
+
+      // ✅ reset image
+      if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+      setPostImage(null);
+      setPostImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
       closeComposer();
 
       if (typeof window !== "undefined") {
@@ -1421,6 +1465,13 @@ function HomeComposerStrip() {
     }
   };
 
+  const removePhoto = () => {
+    if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+    setPostImage(null);
+    setPostImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   return (
     <>
       <div style={shellStyle}>
@@ -1453,7 +1504,17 @@ function HomeComposerStrip() {
           </div>
 
           <div
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: 4, borderRadius: 999, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(2,6,23,0.22)", flex: "0 0 auto", marginLeft: "auto" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: 4,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.18)",
+              background: "rgba(2,6,23,0.22)",
+              flex: "0 0 auto",
+              marginLeft: "auto",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
@@ -1489,7 +1550,17 @@ function HomeComposerStrip() {
                 {mode === "post" ? "Create post" : "Ask a question"}
               </div>
 
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: 4, borderRadius: 999, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(2,6,23,0.22)" }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: 4,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(2,6,23,0.22)",
+                }}
+              >
                 <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
                   Post
                 </button>
@@ -1522,6 +1593,42 @@ function HomeComposerStrip() {
                     placeholder={isMobile ? "What’s on your mind?" : `What’s on your mind, ${firstName}?`}
                     style={bigTextarea}
                   />
+
+                  {/* ✅ NEW: image preview */}
+                  {postImagePreview && (
+                    <div style={{ marginTop: 10 }}>
+                      <img
+                        src={postImagePreview}
+                        alt="Preview"
+                        style={{
+                          width: "100%",
+                          maxHeight: 260,
+                          objectFit: "cover",
+                          borderRadius: 12,
+                          border: "1px solid rgba(148,163,184,0.18)",
+                          display: "block",
+                        }}
+                      />
+                      <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="button"
+                          onClick={removePhoto}
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(148,163,184,0.18)",
+                            background: "rgba(2,6,23,0.22)",
+                            color: "rgba(226,232,240,0.92)",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            fontWeight: 800,
+                          }}
+                        >
+                          Remove photo
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {postError && (
                     <div
@@ -1597,16 +1704,48 @@ function HomeComposerStrip() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 {mode === "post" ? (
                   <>
-                    <ActionButton
-                      icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
-                      label="Photo"
+                    {/* ✅ NEW: hidden input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        if (postImagePreview) URL.revokeObjectURL(postImagePreview);
+                        setPostImage(f);
+                        setPostImagePreview(f ? URL.createObjectURL(f) : null);
+                      }}
                     />
+
+                    {/* ✅ NEW: make Photo active */}
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") fileInputRef.current?.click();
+                      }}
+                      style={{ display: "inline-flex" }}
+                    >
+                      <ActionButton
+                        icon={
+                          <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                        }
+                        label={postImage ? "Photo ✓" : "Photo"}
+                      />
+                    </div>
+
                     <ActionButton
-                      icon={<MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />}
+                      icon={
+                        <MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />
+                      }
                       label="Video"
                     />
                     <ActionButton
-                      icon={<MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />}
+                      icon={
+                        <MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />
+                      }
                       label="Link"
                     />
                   </>
@@ -1691,11 +1830,7 @@ function HomeRightSidebar() {
   useEffect(() => {
     let cancelled = false;
 
-    const pickOne = async <T,>(
-      table: string,
-      select: string,
-      fallbackOrderCol: string
-    ): Promise<T | null> => {
+    const pickOne = async <T,>(table: string, select: string, fallbackOrderCol: string): Promise<T | null> => {
       const { data: featured, error: featErr } = await supabase
         .from(table)
         .select(select)
@@ -1779,9 +1914,7 @@ function HomeRightSidebar() {
 
   const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string"
-      ? memberName.split(" ")[0] || memberName
-      : "Member";
+    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
 
   const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
@@ -1795,10 +1928,7 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured role</div>
 
           <div className="tile-title-row">
-            <div
-              className="tile-title"
-              style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}
-            >
+            <div className="tile-title" style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}>
               Hot opening
             </div>
             <div className="tile-icon-orbit">🧪</div>
@@ -1810,10 +1940,7 @@ function HomeRightSidebar() {
             <p className="tile-text">No jobs posted yet — be the first to add one.</p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link
-                href={`/jobs/${latestJob.id}`}
-                style={{ textDecoration: "none", color: "inherit" }}
-              >
+              <Link href={`/jobs/${latestJob.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                 <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
                   {latestJob.title || "Untitled role"}
                 </div>
@@ -1850,10 +1977,7 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured product</div>
 
           <div className="tile-title-row">
-            <div
-              className="tile-title"
-              style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}
-            >
+            <div className="tile-title" style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}>
               Product of the week
             </div>
             <div className="tile-icon-orbit">🔧</div>
@@ -1941,10 +2065,7 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured member</div>
 
           <div className="tile-title-row">
-            <div
-              className="tile-title"
-              style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}
-            >
+            <div className="tile-title" style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}>
               Spotlight
             </div>
             <div className="tile-icon-orbit">🤝</div>
