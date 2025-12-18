@@ -543,10 +543,7 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
     <div>
       <div className="section-header" style={{ marginTop: 10 }}>
         <div>
-          <div className="section-title">Global feed</div>
-          <div className="section-sub" style={{ maxWidth: 560 }}>
-            Public posts from across the Quantum5ocial community.
-          </div>
+          <div className="section-title">My Q5-feed</div>
         </div>
 
         <button
