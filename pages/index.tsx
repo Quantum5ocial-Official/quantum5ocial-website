@@ -48,6 +48,8 @@ type FeedProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  highest_education?: string | null;
+  affiliation?: string | null;
 };
 
 type PostRow = {
@@ -58,6 +60,7 @@ type PostRow = {
 };
 
 type LikeRow = { post_id: string; user_id: string };
+
 type CommentRow = {
   id: string;
   post_id: string;
@@ -77,7 +80,7 @@ type PostVM = {
 export default function Home() {
   return (
     <>
-      {/* POST + ASK PLACEHOLDERS (between hero and earn QP) */}
+      {/* POST + ASK PLACEHOLDERS */}
       <section className="section" style={{ paddingTop: 0 }}>
         <HomeComposerStrip />
       </section>
@@ -92,21 +95,16 @@ export default function Home() {
         <div>
           <h1 className="hero-title">
             Discover{" "}
-            <span className="hero-highlight">
-              jobs, products &amp; services
-            </span>{" "}
+            <span className="hero-highlight">jobs, products &amp; services</span>{" "}
             shaping the future of quantum technology.
           </h1>
           <p className="hero-sub">
-            Quantum5ocial connects students, researchers, and companies with
-            curated opportunities, services and products across the global
-            quantum ecosystem.
+            Quantum5ocial connects students, researchers, and companies with curated
+            opportunities, services and products across the global quantum ecosystem.
           </p>
 
           <div className="hero-tags">
-            <span className="tag-chip">
-              Intern, PhD, Postdoc, and Industry roles
-            </span>
+            <span className="tag-chip">Intern, PhD, Postdoc, and Industry roles</span>
             <span className="tag-chip">Startups, Vendors, and Labs</span>
             <span className="tag-chip">Hardware · Software · Services</span>
           </div>
@@ -122,16 +120,13 @@ export default function Home() {
             </div>
             <p className="gamify-text">
               Quantum5ocial stays professional but adds a light gamified layer –
-              rewarding meaningful activity like completing your profile,
-              posting jobs/products, and exploring the ecosystem.
+              rewarding meaningful activity like completing your profile, posting
+              jobs/products, and exploring the ecosystem.
             </p>
             <ul className="gamify-list">
               <li>Complete your profile → gain QP and visibility</li>
               <li>Post roles or products → earn vendor &amp; mentor badges</li>
-              <li>
-                Explore and engage → unlock levels like Superposition, Entangled,
-                Resonant
-              </li>
+              <li>Explore and engage → unlock levels like Superposition, Entangled, Resonant</li>
             </ul>
           </div>
           <div className="gamify-badges">
@@ -161,12 +156,8 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">
-              Built for the entire quantum community
-            </div>
-            <div className="section-sub">
-              Different paths, one shared platform.
-            </div>
+            <div className="section-title">Built for the entire quantum community</div>
+            <div className="section-sub">Different paths, one shared platform.</div>
           </div>
         </div>
 
@@ -177,8 +168,8 @@ export default function Home() {
               <span className="who-title">Students &amp; early-career</span>
             </div>
             <p className="who-text">
-              Explore internships, MSc/PhD projects, and your first postdoc or
-              industry role. Build your profile as you grow into the field.
+              Explore internships, MSc/PhD projects, and your first postdoc or industry
+              role. Build your profile as you grow into the field.
             </p>
           </div>
 
@@ -188,8 +179,8 @@ export default function Home() {
               <span className="who-title">Researchers &amp; labs</span>
             </div>
             <p className="who-text">
-              Showcase your group, attract collaborators, and make it easier to
-              find the right candidates for your quantum projects.
+              Showcase your group, attract collaborators, and make it easier to find the
+              right candidates for your quantum projects.
             </p>
           </div>
 
@@ -199,8 +190,8 @@ export default function Home() {
               <span className="who-title">Companies &amp; startups</span>
             </div>
             <p className="who-text">
-              Post jobs, list your hero products, and reach a focused audience
-              that already cares about quantum technologies.
+              Post jobs, list your hero products, and reach a focused audience that already
+              cares about quantum technologies.
             </p>
           </div>
         </div>
@@ -215,7 +206,6 @@ export default function Home() {
 
 function HomeGlobalFeed() {
   const { user, loading: userLoading } = useSupabaseUser();
-  //const { user } = useSupabaseUser();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -223,11 +213,11 @@ function HomeGlobalFeed() {
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>(
-    {}
-  );
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
   const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
+
+  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -238,11 +228,35 @@ function HomeGlobalFeed() {
     return typeof v === "string" && v.length > 0 ? v : null;
   }, [router.query]);
 
-  const formatTime = (created_at: string | null) => {
+  const formatRelativeTime = (created_at: string | null) => {
     if (!created_at) return "";
     const t = Date.parse(created_at);
     if (Number.isNaN(t)) return "";
-    return new Date(t).toLocaleString();
+    const diffMs = Date.now() - t;
+    const diffSec = Math.floor(diffMs / 1000);
+
+    if (diffSec < 5) return "just now";
+    if (diffSec < 60) return `${diffSec} seconds ago`;
+
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+
+    const diffWk = Math.floor(diffDay / 7);
+    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+
+    const diffMo = Math.floor(diffDay / 30);
+    return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
+  };
+
+  const formatSubtitle = (p?: FeedProfile | null) => {
+    const parts = [p?.highest_education, p?.affiliation].filter(Boolean);
+    return parts.join(" · ");
   };
 
   const loadFeed = async (uid: string | null) => {
@@ -268,7 +282,7 @@ function HomeGlobalFeed() {
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar_url")
+          .select("id, full_name, avatar_url, highest_education, affiliation")
           .in("id", userIds);
 
         if (!profErr && profRows) {
@@ -287,7 +301,7 @@ function HomeGlobalFeed() {
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
-      // 4) Comments for these posts (for counts)
+      // 4) Comments for these posts (counts only)
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -329,16 +343,14 @@ function HomeGlobalFeed() {
   };
 
   useEffect(() => {
-  if (userLoading) return;
-  loadFeed(user?.id ?? null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [userLoading, user?.id]);
-  
+    if (userLoading) return;
+    loadFeed(user?.id ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLoading, user?.id]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const onFeedChanged = () => loadFeed(user?.id ?? null);
-
     window.addEventListener("q5:feed-changed", onFeedChanged);
     return () => window.removeEventListener("q5:feed-changed", onFeedChanged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -346,22 +358,37 @@ function HomeGlobalFeed() {
 
   useEffect(() => {
     if (!postParam) return;
-
     const exists = items.some((x) => x.post.id === postParam);
     if (!exists) return;
 
     setOpenComments((prev) => ({ ...prev, [postParam]: true }));
 
     const node = postRefs.current[postParam];
-    if (node) {
-      node.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
 
-    if (!commentsByPost[postParam]) {
-      void loadComments(postParam);
-    }
+    if (!commentsByPost[postParam]) void loadComments(postParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postParam, items]);
+
+  const loadProfilesForUserIds = async (userIds: string[]) => {
+    const uniq = Array.from(new Set(userIds)).filter(Boolean);
+    const missing = uniq.filter((id) => !commenterProfiles[id]);
+    if (missing.length === 0) return;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, highest_education, affiliation")
+      .in("id", missing);
+
+    if (error || !data) return;
+
+    const patch: Record<string, FeedProfile> = {};
+    (data as FeedProfile[]).forEach((p) => {
+      patch[p.id] = p;
+    });
+
+    setCommenterProfiles((prev) => ({ ...prev, ...patch }));
+  };
 
   const loadComments = async (postId: string) => {
     try {
@@ -373,10 +400,11 @@ function HomeGlobalFeed() {
 
       if (error) throw error;
 
-      setCommentsByPost((prev) => ({
-        ...prev,
-        [postId]: (rows || []) as CommentRow[],
-      }));
+      const list = (rows || []) as CommentRow[];
+      setCommentsByPost((prev) => ({ ...prev, [postId]: list }));
+
+      // fetch commenter profiles (avatar/name/edu/affiliation)
+      await loadProfilesForUserIds(list.map((c) => c.user_id));
     } catch (e) {
       console.warn("loadComments error", e);
       setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
@@ -395,15 +423,17 @@ function HomeGlobalFeed() {
     const cur = items[idx];
     const nextLiked = !cur.likedByMe;
 
+    // optimistic
     setItems((prev) =>
-      prev.map((x) => {
-        if (x.post.id !== postId) return x;
-        return {
-          ...x,
-          likedByMe: nextLiked,
-          likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
-        };
-      })
+      prev.map((x) =>
+        x.post.id !== postId
+          ? x
+          : {
+              ...x,
+              likedByMe: nextLiked,
+              likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
+            }
+      )
     );
 
     try {
@@ -427,12 +457,8 @@ function HomeGlobalFeed() {
       }
     } catch (e) {
       console.warn("toggleLike error", e);
-      setItems((prev) =>
-        prev.map((x) => {
-          if (x.post.id !== postId) return x;
-          return cur;
-        })
-      );
+      // rollback
+      setItems((prev) => prev.map((x) => (x.post.id !== postId ? x : cur)));
     }
   };
 
@@ -465,8 +491,12 @@ function HomeGlobalFeed() {
 
       setCommentsByPost((prev) => {
         const cur = prev[postId] || [];
-        return { ...prev, [postId]: data ? [...cur, data as CommentRow] : cur };
+        const next = data ? [...cur, data as CommentRow] : cur;
+        return { ...prev, [postId]: next };
       });
+
+      // ensure commenter profile exists for rendering
+      await loadProfilesForUserIds([user.id]);
 
       setItems((prev) =>
         prev.map((x) =>
@@ -510,6 +540,14 @@ function HomeGlobalFeed() {
     flexShrink: 0,
   });
 
+  const initialsOf = (name: string | null | undefined) =>
+    (name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "Q";
+
   return (
     <div>
       <div className="section-header" style={{ marginTop: 10 }}>
@@ -549,14 +587,9 @@ function HomeGlobalFeed() {
           {items.map((it) => {
             const p = it.post;
             const a = it.author;
+
             const name = a?.full_name || "Quantum member";
-            const initials =
-              (a?.full_name || "")
-                .split(" ")
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((x) => x[0]?.toUpperCase())
-                .join("") || "Q";
+            const initials = initialsOf(a?.full_name);
 
             const isOpen = !!openComments[p.id];
             const comments = commentsByPost[p.id] || [];
@@ -576,7 +609,7 @@ function HomeGlobalFeed() {
                 }}
               >
                 <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                  <div style={avatarStyle(38)}>
+                  <div style={avatarStyle(40)}>
                     {a?.avatar_url ? (
                       <img
                         src={a.avatar_url}
@@ -589,6 +622,7 @@ function HomeGlobalFeed() {
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
+                    {/* HEADER */}
                     <div
                       style={{
                         display: "flex",
@@ -598,7 +632,7 @@ function HomeGlobalFeed() {
                       }}
                     >
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 900, fontSize: 13 }}>
+                        <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
                           {a?.id ? (
                             <Link
                               href={`/profile/${a.id}`}
@@ -613,18 +647,21 @@ function HomeGlobalFeed() {
                             name
                           )}
                         </div>
-                        <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>
-                          {formatTime(p.created_at)}
+
+                        {/* ✅ edu + affiliation */}
+                        <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
+                          {formatSubtitle(a) || "Quantum5ocial member"}
+                        </div>
+
+                        {/* ✅ relative time */}
+                        <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
+                          {formatRelativeTime(p.created_at)}
                         </div>
                       </div>
 
                       <button
                         type="button"
-                        style={{
-                          ...pillBtnStyle,
-                          padding: "5px 10px",
-                          fontSize: 12,
-                        }}
+                        style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
                         onClick={() => {
                           navigator.clipboard
                             ?.writeText(`${window.location.origin}/?post=${p.id}`)
@@ -698,6 +735,7 @@ function HomeGlobalFeed() {
 
                     {isOpen && (
                       <div style={{ marginTop: 12 }}>
+                        {/* composer */}
                         <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                           <div style={avatarStyle(30)}>
                             {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
@@ -762,37 +800,93 @@ function HomeGlobalFeed() {
                           </div>
                         </div>
 
+                        {/* comments list */}
                         <div
                           style={{
                             marginTop: 10,
                             display: "flex",
                             flexDirection: "column",
-                            gap: 8,
+                            gap: 10,
                           }}
                         >
                           {comments.length === 0 ? (
-                            <div style={{ fontSize: 12, opacity: 0.75 }}>
-                              No comments yet.
-                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
                           ) : (
-                            comments.map((c) => (
-                              <div
-                                key={c.id}
-                                style={{
-                                  padding: 10,
-                                  borderRadius: 12,
-                                  border: "1px solid rgba(148,163,184,0.14)",
-                                  background: "rgba(2,6,23,0.18)",
-                                }}
-                              >
-                                <div style={{ fontSize: 12, opacity: 0.78 }}>
-                                  {formatTime(c.created_at)}
+                            comments.map((c) => {
+                              const cp = commenterProfiles[c.user_id];
+                              const cName = cp?.full_name || "Quantum member";
+                              const cInitials = initialsOf(cp?.full_name);
+
+                              return (
+                                <div
+                                  key={c.id}
+                                  style={{
+                                    padding: 10,
+                                    borderRadius: 12,
+                                    border: "1px solid rgba(148,163,184,0.14)",
+                                    background: "rgba(2,6,23,0.18)",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                                    <div style={avatarStyle(30)}>
+                                      {cp?.avatar_url ? (
+                                        <img
+                                          src={cp.avatar_url}
+                                          alt={cName}
+                                          style={{
+                                            width: "100%",
+                                            height: "100%",
+                                            objectFit: "cover",
+                                          }}
+                                        />
+                                      ) : (
+                                        cInitials
+                                      )}
+                                    </div>
+
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div
+                                        style={{
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          gap: 10,
+                                          alignItems: "flex-start",
+                                        }}
+                                      >
+                                        <div style={{ minWidth: 0 }}>
+                                          <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
+                                            {cp?.id ? (
+                                              <Link
+                                                href={`/profile/${cp.id}`}
+                                                style={{
+                                                  color: "rgba(226,232,240,0.95)",
+                                                  textDecoration: "none",
+                                                }}
+                                              >
+                                                {cName}
+                                              </Link>
+                                            ) : (
+                                              cName
+                                            )}
+                                          </div>
+                                          <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
+                                            {formatSubtitle(cp) || "Quantum5ocial member"}
+                                          </div>
+                                        </div>
+
+                                        <div style={{ fontSize: 11, opacity: 0.68 }}>
+                                          {formatRelativeTime(c.created_at)}
+                                        </div>
+                                      </div>
+
+                                      <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45 }}>
+                                        {c.body}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.45 }}>
-                                  {c.body}
-                                </div>
-                              </div>
-                            ))
+                              );
+                            })
                           )}
                         </div>
                       </div>
@@ -1307,7 +1401,7 @@ function HomeComposerStrip() {
           </div>
 
           <div
-            style={{ ...toggleShell, flex: "0 0 auto", marginLeft: "auto" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: 4, borderRadius: 999, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(2,6,23,0.22)", flex: "0 0 auto", marginLeft: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
@@ -1322,7 +1416,17 @@ function HomeComposerStrip() {
 
       {open && (
         <div
-          style={modalBackdrop}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2,6,23,0.62)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: isMobile ? "flex-end" : "center",
+            justifyContent: "center",
+            padding: isMobile ? 10 : 18,
+          }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeComposer();
           }}
@@ -1333,7 +1437,7 @@ function HomeComposerStrip() {
                 {mode === "post" ? "Create post" : "Ask a question"}
               </div>
 
-              <div style={toggleShell}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: 4, borderRadius: 999, border: "1px solid rgba(148,163,184,0.18)", background: "rgba(2,6,23,0.22)" }}>
                 <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
                   Post
                 </button>
