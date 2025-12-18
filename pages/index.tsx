@@ -547,7 +547,19 @@ function HomeGlobalFeed() {
       .slice(0, 2)
       .map((x) => x[0]?.toUpperCase())
       .join("") || "Q";
-
+function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path
+        d={path}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
   return (
     <div>
       <div className="section-header" style={{ marginTop: 10 }}>
@@ -676,62 +688,64 @@ function HomeGlobalFeed() {
                       {p.body}
                     </div>
 
-                    <div
-                      style={{
-                        marginTop: 12,
-                        display: "flex",
-                        gap: 10,
-                        flexWrap: "wrap",
-                        alignItems: "center",
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleLike(p.id)}
-                        style={{
-                          padding: "7px 12px",
-                          borderRadius: 999,
-                          border: it.likedByMe
-                            ? "1px solid rgba(34,211,238,0.65)"
-                            : "1px solid rgba(148,163,184,0.35)",
-                          background: it.likedByMe
-                            ? "rgba(34,211,238,0.12)"
-                            : "rgba(2,6,23,0.2)",
-                          color: "rgba(226,232,240,0.92)",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontWeight: 800,
-                        }}
-                      >
-                        {it.likedByMe ? "♥ Liked" : "♡ Like"}{" "}
-                        <span style={{ opacity: 0.85, fontWeight: 700 }}>
-                          · {it.likeCount}
-                        </span>
-                      </button>
+                    <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
+  {/* Like */}
+  <button
+    type="button"
+    onClick={() => toggleLike(p.id)}
+    aria-label="Like"
+    title="Like"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "7px 10px",
+      borderRadius: 999,
+      border: it.likedByMe
+        ? "1px solid rgba(34,211,238,0.65)"
+        : "1px solid rgba(148,163,184,0.35)",
+      background: it.likedByMe ? "rgba(34,211,238,0.12)" : "rgba(2,6,23,0.2)",
+      color: "rgba(226,232,240,0.92)",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 800,
+    }}
+  >
+    <span style={{ display: "inline-flex", alignItems: "center" }}>
+      <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+    </span>
+    <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
+  </button>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
-                          if (!commentsByPost[p.id]) void loadComments(p.id);
-                        }}
-                        style={{
-                          padding: "7px 12px",
-                          borderRadius: 999,
-                          border: "1px solid rgba(148,163,184,0.35)",
-                          background: "rgba(2,6,23,0.2)",
-                          color: "rgba(226,232,240,0.92)",
-                          cursor: "pointer",
-                          fontSize: 13,
-                          fontWeight: 800,
-                        }}
-                      >
-                        💬 Comment{" "}
-                        <span style={{ opacity: 0.85, fontWeight: 700 }}>
-                          · {it.commentCount}
-                        </span>
-                      </button>
-                    </div>
+  {/* Comment */}
+  <button
+    type="button"
+    onClick={() => {
+      setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
+      if (!commentsByPost[p.id]) void loadComments(p.id);
+    }}
+    aria-label="Comment"
+    title="Comment"
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 8,
+      padding: "7px 10px",
+      borderRadius: 999,
+      border: "1px solid rgba(148,163,184,0.35)",
+      background: "rgba(2,6,23,0.2)",
+      color: "rgba(226,232,240,0.92)",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 800,
+    }}
+  >
+    <span style={{ display: "inline-flex", alignItems: "center" }}>
+      <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+    </span>
+    <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.commentCount}</span>
+  </button>
+</div>
 
                     {isOpen && (
                       <div style={{ marginTop: 12 }}>
