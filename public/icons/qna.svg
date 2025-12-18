@@ -1,12 +1,78 @@
-<!-- public/icons/qna.svg -->
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M10 14.5C10 11.4624 12.4624 9 15.5 9H28.5C31.5376 9 34 11.4624 34 14.5V23.5C34 26.5376 31.5376 29 28.5 29H20L13 35V29H15.5C12.4624 29 10 26.5376 10 23.5V14.5Z"
-        stroke="white" stroke-width="2.2" stroke-linejoin="round"/>
-  <path d="M26.8 18.3C26.8 16.6 25.4 15.2 23.7 15.2C22.2 15.2 21 16 20.6 17.3"
-        stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M23.7 23.2V22.6C23.7 21.5 26.0 21.2 26.0 19.2"
-        stroke="white" stroke-width="2.2" stroke-linecap="round"/>
-  <path d="M23.7 25.9H23.71" stroke="white" stroke-width="3.2" stroke-linecap="round"/>
-  <path d="M36 18.5H38.5C41.5376 18.5 44 20.9624 44 24V31.5C44 34.5376 41.5376 37 38.5 37H37V41L31.5 37H27"
-        stroke="white" stroke-width="2.2" stroke-linejoin="round"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 22.5 22.5"
+  fill="none"
+>
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #fff;
+        stroke-width: .5px;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+
+  <!-- Main chat bubble -->
+  <path
+    class="cls-1"
+    d="
+      M4.7 7.2
+      C4.7 5.6 6.0 4.3 7.6 4.3
+      H14.9
+      C16.5 4.3 17.8 5.6 17.8 7.2
+      v4.9
+      c0 1.6 -1.3 2.9 -2.9 2.9
+      h-4.2
+      l-3.5 3.0
+      v-3.0
+      H7.6
+      C6.0 15.0 4.7 13.7 4.7 12.1
+      V7.2
+      Z
+    "
+  />
+
+  <!-- Question mark curve -->
+  <path
+    class="cls-1"
+    d="M12.3 7.9
+       c0 -0.9 -0.7 -1.6 -1.6 -1.6
+       c-0.8 0 -1.4 0.4 -1.6 1.0"
+  />
+
+  <!-- Question mark stem -->
+  <path
+    class="cls-1"
+    d="M10.7 11.4
+       v-0.4
+       c0 -0.7 1.3 -0.8 1.3 -2.0"
+  />
+
+  <!-- Question dot -->
+  <circle
+    class="cls-1"
+    cx="10.7"
+    cy="13.4"
+    r="0.35"
+  />
+
+  <!-- Secondary bubble (right) -->
+  <path
+    class="cls-1"
+    d="
+      M18.3 9.2
+      h1.3
+      c1.4 0 2.5 1.1 2.5 2.5
+      v3.6
+      c0 1.4 -1.1 2.5 -2.5 2.5
+      h-0.8
+      v2.1
+      l-2.6 -2.1
+      h-1.9
+    "
+  />
 </svg>
