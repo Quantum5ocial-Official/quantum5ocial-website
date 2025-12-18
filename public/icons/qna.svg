@@ -2,8 +2,8 @@
 <svg
   xmlns="http://www.w3.org/2000/svg"
   viewBox="0 0 22.5 22.5"
-  width="48"
-  height="48"
+  width="60"
+  height="60"
   fill="none"
 >
   <defs>
@@ -26,9 +26,7 @@
     </style>
   </defs>
 
-  <!-- ===================== -->
-  <!-- MAIN CHAT BUBBLE -->
-  <!-- ===================== -->
+  <!-- Main chat bubble -->
   <path
     class="outer"
     d="
@@ -66,9 +64,7 @@
     "
   />
 
-  <!-- ===================== -->
-  <!-- QUESTION MARK -->
-  <!-- ===================== -->
+  <!-- Question mark -->
   <path
     class="outer"
     d="M12.3 7.9
@@ -98,9 +94,7 @@
   <circle class="outer" cx="10.7" cy="13.4" r="0.45" />
   <circle class="inner" cx="10.7" cy="13.4" r="0.25" />
 
-  <!-- ===================== -->
-  <!-- SECONDARY CHAT BUBBLE -->
-  <!-- ===================== -->
+  <!-- Secondary bubble -->
   <path
     class="outer"
     d="
