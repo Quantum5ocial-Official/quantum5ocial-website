@@ -14,6 +14,10 @@ export default function EcosystemIndexPage() {
   const [savedJobsCount, setSavedJobsCount] = useState(0);
   const [savedProductsCount, setSavedProductsCount] = useState(0);
 
+  const [myPostsCount, setMyPostsCount] = useState(0);
+  const [questionsAskedCount, setQuestionsAskedCount] = useState(0);
+  const [questionsAnsweredCount, setQuestionsAnsweredCount] = useState(0);
+
   const [mainLoading, setMainLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -74,6 +78,30 @@ export default function EcosystemIndexPage() {
           .eq("user_id", user.id);
 
         setSavedProductsCount(savedProducts?.length || 0);
+
+        // My posts
+        const { data: myPosts } = await supabase
+          .from("posts")
+          .select("id")
+          .eq("user_id", user.id);
+
+        setMyPostsCount(myPosts?.length || 0);
+
+        // Questions asked
+        const { data: askedQs } = await supabase
+          .from("qna_questions")
+          .select("id")
+          .eq("user_id", user.id);
+
+        setQuestionsAskedCount(askedQs?.length || 0);
+
+        // Questions answered
+        const { data: answers } = await supabase
+          .from("qna_answers")
+          .select("id")
+          .eq("user_id", user.id);
+
+        setQuestionsAnsweredCount(answers?.length || 0);
       } catch (e) {
         console.error("Ecosystem count error", e);
         setErrorMsg("Could not load your ecosystem right now.");
@@ -185,26 +213,35 @@ export default function EcosystemIndexPage() {
             description="Marketplace items you want to revisit."
           />
 
-          {/* My posts (placeholder) */}
-          <div
-            className="card"
-            style={{
-              padding: 16,
-              borderRadius: 16,
-              border: "1px dashed rgba(148,163,184,0.35)",
-              background: "rgba(15,23,42,0.7)",
-            }}
-          >
-            <div style={{ fontSize: 12, textTransform: "uppercase", opacity: 0.8 }}>
-              My posts
-            </div>
-            <div style={{ marginTop: 10, fontSize: 14, fontWeight: 600 }}>
-              Coming soon
-            </div>
-            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.85 }}>
-              Your activity, discussions, and contributions.
-            </div>
-          </div>
+          {/* My posts */}
+          <Tile
+            href="/ecosystem/my-posts"
+            label="My posts"
+            count={myPostsCount}
+            icon="📝"
+            color="#94a3b8"
+            description="Your posts in the global feed."
+          />
+
+          {/* Questions asked */}
+          <Tile
+            href="/ecosystem/questions-asked"
+            label="Questions asked"
+            count={questionsAskedCount}
+            icon="❓"
+            color="#60a5fa"
+            description="Questions you posted to Q&A."
+          />
+
+          {/* Questions answered */}
+          <Tile
+            href="/ecosystem/questions-answered"
+            label="Questions answered"
+            count={questionsAnsweredCount}
+            icon="✅"
+            color="#34d399"
+            description="Q&A threads where you replied."
+          />
         </div>
       )}
     </section>
