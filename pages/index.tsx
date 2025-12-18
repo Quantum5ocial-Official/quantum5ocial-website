@@ -188,7 +188,34 @@ export default function Home() {
     </>
   );
 }
+function LinkifyText({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
 
+  return (
+    <>
+      {parts.map((part, idx) => {
+        const isUrl = /^https?:\/\/[^\s]+$/.test(part);
+        if (!isUrl) return <span key={idx}>{part}</span>;
+
+        return (
+          <a
+            key={idx}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              color: "rgba(34,211,238,0.95)",
+              textDecoration: "underline",
+              wordBreak: "break-word",
+            }}
+          >
+            {part}
+          </a>
+        );
+      })}
+    </>
+  );
+}
 /* =========================
    GLOBAL FEED
    ========================= */
@@ -671,7 +698,7 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
             </div>
 
             <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
-              {p.body}
+              <LinkifyText text={p.body} />
             </div>
 
             <div
