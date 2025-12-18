@@ -580,13 +580,7 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
   const a = it.author;
 
   const name = a?.full_name || "Quantum member";
-  const initials =
-    (a?.full_name || "")
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((x) => x[0]?.toUpperCase())
-      .join("") || "Q";
+  const initials = initialsOf(a?.full_name);
 
   const isOpen = !!openComments[p.id];
   const comments = commentsByPost[p.id] || [];
@@ -606,23 +600,7 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
         }}
       >
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          {/* Avatar */}
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 999,
-              overflow: "hidden",
-              border: "1px solid rgba(148,163,184,0.35)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-              color: "#fff",
-              fontWeight: 800,
-              flexShrink: 0,
-            }}
-          >
+          <div style={avatarStyle(40)}>
             {a?.avatar_url ? (
               <img
                 src={a.avatar_url}
@@ -634,9 +612,8 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
             )}
           </div>
 
-          {/* Content */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            {/* Header */}
+            {/* HEADER */}
             <div
               style={{
                 display: "flex",
@@ -662,11 +639,12 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
                   )}
                 </div>
 
+                {/* ✅ edu + affiliation */}
                 <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
-                  {[a?.highest_education, a?.affiliation].filter(Boolean).join(" · ") ||
-                    "Quantum5ocial member"}
+                  {formatSubtitle(a) || "Quantum5ocial member"}
                 </div>
 
+                {/* ✅ relative time */}
                 <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
                   {formatRelativeTime(p.created_at)}
                 </div>
@@ -674,15 +652,7 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
 
               <button
                 type="button"
-                style={{
-                  fontSize: 12,
-                  padding: "5px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.45)",
-                  background: "rgba(15,23,42,0.65)",
-                  color: "rgba(226,232,240,0.95)",
-                  cursor: "pointer",
-                }}
+                style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
                 onClick={() => {
                   navigator.clipboard
                     ?.writeText(`${window.location.origin}/?post=${p.id}`)
@@ -693,12 +663,10 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
               </button>
             </div>
 
-            {/* Body */}
             <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
               {p.body}
             </div>
 
-            {/* Actions */}
             <div
               style={{
                 marginTop: 12,
@@ -711,6 +679,8 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
               <button
                 type="button"
                 onClick={() => toggleLike(p.id)}
+                aria-label="Like"
+                title="Like"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -729,19 +699,23 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
                   fontWeight: 800,
                 }}
               >
-                ❤️ {it.likeCount}
+                <span style={{ display: "inline-flex", alignItems: "center" }}>
+                  <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+                </span>
+                <span style={{ opacity: 0.85, fontWeight: 700 }}>
+                  {it.likeCount}
+                </span>
               </button>
 
-              {/* Comment */}
+              {/* Comment (✅ kept EXACT as before) */}
               <button
                 type="button"
                 onClick={() => {
-                  setOpenComments((prev) => ({
-                    ...prev,
-                    [p.id]: !prev[p.id],
-                  }));
+                  setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
                   if (!commentsByPost[p.id]) void loadComments(p.id);
                 }}
+                aria-label="Comment"
+                title="Comment"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -756,47 +730,185 @@ function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
                   fontWeight: 800,
                 }}
               >
-                💬 {it.commentCount}
+                <span style={{ display: "inline-flex", alignItems: "center" }}>
+                  <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+                </span>
+                <span style={{ opacity: 0.85, fontWeight: 700 }}>
+                  {it.commentCount}
+                </span>
               </button>
             </div>
 
-            {/* Comments */}
             {isOpen && (
               <div style={{ marginTop: 12 }}>
-                {comments.length === 0 ? (
-                  <div style={{ fontSize: 12, opacity: 0.75 }}>
-                    No comments yet.
+                {/* composer */}
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <div style={avatarStyle(30)}>
+                    {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
                   </div>
-                ) : (
-                  comments.map((c) => (
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <textarea
+                      value={commentDraft[p.id] || ""}
+                      onChange={(e) =>
+                        setCommentDraft((prev) => ({
+                          ...prev,
+                          [p.id]: e.target.value,
+                        }))
+                      }
+                      placeholder={user ? "Write a comment…" : "Login to comment…"}
+                      disabled={!user}
+                      style={{
+                        width: "100%",
+                        minHeight: 54,
+                        borderRadius: 12,
+                        border: "1px solid rgba(148,163,184,0.2)",
+                        background: "rgba(2,6,23,0.26)",
+                        color: "rgba(226,232,240,0.94)",
+                        padding: 10,
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        outline: "none",
+                        resize: "vertical",
+                      }}
+                    />
+
                     <div
-                      key={c.id}
                       style={{
                         marginTop: 8,
-                        padding: 10,
-                        borderRadius: 12,
-                        border: "1px solid rgba(148,163,184,0.14)",
-                        background: "rgba(2,6,23,0.18)",
-                        fontSize: 13,
+                        display: "flex",
+                        justifyContent: "flex-end",
                       }}
                     >
-                      {c.body}
+                      <button
+                        type="button"
+                        onClick={() => submitComment(p.id)}
+                        disabled={
+                          !user ||
+                          commentSaving[p.id] ||
+                          !(commentDraft[p.id] || "").trim()
+                        }
+                        style={{
+                          padding: "8px 14px",
+                          borderRadius: 999,
+                          border: "none",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          cursor: !user || commentSaving[p.id] ? "default" : "pointer",
+                          opacity: !user || commentSaving[p.id] ? 0.6 : 1,
+                          background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                          color: "#0f172a",
+                        }}
+                      >
+                        {commentSaving[p.id] ? "Posting…" : "Post comment"}
+                      </button>
                     </div>
-                  ))
-                )}
+                  </div>
+                </div>
+
+                {/* comments list */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  {comments.length === 0 ? (
+                    <div style={{ fontSize: 12, opacity: 0.75 }}>
+                      No comments yet.
+                    </div>
+                  ) : (
+                    comments.map((c) => {
+                      const cp = commenterProfiles[c.user_id];
+                      const cName = cp?.full_name || "Quantum member";
+                      const cInitials = initialsOf(cp?.full_name);
+
+                      return (
+                        <div
+                          key={c.id}
+                          style={{
+                            padding: 10,
+                            borderRadius: 12,
+                            border: "1px solid rgba(148,163,184,0.14)",
+                            background: "rgba(2,6,23,0.18)",
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                            <div style={avatarStyle(30)}>
+                              {cp?.avatar_url ? (
+                                <img
+                                  src={cp.avatar_url}
+                                  alt={cName}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                cInitials
+                              )}
+                            </div>
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: 10,
+                                  alignItems: "flex-start",
+                                }}
+                              >
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
+                                    {cp?.id ? (
+                                      <Link
+                                        href={`/profile/${cp.id}`}
+                                        style={{
+                                          color: "rgba(226,232,240,0.95)",
+                                          textDecoration: "none",
+                                        }}
+                                      >
+                                        {cName}
+                                      </Link>
+                                    ) : (
+                                      cName
+                                    )}
+                                  </div>
+                                  <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
+                                    {formatSubtitle(cp) || "Quantum5ocial member"}
+                                  </div>
+                                </div>
+
+                                <div style={{ fontSize: 11, opacity: 0.68 }}>
+                                  {formatRelativeTime(c.created_at)}
+                                </div>
+                              </div>
+
+                              <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45 }}>
+                                {c.body}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* 🔹 Horizontal divider */}
+      {/* ✅ CLEAN STRAIGHT DIVIDER (only addition) */}
       <div
         style={{
           height: 1,
-          margin: "14px 6px",
-          background:
-            "linear-gradient(90deg, transparent, rgba(148,163,184,0.25), transparent)",
+          background: "rgba(148,163,184,0.18)",
+          margin: "14px 0",
         }}
       />
     </div>
