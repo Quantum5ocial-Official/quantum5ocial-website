@@ -84,7 +84,11 @@ export default function Home() {
       <section className="section" style={{ paddingTop: 0 }}>
         <HomeComposerStrip />
       </section>
+      <section className="section" style={{ paddingTop: 0, paddingBottom: 0 }}>
+  <HomeComposerStrip />
+</section>
 
+      
       {/* ✅ divider after composer */}
 <div
   style={{
