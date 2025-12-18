@@ -2,22 +2,33 @@
 <svg
   xmlns="http://www.w3.org/2000/svg"
   viewBox="0 0 22.5 22.5"
+  width="60"
+  height="60"
+  fill="none"
 >
   <defs>
     <style>
-      .cls-1 {
+      .outer {
         fill: none;
         stroke: #fff;
-        stroke-width: .5px;
+        stroke-width: 0.9px;
         stroke-linecap: round;
         stroke-linejoin: round;
+      }
+      .inner {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 0.45px;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        opacity: 0.95;
       }
     </style>
   </defs>
 
-  <!-- Bell body (taller) -->
+  <!-- Bell body -->
   <path
-    class="cls-1"
+    class="outer"
     d="
       M11.25 2.6
       C8.1 2.6 6.1 5.3 6.1 9.0
@@ -30,18 +41,42 @@
       Z
     "
   />
+  <path
+    class="inner"
+    d="
+      M11.25 3.3
+      C8.7 3.3 7.0 5.6 7.0 9.1
+      v4.0
+      c0 1.1 -0.4 2.0 -0.9 2.5
+      h10.3
+      c-0.5 -0.5 -0.9 -1.4 -0.9 -2.5
+      V9.1
+      C15.5 5.6 13.8 3.3 11.25 3.3
+      Z
+    "
+  />
 
   <!-- Bell neck -->
   <path
-    class="cls-1"
+    class="outer"
     d="M9.1 16.6h4.3"
   />
+  <path
+    class="inner"
+    d="M9.6 16.6h3.3"
+  />
 
-  <!-- Clapper (lowered slightly) -->
+  <!-- Clapper -->
   <circle
-    class="cls-1"
+    class="outer"
     cx="11.25"
     cy="18.3"
     r="1.05"
+  />
+  <circle
+    class="inner"
+    cx="11.25"
+    cy="18.3"
+    r="0.55"
   />
 </svg>
