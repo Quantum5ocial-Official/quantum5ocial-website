@@ -93,7 +93,7 @@ export default function MessagesIndexPage() {
     setError(null);
 
     try {
-      // 1) threads where I'm a participant (RLS also enforces)
+      // 1) threads where I'm a participant
       const { data: tRows, error: tErr } = await supabase
         .from("dm_threads")
         .select("id, user1, user2, created_at")
@@ -101,12 +101,27 @@ export default function MessagesIndexPage() {
 
       if (tErr) throw tErr;
 
-      const threads = (tRows || []) as ThreadRow[];
-      const otherIds = threads.map((t) => (t.user1 === uid ? t.user2 : t.user1));
-      const uniqOther = Array.from(new Set(otherIds));
+      const tList = (tRows || []) as ThreadRow[];
+      const ids = tList.map((t) => t.id);
 
-      // 2) profiles of other participants
-      let profileMap = new Map<string, ProfileLite>();
+      // 2) unread counts via dm_inbox (thread_id -> unread_count)
+      const unreadByThread = new Map<string, number>();
+      try {
+        const { data: inboxRows, error: inboxErr } = await supabase.rpc("dm_inbox");
+        if (!inboxErr) {
+          (inboxRows as any[] | null)?.forEach((r) => {
+            unreadByThread.set(r.thread_id, Number(r.unread_count || 0));
+          });
+        }
+      } catch {
+        // ignore
+      }
+
+      // 3) profiles of other participants
+      const otherIds = tList.map((t) => (t.user1 === uid ? t.user2 : t.user1));
+      const uniqOther = Array.from(new Set(otherIds)).filter(Boolean);
+
+      const profileMap = new Map<string, ProfileLite>();
       if (uniqOther.length > 0) {
         const { data: pRows } = await supabase
           .from("profiles")
@@ -116,29 +131,16 @@ export default function MessagesIndexPage() {
         (pRows as any[] | null)?.forEach((p) => profileMap.set(p.id, p as ProfileLite));
       }
 
-      // 3) last message per thread (simple approach: fetch latest for all threads)
-      let lastByThread = new Map<string, { body: string; created_at: string }>();
-      if (threads.length > 0) {
-        const ids = threads.map((t) => t.id);
+      // 4) last message per thread (simple approach)
+      const lastByThread = new Map<string, { body: string; created_at: string }>();
+      if (ids.length > 0) {
         const { data: mRows } = await supabase
           .from("dm_messages")
           .select("thread_id, body, created_at")
           .in("thread_id", ids)
           .order("created_at", { ascending: false })
-          .limit(200);
-        
-        // 4) unread counts via dm_inbox (thread_id -> unread_count)
-let unreadByThread = new Map<string, number>();
-try {
-  const { data: inboxRows, error: inboxErr } = await supabase.rpc("dm_inbox");
-  if (!inboxErr) {
-    (inboxRows as any[] | null)?.forEach((r) => {
-      unreadByThread.set(r.thread_id, Number(r.unread_count || 0));
-    });
-  }
-} catch {}
+          .limit(400);
 
-        // first occurrence per thread is the latest (due to ordering)
         (mRows as any[] | null)?.forEach((m) => {
           if (!lastByThread.has(m.thread_id)) {
             lastByThread.set(m.thread_id, { body: m.body, created_at: m.created_at });
@@ -146,25 +148,25 @@ try {
         });
       }
 
-      const vms: ThreadVM[] = threads.map((t) => {
-  const otherUserId = t.user1 === uid ? t.user2 : t.user1;
-  return {
-    thread: t,
-    otherUserId,
-    otherProfile: profileMap.get(otherUserId) || null,
-    lastMessage: lastByThread.get(t.id) || null,
-    unread_count: unreadByThread.get(t.id) || 0,
-  };
-});
+      const vms: ThreadVM[] = tList.map((t) => {
+        const otherUserId = t.user1 === uid ? t.user2 : t.user1;
+        return {
+          thread: t,
+          otherUserId,
+          otherProfile: profileMap.get(otherUserId) || null,
+          lastMessage: lastByThread.get(t.id) || null,
+          unread_count: unreadByThread.get(t.id) || 0,
+        };
+      });
 
-// ✅ newest first by lastMessage time, fallback thread time
-vms.sort((a, b) => {
-  const ta = a.lastMessage?.created_at || a.thread.created_at;
-  const tb = b.lastMessage?.created_at || b.thread.created_at;
-  return tb.localeCompare(ta);
-});
+      // ✅ newest first by last message time, fallback thread time
+      vms.sort((a, b) => {
+        const ta = a.lastMessage?.created_at || a.thread.created_at;
+        const tb = b.lastMessage?.created_at || b.thread.created_at;
+        return tb.localeCompare(ta);
+      });
 
-setThreads(vms);
+      setThreads(vms);
     } catch (e: any) {
       console.error(e);
       setError(e?.message || "Could not load messages.");
@@ -177,7 +179,6 @@ setThreads(vms);
   const loadEntangledPeople = async () => {
     if (!uid) return;
 
-    // accepted connections can be either direction
     const { data: cRows, error } = await supabase
       .from("connections")
       .select("user_id, target_user_id, status")
@@ -207,11 +208,9 @@ setThreads(vms);
   const openOrCreateThread = async (otherUserId: string) => {
     if (!uid) return;
 
-    // enforce ordering user1 < user2 (matches table check + unique)
     const user1 = uid < otherUserId ? uid : otherUserId;
     const user2 = uid < otherUserId ? otherUserId : uid;
 
-    // try find existing
     const existing = threads.find((t) => {
       const th = t.thread;
       return th.user1 === user1 && th.user2 === user2;
@@ -222,7 +221,6 @@ setThreads(vms);
       return;
     }
 
-    // create thread (RLS will only allow if entangled & not blocked)
     const { data, error } = await supabase
       .from("dm_threads")
       .insert({ user1, user2 })
@@ -295,6 +293,26 @@ setThreads(vms);
             <Link
               key={t.thread.id}
               href={`/messages/${t.thread.id}`}
+              onClick={async (e) => {
+                // ✅ ensures dot disappears immediately (and prevents “blink”)
+                e.preventDefault();
+
+                // optimistic UI update
+                setThreads((prev) =>
+                  prev.map((x) =>
+                    x.thread.id === t.thread.id ? { ...x, unread_count: 0 } : x
+                  )
+                );
+
+                // persist in DB
+                try {
+                  await supabase.rpc("dm_mark_thread_read", { p_thread_id: t.thread.id });
+                } catch {
+                  // ignore; UI is already updated
+                }
+
+                router.push(`/messages/${t.thread.id}`);
+              }}
               style={{ textDecoration: "none", color: "inherit" }}
             >
               <div style={{ ...cardStyle, cursor: "pointer" }}>
@@ -319,27 +337,34 @@ setThreads(vms);
                       {subtitle(p) || "Entangled member"}
                     </div>
 
-                    <div style={{ fontSize: 12, opacity: 0.85, marginTop: 8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        opacity: 0.85,
+                        marginTop: 8,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
                       {t.lastMessage ? t.lastMessage.body : "No messages yet."}
                     </div>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-  {t.unread_count > 0 && (
-    <div
-      title="Unread"
-      style={{
-        width: 10,
-        height: 10,
-        borderRadius: 999,
-        background: "rgba(59,199,243,0.95)",
-        boxShadow: "0 0 0 3px rgba(59,199,243,0.18)",
-      }}
-    />
-  )}
-  <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>›</div>
-</div>
-                    ›
+                    {t.unread_count > 0 && (
+                      <div
+                        title="Unread"
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 999,
+                          background: "rgba(59,199,243,0.95)",
+                          boxShadow: "0 0 0 3px rgba(59,199,243,0.18)",
+                        }}
+                      />
+                    )}
+                    <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>›</div>
                   </div>
                 </div>
               </div>
