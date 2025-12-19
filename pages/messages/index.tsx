@@ -25,6 +25,7 @@ type ThreadVM = {
   otherUserId: string;
   otherProfile: ProfileLite | null;
   lastMessage: { body: string; created_at: string } | null;
+  unread_count: number;
 };
 
 export default function MessagesIndexPage() {
@@ -125,6 +126,17 @@ export default function MessagesIndexPage() {
           .in("thread_id", ids)
           .order("created_at", { ascending: false })
           .limit(200);
+        
+        // 4) unread counts via dm_inbox (thread_id -> unread_count)
+let unreadByThread = new Map<string, number>();
+try {
+  const { data: inboxRows, error: inboxErr } = await supabase.rpc("dm_inbox");
+  if (!inboxErr) {
+    (inboxRows as any[] | null)?.forEach((r) => {
+      unreadByThread.set(r.thread_id, Number(r.unread_count || 0));
+    });
+  }
+} catch {}
 
         // first occurrence per thread is the latest (due to ordering)
         (mRows as any[] | null)?.forEach((m) => {
@@ -135,16 +147,24 @@ export default function MessagesIndexPage() {
       }
 
       const vms: ThreadVM[] = threads.map((t) => {
-        const otherUserId = t.user1 === uid ? t.user2 : t.user1;
-        return {
-          thread: t,
-          otherUserId,
-          otherProfile: profileMap.get(otherUserId) || null,
-          lastMessage: lastByThread.get(t.id) || null,
-        };
-      });
+  const otherUserId = t.user1 === uid ? t.user2 : t.user1;
+  return {
+    thread: t,
+    otherUserId,
+    otherProfile: profileMap.get(otherUserId) || null,
+    lastMessage: lastByThread.get(t.id) || null,
+    unread_count: unreadByThread.get(t.id) || 0,
+  };
+});
 
-      setThreads(vms);
+// ✅ newest first by lastMessage time, fallback thread time
+vms.sort((a, b) => {
+  const ta = a.lastMessage?.created_at || a.thread.created_at;
+  const tb = b.lastMessage?.created_at || b.thread.created_at;
+  return tb.localeCompare(ta);
+});
+
+setThreads(vms);
     } catch (e: any) {
       console.error(e);
       setError(e?.message || "Could not load messages.");
@@ -304,7 +324,21 @@ export default function MessagesIndexPage() {
                     </div>
                   </div>
 
-                  <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+  {t.unread_count > 0 && (
+    <div
+      title="Unread"
+      style={{
+        width: 10,
+        height: 10,
+        borderRadius: 999,
+        background: "rgba(59,199,243,0.95)",
+        boxShadow: "0 0 0 3px rgba(59,199,243,0.18)",
+      }}
+    />
+  )}
+  <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>›</div>
+</div>
                     ›
                   </div>
                 </div>
