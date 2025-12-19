@@ -323,14 +323,8 @@ function FloatingMessagesDock() {
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // ✅ the “bottom anchor” that we scroll to
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
   // ✅ keep if user is near bottom (don’t yank if they scroll up)
   const isNearBottomRef = useRef(true);
-
-  // ✅ force scroll when opening thread / sending
-  const forceScrollNextPaintRef = useRef(false);
 
   // new chat modal
   const [openNew, setOpenNew] = useState(false);
@@ -374,9 +368,10 @@ function FloatingMessagesDock() {
       .join(" · ");
 
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
-    // Most reliable: scroll to a sentinel element
-    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
-  };
+  const el = listRef.current;
+  if (!el) return;
+  el.scrollTo({ top: el.scrollHeight, behavior });
+};
 
   const measureNearBottom = () => {
     const el = listRef.current;
@@ -401,16 +396,6 @@ function FloatingMessagesDock() {
     return () => el.removeEventListener("scroll", onScroll);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeThreadId, open]);
-
-  // ✅ This is the key: after React paints messages, do the forced scroll if requested
-  useLayoutEffect(() => {
-    if (!open || !activeThreadId) return;
-
-    if (forceScrollNextPaintRef.current) {
-      forceScrollNextPaintRef.current = false;
-      scrollToBottom("auto");
-    }
-  }, [open, activeThreadId, messages.length]);
 
   // ✅ Sticky badge while closed
   const refreshTotalUnreadClamped = async () => {
@@ -486,11 +471,15 @@ function FloatingMessagesDock() {
       if (error) throw error;
 
       // ✅ IMPORTANT: tell the layout-effect to scroll after paint
-      forceScrollNextPaintRef.current = true;
-
       setMessages(((data || []) as any[]) as MessageRow[]);
 
-      await markThreadRead(threadId);
+// ✅ ALWAYS open at bottom (newest) — same as ThreadPage
+requestAnimationFrame(() => {
+  scrollToBottom("auto");
+  setTimeout(() => scrollToBottom("auto"), 60);
+});
+
+await markThreadRead(threadId);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
       setMessages([]);
@@ -520,17 +509,21 @@ function FloatingMessagesDock() {
 
       if (data) {
         // ✅ force scroll after paint
-        forceScrollNextPaintRef.current = true;
-
         setMessages((prev) => {
-          const exists = prev.some((x) => x.id === (data as any).id);
-          return exists ? prev : [...prev, data as any as MessageRow];
-        });
+  const exists = prev.some((x) => x.id === (data as any).id);
+  return exists ? prev : [...prev, data as any as MessageRow];
+});
 
-        setDraft("");
+setDraft("");
 
-        await loadInbox();
-        await refreshTotalUnreadClamped();
+// ✅ after sending, always go bottom — same as ThreadPage
+requestAnimationFrame(() => {
+  scrollToBottom("smooth");
+  setTimeout(() => scrollToBottom("smooth"), 60);
+});
+
+await loadInbox();
+await refreshTotalUnreadClamped();
       }
     } catch (e: any) {
       alert(e?.message || "Failed to send.");
@@ -655,8 +648,11 @@ function FloatingMessagesDock() {
 
             // ✅ only scroll if user is already near-bottom
             if (isNearBottomRef.current) {
-              forceScrollNextPaintRef.current = true;
-            }
+  requestAnimationFrame(() => {
+    scrollToBottom("auto");
+    setTimeout(() => scrollToBottom("auto"), 40);
+  });
+}
 
             try {
               await supabase.rpc("dm_mark_thread_read", {
@@ -1110,7 +1106,6 @@ function FloatingMessagesDock() {
                       })}
 
                       {/* ✅ bottom anchor */}
-                      <div ref={bottomRef} />
                     </>
                   )}
                 </div>
