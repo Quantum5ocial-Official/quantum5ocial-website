@@ -275,7 +275,7 @@ type InboxRow = {
   other_affiliation: string | null;
   last_body: string | null;
   last_created_at: string | null;
-  unread_count: number;
+  unread_count: number | string | null;
 };
 
 type EntangledProfile = {
@@ -327,9 +327,6 @@ function FloatingMessagesDock() {
   const [entangled, setEntangled] = useState<EntangledProfile[]>([]);
   const [search, setSearch] = useState("");
 
-  // ✅ do NOT yank to bottom if user is reading older messages
-  const isNearBottomRef = useRef(true);
-
   const initialsOf = (name: string | null | undefined) =>
     (name || "")
       .split(" ")
@@ -359,42 +356,15 @@ function FloatingMessagesDock() {
     highest_education?: string | null;
     affiliation?: string | null;
   }) =>
-    [
-      p.other_highest_education ?? p.highest_education,
-      p.other_affiliation ?? p.affiliation,
-    ]
+    [p.other_highest_education ?? p.highest_education, p.other_affiliation ?? p.affiliation]
       .filter(Boolean)
       .join(" · ");
 
-  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+  const scrollToBottom = () => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    el.scrollTop = el.scrollHeight;
   };
-
-  const measureNearBottom = () => {
-    const el = listRef.current;
-    if (!el) return true;
-    const threshold = 90;
-    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
-    return dist < threshold;
-  };
-
-  // keep near-bottom in sync while thread is open
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-
-    const onScroll = () => {
-      isNearBottomRef.current = measureNearBottom();
-    };
-
-    el.addEventListener("scroll", onScroll, { passive: true });
-    isNearBottomRef.current = measureNearBottom();
-
-    return () => el.removeEventListener("scroll", onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeThreadId, open]);
 
   // ✅ Sticky badge while closed (prevents “flash then vanish”)
   const refreshTotalUnreadClamped = async () => {
@@ -421,21 +391,17 @@ function FloatingMessagesDock() {
       const { data, error } = await supabase.rpc("dm_inbox");
       if (error) throw error;
 
-      const rows = ((data || []) as any[]).map((r) => ({
+      const rows: InboxRow[] = ((data || []) as any[]).map((r) => ({
         ...r,
         unread_count: Number(r.unread_count || 0),
-      })) as InboxRow[];
+      }));
 
-      // ✅ newest conversation (latest message) at top
-      rows.sort((a, b) => {
-        const ta = a.last_created_at || "";
-        const tb = b.last_created_at || "";
-        return tb.localeCompare(ta);
-      });
+      // ✅ newest conversation at top
+      rows.sort((a, b) => (b.last_created_at || "").localeCompare(a.last_created_at || ""));
 
       setInbox(rows);
 
-      const serverTotal = rows.reduce((s, r) => s + (r.unread_count || 0), 0);
+      const serverTotal = rows.reduce((s, r) => s + Number(r.unread_count || 0), 0);
       setTotalUnread((prev) => (!open ? Math.max(prev, serverTotal) : serverTotal));
     } catch (e) {
       console.warn("dm_inbox error", e);
@@ -470,13 +436,12 @@ function FloatingMessagesDock() {
 
       setMessages(((data || []) as any[]) as MessageRow[]);
 
-      // ✅ ALWAYS jump to newest after render (dock thread view)
+      // ✅ ALWAYS jump to newest after render
       requestAnimationFrame(() => {
-        scrollToBottom("auto");
-        setTimeout(() => scrollToBottom("auto"), 60);
+        scrollToBottom();
+        setTimeout(scrollToBottom, 60);
       });
 
-      // mark read when opening
       await markThreadRead(threadId);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
@@ -513,8 +478,8 @@ function FloatingMessagesDock() {
         setDraft("");
 
         requestAnimationFrame(() => {
-          scrollToBottom("auto");
-          setTimeout(() => scrollToBottom("auto"), 60);
+          scrollToBottom();
+          setTimeout(scrollToBottom, 60);
         });
 
         await loadInbox();
@@ -538,9 +503,7 @@ function FloatingMessagesDock() {
 
     if (error) return;
 
-    const otherIds = (cRows || []).map((r: any) =>
-      r.user_id === uid ? r.target_user_id : r.user_id
-    );
+    const otherIds = (cRows || []).map((r: any) => (r.user_id === uid ? r.target_user_id : r.user_id));
     const uniq = Array.from(new Set(otherIds)).filter(Boolean);
 
     if (uniq.length === 0) {
@@ -571,11 +534,7 @@ function FloatingMessagesDock() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("dm_threads")
-      .insert({ user1, user2 })
-      .select("id")
-      .maybeSingle();
+    const { data, error } = await supabase.from("dm_threads").insert({ user1, user2 }).select("id").maybeSingle();
 
     if (error) {
       alert(error.message || "Could not start chat.");
@@ -597,9 +556,7 @@ function FloatingMessagesDock() {
   const filteredEntangled = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return entangled;
-    return entangled.filter((p) =>
-      (p.full_name || "").toLowerCase().includes(q)
-    );
+    return entangled.filter((p) => (p.full_name || "").toLowerCase().includes(q));
   }, [entangled, search]);
 
   useEffect(() => {
@@ -616,51 +573,46 @@ function FloatingMessagesDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid]);
 
-  // realtime: new dm_messages
+  // realtime: new dm_messages (badge + inbox refresh)
   useEffect(() => {
     if (!uid) return;
 
     const channel = supabase
       .channel("dm:global")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "dm_messages" },
-        async (payload) => {
-          const row = payload.new as any as MessageRow;
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "dm_messages" }, async (payload) => {
+        const row = payload.new as any as MessageRow;
 
-          // incoming only
-          if (row.sender_id === uid) return;
+        // incoming only
+        if (row.sender_id === uid) return;
 
-          // ✅ instant badge increment
-          setTotalUnread((prev) => prev + 1);
+        // badge increment immediately
+        setTotalUnread((prev) => prev + 1);
 
-          // If open + viewing that thread, append; only scroll if user is near bottom; mark read
-          if (open && activeThreadId && row.thread_id === activeThreadId) {
-            setMessages((prev) => {
-              const exists = prev.some((x) => x.id === row.id);
-              return exists ? prev : [...prev, row];
-            });
+        // if currently viewing that thread, append + mark read
+        if (open && activeThreadId && row.thread_id === activeThreadId) {
+          setMessages((prev) => {
+            const exists = prev.some((x) => x.id === row.id);
+            return exists ? prev : [...prev, row];
+          });
 
-            if (isNearBottomRef.current) {
-              requestAnimationFrame(() => {
-                scrollToBottom("auto");
-                setTimeout(() => scrollToBottom("auto"), 60);
-              });
-            }
+          requestAnimationFrame(() => {
+            scrollToBottom();
+            setTimeout(scrollToBottom, 60);
+          });
 
+          try {
             await supabase.rpc("dm_mark_thread_read", { p_thread_id: activeThreadId });
+          } catch {
+            // ignore
           }
-
-          // keep inbox in sync (ordering + per-thread unread)
-          if (open) {
-            await loadInbox();
-          }
-
-          setTimeout(() => {
-            void refreshTotalUnreadClamped();
-          }, 250);
         }
-      )
+
+        // keep inbox ordering + unread highlights accurate whenever dock is open
+        if (open) {
+          await loadInbox();
+          await refreshTotalUnreadClamped();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -686,6 +638,20 @@ function FloatingMessagesDock() {
   } as const;
 
   if (!uid) return null;
+
+  const unreadCardStyle = {
+    border: "1px solid rgba(59,199,243,0.35)",
+    background:
+      "linear-gradient(135deg, rgba(59,199,243,0.12), rgba(132,104,255,0.08))",
+    boxShadow:
+      "0 0 0 1px rgba(59,199,243,0.10) inset, 0 0 18px rgba(59,199,243,0.14)",
+  } as const;
+
+  const normalCardStyle = {
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(2,6,23,0.20)",
+    boxShadow: "none",
+  } as const;
 
   return (
     <>
@@ -722,18 +688,10 @@ function FloatingMessagesDock() {
           overflow: "visible",
         }}
       >
-        <div
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 14 }}>💬</span>
           <span style={{ fontSize: 13 }}>Messages</span>
 
-          {/* ✅ KEEP RED BADGE */}
           {totalUnread > 0 && (
             <span
               style={{
@@ -793,22 +751,15 @@ function FloatingMessagesDock() {
               gap: 10,
             }}
           >
-            <div style={{ fontWeight: 900, fontSize: 14 }}>
-              {activeThread ? "Chat" : "Messages"}
-            </div>
+            <div style={{ fontWeight: 900, fontSize: 14 }}>{activeThread ? "Chat" : "Messages"}</div>
 
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {!activeThread && (
-                <button
-                  type="button"
-                  style={pillBtn}
-                  onClick={() => setOpenNew(true)}
-                >
+                <button type="button" style={pillBtn} onClick={() => setOpenNew(true)}>
                   New chat
                 </button>
               )}
 
-              {/* ✅ collapse dock when navigating */}
               <Link
                 href="/messages"
                 onClick={() => {
@@ -846,17 +797,8 @@ function FloatingMessagesDock() {
           <div style={{ flex: 1, minHeight: 0 }}>
             {!activeThread ? (
               <div style={{ padding: 12, height: "100%", overflowY: "auto" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    alignItems: "center",
-                  }}
-                >
-                  <div style={{ fontWeight: 900, fontSize: 13, opacity: 0.9 }}>
-                    Inbox
-                  </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                  <div style={{ fontWeight: 900, fontSize: 13, opacity: 0.9 }}>Inbox</div>
                   <button
                     type="button"
                     style={pillBtn}
@@ -877,23 +819,28 @@ function FloatingMessagesDock() {
                     No chats yet. Start a chat with an entangled member.
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                    }}
-                  >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {inbox.map((t) => {
                       const name = t.other_full_name || "Quantum member";
                       const initials = initialsOf(t.other_full_name);
-                      const hasUnread = (t.unread_count || 0) > 0;
+                      const unread = Number(t.unread_count || 0);
+                      const hasUnread = unread > 0;
 
                       return (
                         <button
                           key={t.thread_id}
                           type="button"
                           onClick={async () => {
+                            // ✅ optimistic: immediately remove highlight + update badge when opening
+                            if (hasUnread) {
+                              setInbox((prev) =>
+                                prev.map((r) =>
+                                  r.thread_id === t.thread_id ? { ...r, unread_count: 0 } : r
+                                )
+                              );
+                              setTotalUnread((prev) => Math.max(0, prev - unread));
+                            }
+
                             setActiveThreadId(t.thread_id);
                             await loadThreadMessages(t.thread_id);
                           }}
@@ -901,35 +848,19 @@ function FloatingMessagesDock() {
                             width: "100%",
                             textAlign: "left",
                             borderRadius: 14,
-                            border: hasUnread
-                              ? "1px solid rgba(59,199,243,0.30)"
-                              : "1px solid rgba(148,163,184,0.18)",
-                            background: hasUnread
-                              ? "linear-gradient(135deg, rgba(59,199,243,0.10), rgba(132,104,255,0.06))"
-                              : "rgba(2,6,23,0.20)",
                             color: "rgba(226,232,240,0.95)",
                             padding: 12,
                             cursor: "pointer",
+                            ...(hasUnread ? unreadCardStyle : normalCardStyle),
                           }}
                         >
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 12,
-                              alignItems: "center",
-                            }}
-                          >
+                          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                             <div style={avatarStyle(42)}>
                               {t.other_avatar_url ? (
                                 <img
                                   src={t.other_avatar_url}
                                   alt={name}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                  }}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                                 />
                               ) : (
                                 initials
@@ -937,22 +868,8 @@ function FloatingMessagesDock() {
                             </div>
 
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  gap: 10,
-                                  alignItems: "center",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    fontWeight: 900,
-                                    fontSize: 13,
-                                    lineHeight: 1.2,
-                                    minWidth: 0,
-                                  }}
-                                >
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                                <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2, minWidth: 0 }}>
                                   <span
                                     style={{
                                       whiteSpace: "nowrap",
@@ -965,8 +882,7 @@ function FloatingMessagesDock() {
                                   </span>
                                 </div>
 
-                                {/* keep per-thread red count */}
-                                {t.unread_count > 0 && (
+                                {unread > 0 && (
                                   <div
                                     style={{
                                       minWidth: 18,
@@ -983,18 +899,12 @@ function FloatingMessagesDock() {
                                       flexShrink: 0,
                                     }}
                                   >
-                                    {t.unread_count > 99 ? "99+" : t.unread_count}
+                                    {unread > 99 ? "99+" : unread}
                                   </div>
                                 )}
                               </div>
 
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  opacity: 0.78,
-                                  marginTop: 3,
-                                }}
-                              >
+                              <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
                                 {subtitle(t) || "Entangled member"}
                               </div>
 
@@ -1013,15 +923,7 @@ function FloatingMessagesDock() {
                               </div>
                             </div>
 
-                            <div
-                              style={{
-                                fontSize: 12,
-                                opacity: 0.6,
-                                fontWeight: 900,
-                              }}
-                            >
-                              ›
-                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 900 }}>›</div>
                           </div>
                         </button>
                       );
@@ -1030,9 +932,7 @@ function FloatingMessagesDock() {
                 )}
               </div>
             ) : (
-              <div
-                style={{ height: "100%", display: "flex", flexDirection: "column" }}
-              >
+              <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                 <div
                   style={{
                     padding: 12,
@@ -1043,14 +943,7 @@ function FloatingMessagesDock() {
                     gap: 10,
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "center",
-                      minWidth: 0,
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -1086,15 +979,15 @@ function FloatingMessagesDock() {
                           textOverflow: "ellipsis",
                         }}
                       >
-                        {activeThread.other_full_name || "Quantum member"}
+                        {activeThread?.other_full_name || "Quantum member"}
                       </div>
                       <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                        {subtitle(activeThread) || "Entangled member"}
+                        {activeThread ? subtitle(activeThread) : "" || "Entangled member"}
                       </div>
                     </div>
                   </div>
 
-                  {activeThread.other_user_id && (
+                  {activeThread?.other_user_id && (
                     <Link
                       href={`/profile/${activeThread.other_user_id}`}
                       style={{
@@ -1126,31 +1019,19 @@ function FloatingMessagesDock() {
                   {loadingThread ? (
                     <div style={{ opacity: 0.8, fontSize: 13 }}>Loading chat…</div>
                   ) : messages.length === 0 ? (
-                    <div style={{ opacity: 0.8, fontSize: 13 }}>
-                      No messages yet. Say hi.
-                    </div>
+                    <div style={{ opacity: 0.8, fontSize: 13 }}>No messages yet. Say hi.</div>
                   ) : (
                     messages.map((m) => {
                       const mine = m.sender_id === uid;
                       return (
-                        <div
-                          key={m.id}
-                          style={{
-                            display: "flex",
-                            justifyContent: mine ? "flex-end" : "flex-start",
-                          }}
-                        >
+                        <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
                           <div
                             style={{
                               maxWidth: "78%",
                               borderRadius: 14,
                               padding: "10px 12px",
-                              border: mine
-                                ? "1px solid rgba(59,199,243,0.35)"
-                                : "1px solid rgba(148,163,184,0.18)",
-                              background: mine
-                                ? "rgba(59,199,243,0.10)"
-                                : "rgba(15,23,42,0.70)",
+                              border: mine ? "1px solid rgba(59,199,243,0.35)" : "1px solid rgba(148,163,184,0.18)",
+                              background: mine ? "rgba(59,199,243,0.10)" : "rgba(15,23,42,0.70)",
                               color: "rgba(226,232,240,0.95)",
                               fontSize: 13,
                               lineHeight: 1.45,
@@ -1254,14 +1135,7 @@ function FloatingMessagesDock() {
               padding: 14,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                alignItems: "center",
-              }}
-            >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
               <div style={{ fontWeight: 900, fontSize: 15 }}>Start a chat</div>
               <button type="button" style={pillBtn} onClick={() => setOpenNew(false)}>
                 Close
@@ -1289,19 +1163,9 @@ function FloatingMessagesDock() {
 
             <div style={{ height: 10 }} />
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                maxHeight: 420,
-                overflowY: "auto",
-              }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 420, overflowY: "auto" }}>
               {filteredEntangled.length === 0 ? (
-                <div style={{ opacity: 0.8, padding: 10 }}>
-                  No entangled members found.
-                </div>
+                <div style={{ opacity: 0.8, padding: 10 }}>No entangled members found.</div>
               ) : (
                 filteredEntangled.map((p) => {
                   const name = p.full_name || "Quantum member";
@@ -1329,12 +1193,7 @@ function FloatingMessagesDock() {
                             <img
                               src={p.avatar_url}
                               alt={name}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                             />
                           ) : (
                             initials
@@ -1348,9 +1207,7 @@ function FloatingMessagesDock() {
                           </div>
                         </div>
 
-                        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>
-                          Message
-                        </div>
+                        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>Message</div>
                       </div>
                     </button>
                   );
