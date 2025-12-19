@@ -5,6 +5,7 @@ import LeftSidebar from "./LeftSidebar";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import { useRouter } from "next/router";
 
 const Navbar = dynamic(() => import("./NavbarIcons"), { ssr: false });
 
@@ -30,8 +31,6 @@ type AppLayoutProps = {
   right?: ReactNode | null;
 
   variant?: LayoutVariant;
-
-  /** show navbar globally (usually true) */
   showNavbar?: boolean;
 
   /**
@@ -41,16 +40,10 @@ type AppLayoutProps = {
    */
   mobileMode?: "middle-only" | "keep-columns";
 
-  /**
-   * ✅ For pages that create their own internal split inside children (e.g. Jobs),
-   * provide what AppLayout should render on mobile instead of children.
-   */
+  /** For pages that create internal split in children; provide mobile-only main */
   mobileMain?: ReactNode;
 
-  /**
-   * If true, AppLayout will wrap content in <section className="layout-main" />.
-   * Default: true.
-   */
+  /** Wrap middle children in <section className="layout-main" /> (default true) */
   wrapMiddle?: boolean;
 };
 
@@ -93,13 +86,11 @@ export default function AppLayout({
   }, [mobileLeftOpen]);
 
   const resolvedLeft = useMemo(() => {
-    // undefined => default
     if (left === undefined) return <LeftSidebar />;
     return left;
   }, [left]);
 
   const resolvedRight = useMemo(() => {
-    // undefined => keep column but empty (symmetry)
     if (right === undefined) return <div />;
     return right;
   }, [right]);
@@ -119,11 +110,11 @@ export default function AppLayout({
     resolvedRight !== null;
 
   // ✅ IMPORTANT:
-  // Your default <LeftSidebar /> already has a right border/line.
-  // So we only inject a left divider if the page provides a CUSTOM left sidebar.
+  // Default <LeftSidebar /> already has a right border/line.
+  // Only inject divider when page provides CUSTOM left sidebar.
   const useLeftInjectedDivider = showLeft && left !== undefined;
 
-  // Right divider is safe to inject (your right column does not draw its own divider).
+  // Right divider is safe to inject.
   const useRightInjectedDivider = showRight;
 
   const Divider = () => (
@@ -160,14 +151,12 @@ export default function AppLayout({
     return cols.join(" ");
   })();
 
-  // Mobile drawer is only meaningful if left exists in desktop world
   const canOpenMobileLeftDrawer =
     hideSidebarsOnMobile &&
     variant !== "two-right" &&
     variant !== "center" &&
     resolvedLeft !== null;
 
-  // ✅ What to render as the main content on mobile
   const mainContent =
     hideSidebarsOnMobile && mobileMain !== undefined ? mobileMain : children;
 
@@ -180,7 +169,6 @@ export default function AppLayout({
         {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer */}
         {canOpenMobileLeftDrawer && (
           <>
-            {/* Arrow tab trigger (middle-left edge) */}
             <button
               type="button"
               aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
@@ -307,8 +295,6 @@ export default function AppLayout({
 
 /* =========================
    Floating Messages Dock
-   - Minimal, global, realtime
-   - Sticky badge (no “flash then vanish”)
    ========================= */
 
 type InboxRow = {
@@ -343,6 +329,7 @@ type MessageRow = {
 function FloatingMessagesDock() {
   const { user, loading: userLoading } = useSupabaseUser();
   const uid = user?.id ?? null;
+  const router = useRouter();
 
   const [open, setOpen] = useState(false);
 
@@ -352,6 +339,9 @@ function FloatingMessagesDock() {
   // inbox
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [inbox, setInbox] = useState<InboxRow[]>([]);
+
+  // ✅ per-thread unread highlight (sticky UX)
+  const [unreadThreads, setUnreadThreads] = useState<Set<string>>(new Set());
 
   // thread view in dock
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -408,27 +398,20 @@ function FloatingMessagesDock() {
   const scrollToBottom = () => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    });
   };
 
-  // ✅ IMPORTANT: sticky badge while dock is closed (prevents “flash then vanish”)
-  const refreshTotalUnreadClamped = async () => {
+  const refreshTotalUnread = async () => {
     if (!uid) {
       setTotalUnread(0);
       return;
     }
-
     const { data, error } = await supabase.rpc("dm_total_unread");
-    if (error) return;
-
-    const v = Number(data || 0);
-
-    setTotalUnread((prev) => {
-      // If closed, never decrease from server refresh.
-      if (!open) return Math.max(prev, v);
-      // If open, show true server value.
-      return v;
-    });
+    if (!error) setTotalUnread(Number(data || 0));
   };
 
   const loadInbox = async () => {
@@ -438,21 +421,36 @@ function FloatingMessagesDock() {
       const { data, error } = await supabase.rpc("dm_inbox");
       if (error) throw error;
 
-      const rows = ((data || []) as any[]).map((r) => ({
-        ...r,
-        unread_count: Number(r.unread_count || 0),
-      })) as InboxRow[];
+      const rows = ((data || []) as any[]).map((r) => {
+        const uc =
+          r.unread_count ??
+          r.unread ??
+          r.unread_total ??
+          r.unread_messages ??
+          0;
+
+        return {
+          ...r,
+          unread_count: Number(uc || 0),
+        };
+      }) as InboxRow[];
 
       setInbox(rows);
+      setTotalUnread(rows.reduce((s, r) => s + (r.unread_count || 0), 0));
 
-      // When dock is open we can trust server counts and set exact.
-      // When closed we should not reduce badge here (clamped refresh handles it).
-      const serverTotal = rows.reduce((s, r) => s + (r.unread_count || 0), 0);
-      setTotalUnread((prev) => (!open ? Math.max(prev, serverTotal) : serverTotal));
+      // per-thread unread set
+      setUnreadThreads(() => {
+        const s = new Set<string>();
+        rows.forEach((r) => {
+          if ((r.unread_count || 0) > 0) s.add(r.thread_id);
+        });
+        return s;
+      });
     } catch (e) {
       console.warn("dm_inbox error", e);
-      // do not hard reset badge to 0 (avoid flicker), just clear inbox list
       setInbox([]);
+      setTotalUnread(0);
+      // keep unreadThreads as-is for stability
     } finally {
       setLoadingInbox(false);
     }
@@ -460,9 +458,26 @@ function FloatingMessagesDock() {
 
   const markThreadRead = async (threadId: string) => {
     if (!uid || !threadId) return;
-    await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
+
+    // instant UI
+    setUnreadThreads((prev) => {
+      const s = new Set(prev);
+      s.delete(threadId);
+      return s;
+    });
+
+    setInbox((prev) =>
+      prev.map((r) => (r.thread_id === threadId ? { ...r, unread_count: 0 } : r))
+    );
+
+    try {
+      await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
+    } catch (e) {
+      await loadInbox();
+      return;
+    }
+
     await loadInbox();
-    await refreshTotalUnreadClamped();
   };
 
   const loadThreadMessages = async (threadId: string) => {
@@ -480,7 +495,6 @@ function FloatingMessagesDock() {
       setMessages(((data || []) as any[]) as MessageRow[]);
       setTimeout(scrollToBottom, 30);
 
-      // mark read when opening
       await markThreadRead(threadId);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
@@ -516,10 +530,7 @@ function FloatingMessagesDock() {
         });
         setDraft("");
         setTimeout(scrollToBottom, 20);
-
-        // refresh inbox/order/preview (badge clamp will prevent drop while closed)
         await loadInbox();
-        await refreshTotalUnreadClamped();
       }
     } catch (e: any) {
       alert(e?.message || "Failed to send.");
@@ -587,8 +598,6 @@ function FloatingMessagesDock() {
     if (!threadId) return;
 
     await loadInbox();
-    await refreshTotalUnreadClamped();
-
     setOpen(true);
     setOpenNew(false);
     setActiveThreadId(threadId);
@@ -601,22 +610,22 @@ function FloatingMessagesDock() {
     return entangled.filter((p) => (p.full_name || "").toLowerCase().includes(q));
   }, [entangled, search]);
 
-  // initial: badge + inbox
   useEffect(() => {
     if (userLoading) return;
     if (!uid) {
       setInbox([]);
       setTotalUnread(0);
+      setUnreadThreads(new Set());
       setActiveThreadId(null);
       setMessages([]);
       return;
     }
     void loadInbox();
-    void refreshTotalUnreadClamped();
+    void refreshTotalUnread();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid]);
 
-  // realtime: listen for any new dm_messages inserts
+  // ✅ realtime: new messages anywhere
   useEffect(() => {
     if (!uid) return;
 
@@ -628,33 +637,42 @@ function FloatingMessagesDock() {
         async (payload) => {
           const row = payload.new as any as MessageRow;
 
-          // Only care about incoming messages.
-          if (row.sender_id === uid) return;
+          const viewingThisThread = open && activeThreadId === row.thread_id;
 
-          // ✅ instant increment (sticky UX)
-          setTotalUnread((prev) => prev + 1);
-
-          // If dock is open and we’re viewing this thread, append and mark read
-          if (open && activeThreadId && row.thread_id === activeThreadId) {
+          if (viewingThisThread) {
             setMessages((prev) => {
               const exists = prev.some((x) => x.id === row.id);
               return exists ? prev : [...prev, row];
             });
             setTimeout(scrollToBottom, 20);
 
-            // mark read (so badge can drop correctly while open)
-            await supabase.rpc("dm_mark_thread_read", { p_thread_id: activeThreadId });
+            if (row.sender_id !== uid) {
+              await supabase.rpc("dm_mark_thread_read", { p_thread_id: activeThreadId });
+              setUnreadThreads((prev) => {
+                const s = new Set(prev);
+                s.delete(row.thread_id);
+                return s;
+              });
+            }
+          } else {
+            // ✅ incoming to me -> show unread dot immediately
+            if (row.recipient_id && row.recipient_id === uid) {
+              setUnreadThreads((prev) => {
+                const s = new Set(prev);
+                s.add(row.thread_id);
+                return s;
+              });
+              setInbox((prev) =>
+                prev.map((r) =>
+                  r.thread_id === row.thread_id
+                    ? { ...r, unread_count: (r.unread_count || 0) + 1 }
+                    : r
+                )
+              );
+            }
           }
 
-          // Keep inbox in sync (ordering + per-thread unread)
-          if (open) {
-            await loadInbox();
-          }
-
-          // ✅ server truth, but clamped while closed (prevents flash->0)
-          setTimeout(() => {
-            void refreshTotalUnreadClamped();
-          }, 250);
+          await loadInbox();
         }
       )
       .subscribe();
@@ -662,6 +680,7 @@ function FloatingMessagesDock() {
     return () => {
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, open, activeThreadId]);
 
   // load entangled list when opening New chat
@@ -691,11 +710,7 @@ function FloatingMessagesDock() {
         type="button"
         onClick={() => {
           setOpen((v) => !v);
-          // if opening, sync now
-          if (!open) {
-            void loadInbox();
-            void refreshTotalUnreadClamped();
-          }
+          if (!open) void loadInbox();
         }}
         aria-label="Messages"
         style={{
@@ -794,25 +809,21 @@ function FloatingMessagesDock() {
                 </button>
               )}
 
-              <Link
-  href="/messages"
-  onClick={() => {
-    setOpen(false);
-    setOpenNew(false);
-    setActiveThreadId(null);
-    setMessages([]);
-    setDraft("");
-  }}
-  style={{
-    ...pillBtn,
-    textDecoration: "none",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
-  Open page
-</Link>
+              {/* ✅ Open page closes the dock */}
+              <button
+                type="button"
+                style={pillBtn}
+                onClick={() => {
+                  setOpen(false);
+                  setOpenNew(false);
+                  setActiveThreadId(null);
+                  setMessages([]);
+                  setDraft("");
+                  router.push("/messages");
+                }}
+              >
+                Open page
+              </button>
 
               <button
                 type="button"
@@ -820,7 +831,6 @@ function FloatingMessagesDock() {
                 onClick={() => {
                   setOpen(false);
                   setOpenNew(false);
-                  // do NOT zero badge here
                 }}
               >
                 Close
@@ -831,18 +841,11 @@ function FloatingMessagesDock() {
           {/* Body */}
           <div style={{ flex: 1, minHeight: 0 }}>
             {!activeThread ? (
+              // Thread list
               <div style={{ padding: 12, height: "100%", overflowY: "auto" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                   <div style={{ fontWeight: 900, fontSize: 13, opacity: 0.9 }}>Inbox</div>
-                  <button
-                    type="button"
-                    style={pillBtn}
-                    onClick={() => {
-                      void loadInbox();
-                      void refreshTotalUnreadClamped();
-                    }}
-                    disabled={loadingInbox}
-                  >
+                  <button type="button" style={pillBtn} onClick={() => loadInbox()} disabled={loadingInbox}>
                     {loadingInbox ? "Refreshing…" : "Refresh"}
                   </button>
                 </div>
@@ -858,6 +861,7 @@ function FloatingMessagesDock() {
                     {inbox.map((t) => {
                       const name = t.other_full_name || "Quantum member";
                       const initials = initialsOf(t.other_full_name);
+                      const isUnread = (t.unread_count || 0) > 0 || unreadThreads.has(t.thread_id);
 
                       return (
                         <button
@@ -871,8 +875,10 @@ function FloatingMessagesDock() {
                             width: "100%",
                             textAlign: "left",
                             borderRadius: 14,
-                            border: "1px solid rgba(148,163,184,0.18)",
-                            background: "rgba(2,6,23,0.20)",
+                            border: isUnread
+                              ? "1px solid rgba(59,199,243,0.28)"
+                              : "1px solid rgba(148,163,184,0.18)",
+                            background: isUnread ? "rgba(59,199,243,0.06)" : "rgba(2,6,23,0.20)",
                             color: "rgba(226,232,240,0.95)",
                             padding: 12,
                             cursor: "pointer",
@@ -893,38 +899,24 @@ function FloatingMessagesDock() {
 
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                                <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2, minWidth: 0 }}>
-                                  <span
-                                    style={{
-                                      whiteSpace: "nowrap",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                      display: "block",
-                                    }}
-                                  >
+                                <div style={{ fontWeight: isUnread ? 950 : 900, fontSize: 13, lineHeight: 1.2, minWidth: 0 }}>
+                                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>
                                     {name}
                                   </span>
                                 </div>
 
-                                {t.unread_count > 0 && (
+                                {isUnread && (
                                   <div
+                                    title="Unread"
                                     style={{
-                                      minWidth: 18,
-                                      height: 18,
-                                      padding: "0 6px",
+                                      width: 10,
+                                      height: 10,
                                       borderRadius: 999,
-                                      background: "rgba(248,113,113,0.92)",
-                                      color: "#0b1220",
-                                      fontSize: 11,
-                                      fontWeight: 900,
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
+                                      background: "rgba(59,199,243,0.95)",
+                                      boxShadow: "0 0 0 3px rgba(59,199,243,0.18)",
                                       flexShrink: 0,
                                     }}
-                                  >
-                                    {t.unread_count > 99 ? "99+" : t.unread_count}
-                                  </div>
+                                  />
                                 )}
                               </div>
 
@@ -955,6 +947,7 @@ function FloatingMessagesDock() {
                 )}
               </div>
             ) : (
+              // Thread view
               <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                 <div
                   style={{
@@ -973,9 +966,6 @@ function FloatingMessagesDock() {
                         setActiveThreadId(null);
                         setMessages([]);
                         setDraft("");
-                        // after going back, sync counts
-                        void loadInbox();
-                        void refreshTotalUnreadClamped();
                       }}
                       style={{
                         width: 32,
@@ -994,15 +984,7 @@ function FloatingMessagesDock() {
                     </button>
 
                     <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          fontSize: 13,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
+                      <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {activeThread.other_full_name || "Quantum member"}
                       </div>
                       <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
@@ -1027,6 +1009,7 @@ function FloatingMessagesDock() {
                   )}
                 </div>
 
+                {/* messages */}
                 <div
                   ref={listRef}
                   style={{
@@ -1073,6 +1056,7 @@ function FloatingMessagesDock() {
                   )}
                 </div>
 
+                {/* composer */}
                 <div
                   style={{
                     padding: 12,
