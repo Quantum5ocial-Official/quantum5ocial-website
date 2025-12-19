@@ -17,7 +17,7 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // wraps ONLY page content (and now also mobileMain), NOT the whole AppLayout
+  // ✅ wraps the WHOLE layout (AppLayout + left/middle/right + mobile drawers)
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -98,28 +98,21 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   const lp = Component.layoutProps ?? {};
 
-  // ✅ Wrap ONLY the page content so AppLayout (and sidebars) never remount
-  const pageInner = <Component {...pageProps} />;
-  const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
-
-  // ✅ IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
-  const mobileMain = lp.mobileMain
-    ? lp.wrap
-      ? lp.wrap(lp.mobileMain)
-      : lp.mobileMain
-    : undefined;
-
-  return (
+  // ✅ Build the WHOLE layout first
+  const layout = (
     <AppLayout
       variant={lp.variant ?? "three"}
       left={lp.left}
       right={lp.right}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
-      mobileMain={mobileMain}
+      mobileMain={lp.mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
     >
-      {page}
+      <Component {...pageProps} />
     </AppLayout>
   );
+
+  // ✅ Now wrap the WHOLE layout (so right column + drawers are inside the provider)
+  return lp.wrap ? <>{lp.wrap(layout)}</> : layout;
 }
