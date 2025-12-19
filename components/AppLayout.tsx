@@ -982,8 +982,8 @@ function FloatingMessagesDock() {
                         {activeThread?.other_full_name || "Quantum member"}
                       </div>
                       <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                        {activeThread ? subtitle(activeThread) : "" || "Entangled member"}
-                      </div>
+  {activeThread ? subtitle(activeThread) || "Entangled member" : "Entangled member"}
+</div>
                     </div>
                   </div>
 
