@@ -1,5 +1,5 @@
 // components/AppLayout.tsx
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import dynamic from "next/dynamic";
 import LeftSidebar from "./LeftSidebar";
 import Link from "next/link";
@@ -320,7 +320,17 @@ function FloatingMessagesDock() {
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ the “bottom anchor” that we scroll to
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ keep if user is near bottom (don’t yank if they scroll up)
+  const isNearBottomRef = useRef(true);
+
+  // ✅ force scroll when opening thread / sending
+  const forceScrollNextPaintRef = useRef(false);
 
   // new chat modal
   const [openNew, setOpenNew] = useState(false);
@@ -356,15 +366,51 @@ function FloatingMessagesDock() {
     highest_education?: string | null;
     affiliation?: string | null;
   }) =>
-    [p.other_highest_education ?? p.highest_education, p.other_affiliation ?? p.affiliation]
+    [
+      p.other_highest_education ?? p.highest_education,
+      p.other_affiliation ?? p.affiliation,
+    ]
       .filter(Boolean)
       .join(" · ");
 
-  const scrollToBottom = () => {
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    // Most reliable: scroll to a sentinel element
+    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+  };
+
+  const measureNearBottom = () => {
+    const el = listRef.current;
+    if (!el) return true;
+    const threshold = 90;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    return dist < threshold;
+  };
+
+  // Track if user is near bottom while reading
+  useEffect(() => {
     const el = listRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  };
+
+    const onScroll = () => {
+      isNearBottomRef.current = measureNearBottom();
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    isNearBottomRef.current = measureNearBottom();
+
+    return () => el.removeEventListener("scroll", onScroll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeThreadId, open]);
+
+  // ✅ This is the key: after React paints messages, do the forced scroll if requested
+  useLayoutEffect(() => {
+    if (!open || !activeThreadId) return;
+
+    if (forceScrollNextPaintRef.current) {
+      forceScrollNextPaintRef.current = false;
+      scrollToBottom("auto");
+    }
+  }, [open, activeThreadId, messages.length]);
 
   // ✅ Sticky badge while closed
   const refreshTotalUnreadClamped = async () => {
@@ -391,21 +437,22 @@ function FloatingMessagesDock() {
       const { data, error } = await supabase.rpc("dm_inbox");
       if (error) throw error;
 
-      // ✅ normalize unread_count robustly
-      const rows: InboxRow[] = ((data || []) as any[]).map((r) => {
-        const n = parseInt(String(r.unread_count ?? "0"), 10);
-        return {
-          ...r,
-          unread_count: Number.isFinite(n) ? n : 0,
-        };
-      });
+      const rows: InboxRow[] = ((data || []) as any[]).map((r) => ({
+        ...r,
+        unread_count: Number(r.unread_count || 0),
+      }));
 
-      // ✅ newest conversation at top
-      rows.sort((a, b) => (b.last_created_at || "").localeCompare(a.last_created_at || ""));
+      // newest conversation at top
+      rows.sort((a, b) =>
+        (b.last_created_at || "").localeCompare(a.last_created_at || "")
+      );
 
       setInbox(rows);
 
-      const serverTotal = rows.reduce((s, r) => s + (Number(r.unread_count) || 0), 0);
+      const serverTotal = rows.reduce(
+        (s, r) => s + Number(r.unread_count || 0),
+        0
+      );
       setTotalUnread((prev) => (!open ? Math.max(prev, serverTotal) : serverTotal));
     } catch (e) {
       console.warn("dm_inbox error", e);
@@ -438,13 +485,10 @@ function FloatingMessagesDock() {
 
       if (error) throw error;
 
-      setMessages(((data || []) as any[]) as MessageRow[]);
+      // ✅ IMPORTANT: tell the layout-effect to scroll after paint
+      forceScrollNextPaintRef.current = true;
 
-      // ✅ ALWAYS jump to newest after render
-      requestAnimationFrame(() => {
-        scrollToBottom();
-        setTimeout(scrollToBottom, 60);
-      });
+      setMessages(((data || []) as any[]) as MessageRow[]);
 
       await markThreadRead(threadId);
     } catch (e) {
@@ -475,16 +519,15 @@ function FloatingMessagesDock() {
       if (error) throw error;
 
       if (data) {
+        // ✅ force scroll after paint
+        forceScrollNextPaintRef.current = true;
+
         setMessages((prev) => {
           const exists = prev.some((x) => x.id === (data as any).id);
           return exists ? prev : [...prev, data as any as MessageRow];
         });
-        setDraft("");
 
-        requestAnimationFrame(() => {
-          scrollToBottom();
-          setTimeout(scrollToBottom, 60);
-        });
+        setDraft("");
 
         await loadInbox();
         await refreshTotalUnreadClamped();
@@ -507,7 +550,9 @@ function FloatingMessagesDock() {
 
     if (error) return;
 
-    const otherIds = (cRows || []).map((r: any) => (r.user_id === uid ? r.target_user_id : r.user_id));
+    const otherIds = (cRows || []).map((r: any) =>
+      r.user_id === uid ? r.target_user_id : r.user_id
+    );
     const uniq = Array.from(new Set(otherIds)).filter(Boolean);
 
     if (uniq.length === 0) {
@@ -564,7 +609,9 @@ function FloatingMessagesDock() {
   const filteredEntangled = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return entangled;
-    return entangled.filter((p) => (p.full_name || "").toLowerCase().includes(q));
+    return entangled.filter((p) =>
+      (p.full_name || "").toLowerCase().includes(q)
+    );
   }, [entangled, search]);
 
   useEffect(() => {
@@ -587,40 +634,46 @@ function FloatingMessagesDock() {
 
     const channel = supabase
       .channel("dm:global")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "dm_messages" }, async (payload) => {
-        const row = payload.new as any as MessageRow;
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "dm_messages" },
+        async (payload) => {
+          const row = payload.new as any as MessageRow;
 
-        // incoming only
-        if (row.sender_id === uid) return;
+          // incoming only
+          if (row.sender_id === uid) return;
 
-        // badge increment immediately
-        setTotalUnread((prev) => prev + 1);
+          // badge increment immediately
+          setTotalUnread((prev) => prev + 1);
 
-        // if currently viewing that thread, append + mark read
-        if (open && activeThreadId && row.thread_id === activeThreadId) {
-          setMessages((prev) => {
-            const exists = prev.some((x) => x.id === row.id);
-            return exists ? prev : [...prev, row];
-          });
+          // if currently viewing that thread, append + mark read
+          if (open && activeThreadId && row.thread_id === activeThreadId) {
+            setMessages((prev) => {
+              const exists = prev.some((x) => x.id === row.id);
+              return exists ? prev : [...prev, row];
+            });
 
-          requestAnimationFrame(() => {
-            scrollToBottom();
-            setTimeout(scrollToBottom, 60);
-          });
+            // ✅ only scroll if user is already near-bottom
+            if (isNearBottomRef.current) {
+              forceScrollNextPaintRef.current = true;
+            }
 
-          try {
-            await supabase.rpc("dm_mark_thread_read", { p_thread_id: activeThreadId });
-          } catch {
-            // ignore
+            try {
+              await supabase.rpc("dm_mark_thread_read", {
+                p_thread_id: activeThreadId,
+              });
+            } catch {
+              // ignore
+            }
+          }
+
+          // keep inbox ordering + unread highlights accurate whenever dock is open
+          if (open) {
+            await loadInbox();
+            await refreshTotalUnreadClamped();
           }
         }
-
-        // keep inbox ordering + unread highlights accurate whenever dock is open
-        if (open) {
-          await loadInbox();
-          await refreshTotalUnreadClamped();
-        }
-      })
+      )
       .subscribe();
 
     return () => {
@@ -648,10 +701,11 @@ function FloatingMessagesDock() {
   if (!uid) return null;
 
   const unreadCardStyle = {
-    border: "1px solid rgba(59,199,243,0.55)",
-    background: "linear-gradient(135deg, rgba(59,199,243,0.16), rgba(132,104,255,0.10))",
+    border: "1px solid rgba(59,199,243,0.35)",
+    background:
+      "linear-gradient(135deg, rgba(59,199,243,0.12), rgba(132,104,255,0.08))",
     boxShadow:
-      "0 0 0 1px rgba(59,199,243,0.12) inset, 0 0 20px rgba(59,199,243,0.14)",
+      "0 0 0 1px rgba(59,199,243,0.10) inset, 0 0 18px rgba(59,199,243,0.14)",
   } as const;
 
   const normalCardStyle = {
@@ -807,9 +861,7 @@ function FloatingMessagesDock() {
             {!activeThread ? (
               <div style={{ padding: 12, height: "100%", overflowY: "auto" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                  <div style={{ fontWeight: 900, fontSize: 13, opacity: 0.9 }}>
-                    Inbox
-                  </div>
+                  <div style={{ fontWeight: 900, fontSize: 13, opacity: 0.9 }}>Inbox</div>
                   <button
                     type="button"
                     style={pillBtn}
@@ -834,8 +886,7 @@ function FloatingMessagesDock() {
                     {inbox.map((t) => {
                       const name = t.other_full_name || "Quantum member";
                       const initials = initialsOf(t.other_full_name);
-
-                      const unread = Number(t.unread_count ?? 0);
+                      const unread = Number(t.unread_count || 0);
                       const hasUnread = unread > 0;
 
                       return (
@@ -843,13 +894,11 @@ function FloatingMessagesDock() {
                           key={t.thread_id}
                           type="button"
                           onClick={async () => {
-                            // ✅ optimistic: remove highlight immediately on open
+                            // optimistic: remove highlight instantly
                             if (hasUnread) {
                               setInbox((prev) =>
                                 prev.map((r) =>
-                                  r.thread_id === t.thread_id
-                                    ? { ...r, unread_count: 0 }
-                                    : r
+                                  r.thread_id === t.thread_id ? { ...r, unread_count: 0 } : r
                                 )
                               );
                               setTotalUnread((prev) => Math.max(0, prev - unread));
@@ -865,39 +914,16 @@ function FloatingMessagesDock() {
                             color: "rgba(226,232,240,0.95)",
                             padding: 12,
                             cursor: "pointer",
-                            position: "relative",
-                            overflow: "hidden",
                             ...(hasUnread ? unreadCardStyle : normalCardStyle),
                           }}
                         >
-                          {/* left glow bar */}
-                          {hasUnread && (
-                            <div
-                              aria-hidden="true"
-                              style={{
-                                position: "absolute",
-                                left: 0,
-                                top: 0,
-                                bottom: 0,
-                                width: 4,
-                                background:
-                                  "linear-gradient(180deg, rgba(59,199,243,0.95), rgba(132,104,255,0.95))",
-                              }}
-                            />
-                          )}
-
                           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                             <div style={avatarStyle(42)}>
                               {t.other_avatar_url ? (
                                 <img
                                   src={t.other_avatar_url}
                                   alt={name}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                  }}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                                 />
                               ) : (
                                 initials
@@ -960,9 +986,7 @@ function FloatingMessagesDock() {
                               </div>
                             </div>
 
-                            <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 900 }}>
-                              ›
-                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 900 }}>›</div>
                           </div>
                         </button>
                       );
@@ -1020,10 +1044,8 @@ function FloatingMessagesDock() {
                       >
                         {activeThread?.other_full_name || "Quantum member"}
                       </div>
-
-                      {/* ✅ FIXED TS ERROR (no “always false” expression) */}
                       <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                        {activeThread ? (subtitle(activeThread) || "Entangled member") : "Entangled member"}
+                        {activeThread ? subtitle(activeThread) || "Entangled member" : "Entangled member"}
                       </div>
                     </div>
                   </div>
@@ -1062,39 +1084,34 @@ function FloatingMessagesDock() {
                   ) : messages.length === 0 ? (
                     <div style={{ opacity: 0.8, fontSize: 13 }}>No messages yet. Say hi.</div>
                   ) : (
-                    messages.map((m) => {
-                      const mine = m.sender_id === uid;
-                      return (
-                        <div
-                          key={m.id}
-                          style={{
-                            display: "flex",
-                            justifyContent: mine ? "flex-end" : "flex-start",
-                          }}
-                        >
-                          <div
-                            style={{
-                              maxWidth: "78%",
-                              borderRadius: 14,
-                              padding: "10px 12px",
-                              border: mine
-                                ? "1px solid rgba(59,199,243,0.35)"
-                                : "1px solid rgba(148,163,184,0.18)",
-                              background: mine
-                                ? "rgba(59,199,243,0.10)"
-                                : "rgba(15,23,42,0.70)",
-                              color: "rgba(226,232,240,0.95)",
-                              fontSize: 13,
-                              lineHeight: 1.45,
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {m.body}
+                    <>
+                      {messages.map((m) => {
+                        const mine = m.sender_id === uid;
+                        return (
+                          <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                            <div
+                              style={{
+                                maxWidth: "78%",
+                                borderRadius: 14,
+                                padding: "10px 12px",
+                                border: mine ? "1px solid rgba(59,199,243,0.35)" : "1px solid rgba(148,163,184,0.18)",
+                                background: mine ? "rgba(59,199,243,0.10)" : "rgba(15,23,42,0.70)",
+                                color: "rgba(226,232,240,0.95)",
+                                fontSize: 13,
+                                lineHeight: 1.45,
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              {m.body}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })}
+
+                      {/* ✅ bottom anchor */}
+                      <div ref={bottomRef} />
+                    </>
                   )}
                 </div>
 
