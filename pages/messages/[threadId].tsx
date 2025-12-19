@@ -19,6 +19,9 @@ type MessageRow = {
   sender_id: string;
   body: string;
   created_at: string;
+
+  // IMPORTANT: used for realtime filtering (should exist in your table)
+  recipient_id?: string;
 };
 
 export default function ThreadPage() {
@@ -75,6 +78,16 @@ export default function ThreadPage() {
     el.scrollTop = el.scrollHeight;
   };
 
+  // ✅ mark this thread read for current user
+  const markThreadRead = async () => {
+    if (!uid || !threadId) return;
+    try {
+      await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
+    } catch {
+      // ignore; inbox refresh in dock will reconcile later
+    }
+  };
+
   const loadThreadAndMessages = async () => {
     if (!uid || !threadId) return;
     setLoading(true);
@@ -115,9 +128,10 @@ export default function ThreadPage() {
       if (mErr) throw mErr;
 
       setMessages((m as any[])?.map((x) => x as MessageRow) || []);
-
-      // slight delay helps after render
       setTimeout(scrollToBottom, 50);
+
+      // ✅ when you open the thread page, mark as read
+      await markThreadRead();
     } catch (e: any) {
       console.error(e);
       setError(e?.message || "Could not load chat.");
@@ -148,7 +162,6 @@ export default function ThreadPage() {
 
       if (error) throw error;
 
-      // optimistic append (realtime will also come, but dedupe by id)
       if (data) {
         setMessages((prev) => {
           const exists = prev.some((x) => x.id === (data as any).id);
@@ -174,27 +187,39 @@ export default function ThreadPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid, threadId]);
 
-  // Realtime subscription (new messages for this thread)
+  // ✅ Realtime subscription (same logic as dock):
+  // Listen to messages that are addressed to me (recipient_id), then filter by thread in code.
   useEffect(() => {
-    if (!threadId) return;
+    if (!uid || !threadId) return;
 
     const channel = supabase
-      .channel(`dm:${threadId}`)
+      .channel(`dm-thread-page:${uid}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "dm_messages",
-          filter: `thread_id=eq.${threadId}`,
+          // IMPORTANT: requires dm_messages.recipient_id
+          filter: `recipient_id=eq.${uid}`,
         },
-        (payload) => {
+        async (payload) => {
           const row = payload.new as any as MessageRow;
+
+          // only this thread
+          if (row.thread_id !== threadId) return;
+
           setMessages((prev) => {
             const exists = prev.some((x) => x.id === row.id);
             return exists ? prev : [...prev, row];
           });
+
           setTimeout(scrollToBottom, 20);
+
+          // if it's incoming while you’re on the thread page, mark read immediately
+          if (row.sender_id !== uid) {
+            await markThreadRead();
+          }
         }
       )
       .subscribe();
@@ -202,7 +227,24 @@ export default function ThreadPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [threadId]);
+  }, [uid, threadId]);
+
+  // ✅ Extra safety: if user comes back to tab/window, ensure read state updates
+  useEffect(() => {
+    if (!uid || !threadId) return;
+
+    const onFocus = () => void markThreadRead();
+    const onVis = () => {
+      if (document.visibilityState === "visible") void markThreadRead();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [uid, threadId]);
 
   if (loading && !thread) {
     return <div style={{ opacity: 0.8 }}>Loading chat…</div>;
@@ -239,7 +281,14 @@ export default function ThreadPage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-          <Link href="/messages" style={{ textDecoration: "none", color: "rgba(226,232,240,0.92)", fontWeight: 900 }}>
+          <Link
+            href="/messages"
+            style={{
+              textDecoration: "none",
+              color: "rgba(226,232,240,0.92)",
+              fontWeight: 900,
+            }}
+          >
             ←
           </Link>
 
@@ -301,7 +350,10 @@ export default function ThreadPage() {
           messages.map((m) => {
             const mine = m.sender_id === uid;
             return (
-              <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+              <div
+                key={m.id}
+                style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}
+              >
                 <div
                   style={{
                     maxWidth: "78%",
@@ -344,6 +396,7 @@ export default function ThreadPage() {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Write a message…"
+          onFocus={() => void markThreadRead()}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
