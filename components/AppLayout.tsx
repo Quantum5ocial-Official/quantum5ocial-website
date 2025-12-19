@@ -39,6 +39,9 @@ export default function AppLayout({
   // ✅ mobile left drawer (ONLY used in mobile middle-only mode)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
 
+  // ✅ NEW: mobile right drawer (ONLY used in mobile middle-only mode)
+  const [mobileRightOpen, setMobileRightOpen] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handle = () => setIsMobile(window.innerWidth <= 900);
@@ -47,20 +50,26 @@ export default function AppLayout({
     return () => window.removeEventListener("resize", handle);
   }, []);
 
-  // Close drawer when switching out of mobile or out of middle-only mode
+  // Close drawers when switching out of mobile or out of middle-only mode
   useEffect(() => {
-    if (!isMobile || mobileMode !== "middle-only") setMobileLeftOpen(false);
+    if (!isMobile || mobileMode !== "middle-only") {
+      setMobileLeftOpen(false);
+      setMobileRightOpen(false);
+    }
   }, [isMobile, mobileMode]);
 
-  // ESC to close (mobile drawer only)
+  // ESC to close (mobile drawers only)
   useEffect(() => {
-    if (!mobileLeftOpen) return;
+    if (!mobileLeftOpen && !mobileRightOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileLeftOpen(false);
+      if (e.key === "Escape") {
+        setMobileLeftOpen(false);
+        setMobileRightOpen(false);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileLeftOpen]);
+  }, [mobileLeftOpen, mobileRightOpen]);
 
   const resolvedLeft = useMemo(() => {
     if (left === undefined) return <LeftSidebar />;
@@ -131,6 +140,11 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedLeft !== null;
 
+  const canOpenMobileRightDrawer =
+  hideSidebarsOnMobile &&
+  variant === "three" &&
+  resolvedRight !== null;
+
   const mainContent =
     hideSidebarsOnMobile && mobileMain !== undefined ? mobileMain : children;
 
@@ -146,7 +160,10 @@ export default function AppLayout({
             <button
               type="button"
               aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
-              onClick={() => setMobileLeftOpen((v) => !v)}
+              onClick={() => {
+                setMobileLeftOpen((v) => !v);
+                setMobileRightOpen(false); // keep one open
+              }}
               style={{
                 position: "fixed",
                 left: 0,
@@ -216,6 +233,89 @@ export default function AppLayout({
               }}
             >
               {resolvedLeft}
+            </aside>
+          </>
+        )}
+
+        {/* ✅ MOBILE: right-edge mid-screen arrow tab + drawer */}
+        {canOpenMobileRightDrawer && (
+          <>
+            <button
+              type="button"
+              aria-label={mobileRightOpen ? "Close panel" : "Open panel"}
+              onClick={() => {
+                setMobileRightOpen((v) => !v);
+                setMobileLeftOpen(false); // keep one open
+              }}
+              style={{
+                position: "fixed",
+                right: 0,
+                top: "80%",
+                transform: "translateY(-50%)",
+                zIndex: 60,
+                width: 30,
+                height: 80,
+                border: "1px solid rgba(148,163,184,0.35)",
+                borderRight: "none",
+                borderTopLeftRadius: 16,
+                borderBottomLeftRadius: 16,
+                background: "rgba(2,6,23,0.72)",
+                backdropFilter: "blur(10px)",
+                WebkitBackdropFilter: "blur(10px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+              }}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  fontSize: 22,
+                  lineHeight: 1,
+                  color: "rgba(226,232,240,0.95)",
+                  transform: mobileRightOpen ? "rotate(180deg)" : "none",
+                  transition: "transform 160ms ease",
+                  userSelect: "none",
+                }}
+              >
+                ❮
+              </span>
+            </button>
+
+            {mobileRightOpen && (
+              <div
+                aria-hidden="true"
+                onClick={() => setMobileRightOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 55,
+                  background: "rgba(0,0,0,0.45)",
+                }}
+              />
+            )}
+
+            <aside
+              aria-label="Right panel drawer"
+              style={{
+                position: "fixed",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: 280,
+                zIndex: 56,
+                transform: mobileRightOpen ? "translateX(0)" : "translateX(105%)",
+                transition: "transform 200ms ease",
+                background: "rgba(2,6,23,0.92)",
+                backdropFilter: "blur(14px)",
+                WebkitBackdropFilter: "blur(14px)",
+                borderLeft: "1px solid rgba(148,163,184,0.35)",
+                overflowY: "auto",
+              }}
+            >
+              {resolvedRight}
             </aside>
           </>
         )}
@@ -473,16 +573,16 @@ function FloatingMessagesDock() {
       // ✅ IMPORTANT: tell the layout-effect to scroll after paint
       setMessages(((data || []) as any[]) as MessageRow[]);
 
-// ✅ ALWAYS open at bottom (newest) — same as ThreadPage
-requestAnimationFrame(() => {
-  scrollToBottom("auto");
-  setTimeout(() => scrollToBottom("auto"), 60);
-});
+      // ✅ ALWAYS open at bottom (newest) — same as ThreadPage
+      requestAnimationFrame(() => {
+        scrollToBottom("auto");
+        setTimeout(() => scrollToBottom("auto"), 60);
+      });
 
-// ✅ let the UI finish scrolling first, then mark read (which refreshes inbox)
-setTimeout(() => {
-  void markThreadRead(threadId);
-}, 120);
+      // ✅ let the UI finish scrolling first, then mark read (which refreshes inbox)
+      setTimeout(() => {
+        void markThreadRead(threadId);
+      }, 120);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
       setMessages([]);
@@ -513,20 +613,20 @@ setTimeout(() => {
       if (data) {
         // ✅ force scroll after paint
         setMessages((prev) => {
-  const exists = prev.some((x) => x.id === (data as any).id);
-  return exists ? prev : [...prev, data as any as MessageRow];
-});
+          const exists = prev.some((x) => x.id === (data as any).id);
+          return exists ? prev : [...prev, data as any as MessageRow];
+        });
 
-setDraft("");
+        setDraft("");
 
-// ✅ after sending, always go bottom — same as ThreadPage
-requestAnimationFrame(() => {
-  scrollToBottom("smooth");
-  setTimeout(() => scrollToBottom("smooth"), 60);
-});
+        // ✅ after sending, always go bottom — same as ThreadPage
+        requestAnimationFrame(() => {
+          scrollToBottom("smooth");
+          setTimeout(() => scrollToBottom("smooth"), 60);
+        });
 
-await loadInbox();
-await refreshTotalUnreadClamped();
+        await loadInbox();
+        await refreshTotalUnreadClamped();
       }
     } catch (e: any) {
       alert(e?.message || "Failed to send.");
@@ -651,11 +751,11 @@ await refreshTotalUnreadClamped();
 
             // ✅ only scroll if user is already near-bottom
             if (isNearBottomRef.current) {
-  requestAnimationFrame(() => {
-    scrollToBottom("auto");
-    setTimeout(() => scrollToBottom("auto"), 40);
-  });
-}
+              requestAnimationFrame(() => {
+                scrollToBottom("auto");
+                setTimeout(() => scrollToBottom("auto"), 40);
+              });
+            }
 
             try {
               await supabase.rpc("dm_mark_thread_read", {
