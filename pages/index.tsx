@@ -241,17 +241,11 @@ function HomeGlobalFeed() {
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<
-    Record<string, CommentRow[]>
-  >({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
 
-  const [commenterProfiles, setCommenterProfiles] = useState<
-    Record<string, FeedProfile>
-  >({});
+  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -880,9 +874,7 @@ function HomeGlobalFeed() {
                             }}
                           >
                             {comments.length === 0 ? (
-                              <div style={{ fontSize: 12, opacity: 0.75 }}>
-                                No comments yet.
-                              </div>
+                              <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
                             ) : (
                               comments.map((c) => {
                                 const cp = commenterProfiles[c.user_id];
@@ -899,7 +891,13 @@ function HomeGlobalFeed() {
                                       background: "rgba(2,6,23,0.18)",
                                     }}
                                   >
-                                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        alignItems: "flex-start",
+                                      }}
+                                    >
                                       <div style={avatarStyle(30)}>
                                         {cp?.avatar_url ? (
                                           <img
@@ -926,7 +924,13 @@ function HomeGlobalFeed() {
                                           }}
                                         >
                                           <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
+                                            <div
+                                              style={{
+                                                fontSize: 12,
+                                                fontWeight: 900,
+                                                lineHeight: 1.2,
+                                              }}
+                                            >
                                               {cp?.id ? (
                                                 <Link
                                                   href={`/profile/${cp.id}`}
@@ -1092,6 +1096,10 @@ function HomeComposerStrip() {
   const [askError, setAskError] = useState<string | null>(null);
 
   const isMobile = useIsMobile(520);
+
+  // ✅ NEW: media constraints + error
+  const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5 MB
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1317,10 +1325,14 @@ function HomeComposerStrip() {
     }
     setAskError(null);
     setPostError(null);
+    setMediaError(null);
     setOpen(true);
   };
 
-  const closeComposer = () => setOpen(false);
+  const closeComposer = () => {
+    setMediaError(null);
+    setOpen(false);
+  };
 
   const collapsedPlaceholder =
     mode === "post"
@@ -1345,9 +1357,27 @@ function HomeComposerStrip() {
   };
 
   const onPhotoSelected = (file: File | null) => {
+    setMediaError(null);
+
     if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
 
     if (!file) {
+      setPostPhotoFile(null);
+      setPostPhotoPreview(null);
+      return;
+    }
+
+    // ✅ type check
+    if (!file.type.startsWith("image/")) {
+      setMediaError("Only image files are allowed (video coming later).");
+      setPostPhotoFile(null);
+      setPostPhotoPreview(null);
+      return;
+    }
+
+    // ✅ size check (5MB)
+    if (file.size > MAX_MEDIA_SIZE) {
+      setMediaError("Media must be smaller than 5 MB.");
       setPostPhotoFile(null);
       setPostPhotoPreview(null);
       return;
@@ -1357,7 +1387,10 @@ function HomeComposerStrip() {
     setPostPhotoPreview(URL.createObjectURL(file));
   };
 
-  const clearPhoto = () => onPhotoSelected(null);
+  const clearPhoto = () => {
+    setMediaError(null);
+    onPhotoSelected(null);
+  };
 
   const uploadPostPhotoIfAny = async (): Promise<string | null> => {
     if (!user) return null;
@@ -1368,18 +1401,19 @@ function HomeComposerStrip() {
       throw new Error("Please choose an image file.");
     }
 
-    const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `posts/${user.id}/${Date.now()}-${Math.random()
-      .toString(16)
-      .slice(2)}.${ext}`;
+    // ✅ enforce 5MB even if someone bypassed client checks
+    if (postPhotoFile.size > MAX_MEDIA_SIZE) {
+      throw new Error("Media must be smaller than 5 MB.");
+    }
 
-    const { error: upErr } = await supabase.storage
-      .from(POSTS_BUCKET)
-      .upload(path, postPhotoFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: postPhotoFile.type,
-      });
+    const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `posts/${user.id}/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage.from(POSTS_BUCKET).upload(path, postPhotoFile, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: postPhotoFile.type,
+    });
 
     if (upErr) {
       // This is where you'd see "Bucket not found"
@@ -1469,8 +1503,7 @@ function HomeComposerStrip() {
           .maybeSingle();
 
         if (attempt2.error) {
-          const msg =
-            attempt2.error.message || attempt2.error.details || "Failed to post question";
+          const msg = attempt2.error.message || attempt2.error.details || "Failed to post question";
           throw new Error(msg);
         }
 
@@ -1490,8 +1523,7 @@ function HomeComposerStrip() {
     } catch (e: any) {
       console.error("submitAskToQnA error:", e);
       setAskError(
-        e?.message ||
-          "Could not post your question. Check Supabase RLS/policies for qna_questions."
+        e?.message || "Could not post your question. Check Supabase RLS/policies for qna_questions."
       );
     } finally {
       setAskSaving(false);
@@ -1631,7 +1663,14 @@ function HomeComposerStrip() {
                         padding: 10,
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
                         <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>Photo attached</div>
                         <button
                           type="button"
@@ -1666,6 +1705,24 @@ function HomeComposerStrip() {
                     </div>
                   )}
 
+                  {/* ✅ NEW: media error */}
+                  {mediaError && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.35)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,226,226,0.95)",
+                        fontSize: 13,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {mediaError}
+                    </div>
+                  )}
+
                   {postError && (
                     <div
                       style={{
@@ -1686,15 +1743,30 @@ function HomeComposerStrip() {
               ) : (
                 <>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                    <div style={typeChip(askType === "concept")} onClick={() => setAskType("concept")} role="button" tabIndex={0}>
+                    <div
+                      style={typeChip(askType === "concept")}
+                      onClick={() => setAskType("concept")}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
                       Concept
                     </div>
-                    <div style={typeChip(askType === "experiment")} onClick={() => setAskType("experiment")} role="button" tabIndex={0}>
+                    <div
+                      style={typeChip(askType === "experiment")}
+                      onClick={() => setAskType("experiment")}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
                       Experiment
                     </div>
-                    <div style={typeChip(askType === "career")} onClick={() => setAskType("career")} role="button" tabIndex={0}>
+                    <div
+                      style={typeChip(askType === "career")}
+                      onClick={() => setAskType("career")}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
                       Career
                     </div>
@@ -1740,19 +1812,13 @@ function HomeComposerStrip() {
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 {mode === "post" ? (
                   <>
-                    {/* ✅ Photo button now active */}
+                    {/* ✅ Media button (image only for now) */}
                     <ActionButton
-                      icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
-                      label="Photo"
+                      icon={
+                        <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                      }
+                      label="Media"
                       onClick={pickPhoto}
-                    />
-                    <ActionButton
-                      icon={<MiniIcon path="M15 10l4-2v8l-4-2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2Z" />}
-                      label="Video"
-                    />
-                    <ActionButton
-                      icon={<MiniIcon path="M10 13a5 5 0 0 1 0-7l1-1a5 5 0 0 1 7 7l-1 1M14 11a5 5 0 0 1 0 7l-1 1a5 5 0 0 1-7-7l1-1" />}
-                      label="Link"
                     />
                   </>
                 ) : (
@@ -1813,8 +1879,8 @@ function HomeHeroTile() {
         </div>
 
         <p className="tile-text" style={{ marginTop: 10 }}>
-          Quantum5ocial connects students, researchers, and companies with curated
-          opportunities, services and products across the global quantum ecosystem.
+          Quantum5ocial connects students, researchers, and companies with curated opportunities,
+          services and products across the global quantum ecosystem.
         </p>
 
         <div className="tile-pill-row" style={{ marginTop: 12 }}>
@@ -1849,7 +1915,11 @@ function HomeRightSidebar() {
   useEffect(() => {
     let cancelled = false;
 
-    const pickOne = async <T,>(table: string, select: string, fallbackOrderCol: string): Promise<T | null> => {
+    const pickOne = async <T,>(
+      table: string,
+      select: string,
+      fallbackOrderCol: string
+    ): Promise<T | null> => {
       const { data: featured, error: featErr } = await supabase
         .from(table)
         .select(select)
@@ -1922,8 +1992,7 @@ function HomeRightSidebar() {
     };
   }, []);
 
-  const formatJobMeta = (job: Job) =>
-    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
+  const formatJobMeta = (job: Job) => [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -1932,8 +2001,7 @@ function HomeRightSidebar() {
   };
 
   const memberName = latestMember?.full_name || "Quantum member";
-  const memberFirstName =
-    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+  const memberFirstName = typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
 
   const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
