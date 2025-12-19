@@ -36,7 +36,7 @@ export default function MessagesIndexPage() {
   const [threads, setThreads] = useState<ThreadVM[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // New chat
+  // New chat modal
   const [openNew, setOpenNew] = useState(false);
   const [entangled, setEntangled] = useState<ProfileLite[]>([]);
   const [search, setSearch] = useState("");
@@ -93,34 +93,23 @@ export default function MessagesIndexPage() {
     setError(null);
 
     try {
-      // 1) threads where I'm a participant
+      // 1) Threads I can see (RLS should enforce)
       const { data: tRows, error: tErr } = await supabase
         .from("dm_threads")
-        .select("id, user1, user2, created_at")
-        .order("created_at", { ascending: false });
+        .select("id, user1, user2, created_at");
 
       if (tErr) throw tErr;
 
-      const tList = (tRows || []) as ThreadRow[];
-      const ids = tList.map((t) => t.id);
-
-      // 2) unread counts via dm_inbox (thread_id -> unread_count)
-      const unreadByThread = new Map<string, number>();
-      try {
-        const { data: inboxRows, error: inboxErr } = await supabase.rpc("dm_inbox");
-        if (!inboxErr) {
-          (inboxRows as any[] | null)?.forEach((r) => {
-            unreadByThread.set(r.thread_id, Number(r.unread_count || 0));
-          });
-        }
-      } catch {
-        // ignore
+      const threadRows = (tRows || []) as ThreadRow[];
+      if (threadRows.length === 0) {
+        setThreads([]);
+        return;
       }
 
-      // 3) profiles of other participants
-      const otherIds = tList.map((t) => (t.user1 === uid ? t.user2 : t.user1));
-      const uniqOther = Array.from(new Set(otherIds)).filter(Boolean);
+      const otherIds = threadRows.map((t) => (t.user1 === uid ? t.user2 : t.user1));
+      const uniqOther = Array.from(new Set(otherIds));
 
+      // 2) Profiles for other participants
       const profileMap = new Map<string, ProfileLite>();
       if (uniqOther.length > 0) {
         const { data: pRows } = await supabase
@@ -131,24 +120,40 @@ export default function MessagesIndexPage() {
         (pRows as any[] | null)?.forEach((p) => profileMap.set(p.id, p as ProfileLite));
       }
 
-      // 4) last message per thread (simple approach)
+      // 3) Last message per thread (latest first globally, pick first per thread)
+      const ids = threadRows.map((t) => t.id);
       const lastByThread = new Map<string, { body: string; created_at: string }>();
-      if (ids.length > 0) {
-        const { data: mRows } = await supabase
-          .from("dm_messages")
-          .select("thread_id, body, created_at")
-          .in("thread_id", ids)
-          .order("created_at", { ascending: false })
-          .limit(400);
 
-        (mRows as any[] | null)?.forEach((m) => {
-          if (!lastByThread.has(m.thread_id)) {
-            lastByThread.set(m.thread_id, { body: m.body, created_at: m.created_at });
-          }
-        });
+      const { data: mRows, error: mErr } = await supabase
+        .from("dm_messages")
+        .select("thread_id, body, created_at")
+        .in("thread_id", ids)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (mErr) throw mErr;
+
+      (mRows as any[] | null)?.forEach((m) => {
+        if (!lastByThread.has(m.thread_id)) {
+          lastByThread.set(m.thread_id, { body: m.body, created_at: m.created_at });
+        }
+      });
+
+      // 4) Unread counts (via RPC dm_inbox)
+      const unreadByThread = new Map<string, number>();
+      try {
+        const { data: inboxRows, error: inboxErr } = await supabase.rpc("dm_inbox");
+        if (!inboxErr) {
+          (inboxRows as any[] | null)?.forEach((r) => {
+            unreadByThread.set(r.thread_id, Number(r.unread_count || 0));
+          });
+        }
+      } catch {
+        // ignore; unread counts will stay 0
       }
 
-      const vms: ThreadVM[] = tList.map((t) => {
+      // 5) Build VMs
+      const vms: ThreadVM[] = threadRows.map((t) => {
         const otherUserId = t.user1 === uid ? t.user2 : t.user1;
         return {
           thread: t,
@@ -159,7 +164,7 @@ export default function MessagesIndexPage() {
         };
       });
 
-      // ✅ newest first by last message time, fallback thread time
+      // ✅ Sort newest first using lastMessage timestamp, fallback thread created_at
       vms.sort((a, b) => {
         const ta = a.lastMessage?.created_at || a.thread.created_at;
         const tb = b.lastMessage?.created_at || b.thread.created_at;
@@ -211,11 +216,8 @@ export default function MessagesIndexPage() {
     const user1 = uid < otherUserId ? uid : otherUserId;
     const user2 = uid < otherUserId ? otherUserId : uid;
 
-    const existing = threads.find((t) => {
-      const th = t.thread;
-      return th.user1 === user1 && th.user2 === user2;
-    });
-
+    // try existing by pair
+    const existing = threads.find((t) => t.thread.user1 === user1 && t.thread.user2 === user2);
     if (existing) {
       router.push(`/messages/${existing.thread.id}`);
       return;
@@ -232,7 +234,7 @@ export default function MessagesIndexPage() {
       return;
     }
 
-    const threadId = (data as any)?.id;
+    const threadId = (data as any)?.id as string | undefined;
     if (threadId) router.push(`/messages/${threadId}`);
   };
 
@@ -248,19 +250,50 @@ export default function MessagesIndexPage() {
       router.push("/auth?redirect=/messages");
       return;
     }
-    loadThreads();
+    void loadThreads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid]);
 
   useEffect(() => {
     if (!openNew) return;
-    loadEntangledPeople();
+    void loadEntangledPeople();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openNew]);
 
+  // Optional: realtime refresh list ordering + unread dots
+  useEffect(() => {
+    if (!uid) return;
+
+    const channel = supabase
+      .channel("dm:index")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "dm_messages" },
+        async (payload) => {
+          const row = payload.new as any;
+          // If it's possibly related, just refresh list
+          // (dm_inbox handles "incoming to me" for unread_count)
+          if (row) await loadThreads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
         <div style={{ fontWeight: 900, fontSize: 18 }}>Messages</div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button type="button" style={pillBtn} onClick={() => loadThreads()} disabled={loading}>
@@ -289,33 +322,24 @@ export default function MessagesIndexPage() {
           const name = p?.full_name || "Quantum member";
           const initials = initialsOf(p?.full_name);
 
+          const hasUnread = (t.unread_count || 0) > 0;
+
           return (
             <Link
               key={t.thread.id}
               href={`/messages/${t.thread.id}`}
-              onClick={async (e) => {
-                // ✅ ensures dot disappears immediately (and prevents “blink”)
-                e.preventDefault();
-
-                // optimistic UI update
-                setThreads((prev) =>
-                  prev.map((x) =>
-                    x.thread.id === t.thread.id ? { ...x, unread_count: 0 } : x
-                  )
-                );
-
-                // persist in DB
-                try {
-                  await supabase.rpc("dm_mark_thread_read", { p_thread_id: t.thread.id });
-                } catch {
-                  // ignore; UI is already updated
-                }
-
-                router.push(`/messages/${t.thread.id}`);
-              }}
               style={{ textDecoration: "none", color: "inherit" }}
             >
-              <div style={{ ...cardStyle, cursor: "pointer" }}>
+              <div
+                style={{
+                  ...cardStyle,
+                  cursor: "pointer",
+                  border: hasUnread
+                    ? "1px solid rgba(59,199,243,0.28)"
+                    : "1px solid rgba(148,163,184,0.18)",
+                  background: hasUnread ? "rgba(59,199,243,0.05)" : cardStyle.background,
+                }}
+              >
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                   <div style={avatarStyle(42)}>
                     {p?.avatar_url ? (
@@ -340,11 +364,12 @@ export default function MessagesIndexPage() {
                     <div
                       style={{
                         fontSize: 12,
-                        opacity: 0.85,
+                        opacity: hasUnread ? 0.95 : 0.85,
                         marginTop: 8,
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        fontWeight: hasUnread ? 900 : 700,
                       }}
                     >
                       {t.lastMessage ? t.lastMessage.body : "No messages yet."}
@@ -352,18 +377,20 @@ export default function MessagesIndexPage() {
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {t.unread_count > 0 && (
+                    {/* ✅ blue dot if unread */}
+                    {hasUnread && (
                       <div
                         title="Unread"
                         style={{
                           width: 10,
                           height: 10,
                           borderRadius: 999,
-                          background: "rgba(59,199,243,0.95)",
-                          boxShadow: "0 0 0 3px rgba(59,199,243,0.18)",
+                          background: "rgba(59,199,243,0.98)",
+                          boxShadow: "0 0 0 3px rgba(59,199,243,0.16)",
                         }}
                       />
                     )}
+
                     <div style={{ fontSize: 12, opacity: 0.6, fontWeight: 800 }}>›</div>
                   </div>
                 </div>
@@ -400,7 +427,14 @@ export default function MessagesIndexPage() {
               padding: 14,
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
               <div style={{ fontWeight: 900, fontSize: 15 }}>Start a chat</div>
               <button type="button" style={pillBtn} onClick={() => setOpenNew(false)}>
                 Close
@@ -428,7 +462,15 @@ export default function MessagesIndexPage() {
 
             <div style={{ height: 10 }} />
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 420, overflowY: "auto" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                maxHeight: 420,
+                overflowY: "auto",
+              }}
+            >
               {filteredEntangled.length === 0 ? (
                 <div style={{ opacity: 0.8, padding: 10 }}>No entangled members found.</div>
               ) : (
@@ -472,7 +514,9 @@ export default function MessagesIndexPage() {
                           </div>
                         </div>
 
-                        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>Message</div>
+                        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>
+                          Message
+                        </div>
                       </div>
                     </button>
                   );
