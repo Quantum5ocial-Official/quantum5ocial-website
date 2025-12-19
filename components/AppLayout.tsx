@@ -670,58 +670,69 @@ function FloatingMessagesDock() {
     <>
       {/* Launcher button */}
       <button
-        type="button"
-        onClick={() => {
-          setOpen((v) => !v);
-          if (!open) void loadInbox();
-        }}
-        aria-label="Messages"
+  type="button"
+  onClick={() => {
+    setOpen((v) => !v);
+    if (!open) void loadInbox();
+  }}
+  aria-label="Messages"
+  style={{
+    position: "fixed",
+    right: 18,
+    bottom: 18,
+    zIndex: 80,
+    height: 46,
+    padding: "0 14px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.26)",
+    background: "rgba(2,6,23,0.78)",
+    backdropFilter: "blur(12px)",
+    WebkitBackdropFilter: "blur(12px)",
+    color: "rgba(226,232,240,0.95)",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    cursor: "pointer",
+    boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
+    fontWeight: 900,
+
+    // ✅ important for “badge over”
+    overflow: "visible",
+  }}
+>
+  {/* ✅ wrapper so badge can be placed on top */}
+  <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 10 }}>
+    <span style={{ fontSize: 14 }}>💬</span>
+    <span style={{ fontSize: 13 }}>Messages</span>
+
+    {totalUnread > 0 && (
+      <span
         style={{
-          position: "fixed",
-          right: 18,
-          bottom: 18,
-          zIndex: 80,
-          height: 46,
-          padding: "0 14px",
+          position: "absolute",
+          right: -10,
+          top: -10,
+          minWidth: 18,
+          height: 18,
+          padding: "0 6px",
           borderRadius: 999,
-          border: "1px solid rgba(148,163,184,0.26)",
-          background: "rgba(2,6,23,0.78)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          color: "rgba(226,232,240,0.95)",
+          background: "rgba(248,113,113,0.98)",
+          color: "#0b1220",
+          fontSize: 11,
+          fontWeight: 900,
           display: "inline-flex",
           alignItems: "center",
-          gap: 10,
-          cursor: "pointer",
-          boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
-          fontWeight: 900,
+          justifyContent: "center",
+          border: "2px solid rgba(2,6,23,0.92)", // ✅ looks like a floating bubble
+          boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
+          pointerEvents: "none",
         }}
       >
-        <span style={{ fontSize: 14 }}>💬</span>
-        <span style={{ fontSize: 13 }}>Messages</span>
-
-        {totalUnread > 0 && (
-          <span
-            style={{
-              marginLeft: 2,
-              minWidth: 20,
-              height: 20,
-              padding: "0 7px",
-              borderRadius: 999,
-              background: "rgba(248,113,113,0.95)",
-              color: "#0b1220",
-              fontSize: 12,
-              fontWeight: 900,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {totalUnread > 99 ? "99+" : totalUnread}
-          </span>
-        )}
-      </button>
-
+        {totalUnread > 99 ? "99+" : totalUnread}
+      </span>
+    )}
+  </div>
+</button>
+      
       {/* Dock panel */}
       {open && (
         <div
