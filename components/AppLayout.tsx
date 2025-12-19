@@ -12,45 +12,12 @@ type LayoutVariant = "three" | "two-left" | "two-right" | "center";
 
 type AppLayoutProps = {
   children: ReactNode;
-
-  /**
-   * left:
-   * - undefined => default left sidebar (<LeftSidebar />)
-   * - null      => no left sidebar
-   * - ReactNode => custom left sidebar
-   */
   left?: ReactNode | null;
-
-  /**
-   * right:
-   * - undefined => empty right column (keeps 3-col symmetry)
-   * - null      => no right column at all (use variant "two-left" / "center")
-   * - ReactNode => custom right sidebar
-   */
   right?: ReactNode | null;
-
   variant?: LayoutVariant;
-
-  /** show navbar globally (usually true) */
   showNavbar?: boolean;
-
-  /**
-   * On mobile:
-   * - "middle-only" => collapse to single column (default)
-   * - "keep-columns" => keep desktop columns
-   */
   mobileMode?: "middle-only" | "keep-columns";
-
-  /**
-   * ✅ For pages that create their own internal split inside children (e.g. Jobs),
-   * provide what AppLayout should render on mobile instead of children.
-   */
   mobileMain?: ReactNode;
-
-  /**
-   * If true, AppLayout will wrap content in <section className="layout-main" />.
-   * Default: true.
-   */
   wrapMiddle?: boolean;
 };
 
@@ -66,7 +33,6 @@ export default function AppLayout({
 }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ mobile left drawer (ONLY used in mobile middle-only mode)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
 
   useEffect(() => {
@@ -77,12 +43,10 @@ export default function AppLayout({
     return () => window.removeEventListener("resize", handle);
   }, []);
 
-  // Close drawer when switching out of mobile or out of middle-only mode
   useEffect(() => {
     if (!isMobile || mobileMode !== "middle-only") setMobileLeftOpen(false);
   }, [isMobile, mobileMode]);
 
-  // ESC to close (mobile drawer only)
   useEffect(() => {
     if (!mobileLeftOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
@@ -93,13 +57,11 @@ export default function AppLayout({
   }, [mobileLeftOpen]);
 
   const resolvedLeft = useMemo(() => {
-    // undefined => default
     if (left === undefined) return <LeftSidebar />;
     return left;
   }, [left]);
 
   const resolvedRight = useMemo(() => {
-    // undefined => keep column but empty (symmetry)
     if (right === undefined) return <div />;
     return right;
   }, [right]);
@@ -118,12 +80,7 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedRight !== null;
 
-  // ✅ IMPORTANT:
-  // Your default <LeftSidebar /> already has a right border/line.
-  // So we only inject a left divider if the page provides a CUSTOM left sidebar.
   const useLeftInjectedDivider = showLeft && left !== undefined;
-
-  // Right divider is safe to inject (your right column does not draw its own divider).
   const useRightInjectedDivider = showRight;
 
   const Divider = () => (
@@ -142,16 +99,13 @@ export default function AppLayout({
 
     const cols: string[] = [];
 
-    // LEFT
     if (showLeft) {
       cols.push("280px");
       if (useLeftInjectedDivider) cols.push("1px");
     }
 
-    // MIDDLE (always)
     cols.push("minmax(0, 1fr)");
 
-    // RIGHT
     if (showRight) {
       if (useRightInjectedDivider) cols.push("1px");
       cols.push("280px");
@@ -160,14 +114,12 @@ export default function AppLayout({
     return cols.join(" ");
   })();
 
-  // Mobile drawer is only meaningful if left exists in desktop world
   const canOpenMobileLeftDrawer =
     hideSidebarsOnMobile &&
     variant !== "two-right" &&
     variant !== "center" &&
     resolvedLeft !== null;
 
-  // ✅ What to render as the main content on mobile
   const mainContent =
     hideSidebarsOnMobile && mobileMain !== undefined ? mobileMain : children;
 
@@ -177,10 +129,8 @@ export default function AppLayout({
       <div className="page">
         {showNavbar && <Navbar />}
 
-        {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer */}
         {canOpenMobileLeftDrawer && (
           <>
-            {/* Arrow tab trigger (middle-left edge) */}
             <button
               type="button"
               aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
@@ -222,7 +172,6 @@ export default function AppLayout({
               </span>
             </button>
 
-            {/* Backdrop */}
             {mobileLeftOpen && (
               <div
                 aria-hidden="true"
@@ -236,7 +185,6 @@ export default function AppLayout({
               />
             )}
 
-            {/* Drawer panel */}
             <aside
               aria-label="Sidebar drawer"
               style={{
@@ -269,7 +217,6 @@ export default function AppLayout({
             alignItems: "start",
           }}
         >
-          {/* LEFT */}
           {showLeft && (
             <>
               {resolvedLeft}
@@ -277,14 +224,12 @@ export default function AppLayout({
             </>
           )}
 
-          {/* MIDDLE */}
           {wrapMiddle ? (
             <section className="layout-main">{mainContent}</section>
           ) : (
             <>{mainContent}</>
           )}
 
-          {/* RIGHT */}
           {showRight && (
             <>
               {useRightInjectedDivider && <Divider />}
@@ -298,7 +243,6 @@ export default function AppLayout({
           )}
         </main>
 
-        {/* ✅ GLOBAL FLOATING MESSAGES DOCK */}
         <FloatingMessagesDock />
       </div>
     </>
@@ -307,8 +251,6 @@ export default function AppLayout({
 
 /* =========================
    Floating Messages Dock
-   - Minimal, global, realtime
-   - New chat (entangled only) -> creates thread -> opens inside dock
    ========================= */
 
 type InboxRow = {
@@ -344,29 +286,37 @@ function FloatingMessagesDock() {
   const uid = user?.id ?? null;
 
   const [open, setOpen] = useState(false);
+  const openRef = useRef(false);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
-  // badge
   const [totalUnread, setTotalUnread] = useState<number>(0);
 
-  // inbox
   const [loadingInbox, setLoadingInbox] = useState(false);
   const [inbox, setInbox] = useState<InboxRow[]>([]);
+  const inboxRef = useRef<InboxRow[]>([]);
+  useEffect(() => {
+    inboxRef.current = inbox;
+  }, [inbox]);
 
-  // thread view in dock
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const activeThreadIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
+
   const activeThread = useMemo(
     () => inbox.find((x) => x.thread_id === activeThreadId) || null,
     [inbox, activeThreadId]
   );
 
-  // messages in dock
   const [loadingThread, setLoadingThread] = useState(false);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
 
-  // new chat modal
   const [openNew, setOpenNew] = useState(false);
   const [entangled, setEntangled] = useState<EntangledProfile[]>([]);
   const [search, setSearch] = useState("");
@@ -410,15 +360,6 @@ function FloatingMessagesDock() {
     el.scrollTop = el.scrollHeight;
   };
 
-  const refreshTotalUnread = async () => {
-    if (!uid) {
-      setTotalUnread(0);
-      return;
-    }
-    const { data, error } = await supabase.rpc("dm_total_unread");
-    if (!error) setTotalUnread(Number(data || 0));
-  };
-
   const loadInbox = async () => {
     if (!uid) return;
     setLoadingInbox(true);
@@ -444,8 +385,11 @@ function FloatingMessagesDock() {
 
   const markThreadRead = async (threadId: string) => {
     if (!uid || !threadId) return;
-    await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
-    // refresh badge + inbox unread quickly
+    try {
+      await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
+    } catch (e) {
+      // ignore; inbox refresh will reconcile
+    }
     await loadInbox();
   };
 
@@ -463,8 +407,6 @@ function FloatingMessagesDock() {
 
       setMessages(((data || []) as any[]) as MessageRow[]);
       setTimeout(scrollToBottom, 30);
-
-      // mark read when opening
       await markThreadRead(threadId);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
@@ -544,12 +486,7 @@ function FloatingMessagesDock() {
     const user1 = uid < otherUserId ? uid : otherUserId;
     const user2 = uid < otherUserId ? otherUserId : uid;
 
-    // try find existing in current inbox
-    const existing = inbox.find((t) => {
-      // We only have other_user_id, so we match by other user
-      return t.other_user_id === otherUserId;
-    });
-
+    const existing = inboxRef.current.find((t) => t.other_user_id === otherUserId);
     if (existing) {
       setOpen(true);
       setOpenNew(false);
@@ -585,7 +522,6 @@ function FloatingMessagesDock() {
     return entangled.filter((p) => (p.full_name || "").toLowerCase().includes(q));
   }, [entangled, search]);
 
-  // initial: badge + inbox
   useEffect(() => {
     if (userLoading) return;
     if (!uid) {
@@ -596,44 +532,45 @@ function FloatingMessagesDock() {
       return;
     }
     void loadInbox();
-    void refreshTotalUnread();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid]);
 
-  // realtime: listen for any new dm_messages inserts, then refresh if relevant
+  // ✅ REALTIME (FIXED):
+  // Listen only to messages addressed to me: recipient_id = uid
   useEffect(() => {
     if (!uid) return;
 
     const channel = supabase
-      .channel("dm:global")
+      .channel(`dm-inbox:${uid}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "dm_messages" },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "dm_messages",
+          filter: `recipient_id=eq.${uid}`,
+        },
         async (payload) => {
           const row = payload.new as any as MessageRow;
 
-          // If this insert belongs to a thread in our inbox, refresh
-          const inMyInbox = inbox.some((x) => x.thread_id === row.thread_id);
-          if (!inMyInbox) {
-            // might be a newly created thread OR inbox not loaded yet
-            await loadInbox();
-          } else {
-            // update active thread message list if open
-            if (open && activeThreadId && row.thread_id === activeThreadId) {
-              setMessages((prev) => {
-                const exists = prev.some((x) => x.id === row.id);
-                return exists ? prev : [...prev, row];
-              });
-              setTimeout(scrollToBottom, 20);
+          // instant badge bump (then loadInbox reconciles exact counts)
+          setTotalUnread((n) => n + 1);
 
-              // mark read when you’re currently viewing
-              if (row.sender_id !== uid) {
-                await supabase.rpc("dm_mark_thread_read", { p_thread_id: activeThreadId });
-              }
-            }
+          const currentActive = activeThreadIdRef.current;
+          const isOpen = openRef.current;
 
-            await loadInbox();
+          // if I am viewing this thread in the dock, append & mark read
+          if (isOpen && currentActive && row.thread_id === currentActive) {
+            setMessages((prev) => {
+              const exists = prev.some((x) => x.id === row.id);
+              return exists ? prev : [...prev, row];
+            });
+            setTimeout(scrollToBottom, 20);
+            await supabase.rpc("dm_mark_thread_read", { p_thread_id: currentActive });
           }
+
+          // refresh list + accurate total
+          await loadInbox();
         }
       )
       .subscribe();
@@ -642,16 +579,14 @@ function FloatingMessagesDock() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid, open, activeThreadId, inbox]);
+  }, [uid]);
 
-  // load entangled list when opening New chat
   useEffect(() => {
     if (!openNew) return;
     void loadEntangledPeople();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openNew]);
 
-  // UI styles
   const pillBtn = {
     fontSize: 12,
     padding: "7px 10px",
@@ -663,76 +598,72 @@ function FloatingMessagesDock() {
     fontWeight: 900,
   } as const;
 
-  // hide dock when not authed (for now)
   if (!uid) return null;
 
   return (
     <>
       {/* Launcher button */}
       <button
-  type="button"
-  onClick={() => {
-    setOpen((v) => !v);
-    if (!open) void loadInbox();
-  }}
-  aria-label="Messages"
-  style={{
-    position: "fixed",
-    right: 18,
-    bottom: 18,
-    zIndex: 80,
-    height: 46,
-    padding: "0 14px",
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.26)",
-    background: "rgba(2,6,23,0.78)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
-    color: "rgba(226,232,240,0.95)",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 10,
-    cursor: "pointer",
-    boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
-    fontWeight: 900,
-
-    // ✅ important for “badge over”
-    overflow: "visible",
-  }}
->
-  {/* ✅ wrapper so badge can be placed on top */}
-  <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 10 }}>
-    <span style={{ fontSize: 14 }}>💬</span>
-    <span style={{ fontSize: 13 }}>Messages</span>
-
-    {totalUnread > 0 && (
-      <span
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          if (!open) void loadInbox();
+        }}
+        aria-label="Messages"
         style={{
-          position: "absolute",
-          right: -10,
-          top: -10,
-          minWidth: 18,
-          height: 18,
-          padding: "0 6px",
+          position: "fixed",
+          right: 18,
+          bottom: 18,
+          zIndex: 80,
+          height: 46,
+          padding: "0 14px",
           borderRadius: 999,
-          background: "rgba(248,113,113,0.98)",
-          color: "#0b1220",
-          fontSize: 11,
-          fontWeight: 900,
+          border: "1px solid rgba(148,163,184,0.26)",
+          background: "rgba(2,6,23,0.78)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          color: "rgba(226,232,240,0.95)",
           display: "inline-flex",
           alignItems: "center",
-          justifyContent: "center",
-          border: "2px solid rgba(2,6,23,0.92)", // ✅ looks like a floating bubble
-          boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
-          pointerEvents: "none",
+          gap: 10,
+          cursor: "pointer",
+          boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
+          fontWeight: 900,
+          overflow: "visible",
         }}
       >
-        {totalUnread > 99 ? "99+" : totalUnread}
-      </span>
-    )}
-  </div>
-</button>
-      
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 14 }}>💬</span>
+          <span style={{ fontSize: 13 }}>Messages</span>
+
+          {totalUnread > 0 && (
+            <span
+              style={{
+                position: "absolute",
+                right: -10,
+                top: -10,
+                minWidth: 18,
+                height: 18,
+                padding: "0 6px",
+                borderRadius: 999,
+                background: "rgba(248,113,113,0.98)",
+                color: "#0b1220",
+                fontSize: 11,
+                fontWeight: 900,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "2px solid rgba(2,6,23,0.92)",
+                boxShadow: "0 10px 24px rgba(0,0,0,0.45)",
+                pointerEvents: "none",
+              }}
+            >
+              {totalUnread > 99 ? "99+" : totalUnread}
+            </span>
+          )}
+        </div>
+      </button>
+
       {/* Dock panel */}
       {open && (
         <div
@@ -804,7 +735,6 @@ function FloatingMessagesDock() {
           {/* Body */}
           <div style={{ flex: 1, minHeight: 0 }}>
             {!activeThread ? (
-              // Thread list
               <div style={{ padding: 12, height: "100%", overflowY: "auto" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                   <div style={{ fontWeight: 900, fontSize: 13, opacity: 0.9 }}>Inbox</div>
@@ -914,7 +844,6 @@ function FloatingMessagesDock() {
                 )}
               </div>
             ) : (
-              // Thread view
               <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                 <div
                   style={{
@@ -976,7 +905,6 @@ function FloatingMessagesDock() {
                   )}
                 </div>
 
-                {/* messages */}
                 <div
                   ref={listRef}
                   style={{
@@ -1023,7 +951,6 @@ function FloatingMessagesDock() {
                   )}
                 </div>
 
-                {/* composer */}
                 <div
                   style={{
                     padding: 12,
