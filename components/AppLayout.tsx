@@ -66,6 +66,10 @@ export default function AppLayout({
   // ✅ mobile left drawer (ONLY used in mobile middle-only mode)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
 
+  // ✅ placeholder messaging UI
+  const [msgOpen, setMsgOpen] = useState(false);
+  const unreadCount = 3; // placeholder count (we'll wire this later)
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handle = () => setIsMobile(window.innerWidth <= 900);
@@ -294,6 +298,160 @@ export default function AppLayout({
             </>
           )}
         </main>
+
+        {/* =========================
+            ✅ GLOBAL MESSAGES PLACEHOLDER (bottom-right)
+           ========================= */}
+        <div
+          style={{
+            position: "fixed",
+            right: 18,
+            bottom: 18,
+            zIndex: 80,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 10,
+            pointerEvents: "none", // allow panel/button to opt-in
+          }}
+        >
+          {/* Panel */}
+          {msgOpen && (
+            <div
+              style={{
+                width: isMobile ? "calc(100vw - 20px)" : 360,
+                height: isMobile ? "70vh" : 520,
+                borderRadius: 16,
+                border: "1px solid rgba(148,163,184,0.22)",
+                background:
+                  "linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,23,42,0.985))",
+                boxShadow: "0 24px 90px rgba(0,0,0,0.55)",
+                overflow: "hidden",
+                pointerEvents: "auto",
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  padding: "12px 12px",
+                  borderBottom: "1px solid rgba(148,163,184,0.14)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 14, color: "rgba(226,232,240,0.95)" }}>
+                  Messages
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMsgOpen(false)}
+                  aria-label="Close messages"
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    background: "rgba(2,6,23,0.25)",
+                    color: "rgba(226,232,240,0.92)",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Body */}
+              <div
+                style={{
+                  padding: 12,
+                  height: "100%",
+                  overflowY: "auto",
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                <div
+                  style={{
+                    padding: 12,
+                    borderRadius: 14,
+                    border: "1px solid rgba(148,163,184,0.14)",
+                    background: "rgba(2,6,23,0.22)",
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                    opacity: 0.9,
+                  }}
+                >
+                  Placeholder only.
+                  <div style={{ marginTop: 6, opacity: 0.8 }}>
+                    Next: show entangled members + start a conversation.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Floating button */}
+          <button
+            type="button"
+            onClick={() => setMsgOpen((v) => !v)}
+            aria-label={msgOpen ? "Close messages" : "Open messages"}
+            style={{
+              pointerEvents: "auto",
+              position: "relative",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background: "rgba(2,6,23,0.78)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              color: "rgba(226,232,240,0.95)",
+              cursor: "pointer",
+              boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+              fontSize: 13,
+              fontWeight: 900,
+              userSelect: "none",
+            }}
+          >
+            <span style={{ fontSize: 16, lineHeight: 1 }} aria-hidden="true">
+              💬
+            </span>
+            <span style={{ display: isMobile ? "none" : "inline" }}>Messages</span>
+
+            {/* unread badge */}
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  minWidth: 18,
+                  height: 18,
+                  padding: "0 6px",
+                  borderRadius: 999,
+                  background: "#ef4444",
+                  color: "#fff",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "2px solid rgba(2,6,23,0.95)",
+                  boxShadow: "0 10px 22px rgba(0,0,0,0.35)",
+                }}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </>
   );
