@@ -1,5 +1,5 @@
 // components/AppLayout.tsx
-import { ReactNode, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+//import { ReactNode, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import dynamic from "next/dynamic";
 import LeftSidebar from "./LeftSidebar";
 import Link from "next/link";
@@ -479,7 +479,10 @@ requestAnimationFrame(() => {
   setTimeout(() => scrollToBottom("auto"), 60);
 });
 
-await markThreadRead(threadId);
+// ✅ let the UI finish scrolling first, then mark read (which refreshes inbox)
+setTimeout(() => {
+  void markThreadRead(threadId);
+}, 120);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
       setMessages([]);
