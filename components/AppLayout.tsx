@@ -795,17 +795,24 @@ function FloatingMessagesDock() {
               )}
 
               <Link
-                href="/messages"
-                style={{
-                  ...pillBtn,
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                Open page
-              </Link>
+  href="/messages"
+  onClick={() => {
+    setOpen(false);
+    setOpenNew(false);
+    setActiveThreadId(null);
+    setMessages([]);
+    setDraft("");
+  }}
+  style={{
+    ...pillBtn,
+    textDecoration: "none",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  Open page
+</Link>
 
               <button
                 type="button"
