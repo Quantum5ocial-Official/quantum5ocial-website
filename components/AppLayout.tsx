@@ -1,5 +1,5 @@
 // components/AppLayout.tsx
-//import { ReactNode, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import LeftSidebar from "./LeftSidebar";
 import Link from "next/link";
