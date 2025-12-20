@@ -23,14 +23,7 @@ const CATEGORIES = [
   "Other",
 ];
 
-const PRODUCT_TYPE_FILTERS = [
-  "All",
-  "Hardware",
-  "Software",
-  "Service",
-  "Consulting",
-  "Other",
-];
+const PRODUCT_TYPE_FILTERS = ["All", "Hardware", "Software", "Service", "Consulting", "Other"];
 
 const TECH_TYPE_FILTERS = [
   "All",
@@ -379,6 +372,111 @@ function ProductsProvider({ children }: { children: ReactNode }) {
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;
 }
 
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+function RightDrawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1200,
+        background: "rgba(2,6,23,0.62)",
+        backdropFilter: "blur(8px)",
+      }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          height: "100%",
+          width: "min(92vw, 360px)",
+          background: "rgba(15,23,42,0.98)",
+          borderLeft: "1px solid rgba(148,163,184,0.18)",
+          boxShadow: "-24px 0 80px rgba(0,0,0,0.55)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 14px",
+            borderBottom: "1px solid rgba(148,163,184,0.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 14 }}>{title || "Filters"}</div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.18)",
+              background: "rgba(2,6,23,0.2)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: 14, overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function ProductsRightSidebar() {
   const ctx = useProductsCtx();
 
@@ -465,9 +563,7 @@ function ProductsRightSidebar() {
         <select
           className="products-filters-input"
           value={ctx.priceFilter}
-          onChange={(e) =>
-            ctx.setPriceFilter(e.target.value as "all" | "fixed" | "contact")
-          }
+          onChange={(e) => ctx.setPriceFilter(e.target.value as "all" | "fixed" | "contact")}
         >
           <option value="all">All</option>
           <option value="fixed">Fixed price</option>
@@ -504,14 +600,24 @@ function ProductsMiddle() {
   const router = useRouter();
   const ctx = useProductsCtx();
 
+  const isMobile = useIsMobile(820);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   return (
     <section className="section">
+      {/* ✅ Mobile-only right drawer for filters */}
+      {isMobile && (
+        <RightDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+          <ProductsRightSidebar />
+        </RightDrawer>
+      )}
+
       <div className="jobs-main-header">
         <div className="section-header">
           <div>
             <div
               className="section-title"
-              style={{ display: "flex", alignItems: "center", gap: 10 }}
+              style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
             >
               Quantum Marketplace
               {!ctx.loadingProducts && !ctx.error && (
@@ -529,18 +635,33 @@ function ProductsMiddle() {
                 </span>
               )}
             </div>
+
             <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
               Browse quantum hardware, software, and services from startups, labs, and companies.
             </div>
           </div>
 
-          <button
-            className="nav-cta"
-            style={{ cursor: "pointer" }}
-            onClick={() => router.push("/products/new")}
-          >
-            List your product
-          </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {/* ✅ Mobile filter button */}
+            {isMobile && (
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                style={{ cursor: "pointer" }}
+                onClick={() => setFiltersOpen(true)}
+              >
+                Filters ▸
+              </button>
+            )}
+
+            <button
+              className="nav-cta"
+              style={{ cursor: "pointer" }}
+              onClick={() => router.push("/products/new")}
+            >
+              List your product
+            </button>
+          </div>
         </div>
 
         <div className="jobs-main-search">
@@ -723,7 +844,14 @@ function ProductsMiddle() {
                 />
               )}
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 10,
+                }}
+              >
                 <div>
                   <div
                     style={{
