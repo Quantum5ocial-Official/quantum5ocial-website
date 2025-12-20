@@ -1,6 +1,7 @@
 // pages/index.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -80,9 +81,149 @@ type PostVM = {
   likedByMe: boolean;
 };
 
+/* =========================
+   MOBILE RIGHT DRAWER (for HomeRightSidebar)
+   ========================= */
+
+function RightDrawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    // lock background scroll
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!mounted) return null;
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        background: "rgba(2,6,23,0.62)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          width: "min(420px, 92vw)",
+          height: "100%",
+          background:
+            "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.985))",
+          borderLeft: "1px solid rgba(148,163,184,0.18)",
+          boxShadow: "-24px 0 80px rgba(0,0,0,0.55)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 14px",
+            borderBottom: "1px solid rgba(148,163,184,0.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 14,
+              color: "rgba(226,232,240,0.92)",
+            }}
+          >
+            {title || "Panel"}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.18)",
+              background: "rgba(2,6,23,0.22)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: 12, overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function Home() {
+  const isMobile = useIsMobile(820);
+  const [rightOpen, setRightOpen] = useState(false);
+
   return (
     <>
+      {/* MOBILE: right drawer trigger (desktop unchanged) */}
+      {isMobile && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button
+            type="button"
+            onClick={() => setRightOpen(true)}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "rgba(2,6,23,0.25)",
+              color: "rgba(226,232,240,0.92)",
+              fontSize: 13,
+              fontWeight: 800,
+              cursor: "pointer",
+            }}
+          >
+            Explore ▸
+          </button>
+        </div>
+      )}
+
       {/* POST + ASK PLACEHOLDERS */}
       <section className="section" style={{ paddingTop: 0, paddingBottom: 0 }}>
         <HomeComposerStrip />
@@ -111,16 +252,14 @@ export default function Home() {
               Earn Quantum Points (QP) &amp; unlock quantum-themed badges
             </div>
             <p className="gamify-text">
-              Quantum5ocial stays professional but adds a light gamified layer –
-              rewarding meaningful activity like completing your profile, posting
-              jobs/products, and exploring the ecosystem.
+              Quantum5ocial stays professional but adds a light gamified layer – rewarding meaningful
+              activity like completing your profile, posting jobs/products, and exploring the ecosystem.
             </p>
             <ul className="gamify-list">
               <li>Complete your profile → gain QP and visibility</li>
               <li>Post roles or products → earn vendor &amp; mentor badges</li>
               <li>
-                Explore and engage → unlock levels like Superposition, Entangled,
-                Resonant
+                Explore and engage → unlock levels like Superposition, Entangled, Resonant
               </li>
             </ul>
           </div>
@@ -151,12 +290,8 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">
-              Built for the entire quantum community
-            </div>
-            <div className="section-sub">
-              Different paths, one shared platform.
-            </div>
+            <div className="section-title">Built for the entire quantum community</div>
+            <div className="section-sub">Different paths, one shared platform.</div>
           </div>
         </div>
 
@@ -167,8 +302,8 @@ export default function Home() {
               <span className="who-title">Students &amp; early-career</span>
             </div>
             <p className="who-text">
-              Explore internships, MSc/PhD projects, and your first postdoc or
-              industry role. Build your profile as you grow into the field.
+              Explore internships, MSc/PhD projects, and your first postdoc or industry role. Build your
+              profile as you grow into the field.
             </p>
           </div>
 
@@ -178,8 +313,8 @@ export default function Home() {
               <span className="who-title">Researchers &amp; labs</span>
             </div>
             <p className="who-text">
-              Showcase your group, attract collaborators, and make it easier to
-              find the right candidates for your quantum projects.
+              Showcase your group, attract collaborators, and make it easier to find the right candidates
+              for your quantum projects.
             </p>
           </div>
 
@@ -189,12 +324,19 @@ export default function Home() {
               <span className="who-title">Companies &amp; startups</span>
             </div>
             <p className="who-text">
-              Post jobs, list your hero products, and reach a focused audience
-              that already cares about quantum technologies.
+              Post jobs, list your hero products, and reach a focused audience that already cares about
+              quantum technologies.
             </p>
           </div>
         </div>
       </section>
+
+      {/* MOBILE RIGHT DRAWER (desktop unchanged) */}
+      {isMobile && (
+        <RightDrawer open={rightOpen} onClose={() => setRightOpen(false)} title="Explore">
+          <HomeRightSidebar />
+        </RightDrawer>
+      )}
     </>
   );
 }
@@ -516,7 +658,7 @@ function HomeGlobalFeed() {
 
       setCommentsByPost((prev) => {
         const cur = prev[postId] || [];
-        const next = data ? [...cur, data as CommentRow] : cur;
+        const next = data ? [...cur, (data as CommentRow)] : cur;
         return { ...prev, [postId]: next };
       });
 
@@ -752,9 +894,7 @@ function HomeGlobalFeed() {
                             border: it.likedByMe
                               ? "1px solid rgba(34,211,238,0.65)"
                               : "1px solid rgba(148,163,184,0.35)",
-                            background: it.likedByMe
-                              ? "rgba(34,211,238,0.12)"
-                              : "rgba(2,6,23,0.2)",
+                            background: it.likedByMe ? "rgba(34,211,238,0.12)" : "rgba(2,6,23,0.2)",
                             color: "rgba(226,232,240,0.92)",
                             cursor: "pointer",
                             fontSize: 13,
@@ -767,7 +907,7 @@ function HomeGlobalFeed() {
                           <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
                         </button>
 
-                        {/* Comment (kept EXACT) */}
+                        {/* Comment */}
                         <button
                           type="button"
                           onClick={() => {
@@ -831,13 +971,7 @@ function HomeGlobalFeed() {
                                 }}
                               />
 
-                              <div
-                                style={{
-                                  marginTop: 8,
-                                  display: "flex",
-                                  justifyContent: "flex-end",
-                                }}
-                              >
+                              <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
                                 <button
                                   type="button"
                                   onClick={() => submitComment(p.id)}
@@ -865,14 +999,7 @@ function HomeGlobalFeed() {
                           </div>
 
                           {/* comments list */}
-                          <div
-                            style={{
-                              marginTop: 10,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 10,
-                            }}
-                          >
+                          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                             {comments.length === 0 ? (
                               <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
                             ) : (
@@ -891,23 +1018,13 @@ function HomeGlobalFeed() {
                                       background: "rgba(2,6,23,0.18)",
                                     }}
                                   >
-                                    <div
-                                      style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        alignItems: "flex-start",
-                                      }}
-                                    >
+                                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                                       <div style={avatarStyle(30)}>
                                         {cp?.avatar_url ? (
                                           <img
                                             src={cp.avatar_url}
                                             alt={cName}
-                                            style={{
-                                              width: "100%",
-                                              height: "100%",
-                                              objectFit: "cover",
-                                            }}
+                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                           />
                                         ) : (
                                           cInitials
@@ -924,13 +1041,7 @@ function HomeGlobalFeed() {
                                           }}
                                         >
                                           <div style={{ minWidth: 0 }}>
-                                            <div
-                                              style={{
-                                                fontSize: 12,
-                                                fontWeight: 900,
-                                                lineHeight: 1.2,
-                                              }}
-                                            >
+                                            <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
                                               {cp?.id ? (
                                                 <Link
                                                   href={`/profile/${cp.id}`}
@@ -1663,14 +1774,7 @@ function HomeComposerStrip() {
                         padding: 10,
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                         <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>Photo attached</div>
                         <button
                           type="button"
@@ -1743,30 +1847,15 @@ function HomeComposerStrip() {
               ) : (
                 <>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                    <div
-                      style={typeChip(askType === "concept")}
-                      onClick={() => setAskType("concept")}
-                      role="button"
-                      tabIndex={0}
-                    >
+                    <div style={typeChip(askType === "concept")} onClick={() => setAskType("concept")} role="button" tabIndex={0}>
                       <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
                       Concept
                     </div>
-                    <div
-                      style={typeChip(askType === "experiment")}
-                      onClick={() => setAskType("experiment")}
-                      role="button"
-                      tabIndex={0}
-                    >
+                    <div style={typeChip(askType === "experiment")} onClick={() => setAskType("experiment")} role="button" tabIndex={0}>
                       <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
                       Experiment
                     </div>
-                    <div
-                      style={typeChip(askType === "career")}
-                      onClick={() => setAskType("career")}
-                      role="button"
-                      tabIndex={0}
-                    >
+                    <div style={typeChip(askType === "career")} onClick={() => setAskType("career")} role="button" tabIndex={0}>
                       <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
                       Career
                     </div>
@@ -1814,9 +1903,7 @@ function HomeComposerStrip() {
                   <>
                     {/* ✅ Media button (image only for now) */}
                     <ActionButton
-                      icon={
-                        <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                      }
+                      icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
                       label="Media"
                       onClick={pickPhoto}
                     />
@@ -1852,7 +1939,6 @@ function HomeComposerStrip() {
               onChange={(e) => {
                 const f = e.target.files?.[0] || null;
                 onPhotoSelected(f);
-                // allow re-select same file
                 e.currentTarget.value = "";
               }}
             />
@@ -1874,8 +1960,8 @@ function HomeHeroTile() {
         <div className="tile-label">Quantum5ocial</div>
 
         <div style={{ marginTop: 6, fontWeight: 900, fontSize: 16, lineHeight: 1.2 }}>
-          Discover <span style={{ color: "#22d3ee" }}>jobs, products &amp; services</span>{" "}
-          shaping the future of quantum technology.
+          Discover <span style={{ color: "#22d3ee" }}>jobs, products &amp; services</span> shaping
+          the future of quantum technology.
         </div>
 
         <p className="tile-text" style={{ marginTop: 10 }}>
@@ -1992,7 +2078,8 @@ function HomeRightSidebar() {
     };
   }, []);
 
-  const formatJobMeta = (job: Job) => [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
+  const formatJobMeta = (job: Job) =>
+    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -2001,7 +2088,8 @@ function HomeRightSidebar() {
   };
 
   const memberName = latestMember?.full_name || "Quantum member";
-  const memberFirstName = typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+  const memberFirstName =
+    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
 
   const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
 
@@ -2014,7 +2102,10 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured role</div>
 
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}>
+            <div
+              className="tile-title"
+              style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}
+            >
               Hot opening
             </div>
             <div className="tile-icon-orbit">🧪</div>
@@ -2063,7 +2154,10 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured product</div>
 
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}>
+            <div
+              className="tile-title"
+              style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}
+            >
               Product of the week
             </div>
             <div className="tile-icon-orbit">🔧</div>
@@ -2151,7 +2245,10 @@ function HomeRightSidebar() {
           <div className="tile-label">Featured member</div>
 
           <div className="tile-title-row">
-            <div className="tile-title" style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}>
+            <div
+              className="tile-title"
+              style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}
+            >
               Spotlight
             </div>
             <div className="tile-icon-orbit">🤝</div>
