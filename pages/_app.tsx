@@ -17,7 +17,7 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // wraps ONLY page content (and now also mobileMain), NOT the whole AppLayout
+  // wraps ONLY page content (and now also mobileMain / sidebars)
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -73,52 +73,75 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
   }, [isPublicRoute, router.pathname]);
 
-  // ✅ Public routes: no AppLayout (as before)
-  if (isPublicRoute) return <Component {...pageProps} />;
+  if (checkingAuth) {
+    return (
+      <div className="page">
+        <div className="bg-layer" />
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#e5e7eb",
+            fontSize: 16,
+          }}
+        >
+          Checking access…
+        </div>
+      </div>
+    );
+  }
 
-  // ✅ If not allowed and not public, keep behavior (as before)
-  if (!allowed && !checkingAuth) return null;
+  if (!allowed && !isPublicRoute) return null;
+  if (isPublicRoute) return <Component {...pageProps} />;
 
   const lp = Component.layoutProps ?? {};
 
-  // ✅ Wrap ONLY the page content so AppLayout (and sidebars) never remount
+  /* ----------------------------------------
+     Wrap page content ONCE (no remounts)
+     ---------------------------------------- */
   const pageInner = <Component {...pageProps} />;
   const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
 
-  // ✅ IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
+  /* ----------------------------------------
+     Wrap mobileMain so it shares context
+     ---------------------------------------- */
   const mobileMain = lp.mobileMain
     ? lp.wrap
       ? lp.wrap(lp.mobileMain)
       : lp.mobileMain
     : undefined;
 
-  // ✅ NEW: show loading screen INSIDE the layout middle area
-  const middleWhenLoading = (
-    <div
-      style={{
-        minHeight: "calc(100vh - 80px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#e5e7eb",
-        fontSize: 16,
-      }}
-    >
-      Checking access…
-    </div>
-  );
+  /* ----------------------------------------
+     ✅ CRITICAL FIX:
+     Wrap left/right sidebars too
+     ---------------------------------------- */
+  const leftNode =
+    lp.left !== undefined
+      ? lp.wrap
+        ? lp.wrap(lp.left as React.ReactNode)
+        : lp.left
+      : undefined;
+
+  const rightNode =
+    lp.right !== undefined
+      ? lp.wrap
+        ? lp.wrap(lp.right as React.ReactNode)
+        : lp.right
+      : undefined;
 
   return (
     <AppLayout
       variant={lp.variant ?? "three"}
-      left={lp.left}
-      right={lp.right}
+      left={leftNode}
+      right={rightNode}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
       mobileMain={mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
     >
-      {checkingAuth ? middleWhenLoading : page}
+      {page}
     </AppLayout>
   );
 }
