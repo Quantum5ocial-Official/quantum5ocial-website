@@ -759,52 +759,14 @@ function JobsMiddle() {
   );
 }
 
-function JobsTwoColumnShell() {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 280px", // ⬅️ divider column
-        alignItems: "stretch", // ⬅️ IMPORTANT: full height
-      }}
-    >
-      {/* MIDDLE */}
-      <div style={{ paddingRight: 16 }}>
-        <JobsMiddle />
-      </div>
-
-      {/* DIVIDER */}
-      <div
-        style={{
-          background: "rgba(148,163,184,0.35)",
-          width: 1,
-        }}
-      />
-
-      {/* RIGHT (FILTERS) */}
-      <div
-        style={{
-          paddingLeft: 16,
-          position: "sticky",
-          top: 16,
-          alignSelf: "start",
-        }}
-      >
-        <JobsRightSidebar />
-      </div>
-    </div>
-  );
-}
-
 export default function JobsIndexPage() {
-  return <JobsTwoColumnShell />;
+  return <JobsMiddle />;
 }
 
-// ✅ Tell _app.tsx to use a left-only global layout,
-// and wrap the whole page with JobsProvider so middle+right share state.
+// ✅ Use REAL 3-col layout on desktop: LeftSidebar + Middle + Right Filters.
+// ✅ On mobile (middle-only), your AppLayout right drawer will show these filters.
 (JobsIndexPage as any).layoutProps = {
-  variant: "two-left",
-  right: null,
+  variant: "three",
+  right: <JobsRightSidebar />,
   wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
-  mobileMain: <JobsMiddle />, // ✅ now it WILL be wrapped via _app.tsx
 };
