@@ -256,8 +256,7 @@ function JobsProvider({ children }: { children: ReactNode }) {
     };
 
     return jobs.filter((job) => {
-      if (employmentFilter !== "All" && job.employment_type !== employmentFilter)
-        return false;
+      if (employmentFilter !== "All" && job.employment_type !== employmentFilter) return false;
       if (remoteFilter !== "All" && job.remote_type !== remoteFilter) return false;
 
       if (!matchesCategory(technologyFilter, job.technology_type)) return false;
@@ -271,9 +270,9 @@ function JobsProvider({ children }: { children: ReactNode }) {
       const haystack = (
         `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${
           job.short_description || ""
-        } ${job.keywords || ""} ${job.technology_type || ""} ${
-          job.quantum_domain || ""
-        } ${job.role_track || ""} ${job.seniority_level || ""}`
+        } ${job.keywords || ""} ${job.technology_type || ""} ${job.quantum_domain || ""} ${
+          job.role_track || ""
+        } ${job.seniority_level || ""}`
       ).toLowerCase();
 
       return haystack.includes(q);
@@ -470,22 +469,60 @@ function JobsRightSidebar() {
   );
 }
 
+/** ✅ Mobile detector (same pattern as products) */
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+/** ✅ Drawer ONLY on mobile (returns null on desktop) */
 function JobsFiltersDrawer() {
+  const isMobile = useIsMobile(820);
   const [open, setOpen] = useState(false);
 
-  // ESC closes
   useEffect(() => {
     if (!open) return;
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prev;
+    };
   }, [open]);
+
+  if (!isMobile) return null;
 
   return (
     <>
-      {/* ✅ Right-edge tab (same style/position as the left drawer tab) */}
+      {/* right-edge tab */}
       <button
         type="button"
         aria-label={open ? "Close filters" : "Open filters"}
@@ -493,11 +530,11 @@ function JobsFiltersDrawer() {
         style={{
           position: "fixed",
           right: 0,
-          top: "80%",
+          top: "62%",
           transform: "translateY(-50%)",
           zIndex: 60,
           width: 30,
-          height: 80,
+          height: 86,
           border: "1px solid rgba(148,163,184,0.35)",
           borderRight: "none",
           borderTopLeftRadius: 16,
@@ -561,7 +598,6 @@ function JobsFiltersDrawer() {
           padding: 12,
         }}
       >
-        {/* optional tiny header */}
         <div
           style={{
             display: "flex",
@@ -577,16 +613,8 @@ function JobsFiltersDrawer() {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            style={{
-              fontSize: 12,
-              padding: "7px 10px",
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background: "rgba(2,6,23,0.22)",
-              color: "rgba(226,232,240,0.92)",
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
+            className="nav-ghost-btn"
+            style={{ padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 }}
           >
             Close
           </button>
@@ -601,16 +629,17 @@ function JobsFiltersDrawer() {
 function JobsMiddle() {
   const router = useRouter();
   const ctx = useJobsCtx();
+  const isMobile = useIsMobile(820);
 
   return (
     <section className="section">
+      {/* ✅ Drawer ONLY in mobile main */}
+      {isMobile && <JobsFiltersDrawer />}
+
       <div className="jobs-main-header">
         <div className="section-header">
           <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", alignItems: "center", gap: 10 }}
-            >
+            <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
               Quantum Jobs Universe
               {!ctx.loading && !ctx.error && (
                 <span
@@ -628,16 +657,11 @@ function JobsMiddle() {
               )}
             </div>
             <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
-              Browse internships, PhD positions, postdocs, and industry roles across
-              labs and companies.
+              Browse internships, PhD positions, postdocs, and industry roles across labs and companies.
             </div>
           </div>
 
-          <button
-            className="nav-cta"
-            style={{ cursor: "pointer" }}
-            onClick={() => router.push("/jobs/new")}
-          >
+          <button className="nav-cta" style={{ cursor: "pointer" }} onClick={() => router.push("/jobs/new")}>
             Post a job
           </button>
         </div>
@@ -648,8 +672,7 @@ function JobsMiddle() {
               width: "100%",
               borderRadius: 999,
               padding: "2px",
-              background:
-                "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+              background: "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
             }}
           >
             <div
@@ -685,9 +708,7 @@ function JobsMiddle() {
       {!ctx.loading && ctx.error && <p className="products-empty">{ctx.error}</p>}
 
       {!ctx.loading && !ctx.error && ctx.filteredJobs.length === 0 && (
-        <p className="products-empty">
-          No roles match your filters yet. Try broadening your search.
-        </p>
+        <p className="products-empty">No roles match your filters yet. Try broadening your search.</p>
       )}
 
       {!ctx.loading && !ctx.error && ctx.filteredJobs.length > 0 && (
@@ -699,8 +720,7 @@ function JobsMiddle() {
                 padding: 16,
                 borderRadius: 16,
                 border: "1px solid rgba(56,189,248,0.35)",
-                background:
-                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
+                background: "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
               }}
             >
               <div
@@ -737,13 +757,7 @@ function JobsMiddle() {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    textAlign: "right",
-                  }}
-                >
+                <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
                   For now based on your filters. <br />
                   Later: AI profile matching.
                 </div>
@@ -756,9 +770,7 @@ function JobsMiddle() {
                     <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
                       <div className="job-card-header">
                         <div>
-                          <div className="job-card-title">
-                            {job.title || "Untitled role"}
-                          </div>
+                          <div className="job-card-title">{job.title || "Untitled role"}</div>
                           <div className="job-card-meta">
                             {job.company_name && `${job.company_name} · `}
                             {job.location}
@@ -786,9 +798,7 @@ function JobsMiddle() {
 
                       <div className="job-card-footer">
                         <span className="job-salary">{job.salary_display || ""}</span>
-                        {job.employment_type && (
-                          <span className="job-type">{job.employment_type}</span>
-                        )}
+                        {job.employment_type && <span className="job-type">{job.employment_type}</span>}
                       </div>
                     </Link>
                   );
@@ -810,14 +820,7 @@ function JobsMiddle() {
                 />
               )}
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  marginBottom: 10,
-                }}
-              >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
                 <div>
                   <div
                     style={{
@@ -841,9 +844,7 @@ function JobsMiddle() {
                     <Link key={job.id} href={`/jobs/${job.id}`} className="job-card">
                       <div className="job-card-header">
                         <div>
-                          <div className="job-card-title">
-                            {job.title || "Untitled role"}
-                          </div>
+                          <div className="job-card-title">{job.title || "Untitled role"}</div>
                           <div className="job-card-meta">
                             {job.company_name && `${job.company_name} · `}
                             {job.location}
@@ -871,9 +872,7 @@ function JobsMiddle() {
 
                       <div className="job-card-footer">
                         <span className="job-salary">{job.salary_display || ""}</span>
-                        {job.employment_type && (
-                          <span className="job-type">{job.employment_type}</span>
-                        )}
+                        {job.employment_type && <span className="job-type">{job.employment_type}</span>}
                       </div>
                     </Link>
                   );
@@ -887,14 +886,54 @@ function JobsMiddle() {
   );
 }
 
-export default function JobsIndexPage() {
+function JobsTwoColumnShell() {
   return (
-    <JobsProvider>
-      {/* ✅ right-edge filters drawer, same style as left tab */}
-      <JobsFiltersDrawer />
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) 1px 280px",
+        alignItems: "stretch",
+      }}
+    >
+      {/* MIDDLE */}
+      <div style={{ paddingRight: 16 }}>
+        <JobsMiddle />
+      </div>
 
-      {/* ✅ page content */}
-      <JobsMiddle />
-    </JobsProvider>
+      {/* DIVIDER */}
+      <div
+        style={{
+          width: 1,
+          background: "rgba(148,163,184,0.35)",
+          position: "sticky",
+          top: 0,
+          height: "100vh",
+          alignSelf: "start",
+        }}
+      />
+
+      {/* RIGHT (DESKTOP FILTERS) */}
+      <div
+        style={{
+          paddingLeft: 16,
+          position: "sticky",
+          top: 16,
+          alignSelf: "start",
+        }}
+      >
+        <JobsRightSidebar />
+      </div>
+    </div>
   );
 }
+
+export default function JobsIndexPage() {
+  return <JobsTwoColumnShell />;
+}
+
+(JobsIndexPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+  wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
+  mobileMain: <JobsMiddle />,
+};
