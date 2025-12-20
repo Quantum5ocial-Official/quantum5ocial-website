@@ -17,8 +17,8 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // wraps ONLY page content (and now also mobileMain), NOT the whole AppLayout
-  wrap?: (children: React.ReactNode) => React.ReactNode;
+  // wraps the whole page/layout subtree (needed when right sidebar uses page context)
+  wrap?: (node: React.ReactNode) => React.ReactNode;
 };
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -98,28 +98,23 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   const lp = Component.layoutProps ?? {};
 
-  // ✅ Wrap ONLY the page content so AppLayout (and sidebars) never remount
-  const pageInner = <Component {...pageProps} />;
-  const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
-
-  // ✅ IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
-  const mobileMain = lp.mobileMain
-    ? lp.wrap
-      ? lp.wrap(lp.mobileMain)
-      : lp.mobileMain
-    : undefined;
-
-  return (
+  // Build the AppLayout tree first
+  const appTree = (
     <AppLayout
       variant={lp.variant ?? "three"}
       left={lp.left}
       right={lp.right}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
-      mobileMain={mobileMain}
+      mobileMain={lp.mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
     >
-      {page}
+      <Component {...pageProps} />
     </AppLayout>
   );
+
+  // ✅ CRITICAL FIX:
+  // If the page provides a wrapper (e.g., JobsProvider),
+  // wrap the WHOLE AppLayout subtree so `right` is inside the same context.
+  return lp.wrap ? <>{lp.wrap(appTree)}</> : appTree;
 }
