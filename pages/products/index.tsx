@@ -434,11 +434,11 @@ function ProductsFiltersDrawer() {
   style={{
     position: "fixed",
     right: 0,
-    top: "80%",              // ✅ change
+    top: "80%",
     transform: "translateY(-50%)",
     zIndex: 60,
     width: 30,
-    height: 80,              // ✅ change
+    height: 80,
     border: "1px solid rgba(148,163,184,0.35)",
     borderRight: "none",
     borderTopLeftRadius: 16,
@@ -453,6 +453,20 @@ function ProductsFiltersDrawer() {
     boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
   }}
 >
+  <span
+    aria-hidden="true"
+    style={{
+      fontSize: 22,
+      lineHeight: 1,
+      color: "rgba(226,232,240,0.95)",
+      transform: open ? "rotate(180deg)" : "none",
+      transition: "transform 160ms ease",
+      userSelect: "none",
+    }}
+  >
+    ❮
+  </span>
+</button>
 
       {/* overlay */}
       {open && (
