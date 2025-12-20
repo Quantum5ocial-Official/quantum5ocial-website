@@ -1,5 +1,5 @@
 // components/LeftSidebar.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
@@ -23,154 +23,197 @@ type MyOrgSummary = {
   logo_url: string | null;
 };
 
+type SidebarData = {
+  profile: ProfileSummary | null;
+  entangledCount: number | null;
+  savedJobsCount: number | null;
+  savedProductsCount: number | null;
+  myOrg: MyOrgSummary | null;
+  myOrgFollowersCount: number | null;
+};
+
 export default function LeftSidebar() {
-  const { user } = useSupabaseUser();
+  const { user, loading: userLoading } = useSupabaseUser();
 
+  // single state object = fewer rerenders
   const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<SidebarData>({
+    profile: null,
+    entangledCount: null,
+    savedJobsCount: null,
+    savedProductsCount: null,
+    myOrg: null,
+    myOrgFollowersCount: null,
+  });
 
-  // Fetched data
-  const [profile, setProfile] = useState<ProfileSummary | null>(null);
-  const [entangledCount, setEntangledCount] = useState<number | null>(null);
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [savedProductsCount, setSavedProductsCount] = useState<number | null>(
-    null
-  );
-  const [myOrg, setMyOrg] = useState<MyOrgSummary | null>(null);
+  // Keep a stable fallback name (don’t “jump” name mid-load)
+  const fallbackName = useMemo(() => {
+    return (
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.email?.split("@")[0] ||
+      "User"
+    );
+  }, [user?.id]); // lock to user id
 
-  // ✅ org followers count (same logic as /orgs/[slug].tsx)
-  const [myOrgFollowersCount, setMyOrgFollowersCount] = useState<number | null>(
-    null
-  );
-
-  // 🔥 Load everything internally
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
+    let alive = true;
+
+    const uid = user?.id;
+    if (!uid) {
+      // no user yet: keep sidebar frame, show skeleton
+      setLoading(true);
+      setData({
+        profile: null,
+        entangledCount: null,
+        savedJobsCount: null,
+        savedProductsCount: null,
+        myOrg: null,
+        myOrgFollowersCount: null,
+      });
+      return () => {
+        alive = false;
+      };
     }
 
     const loadAll = async () => {
+      setLoading(true);
+
       try {
-        // PROFILE
-        const { data: p } = await supabase
+        // Run “independent” queries in parallel
+        const profileQ = supabase
           .from("profiles")
           .select("*")
-          .eq("id", user.id)
+          .eq("id", uid)
           .maybeSingle();
-        setProfile((p as ProfileSummary) || null);
 
-        // ENTANGLED STATES (same definition as entangled-states page)
-        const { data: connRows, error: connErr } = await supabase
+        const connectionsQ = supabase
           .from("connections")
           .select("user_id, target_user_id, status")
           .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+          .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        if (!connErr && connRows && connRows.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              connRows.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        } else {
-          setEntangledCount(0);
-        }
-
-        // SAVED JOBS
-        const { data: savedJobs } = await supabase
+        const savedJobsQ = supabase
           .from("saved_jobs")
           .select("job_id")
-          .eq("user_id", user.id);
-        setSavedJobsCount(savedJobs?.length || 0);
+          .eq("user_id", uid);
 
-        // SAVED PRODUCTS
-        const { data: savedProducts } = await supabase
+        const savedProductsQ = supabase
           .from("saved_products")
           .select("product_id")
-          .eq("user_id", user.id);
-        setSavedProductsCount(savedProducts?.length || 0);
+          .eq("user_id", uid);
 
-        // MY ORGANIZATION (first one)
-        const { data: orgRow } = await supabase
+        const orgQ = supabase
           .from("organizations")
           .select("id, name, slug, logo_url")
-          .eq("created_by", user.id)
+          .eq("created_by", uid)
           .eq("is_active", true)
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();
 
-        if (orgRow) {
-          const org = orgRow as MyOrgSummary;
-          setMyOrg(org);
+        const [pRes, cRes, sjRes, spRes, orgRes] = await Promise.all([
+          profileQ,
+          connectionsQ,
+          savedJobsQ,
+          savedProductsQ,
+          orgQ,
+        ]);
 
-          // ✅ Followers count from org_follows (same logic as slug page)
+        const profile = (pRes.data as ProfileSummary) || null;
+
+        // entangled count
+        let entangledCount = 0;
+        if (!cRes.error && cRes.data && cRes.data.length > 0) {
+          const otherIds = Array.from(
+            new Set(
+              (cRes.data as any[]).map((c: any) =>
+                c.user_id === uid ? c.target_user_id : c.user_id
+              )
+            )
+          ).filter(Boolean);
+          entangledCount = otherIds.length;
+        }
+
+        const savedJobsCount = (sjRes.data || []).length;
+        const savedProductsCount = (spRes.data || []).length;
+
+        const myOrg = (orgRes.data as MyOrgSummary) || null;
+
+        // followers count (depends on org)
+        let myOrgFollowersCount: number | null = null;
+        if (myOrg?.id) {
           const { data: followRows, error: followErr } = await supabase
             .from("org_follows")
             .select("user_id")
-            .eq("org_id", org.id);
+            .eq("org_id", myOrg.id);
 
-          if (followErr) {
-            console.error("Error loading my org followers", followErr);
-            setMyOrgFollowersCount(0);
-          } else {
-            setMyOrgFollowersCount((followRows || []).length);
-          }
-        } else {
-          setMyOrg(null);
-          setMyOrgFollowersCount(null);
+          myOrgFollowersCount = followErr ? 0 : (followRows || []).length;
         }
+
+        if (!alive) return;
+
+        setData({
+          profile,
+          entangledCount,
+          savedJobsCount,
+          savedProductsCount,
+          myOrg,
+          myOrgFollowersCount,
+        });
       } catch (err) {
         console.error("LeftSidebar load error:", err);
+        if (!alive) return;
+        setData({
+          profile: null,
+          entangledCount: 0,
+          savedJobsCount: 0,
+          savedProductsCount: 0,
+          myOrg: null,
+          myOrgFollowersCount: null,
+        });
+      } finally {
+        if (!alive) return;
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    loadAll();
-  }, [user]);
+    void loadAll();
 
-  if (!user) return null;
+    return () => {
+      alive = false;
+    };
+  }, [user?.id]);
 
-  // Derived fields
-  const fallbackName =
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    user?.email?.split("@")[0] ||
-    "User";
+  const profile = data.profile;
 
   const fullName = profile?.full_name || fallbackName;
   const avatarUrl = profile?.avatar_url || null;
 
-  const educationLevel =
-    profile?.education_level || profile?.highest_education || "";
+  const educationLevel = profile?.education_level || profile?.highest_education || "";
   const describesYou = profile?.describes_you || "";
   const affiliation = profile?.affiliation || profile?.current_org || "";
   const city = profile?.city || "";
   const country = profile?.country || "";
 
-  const hasExtras =
-    educationLevel || describesYou || affiliation || city || country;
+  const hasExtras = educationLevel || describesYou || affiliation || city || country;
 
+  // ✅ IMPORTANT: never return null; render stable frame
   return (
     <aside
       className="layout-left sticky-col"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-      }}
+      style={{ display: "flex", flexDirection: "column", gap: 6 }}
     >
-      {/* ======================================================
-         PROFILE CARD
-      ======================================================= */}
+      {/* PROFILE CARD */}
       <Link
-        href="/profile"
+        href={user ? "/profile" : "/auth"}
         className="sidebar-card profile-sidebar-card"
-        style={{ textDecoration: "none", color: "inherit" }}
+        style={{
+          textDecoration: "none",
+          color: "inherit",
+          opacity: userLoading ? 0.9 : 1,
+          pointerEvents: user ? "auto" : "none",
+        }}
       >
         <div className="profile-sidebar-header">
           <div className="profile-sidebar-avatar-wrapper">
@@ -182,182 +225,111 @@ export default function LeftSidebar() {
               />
             ) : (
               <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {fullName.charAt(0).toUpperCase()}
+                {(fullName || "Q").charAt(0).toUpperCase()}
               </div>
             )}
           </div>
-          <div className="profile-sidebar-name">{fullName}</div>
+
+          <div className="profile-sidebar-name">
+            {loading ? "Loading…" : fullName}
+          </div>
         </div>
 
-        {hasExtras && (
-          <div className="profile-sidebar-info-block">
-            {educationLevel && (
-              <div className="profile-sidebar-info-value">
-                {educationLevel}
-              </div>
-            )}
-            {describesYou && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4 }}
-              >
-                {describesYou}
-              </div>
-            )}
-            {affiliation && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4 }}
-              >
-                {affiliation}
-              </div>
-            )}
-            {(city || country) && (
-              <div
-                className="profile-sidebar-info-value"
-                style={{ marginTop: 4, opacity: 0.9 }}
-              >
-                {[city, country].filter(Boolean).join(", ")}
-              </div>
-            )}
+        {loading ? (
+          <div className="profile-sidebar-info-block" style={{ opacity: 0.8 }}>
+            <div className="profile-sidebar-info-value"> </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
           </div>
+        ) : (
+          hasExtras && (
+            <div className="profile-sidebar-info-block">
+              {educationLevel && (
+                <div className="profile-sidebar-info-value">{educationLevel}</div>
+              )}
+              {describesYou && (
+                <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                  {describesYou}
+                </div>
+              )}
+              {affiliation && (
+                <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+                  {affiliation}
+                </div>
+              )}
+              {(city || country) && (
+                <div
+                  className="profile-sidebar-info-value"
+                  style={{ marginTop: 4, opacity: 0.9 }}
+                >
+                  {[city, country].filter(Boolean).join(", ")}
+                </div>
+              )}
+            </div>
+          )
         )}
       </Link>
 
-      {/* ======================================================
-         QUICK DASHBOARD
-      ======================================================= */}
+      {/* QUICK DASHBOARD */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link
-            href="/dashboard/entangled-states"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Entanglements</span>
-            <span style={{ opacity: 0.9 }}>{entangledCount ?? "…"}</span>
+            <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-jobs"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved jobs</span>
-            <span style={{ opacity: 0.9 }}>{savedJobsCount ?? "…"}</span>
+            <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-products"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved products</span>
-            <span style={{ opacity: 0.9 }}>{savedProductsCount ?? "…"}</span>
+            <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/ecosystem"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/ecosystem" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>My Ecosystem</span>
           </Link>
         </div>
       </div>
 
-      {/* ======================================================
-         MY ACTIVITY (new tile) — counts hardcoded to 0 for now
-      ======================================================= */}
+      {/* MY ACTIVITY */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
-
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Posts</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
-
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Questions</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
-
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Answers</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
 
-      {/* ======================================================
-         MY ORGANIZATION — conditional
-      ======================================================= */}
-      {myOrg && (
+      {/* MY ORGANIZATION */}
+      {data.myOrg && (
         <Link
-          href={`/orgs/${myOrg.slug}`}
+          href={`/orgs/${data.myOrg.slug}`}
           className="sidebar-card dashboard-sidebar-card"
           style={{ textDecoration: "none", color: "inherit" }}
         >
           <div className="dashboard-sidebar-title">My organization</div>
 
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
+          <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
             <div
               style={{
                 width: 48,
@@ -374,45 +346,25 @@ export default function LeftSidebar() {
                 fontSize: 18,
               }}
             >
-              {myOrg.logo_url ? (
+              {data.myOrg.logo_url ? (
                 <img
-                  src={myOrg.logo_url}
-                  alt={myOrg.name}
+                  src={data.myOrg.logo_url}
+                  alt={data.myOrg.name}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
-                myOrg.name.charAt(0).toUpperCase()
+                data.myOrg.name.charAt(0).toUpperCase()
               )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 500,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
-                {myOrg.name}
+              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {data.myOrg.name}
               </div>
 
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "rgba(148,163,184,0.95)",
-                  marginTop: 4,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                }}
-              >
+              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
                 <div>
-                  Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>
-                    {myOrgFollowersCount ?? "…"}
-                  </span>
+                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -424,9 +376,7 @@ export default function LeftSidebar() {
         </Link>
       )}
 
-      {/* ======================================================
-         PREMIUM CARD
-      ======================================================= */}
+      {/* PREMIUM CARD */}
       <div
         className="sidebar-card premium-sidebar-card"
         style={{
@@ -438,16 +388,7 @@ export default function LeftSidebar() {
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        {/* header row: icon + title + pill */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -468,19 +409,12 @@ export default function LeftSidebar() {
           </div>
         </div>
 
-        <div
-          style={{
-            fontSize: 12,
-            color: "rgba(248,250,252,0.9)",
-            lineHeight: 1.5,
-          }}
-        >
+        <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
           Unlock advanced analytics, reduced ads, and premium perks for your
           profile and organization.
         </div>
       </div>
 
-      {/* DIVIDER */}
       <div
         style={{
           width: "100%",
@@ -491,37 +425,15 @@ export default function LeftSidebar() {
         }}
       />
 
-      {/* ======================================================
-         SOCIALS + COPYRIGHT
-      ======================================================= */}
+      {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a
-            href="mailto:info@quantum5ocial.com"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
-            ✉️
-          </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
-            𝕏
-          </a>
-          <a
-            href="#"
-            style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}
-          >
-            in
-          </a>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 12,
-            color: "rgba(148,163,184,0.9)",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
           <img
             src="/Q5_white_bg.png"
             alt="Quantum5ocial logo"
