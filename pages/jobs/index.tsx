@@ -469,173 +469,12 @@ function JobsRightSidebar() {
   );
 }
 
-/** ✅ Mobile detector (same pattern as products) */
-function useIsMobile(maxWidth = 820) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
-    const set = () => setIsMobile(mq.matches);
-
-    set();
-
-    const anyMq = mq as any;
-    if (mq.addEventListener) {
-      mq.addEventListener("change", set);
-      return () => mq.removeEventListener("change", set);
-    }
-    if (anyMq.addListener) {
-      anyMq.addListener(set);
-      return () => anyMq.removeListener(set);
-    }
-    return;
-  }, [maxWidth]);
-
-  return isMobile;
-}
-
-/** ✅ Drawer ONLY on mobile (returns null on desktop) */
-function JobsFiltersDrawer() {
-  const isMobile = useIsMobile(820);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!isMobile) return null;
-
-  return (
-    <>
-      {/* right-edge tab */}
-      <button
-  type="button"
-  aria-label={open ? "Close filters" : "Open filters"}
-  onClick={() => setOpen((v) => !v)}
-  style={{
-    position: "fixed",
-    right: 0,
-    top: "80%",
-    transform: "translateY(-50%)",
-    zIndex: 60,
-    width: 30,
-    height: 80,
-    border: "1px solid rgba(148,163,184,0.35)",
-    borderRight: "none",
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    background: "rgba(2,6,23,0.72)",
-    backdropFilter: "blur(10px)",
-    WebkitBackdropFilter: "blur(10px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-  }}
->
-  <span
-    aria-hidden="true"
-    style={{
-      fontSize: 22,
-      lineHeight: 1,
-      color: "rgba(226,232,240,0.95)",
-      transform: open ? "rotate(180deg)" : "none",
-      transition: "transform 160ms ease",
-      userSelect: "none",
-    }}
-  >
-    ❮
-  </span>
-</button>
-
-      {/* overlay */}
-      {open && (
-        <div
-          aria-hidden="true"
-          onClick={() => setOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 55,
-            background: "rgba(0,0,0,0.45)",
-          }}
-        />
-      )}
-
-      {/* drawer */}
-      <aside
-        aria-label="Job filters drawer"
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 280,
-          zIndex: 56,
-          transform: open ? "translateX(0)" : "translateX(105%)",
-          transition: "transform 200ms ease",
-          background: "rgba(2,6,23,0.92)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          borderLeft: "1px solid rgba(148,163,184,0.35)",
-          overflowY: "auto",
-          padding: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 10,
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 13, color: "rgba(226,232,240,0.95)" }}>
-            Filters
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="nav-ghost-btn"
-            style={{ padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 }}
-          >
-            Close
-          </button>
-        </div>
-
-        <JobsRightSidebar />
-      </aside>
-    </>
-  );
-}
-
 function JobsMiddle() {
   const router = useRouter();
   const ctx = useJobsCtx();
-  const isMobile = useIsMobile(820);
 
   return (
     <section className="section">
-      {/* ✅ Drawer ONLY in mobile main */}
-      {isMobile && <JobsFiltersDrawer />}
-
       <div className="jobs-main-header">
         <div className="section-header">
           <div>
@@ -886,43 +725,76 @@ function JobsMiddle() {
   );
 }
 
+/**
+ * ✅ Desktop-only 2-column shell INSIDE the middle area.
+ * - Middle: JobsMiddle
+ * - Divider: full height
+ * - Right: JobsRightSidebar (desktop)
+ *
+ * On mobile: we render only JobsMiddle here (right filters come from AppLayout's global right drawer).
+ */
 function JobsTwoColumnShell() {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 280px",
-        alignItems: "stretch",
-      }}
-    >
-      {/* MIDDLE */}
-      <div style={{ paddingRight: 16 }}>
+    <div className="jobs-shell">
+      {/* Desktop layout */}
+      <div
+        className="jobs-shell-desktop"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 1px 280px",
+          alignItems: "stretch",
+        }}
+      >
+        <div style={{ paddingRight: 16 }}>
+          <JobsMiddle />
+        </div>
+
+        <div
+          aria-hidden="true"
+          style={{
+            width: 1,
+            background: "rgba(148,163,184,0.35)",
+            position: "sticky",
+            top: 0,
+            height: "100vh",
+            alignSelf: "start",
+          }}
+        />
+
+        <div
+          style={{
+            paddingLeft: 16,
+            position: "sticky",
+            top: 16,
+            alignSelf: "start",
+          }}
+        >
+          <JobsRightSidebar />
+        </div>
+      </div>
+
+      {/* Mobile layout (no right column here) */}
+      <div className="jobs-shell-mobile">
         <JobsMiddle />
       </div>
 
-      {/* DIVIDER */}
-      <div
-        style={{
-          width: 1,
-          background: "rgba(148,163,184,0.35)",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-          alignSelf: "start",
-        }}
-      />
+      <style jsx>{`
+        .jobs-shell-desktop {
+          display: grid;
+        }
+        .jobs-shell-mobile {
+          display: none;
+        }
 
-      {/* RIGHT (DESKTOP FILTERS) */}
-      <div
-        style={{
-          paddingLeft: 16,
-          position: "sticky",
-          top: 16,
-          alignSelf: "start",
-        }}
-      >
-        <JobsRightSidebar />
-      </div>
+        @media (max-width: 820px) {
+          .jobs-shell-desktop {
+            display: none !important;
+          }
+          .jobs-shell-mobile {
+            display: block !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -933,7 +805,8 @@ export default function JobsIndexPage() {
 
 (JobsIndexPage as any).layoutProps = {
   variant: "two-left",
-  right: null,
-  wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
-  mobileMain: <JobsMiddle />,
+  right: <JobsRightSidebar />, // ✅ AppLayout uses this as global mobile right drawer
+  wrapMain: (node: React.ReactNode) => <JobsProvider>{node}</JobsProvider>, // ✅ wraps middle+right together
+  mobileMain: <JobsMiddle />, // ✅ optional; AppLayout can use this for mobile
+  mobileRightDrawerTitle: "Filters",
 };
