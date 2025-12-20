@@ -17,7 +17,7 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // wraps the CONTENT REGION (middle + right + mobile drawers), not the whole app shell
+  // wraps ONLY page content (and now also mobileMain), NOT the whole AppLayout
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -31,7 +31,6 @@ type AppPropsWithLayout = AppProps & {
 
 export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   const router = useRouter();
-
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -74,10 +73,6 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
   }, [isPublicRoute, router.pathname]);
 
-  // public pages: no layout
-  if (isPublicRoute) return <Component {...pageProps} />;
-
-  // while checking: render nothing heavy (prevents odd remount loops)
   if (checkingAuth) {
     return (
       <div className="page">
@@ -98,13 +93,21 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     );
   }
 
-  if (!allowed) return null;
+  if (!allowed && !isPublicRoute) return null;
+  if (isPublicRoute) return <Component {...pageProps} />;
 
   const lp = Component.layoutProps ?? {};
 
-  // ✅ DO NOT wrap <Component/> here anymore.
-  // Wrapping here can cause provider separation + flicker.
-  const page = <Component {...pageProps} />;
+  // ✅ Wrap ONLY the page content so AppLayout (and sidebars) never remount
+  const pageInner = <Component {...pageProps} />;
+  const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
+
+  // ✅ IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
+  const mobileMain = lp.mobileMain
+    ? lp.wrap
+      ? lp.wrap(lp.mobileMain)
+      : lp.mobileMain
+    : undefined;
 
   return (
     <AppLayout
@@ -113,10 +116,8 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       right={lp.right}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
-      mobileMain={lp.mobileMain}
+      mobileMain={mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
-      // ✅ THIS is the key: AppLayout wraps middle+right+mobile drawers consistently
-      contentWrap={lp.wrap}
     >
       {page}
     </AppLayout>
