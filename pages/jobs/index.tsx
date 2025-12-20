@@ -470,6 +470,134 @@ function JobsRightSidebar() {
   );
 }
 
+function JobsFiltersDrawer() {
+  const [open, setOpen] = useState(false);
+
+  // ESC closes
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  return (
+    <>
+      {/* ✅ Right-edge tab (same style/position as the left drawer tab) */}
+      <button
+        type="button"
+        aria-label={open ? "Close filters" : "Open filters"}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          position: "fixed",
+          right: 0,
+          top: "80%",
+          transform: "translateY(-50%)",
+          zIndex: 60,
+          width: 30,
+          height: 80,
+          border: "1px solid rgba(148,163,184,0.35)",
+          borderRight: "none",
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+          background: "rgba(2,6,23,0.72)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: 22,
+            lineHeight: 1,
+            color: "rgba(226,232,240,0.95)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 160ms ease",
+            userSelect: "none",
+          }}
+        >
+          ❮
+        </span>
+      </button>
+
+      {/* overlay */}
+      {open && (
+        <div
+          aria-hidden="true"
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 55,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        />
+      )}
+
+      {/* drawer */}
+      <aside
+        aria-label="Job filters drawer"
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 280,
+          zIndex: 56,
+          transform: open ? "translateX(0)" : "translateX(105%)",
+          transition: "transform 200ms ease",
+          background: "rgba(2,6,23,0.92)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          borderLeft: "1px solid rgba(148,163,184,0.35)",
+          overflowY: "auto",
+          padding: 12,
+        }}
+      >
+        {/* optional tiny header */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 13, color: "rgba(226,232,240,0.95)" }}>
+            Filters
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            style={{
+              fontSize: 12,
+              padding: "7px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background: "rgba(2,6,23,0.22)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <JobsRightSidebar />
+      </aside>
+    </>
+  );
+}
+
 function JobsMiddle() {
   const router = useRouter();
   const ctx = useJobsCtx();
@@ -759,52 +887,14 @@ function JobsMiddle() {
   );
 }
 
-function JobsTwoColumnShell() {
+export default function JobsIndexPage() {
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 280px", // ⬅️ divider column
-        alignItems: "stretch", // ⬅️ IMPORTANT: full height
-      }}
-    >
-      {/* MIDDLE */}
-      <div style={{ paddingRight: 16 }}>
-        <JobsMiddle />
-      </div>
+    <JobsProvider>
+      {/* ✅ right-edge filters drawer, same style as left tab */}
+      <JobsFiltersDrawer />
 
-      {/* DIVIDER */}
-      <div
-        style={{
-          background: "rgba(148,163,184,0.35)",
-          width: 1,
-        }}
-      />
-
-      {/* RIGHT (FILTERS) */}
-      <div
-        style={{
-          paddingLeft: 16,
-          position: "sticky",
-          top: 16,
-          alignSelf: "start",
-        }}
-      >
-        <JobsRightSidebar />
-      </div>
-    </div>
+      {/* ✅ page content */}
+      <JobsMiddle />
+    </JobsProvider>
   );
 }
-
-export default function JobsIndexPage() {
-  return <JobsTwoColumnShell />;
-}
-
-// ✅ Tell _app.tsx to use a left-only global layout,
-// and wrap the whole page with JobsProvider so middle+right share state.
-(JobsIndexPage as any).layoutProps = {
-  variant: "two-left",
-  right: null,
-  wrap: (children: React.ReactNode) => <JobsProvider>{children}</JobsProvider>,
-  mobileMain: <JobsMiddle />, // ✅ now it WILL be wrapped via _app.tsx
-};
