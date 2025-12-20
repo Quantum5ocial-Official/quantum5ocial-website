@@ -283,31 +283,45 @@ function CommunityRightSidebarDrawer() {
     <>
       {/* fixed right-edge tab (mobile only) */}
       <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Open community panel"
-        style={{
-          position: "fixed",
-          right: 8,
-          top: "50%",
-          transform: "translateY(-50%)",
-          zIndex: 1200,
-          width: 42,
-          height: 42,
-          borderRadius: 999,
-          border: "1px solid rgba(148,163,184,0.35)",
-          background: "rgba(2,6,23,0.35)",
-          color: "rgba(226,232,240,0.92)",
-          cursor: "pointer",
-          fontWeight: 900,
-          boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        ▸
-      </button>
+  type="button"
+  aria-label={open ? "Close community panel" : "Open community panel"}
+  onClick={() => setOpen((v) => !v)}
+  style={{
+    position: "fixed",
+    right: 0,
+    top: "80%",
+    transform: "translateY(-50%)",
+    zIndex: 1200,
+    width: 30,
+    height: 80,
+    border: "1px solid rgba(148,163,184,0.35)",
+    borderRight: "none",
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    background: "rgba(2,6,23,0.72)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+  }}
+>
+  <span
+    aria-hidden="true"
+    style={{
+      fontSize: 22,
+      lineHeight: 1,
+      color: "rgba(226,232,240,0.95)",
+      transform: open ? "rotate(180deg)" : "none",
+      transition: "transform 160ms ease",
+      userSelect: "none",
+    }}
+  >
+    ❮
+  </span>
+</button>
 
       <RightDrawer open={open} onClose={() => setOpen(false)} title="Community">
         <CommunityRightSidebar />
