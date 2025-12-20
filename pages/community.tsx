@@ -282,7 +282,9 @@ function CommunityRightSidebarDrawer() {
   return (
     <>
       {/* fixed right-edge tab (mobile only) */}
-      <button
+      // inside CommunityRightSidebarDrawer()
+
+<button
   type="button"
   aria-label={open ? "Close community panel" : "Open community panel"}
   onClick={() => setOpen((v) => !v)}
