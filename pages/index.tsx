@@ -82,7 +82,7 @@ type PostVM = {
 };
 
 /* =========================
-   MOBILE RIGHT DRAWER (for HomeRightSidebar)
+   MOBILE RIGHT DRAWER (for HomeRightSidebar) — MOBILE ONLY
    ========================= */
 
 function RightDrawer({
@@ -111,7 +111,6 @@ function RightDrawer({
 
     window.addEventListener("keydown", onKey);
 
-    // lock background scroll
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
@@ -196,32 +195,80 @@ function RightDrawer({
   );
 }
 
+/** ✅ One mobile hook (used everywhere on this page) */
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
 export default function Home() {
   const isMobile = useIsMobile(820);
   const [rightOpen, setRightOpen] = useState(false);
 
   return (
     <>
-      {/* MOBILE: right drawer trigger (desktop unchanged) */}
+      {/* ✅ NO "Explore" button on desktop.
+          ✅ Mobile-only floating right-edge tab to open drawer. */}
       {isMobile && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-          <button
-            type="button"
-            onClick={() => setRightOpen(true)}
+        <button
+          type="button"
+          aria-label={rightOpen ? "Close explore drawer" : "Open explore drawer"}
+          onClick={() => setRightOpen(true)}
+          style={{
+            position: "fixed",
+            right: 0,
+            top: "62%",
+            transform: "translateY(-50%)",
+            zIndex: 60,
+            width: 30,
+            height: 86,
+            border: "1px solid rgba(148,163,184,0.35)",
+            borderRight: "none",
+            borderTopLeftRadius: 16,
+            borderBottomLeftRadius: 16,
+            background: "rgba(2,6,23,0.72)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+          }}
+        >
+          <span
+            aria-hidden="true"
             style={{
-              padding: "8px 12px",
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.35)",
-              background: "rgba(2,6,23,0.25)",
-              color: "rgba(226,232,240,0.92)",
-              fontSize: 13,
-              fontWeight: 800,
-              cursor: "pointer",
+              fontSize: 22,
+              lineHeight: 1,
+              color: "rgba(226,232,240,0.95)",
+              userSelect: "none",
             }}
           >
-            Explore ▸
-          </button>
-        </div>
+            ❮
+          </span>
+        </button>
       )}
 
       {/* POST + ASK PLACEHOLDERS */}
@@ -331,7 +378,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* MOBILE RIGHT DRAWER (desktop unchanged) */}
+      {/* ✅ MOBILE RIGHT DRAWER ONLY */}
       {isMobile && (
         <RightDrawer open={rightOpen} onClose={() => setRightOpen(false)} title="Explore">
           <HomeRightSidebar />
@@ -434,7 +481,6 @@ function HomeGlobalFeed() {
     setError(null);
 
     try {
-      // 1) Posts ✅ includes image_url
       const { data: postRows, error: postErr } = await supabase
         .from("posts")
         .select("id, user_id, body, created_at, image_url")
@@ -447,7 +493,6 @@ function HomeGlobalFeed() {
       const postIds = posts.map((p) => p.id);
       const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
 
-      // 2) Profiles for authors
       let profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
@@ -460,7 +505,6 @@ function HomeGlobalFeed() {
         }
       }
 
-      // 3) Likes for these posts
       let likeRows: LikeRow[] = [];
       if (postIds.length > 0) {
         const { data: likes, error: likeErr } = await supabase
@@ -471,7 +515,6 @@ function HomeGlobalFeed() {
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
-      // 4) Comments for these posts (counts only)
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -799,7 +842,6 @@ function HomeGlobalFeed() {
                     </div>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* HEADER */}
                       <div
                         style={{
                           display: "flex",
@@ -851,7 +893,6 @@ function HomeGlobalFeed() {
                         <LinkifyText text={p.body} />
                       </div>
 
-                      {/* ✅ NEW: image render */}
                       {p.image_url && (
                         <div style={{ marginTop: 10 }}>
                           <img
@@ -879,7 +920,6 @@ function HomeGlobalFeed() {
                           alignItems: "center",
                         }}
                       >
-                        {/* Like */}
                         <button
                           type="button"
                           onClick={() => toggleLike(p.id)}
@@ -907,7 +947,6 @@ function HomeGlobalFeed() {
                           <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
                         </button>
 
-                        {/* Comment */}
                         <button
                           type="button"
                           onClick={() => {
@@ -939,7 +978,6 @@ function HomeGlobalFeed() {
 
                       {isOpen && (
                         <div style={{ marginTop: 12 }}>
-                          {/* composer */}
                           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                             <div style={avatarStyle(30)}>
                               {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
@@ -975,11 +1013,7 @@ function HomeGlobalFeed() {
                                 <button
                                   type="button"
                                   onClick={() => submitComment(p.id)}
-                                  disabled={
-                                    !user ||
-                                    commentSaving[p.id] ||
-                                    !(commentDraft[p.id] || "").trim()
-                                  }
+                                  disabled={!user || commentSaving[p.id] || !(commentDraft[p.id] || "").trim()}
                                   style={{
                                     padding: "8px 14px",
                                     borderRadius: 999,
@@ -998,7 +1032,6 @@ function HomeGlobalFeed() {
                             </div>
                           </div>
 
-                          {/* comments list */}
                           <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
                             {comments.length === 0 ? (
                               <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
@@ -1082,7 +1115,6 @@ function HomeGlobalFeed() {
                   </div>
                 </div>
 
-                {/* divider */}
                 <div
                   style={{
                     height: 1,
@@ -1153,35 +1185,6 @@ function MiniIcon({ path }: { path: string }) {
   );
 }
 
-function useIsMobile(maxWidth = 520) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
-    const set = () => setIsMobile(mq.matches);
-
-    set();
-
-    const anyMq = mq as any;
-
-    if (mq.addEventListener) {
-      mq.addEventListener("change", set);
-      return () => mq.removeEventListener("change", set);
-    }
-
-    if (anyMq.addListener) {
-      anyMq.addListener(set);
-      return () => anyMq.removeListener(set);
-    }
-
-    return;
-  }, [maxWidth]);
-
-  return isMobile;
-}
-
 function HomeComposerStrip() {
   const router = useRouter();
   const { user, loading } = useSupabaseUser();
@@ -1194,7 +1197,6 @@ function HomeComposerStrip() {
   const [postSaving, setPostSaving] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
 
-  // ✅ NEW: photo state
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
   const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(null);
@@ -1208,7 +1210,6 @@ function HomeComposerStrip() {
 
   const isMobile = useIsMobile(520);
 
-  // ✅ NEW: media constraints + error
   const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5 MB
   const [mediaError, setMediaError] = useState<string | null>(null);
 
@@ -1237,7 +1238,6 @@ function HomeComposerStrip() {
     };
   }, [user, loading]);
 
-  // cleanup preview object URL
   useEffect(() => {
     return () => {
       if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
@@ -1478,7 +1478,6 @@ function HomeComposerStrip() {
       return;
     }
 
-    // ✅ type check
     if (!file.type.startsWith("image/")) {
       setMediaError("Only image files are allowed (video coming later).");
       setPostPhotoFile(null);
@@ -1486,7 +1485,6 @@ function HomeComposerStrip() {
       return;
     }
 
-    // ✅ size check (5MB)
     if (file.size > MAX_MEDIA_SIZE) {
       setMediaError("Media must be smaller than 5 MB.");
       setPostPhotoFile(null);
@@ -1507,12 +1505,10 @@ function HomeComposerStrip() {
     if (!user) return null;
     if (!postPhotoFile) return null;
 
-    // basic guard
     if (!postPhotoFile.type.startsWith("image/")) {
       throw new Error("Please choose an image file.");
     }
 
-    // ✅ enforce 5MB even if someone bypassed client checks
     if (postPhotoFile.size > MAX_MEDIA_SIZE) {
       throw new Error("Media must be smaller than 5 MB.");
     }
@@ -1526,10 +1522,7 @@ function HomeComposerStrip() {
       contentType: postPhotoFile.type,
     });
 
-    if (upErr) {
-      // This is where you'd see "Bucket not found"
-      throw upErr;
-    }
+    if (upErr) throw upErr;
 
     const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
     return data?.publicUrl || null;
@@ -1553,7 +1546,7 @@ function HomeComposerStrip() {
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
         body,
-        image_url: image_url ?? null, // ✅ NEW
+        image_url: image_url ?? null,
       });
 
       if (error) throw error;
@@ -1763,7 +1756,6 @@ function HomeComposerStrip() {
                     style={bigTextarea}
                   />
 
-                  {/* ✅ NEW: photo preview */}
                   {postPhotoPreview && (
                     <div
                       style={{
@@ -1809,7 +1801,6 @@ function HomeComposerStrip() {
                     </div>
                   )}
 
-                  {/* ✅ NEW: media error */}
                   {mediaError && (
                     <div
                       style={{
@@ -1900,14 +1891,13 @@ function HomeComposerStrip() {
             <div style={footerBar}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 {mode === "post" ? (
-                  <>
-                    {/* ✅ Media button (image only for now) */}
-                    <ActionButton
-                      icon={<MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />}
-                      label="Media"
-                      onClick={pickPhoto}
-                    />
-                  </>
+                  <ActionButton
+                    icon={
+                      <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                    }
+                    label="Media"
+                    onClick={pickPhoto}
+                  />
                 ) : (
                   <>
                     <ActionButton icon="❓" label="Add details" title="Add more context" />
@@ -1930,7 +1920,6 @@ function HomeComposerStrip() {
               </button>
             </div>
 
-            {/* ✅ hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -2327,4 +2316,7 @@ function HomeRightSidebar() {
 (Home as any).layoutProps = {
   variant: "three",
   right: <HomeRightSidebar />,
+  // ✅ Mobile: hide desktop right column and use drawer only
+  mobileMain: <Home />,
+  // Note: mobileMain here is harmless because variant "three" already uses page children as main.
 };
