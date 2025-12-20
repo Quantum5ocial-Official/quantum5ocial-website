@@ -805,8 +805,7 @@ export default function JobsIndexPage() {
 
 (JobsIndexPage as any).layoutProps = {
   variant: "two-left",
-  right: <JobsRightSidebar />, // ✅ AppLayout uses this as global mobile right drawer
-  wrapMain: (node: React.ReactNode) => <JobsProvider>{node}</JobsProvider>, // ✅ wraps middle+right together
-  mobileMain: <JobsMiddle />, // ✅ optional; AppLayout can use this for mobile
-  mobileRightDrawerTitle: "Filters",
+  right: <JobsRightSidebar />, // ✅ now inside JobsProvider
+  wrap: (node: React.ReactNode) => <JobsProvider>{node}</JobsProvider>,
+  mobileMain: <JobsMiddle />,
 };
