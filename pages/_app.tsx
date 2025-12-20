@@ -17,7 +17,7 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // wraps ONLY page content (and now also mobileMain / sidebars)
+  // ✅ wraps the "content region" ONCE inside AppLayout (middle + right + mobile drawers)
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -98,50 +98,18 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   const lp = Component.layoutProps ?? {};
 
-  /* ----------------------------------------
-     Wrap page content ONCE (no remounts)
-     ---------------------------------------- */
-  const pageInner = <Component {...pageProps} />;
-  const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
-
-  /* ----------------------------------------
-     Wrap mobileMain so it shares context
-     ---------------------------------------- */
-  const mobileMain = lp.mobileMain
-    ? lp.wrap
-      ? lp.wrap(lp.mobileMain)
-      : lp.mobileMain
-    : undefined;
-
-  /* ----------------------------------------
-     ✅ CRITICAL FIX:
-     Wrap left/right sidebars too
-     ---------------------------------------- */
-  const leftNode =
-    lp.left !== undefined
-      ? lp.wrap
-        ? lp.wrap(lp.left as React.ReactNode)
-        : lp.left
-      : undefined;
-
-  const rightNode =
-    lp.right !== undefined
-      ? lp.wrap
-        ? lp.wrap(lp.right as React.ReactNode)
-        : lp.right
-      : undefined;
-
   return (
     <AppLayout
       variant={lp.variant ?? "three"}
-      left={leftNode}
-      right={rightNode}
+      left={lp.left}
+      right={lp.right}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
-      mobileMain={mobileMain}
+      mobileMain={lp.mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
+      contentWrap={lp.wrap} // ✅ NEW: let AppLayout wrap ONCE so context is shared
     >
-      {page}
+      <Component {...pageProps} />
     </AppLayout>
   );
 }
