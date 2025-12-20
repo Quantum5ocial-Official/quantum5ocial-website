@@ -17,7 +17,7 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // ✅ wraps the WHOLE layout (AppLayout + left/middle/right + mobile drawers)
+  // wraps ONLY page content (and now also mobileMain), NOT the whole AppLayout
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -73,46 +73,52 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
   }, [isPublicRoute, router.pathname]);
 
-  if (checkingAuth) {
-    return (
-      <div className="page">
-        <div className="bg-layer" />
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#e5e7eb",
-            fontSize: 16,
-          }}
-        >
-          Checking access…
-        </div>
-      </div>
-    );
-  }
-
-  if (!allowed && !isPublicRoute) return null;
+  // ✅ Public routes: no AppLayout (as before)
   if (isPublicRoute) return <Component {...pageProps} />;
+
+  // ✅ If not allowed and not public, keep behavior (as before)
+  if (!allowed && !checkingAuth) return null;
 
   const lp = Component.layoutProps ?? {};
 
-  // ✅ Build the WHOLE layout first
-  const layout = (
+  // ✅ Wrap ONLY the page content so AppLayout (and sidebars) never remount
+  const pageInner = <Component {...pageProps} />;
+  const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
+
+  // ✅ IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
+  const mobileMain = lp.mobileMain
+    ? lp.wrap
+      ? lp.wrap(lp.mobileMain)
+      : lp.mobileMain
+    : undefined;
+
+  // ✅ NEW: show loading screen INSIDE the layout middle area
+  const middleWhenLoading = (
+    <div
+      style={{
+        minHeight: "calc(100vh - 80px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#e5e7eb",
+        fontSize: 16,
+      }}
+    >
+      Checking access…
+    </div>
+  );
+
+  return (
     <AppLayout
       variant={lp.variant ?? "three"}
       left={lp.left}
       right={lp.right}
       showNavbar={lp.showNavbar ?? true}
       mobileMode={lp.mobileMode ?? "middle-only"}
-      mobileMain={lp.mobileMain}
+      mobileMain={mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
     >
-      <Component {...pageProps} />
+      {checkingAuth ? middleWhenLoading : page}
     </AppLayout>
   );
-
-  // ✅ Now wrap the WHOLE layout (so right column + drawers are inside the provider)
-  return lp.wrap ? <>{lp.wrap(layout)}</> : layout;
 }
