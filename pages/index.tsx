@@ -232,43 +232,45 @@ export default function Home() {
           ✅ Mobile-only floating right-edge tab to open drawer. */}
       {isMobile && (
         <button
-          type="button"
-          aria-label={rightOpen ? "Close explore drawer" : "Open explore drawer"}
-          onClick={() => setRightOpen(true)}
-          style={{
-            position: "fixed",
-            right: 0,
-            top: "62%",
-            transform: "translateY(-50%)",
-            zIndex: 60,
-            width: 30,
-            height: 86,
-            border: "1px solid rgba(148,163,184,0.35)",
-            borderRight: "none",
-            borderTopLeftRadius: 16,
-            borderBottomLeftRadius: 16,
-            background: "rgba(2,6,23,0.72)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-          }}
-        >
-          <span
-            aria-hidden="true"
-            style={{
-              fontSize: 22,
-              lineHeight: 1,
-              color: "rgba(226,232,240,0.95)",
-              userSelect: "none",
-            }}
-          >
-            ❮
-          </span>
-        </button>
+  type="button"
+  aria-label={rightOpen ? "Close explore drawer" : "Open explore drawer"}
+  onClick={() => setRightOpen((v) => !v)}
+  style={{
+    position: "fixed",
+    right: 0,
+    top: "80%",
+    transform: "translateY(-50%)",
+    zIndex: 60,
+    width: 30,
+    height: 80,
+    border: "1px solid rgba(148,163,184,0.35)",
+    borderRight: "none",
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
+    background: "rgba(2,6,23,0.72)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+  }}
+>
+  <span
+    aria-hidden="true"
+    style={{
+      fontSize: 22,
+      lineHeight: 1,
+      color: "rgba(226,232,240,0.95)",
+      transform: rightOpen ? "rotate(180deg)" : "none",
+      transition: "transform 160ms ease",
+      userSelect: "none",
+    }}
+  >
+    ❮
+  </span>
+</button>
       )}
 
       {/* POST + ASK PLACEHOLDERS */}
