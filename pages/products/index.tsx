@@ -372,111 +372,6 @@ function ProductsProvider({ children }: { children: ReactNode }) {
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;
 }
 
-function useIsMobile(maxWidth = 820) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
-    const set = () => setIsMobile(mq.matches);
-
-    set();
-
-    const anyMq = mq as any;
-    if (mq.addEventListener) {
-      mq.addEventListener("change", set);
-      return () => mq.removeEventListener("change", set);
-    }
-    if (anyMq.addListener) {
-      anyMq.addListener(set);
-      return () => anyMq.removeListener(set);
-    }
-    return;
-  }, [maxWidth]);
-
-  return isMobile;
-}
-
-function RightDrawer({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title?: string;
-  children: ReactNode;
-}) {
-  if (!open) return null;
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1200,
-        background: "rgba(2,6,23,0.62)",
-        backdropFilter: "blur(8px)",
-      }}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          right: 0,
-          height: "100%",
-          width: "min(92vw, 360px)",
-          background: "rgba(15,23,42,0.98)",
-          borderLeft: "1px solid rgba(148,163,184,0.18)",
-          boxShadow: "-24px 0 80px rgba(0,0,0,0.55)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "12px 14px",
-            borderBottom: "1px solid rgba(148,163,184,0.14)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 14 }}>{title || "Filters"}</div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.18)",
-              background: "rgba(2,6,23,0.2)",
-              color: "rgba(226,232,240,0.92)",
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div style={{ padding: 14, overflowY: "auto" }}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function ProductsRightSidebar() {
   const ctx = useProductsCtx();
 
@@ -596,28 +491,145 @@ function ProductsRightSidebar() {
   );
 }
 
+function ProductsFiltersDrawer() {
+  const [open, setOpen] = useState(false);
+
+  // ESC closes
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  return (
+    <>
+      {/* ✅ Right-edge tab */}
+      <button
+        type="button"
+        aria-label={open ? "Close filters" : "Open filters"}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          position: "fixed",
+          right: 0,
+          top: "80%",
+          transform: "translateY(-50%)",
+          zIndex: 60,
+          width: 30,
+          height: 80,
+          border: "1px solid rgba(148,163,184,0.35)",
+          borderRight: "none",
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+          background: "rgba(2,6,23,0.72)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: 22,
+            lineHeight: 1,
+            color: "rgba(226,232,240,0.95)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 160ms ease",
+            userSelect: "none",
+          }}
+        >
+          ❮
+        </span>
+      </button>
+
+      {/* overlay */}
+      {open && (
+        <div
+          aria-hidden="true"
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 55,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        />
+      )}
+
+      {/* drawer */}
+      <aside
+        aria-label="Product filters drawer"
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 280,
+          zIndex: 56,
+          transform: open ? "translateX(0)" : "translateX(105%)",
+          transition: "transform 200ms ease",
+          background: "rgba(2,6,23,0.92)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          borderLeft: "1px solid rgba(148,163,184,0.35)",
+          overflowY: "auto",
+          padding: 12,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 13, color: "rgba(226,232,240,0.95)" }}>
+            Filters
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            style={{
+              fontSize: 12,
+              padding: "7px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background: "rgba(2,6,23,0.22)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <ProductsRightSidebar />
+      </aside>
+    </>
+  );
+}
+
 function ProductsMiddle() {
   const router = useRouter();
   const ctx = useProductsCtx();
 
-  const isMobile = useIsMobile(820);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
   return (
     <section className="section">
-      {/* ✅ Mobile-only right drawer for filters */}
-      {isMobile && (
-        <RightDrawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
-          <ProductsRightSidebar />
-        </RightDrawer>
-      )}
-
       <div className="jobs-main-header">
         <div className="section-header">
           <div>
             <div
               className="section-title"
-              style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+              style={{ display: "flex", alignItems: "center", gap: 10 }}
             >
               Quantum Marketplace
               {!ctx.loadingProducts && !ctx.error && (
@@ -635,33 +647,18 @@ function ProductsMiddle() {
                 </span>
               )}
             </div>
-
             <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
               Browse quantum hardware, software, and services from startups, labs, and companies.
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {/* ✅ Mobile filter button */}
-            {isMobile && (
-              <button
-                type="button"
-                className="nav-ghost-btn"
-                style={{ cursor: "pointer" }}
-                onClick={() => setFiltersOpen(true)}
-              >
-                Filters ▸
-              </button>
-            )}
-
-            <button
-              className="nav-cta"
-              style={{ cursor: "pointer" }}
-              onClick={() => router.push("/products/new")}
-            >
-              List your product
-            </button>
-          </div>
+          <button
+            className="nav-cta"
+            style={{ cursor: "pointer" }}
+            onClick={() => router.push("/products/new")}
+          >
+            List your product
+          </button>
         </div>
 
         <div className="jobs-main-search">
@@ -934,7 +931,7 @@ function ProductsTwoColumnShell() {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 280px", // ✅ right width = left sidebar width
+        gridTemplateColumns: "minmax(0, 1fr) 1px 280px",
         alignItems: "stretch",
       }}
     >
@@ -943,7 +940,7 @@ function ProductsTwoColumnShell() {
         <ProductsMiddle />
       </div>
 
-      {/* FULL-HEIGHT DIVIDER (viewport height) */}
+      {/* FULL-HEIGHT DIVIDER */}
       <div
         style={{
           width: 1,
@@ -971,15 +968,21 @@ function ProductsTwoColumnShell() {
 }
 
 export default function ProductsIndexPage() {
-  return <ProductsTwoColumnShell />;
+  // ✅ Same “Jobs” pattern:
+  // - Provider wraps page
+  // - Right-edge filters drawer exists (mobile use)
+  // - Middle content always visible
+  return (
+    <ProductsProvider>
+      <ProductsFiltersDrawer />
+      <ProductsTwoColumnShell />
+    </ProductsProvider>
+  );
 }
 
-// ✅ global layout: left-only; page handles middle+filters internally
-// ✅ mobile: show only the middle part (NO internal filters column)
-// ✅ wrap: provider so middle/right/mobileMain share the exact same state
+// If you still rely on AppLayout layoutProps elsewhere, you can keep this.
+// It won’t break anything even though we’re wrapping provider in-page.
 (ProductsIndexPage as any).layoutProps = {
   variant: "two-left",
   right: null,
-  wrap: (children: React.ReactNode) => <ProductsProvider>{children}</ProductsProvider>,
-  mobileMain: <ProductsMiddle />,
 };
