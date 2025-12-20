@@ -1762,5 +1762,10 @@ export default function CommunityPage() {
   variant: "two-left",
   right: null,
   wrap: (children: React.ReactNode) => <CommunityProvider>{children}</CommunityProvider>,
-  mobileMain: <CommunityMiddle />,
+  mobileMain: (
+    <>
+      <CommunityMiddle />
+      <CommunityRightSidebarDrawer />
+    </>
+  ),
 };
