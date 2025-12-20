@@ -372,6 +372,164 @@ function ProductsProvider({ children }: { children: ReactNode }) {
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>;
 }
 
+/** ✅ Mobile detector (same breakpoint as your layoutProps mobileMain usage) */
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+/** ✅ Jobs-style: fixed right-edge tab + sliding drawer (ONLY rendered on mobile) */
+function ProductsFiltersDrawer() {
+  const isMobile = useIsMobile(820);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    // lock background scroll
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!isMobile) return null;
+
+  return (
+    <>
+      {/* right-edge tab */}
+      <button
+        type="button"
+        aria-label={open ? "Close filters" : "Open filters"}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          position: "fixed",
+          right: 0,
+          top: "62%",
+          transform: "translateY(-50%)",
+          zIndex: 60,
+          width: 30,
+          height: 86,
+          border: "1px solid rgba(148,163,184,0.35)",
+          borderRight: "none",
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+          background: "rgba(2,6,23,0.72)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: 22,
+            lineHeight: 1,
+            color: "rgba(226,232,240,0.95)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 160ms ease",
+            userSelect: "none",
+          }}
+        >
+          ❮
+        </span>
+      </button>
+
+      {/* overlay */}
+      {open && (
+        <div
+          aria-hidden="true"
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 55,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        />
+      )}
+
+      {/* drawer */}
+      <aside
+        aria-label="Filters drawer"
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 280,
+          zIndex: 56,
+          transform: open ? "translateX(0)" : "translateX(105%)",
+          transition: "transform 200ms ease",
+          background: "rgba(2,6,23,0.92)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          borderLeft: "1px solid rgba(148,163,184,0.35)",
+          overflowY: "auto",
+          padding: 12,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 13, color: "rgba(226,232,240,0.95)" }}>
+            Filters
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="nav-ghost-btn"
+            style={{ padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 }}
+          >
+            Close
+          </button>
+        </div>
+
+        <ProductsRightSidebar />
+      </aside>
+    </>
+  );
+}
+
 function ProductsRightSidebar() {
   const ctx = useProductsCtx();
 
@@ -491,146 +649,20 @@ function ProductsRightSidebar() {
   );
 }
 
-function ProductsFiltersDrawer() {
-  const [open, setOpen] = useState(false);
-
-  // ESC closes
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
-
-  return (
-    <>
-      {/* ✅ Right-edge tab */}
-      <button
-        type="button"
-        aria-label={open ? "Close filters" : "Open filters"}
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          position: "fixed",
-          right: 0,
-          top: "80%",
-          transform: "translateY(-50%)",
-          zIndex: 60,
-          width: 30,
-          height: 80,
-          border: "1px solid rgba(148,163,184,0.35)",
-          borderRight: "none",
-          borderTopLeftRadius: 16,
-          borderBottomLeftRadius: 16,
-          background: "rgba(2,6,23,0.72)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-        }}
-      >
-        <span
-          aria-hidden="true"
-          style={{
-            fontSize: 22,
-            lineHeight: 1,
-            color: "rgba(226,232,240,0.95)",
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform 160ms ease",
-            userSelect: "none",
-          }}
-        >
-          ❮
-        </span>
-      </button>
-
-      {/* overlay */}
-      {open && (
-        <div
-          aria-hidden="true"
-          onClick={() => setOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 55,
-            background: "rgba(0,0,0,0.45)",
-          }}
-        />
-      )}
-
-      {/* drawer */}
-      <aside
-        aria-label="Product filters drawer"
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 280,
-          zIndex: 56,
-          transform: open ? "translateX(0)" : "translateX(105%)",
-          transition: "transform 200ms ease",
-          background: "rgba(2,6,23,0.92)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          borderLeft: "1px solid rgba(148,163,184,0.35)",
-          overflowY: "auto",
-          padding: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 10,
-          }}
-        >
-          <div style={{ fontWeight: 900, fontSize: 13, color: "rgba(226,232,240,0.95)" }}>
-            Filters
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            style={{
-              fontSize: 12,
-              padding: "7px 10px",
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background: "rgba(2,6,23,0.22)",
-              color: "rgba(226,232,240,0.92)",
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
-          >
-            Close
-          </button>
-        </div>
-
-        <ProductsRightSidebar />
-      </aside>
-    </>
-  );
-}
-
 function ProductsMiddle() {
   const router = useRouter();
   const ctx = useProductsCtx();
+  const isMobile = useIsMobile(820);
 
   return (
     <section className="section">
+      {/* ✅ IMPORTANT: Drawer ONLY on mobile, and it only renders inside mobileMain */}
+      {isMobile && <ProductsFiltersDrawer />}
+
       <div className="jobs-main-header">
         <div className="section-header">
           <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", alignItems: "center", gap: 10 }}
-            >
+            <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
               Quantum Marketplace
               {!ctx.loadingProducts && !ctx.error && (
                 <span
@@ -667,8 +699,7 @@ function ProductsMiddle() {
               width: "100%",
               borderRadius: 999,
               padding: "2px",
-              background:
-                "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+              background: "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
             }}
           >
             <div
@@ -704,9 +735,7 @@ function ProductsMiddle() {
         <div className="products-status">
           {ctx.loadingProducts
             ? "Loading products…"
-            : `${ctx.filteredProducts.length} product${
-                ctx.filteredProducts.length === 1 ? "" : "s"
-              }`}
+            : `${ctx.filteredProducts.length} product${ctx.filteredProducts.length === 1 ? "" : "s"}`}
           {ctx.loadingSaved && " · updating saved…"}
         </div>
       </div>
@@ -789,9 +818,7 @@ function ProductsMiddle() {
                         <div className="products-card-header">
                           <div>
                             <div className="products-card-name">{p.name}</div>
-                            {p.company_name && (
-                              <div className="products-card-vendor">{p.company_name}</div>
-                            )}
+                            {p.company_name && <div className="products-card-vendor">{p.company_name}</div>}
                           </div>
 
                           <button
@@ -817,9 +844,7 @@ function ProductsMiddle() {
                           {p.category && <span className="products-card-category">{p.category}</span>}
                         </div>
 
-                        <div style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>
-                          {ctx.formatStock(p)}
-                        </div>
+                        <div style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>{ctx.formatStock(p)}</div>
                       </div>
                     </Link>
                   );
@@ -882,9 +907,7 @@ function ProductsMiddle() {
                         <div className="products-card-header">
                           <div>
                             <div className="products-card-name">{p.name}</div>
-                            {p.company_name && (
-                              <div className="products-card-vendor">{p.company_name}</div>
-                            )}
+                            {p.company_name && <div className="products-card-vendor">{p.company_name}</div>}
                           </div>
 
                           <button
@@ -910,9 +933,7 @@ function ProductsMiddle() {
                           {p.category && <span className="products-card-category">{p.category}</span>}
                         </div>
 
-                        <div style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>
-                          {ctx.formatStock(p)}
-                        </div>
+                        <div style={{ marginTop: 2, fontSize: 11, color: "#9ca3af" }}>{ctx.formatStock(p)}</div>
                       </div>
                     </Link>
                   );
@@ -940,7 +961,7 @@ function ProductsTwoColumnShell() {
         <ProductsMiddle />
       </div>
 
-      {/* FULL-HEIGHT DIVIDER */}
+      {/* DIVIDER */}
       <div
         style={{
           width: 1,
@@ -952,7 +973,7 @@ function ProductsTwoColumnShell() {
         }}
       />
 
-      {/* RIGHT (FILTERS) */}
+      {/* RIGHT (DESKTOP FILTERS) */}
       <div
         style={{
           paddingLeft: 16,
@@ -968,21 +989,15 @@ function ProductsTwoColumnShell() {
 }
 
 export default function ProductsIndexPage() {
-  // ✅ Same “Jobs” pattern:
-  // - Provider wraps page
-  // - Right-edge filters drawer exists (mobile use)
-  // - Middle content always visible
-  return (
-    <ProductsProvider>
-      <ProductsFiltersDrawer />
-      <ProductsTwoColumnShell />
-    </ProductsProvider>
-  );
+  // ✅ Desktop render unchanged; mobile uses layoutProps.mobileMain instead
+  return <ProductsTwoColumnShell />;
 }
 
-// If you still rely on AppLayout layoutProps elsewhere, you can keep this.
-// It won’t break anything even though we’re wrapping provider in-page.
 (ProductsIndexPage as any).layoutProps = {
   variant: "two-left",
   right: null,
+  wrap: (children: React.ReactNode) => <ProductsProvider>{children}</ProductsProvider>,
+
+  // ✅ Mobile main page = ONLY middle content (no two-column shell)
+  mobileMain: <ProductsMiddle />,
 };
