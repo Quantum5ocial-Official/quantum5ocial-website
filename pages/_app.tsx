@@ -17,7 +17,7 @@ export type LayoutProps = {
   mobileMain?: React.ReactNode;
   wrapMiddle?: boolean;
 
-  // ✅ wraps the "content region" ONCE inside AppLayout (middle + right + mobile drawers)
+  // wraps the CONTENT REGION (middle + right + mobile drawers), not the whole app shell
   wrap?: (children: React.ReactNode) => React.ReactNode;
 };
 
@@ -31,6 +31,7 @@ type AppPropsWithLayout = AppProps & {
 
 export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   const router = useRouter();
+
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -73,6 +74,10 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
   }, [isPublicRoute, router.pathname]);
 
+  // public pages: no layout
+  if (isPublicRoute) return <Component {...pageProps} />;
+
+  // while checking: render nothing heavy (prevents odd remount loops)
   if (checkingAuth) {
     return (
       <div className="page">
@@ -93,10 +98,13 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     );
   }
 
-  if (!allowed && !isPublicRoute) return null;
-  if (isPublicRoute) return <Component {...pageProps} />;
+  if (!allowed) return null;
 
   const lp = Component.layoutProps ?? {};
+
+  // ✅ DO NOT wrap <Component/> here anymore.
+  // Wrapping here can cause provider separation + flicker.
+  const page = <Component {...pageProps} />;
 
   return (
     <AppLayout
@@ -107,9 +115,10 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       mobileMode={lp.mobileMode ?? "middle-only"}
       mobileMain={lp.mobileMain}
       wrapMiddle={lp.wrapMiddle ?? true}
-      contentWrap={lp.wrap} // ✅ NEW: let AppLayout wrap ONCE so context is shared
+      // ✅ THIS is the key: AppLayout wraps middle+right+mobile drawers consistently
+      contentWrap={lp.wrap}
     >
-      <Component {...pageProps} />
+      {page}
     </AppLayout>
   );
 }
