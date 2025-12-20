@@ -1,4 +1,4 @@
-// pages/community.tsx
+// pages/community.tsx (PART 1/3)
 import React, {
   createContext,
   useContext,
@@ -7,11 +7,16 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { useEntanglements } from "../lib/useEntanglements";
+
+/* =========================
+   TYPES
+   ========================= */
 
 // Community member type (person)
 type CommunityProfile = {
@@ -126,6 +131,191 @@ function useCommunityCtx() {
   if (!ctx) throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
   return ctx;
 }
+
+/* =========================
+   MOBILE HOOK + DRAWER
+   ========================= */
+
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+function RightDrawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    // lock background scroll
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!mounted) return null;
+  if (!open) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        background: "rgba(2,6,23,0.62)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          width: "min(420px, 92vw)",
+          height: "100%",
+          background:
+            "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.985))",
+          borderLeft: "1px solid rgba(148,163,184,0.18)",
+          boxShadow: "-24px 0 80px rgba(0,0,0,0.55)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 14px",
+            borderBottom: "1px solid rgba(148,163,184,0.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 14,
+              color: "rgba(226,232,240,0.92)",
+            }}
+          >
+            {title || "Panel"}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.18)",
+              background: "rgba(2,6,23,0.22)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: 12, overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function CommunityRightSidebarDrawer() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* fixed right-edge tab (mobile only) */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open community panel"
+        style={{
+          position: "fixed",
+          right: 8,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 1200,
+          width: 42,
+          height: 42,
+          borderRadius: 999,
+          border: "1px solid rgba(148,163,184,0.35)",
+          background: "rgba(2,6,23,0.35)",
+          color: "rgba(226,232,240,0.92)",
+          cursor: "pointer",
+          fontWeight: 900,
+          boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        ▸
+      </button>
+
+      <RightDrawer open={open} onClose={() => setOpen(false)} title="Community">
+        <CommunityRightSidebar />
+      </RightDrawer>
+    </>
+  );
+}
+// pages/community.tsx (PART 2/3)
 
 function CommunityProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseUser();
@@ -287,11 +477,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       extraFilter?: { col: string; value: any }
     ): Promise<T | null> => {
       // 1) Try featured first (ranked, then most recently featured, then newest)
-      let q = supabase
-        .from(table)
-        .select(select)
-        .eq("is_featured", true);
-
+      let q = supabase.from(table).select(select).eq("is_featured", true);
       if (extraFilter) q = q.eq(extraFilter.col, extraFilter.value);
 
       const { data: featured, error: featErr } = await q
@@ -398,7 +584,9 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
     return profiles.filter((p) => {
       const haystack = (
-        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${p.short_bio || ""} ${p.city || ""} ${p.country || ""}`
+        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${p.short_bio || ""} ${
+          p.city || ""
+        } ${p.country || ""}`
       ).toLowerCase();
       return haystack.includes(q);
     });
@@ -534,6 +722,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
   return <CommunityContext.Provider value={value}>{children}</CommunityContext.Provider>;
 }
+// pages/community.tsx (PART 3/3)
 
 function CommunityRightSidebar() {
   const router = useRouter();
@@ -978,18 +1167,6 @@ function CommunityRightSidebar() {
           </div>
         )}
       </div>
-
-      <div
-        style={{
-          marginTop: "auto",
-          paddingTop: 12,
-          borderTop: "1px solid rgba(148,163,184,0.18)",
-          fontSize: 12,
-          color: "rgba(148,163,184,0.9)",
-          textAlign: "right",
-        }}
-      >
-      </div>
     </div>
   );
 }
@@ -1157,7 +1334,14 @@ function CommunityMiddle() {
       {!communityLoading && !communityError && hasAnyCommunity && (
         <>
           {/* Browse header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              marginBottom: 10,
+            }}
+          >
             <div>
               <div
                 style={{
@@ -1170,7 +1354,9 @@ function CommunityMiddle() {
               >
                 Browse community
               </div>
-              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>Members &amp; organizations</div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
+                Members &amp; organizations
+              </div>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
               Showing {communityItems.length} match{communityItems.length === 1 ? "" : "es"}
@@ -1178,16 +1364,24 @@ function CommunityMiddle() {
           </div>
 
           {/* Mixed grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 16 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+              gap: 16,
+            }}
+          >
             {communityItems.map((item) => {
               const initial = item.name.charAt(0).toUpperCase();
               const location = [item.city, item.country].filter(Boolean).join(", ");
-              const highestEducation = item.kind === "person" ? item.highest_education || "—" : undefined;
+              const highestEducation =
+                item.kind === "person" ? item.highest_education || "—" : undefined;
 
               const isOrganization = item.kind === "organization";
               const isSelf = item.kind === "person" && user && item.id === user.id;
 
-              const isClickable = item.kind === "person" || (item.kind === "organization" && item.slug);
+              const isClickable =
+                item.kind === "person" || (item.kind === "organization" && item.slug);
 
               return (
                 <div
@@ -1207,7 +1401,8 @@ function CommunityMiddle() {
                       ? undefined
                       : () => {
                           if (item.kind === "person") router.push(`/profile/${item.id}`);
-                          else if (item.kind === "organization" && item.slug) router.push(`/orgs/${item.slug}`);
+                          else if (item.kind === "organization" && item.slug)
+                            router.push(`/orgs/${item.slug}`);
                         }
                   }
                 >
@@ -1236,7 +1431,12 @@ function CommunityMiddle() {
                           <img
                             src={item.avatar_url}
                             alt={item.name}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
                           />
                         ) : (
                           <span>{initial}</span>
@@ -1247,7 +1447,11 @@ function CommunityMiddle() {
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                           <div
                             className="card-title"
-                            style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                            style={{
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
                           >
                             {item.name}
                           </div>
@@ -1303,7 +1507,15 @@ function CommunityMiddle() {
                         </div>
                       )}
 
-                      <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.4, maxHeight: 60, overflow: "hidden" }}>
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: 12,
+                          lineHeight: 1.4,
+                          maxHeight: 60,
+                          overflow: "hidden",
+                        }}
+                      >
                         {item.short_bio}
                       </div>
                     </div>
@@ -1529,12 +1741,23 @@ function CommunityTwoColumnShell() {
 }
 
 export default function CommunityPage() {
-  return <CommunityTwoColumnShell />;
+  const isMobile = useIsMobile(820);
+
+  // desktop: unchanged (shows right sidebar normally)
+  if (!isMobile) return <CommunityTwoColumnShell />;
+
+  // mobile: only middle + right drawer
+  return (
+    <>
+      <CommunityMiddle />
+      <CommunityRightSidebarDrawer />
+    </>
+  );
 }
 
 // ✅ global layout: left-only
 // ✅ wrap so mobileMain also has context
-// ✅ mobile: show only middle
+// ✅ mobileMain remains middle (drawer is inside the page)
 (CommunityPage as any).layoutProps = {
   variant: "two-left",
   right: null,
