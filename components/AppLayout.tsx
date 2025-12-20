@@ -22,15 +22,6 @@ type AppLayoutProps = {
   mobileMode?: "middle-only" | "keep-columns";
   mobileMain?: ReactNode;
   wrapMiddle?: boolean;
-
-  /**
-   * ✅ NEW:
-   * Wrap the "content region" ONCE so Middle + Right (and mobile right drawer)
-   * share the same provider instance (e.g., JobsProvider).
-   *
-   * IMPORTANT: Do NOT call this twice on different subtrees.
-   */
-  contentWrap?: (children: ReactNode) => ReactNode;
 };
 
 export default function AppLayout({
@@ -42,15 +33,11 @@ export default function AppLayout({
   mobileMode = "middle-only",
   mobileMain,
   wrapMiddle = true,
-  contentWrap,
 }: AppLayoutProps) {
   const [isMobile, setIsMobile] = useState(false);
 
   // ✅ mobile left drawer (ONLY used in mobile middle-only mode)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
-
-  // ✅ mobile right drawer (ONLY used in mobile middle-only mode)
-  const [mobileRightOpen, setMobileRightOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -60,26 +47,20 @@ export default function AppLayout({
     return () => window.removeEventListener("resize", handle);
   }, []);
 
-  // Close drawers when switching out of mobile or out of middle-only mode
+  // Close drawer when switching out of mobile or out of middle-only mode
   useEffect(() => {
-    if (!isMobile || mobileMode !== "middle-only") {
-      setMobileLeftOpen(false);
-      setMobileRightOpen(false);
-    }
+    if (!isMobile || mobileMode !== "middle-only") setMobileLeftOpen(false);
   }, [isMobile, mobileMode]);
 
-  // ESC to close (mobile drawers only)
+  // ESC to close (mobile drawer only)
   useEffect(() => {
-    if (!mobileLeftOpen && !mobileRightOpen) return;
+    if (!mobileLeftOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setMobileLeftOpen(false);
-        setMobileRightOpen(false);
-      }
+      if (e.key === "Escape") setMobileLeftOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mobileLeftOpen, mobileRightOpen]);
+  }, [mobileLeftOpen]);
 
   const resolvedLeft = useMemo(() => {
     if (left === undefined) return <LeftSidebar />;
@@ -150,14 +131,8 @@ export default function AppLayout({
     variant !== "center" &&
     resolvedLeft !== null;
 
-  const canOpenMobileRightDrawer =
-    hideSidebarsOnMobile && variant === "three" && resolvedRight !== null;
-
   const mainContent =
     hideSidebarsOnMobile && mobileMain !== undefined ? mobileMain : children;
-
-  // ✅ Wrap helper (MUST be applied ONCE to the combined subtree)
-  const wrapOnce = (node: ReactNode) => (contentWrap ? contentWrap(node) : node);
 
   return (
     <>
@@ -165,16 +140,13 @@ export default function AppLayout({
       <div className="page">
         {showNavbar && <Navbar />}
 
-        {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer (NOT wrapped; doesn't need JobsProvider) */}
+        {/* ✅ MOBILE: left-edge mid-screen arrow tab + drawer */}
         {canOpenMobileLeftDrawer && (
           <>
             <button
               type="button"
               aria-label={mobileLeftOpen ? "Close sidebar" : "Open sidebar"}
-              onClick={() => {
-                setMobileLeftOpen((v) => !v);
-                setMobileRightOpen(false); // keep one open
-              }}
+              onClick={() => setMobileLeftOpen((v) => !v)}
               style={{
                 position: "fixed",
                 left: 0,
@@ -248,128 +220,40 @@ export default function AppLayout({
           </>
         )}
 
-        {/* ✅ EVERYTHING THAT MUST SHARE THE SAME PROVIDER GOES INSIDE wrapOnce(...) */}
-        {wrapOnce(
-          <>
-            {/* ✅ MOBILE: right-edge drawer MUST be inside the SAME provider as the middle */}
-            {canOpenMobileRightDrawer && (
-              <>
-                <button
-                  type="button"
-                  aria-label={mobileRightOpen ? "Close panel" : "Open panel"}
-                  onClick={() => {
-                    setMobileRightOpen((v) => !v);
-                    setMobileLeftOpen(false); // keep one open
-                  }}
-                  style={{
-                    position: "fixed",
-                    right: 0,
-                    top: "80%",
-                    transform: "translateY(-50%)",
-                    zIndex: 60,
-                    width: 30,
-                    height: 80,
-                    border: "1px solid rgba(148,163,184,0.35)",
-                    borderRight: "none",
-                    borderTopLeftRadius: 16,
-                    borderBottomLeftRadius: 16,
-                    background: "rgba(2,6,23,0.72)",
-                    backdropFilter: "blur(10px)",
-                    WebkitBackdropFilter: "blur(10px)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-                  }}
-                >
-                  <span
-                    aria-hidden="true"
-                    style={{
-                      fontSize: 22,
-                      lineHeight: 1,
-                      color: "rgba(226,232,240,0.95)",
-                      transform: mobileRightOpen ? "rotate(180deg)" : "none",
-                      transition: "transform 160ms ease",
-                      userSelect: "none",
-                    }}
-                  >
-                    ❮
-                  </span>
-                </button>
+        <main
+          className="layout-3col"
+          style={{
+            display: "grid",
+            gridTemplateColumns,
+            gap: 24,
+            alignItems: "start",
+          }}
+        >
+          {showLeft && (
+            <>
+              {resolvedLeft}
+              {useLeftInjectedDivider && <Divider />}
+            </>
+          )}
 
-                {mobileRightOpen && (
-                  <div
-                    aria-hidden="true"
-                    onClick={() => setMobileRightOpen(false)}
-                    style={{
-                      position: "fixed",
-                      inset: 0,
-                      zIndex: 55,
-                      background: "rgba(0,0,0,0.45)",
-                    }}
-                  />
-                )}
+          {wrapMiddle ? (
+            <section className="layout-main">{mainContent}</section>
+          ) : (
+            <>{mainContent}</>
+          )}
 
-                <aside
-                  aria-label="Right panel drawer"
-                  style={{
-                    position: "fixed",
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    width: 280,
-                    zIndex: 56,
-                    transform: mobileRightOpen ? "translateX(0)" : "translateX(105%)",
-                    transition: "transform 200ms ease",
-                    background: "rgba(2,6,23,0.92)",
-                    backdropFilter: "blur(14px)",
-                    WebkitBackdropFilter: "blur(14px)",
-                    borderLeft: "1px solid rgba(148,163,184,0.35)",
-                    overflowY: "auto",
-                  }}
-                >
-                  {resolvedRight}
-                </aside>
-              </>
-            )}
-
-            <main
-              className="layout-3col"
-              style={{
-                display: "grid",
-                gridTemplateColumns,
-                gap: 24,
-                alignItems: "start",
-              }}
-            >
-              {showLeft && (
-                <>
-                  {resolvedLeft}
-                  {useLeftInjectedDivider && <Divider />}
-                </>
-              )}
-
-              {wrapMiddle ? (
-                <section className="layout-main">{mainContent}</section>
-              ) : (
-                <>{mainContent}</>
-              )}
-
-              {showRight && (
-                <>
-                  {useRightInjectedDivider && <Divider />}
-                  <aside
-                    className="layout-right sticky-col"
-                    style={{ display: "flex", flexDirection: "column" }}
-                  >
-                    {resolvedRight}
-                  </aside>
-                </>
-              )}
-            </main>
-          </>
-        )}
+          {showRight && (
+            <>
+              {useRightInjectedDivider && <Divider />}
+              <aside
+                className="layout-right sticky-col"
+                style={{ display: "flex", flexDirection: "column" }}
+              >
+                {resolvedRight}
+              </aside>
+            </>
+          )}
+        </main>
 
         {/* ✅ GLOBAL FLOATING MESSAGES DOCK */}
         <FloatingMessagesDock />
@@ -484,10 +368,10 @@ function FloatingMessagesDock() {
       .join(" · ");
 
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
-    const el = listRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
-  };
+  const el = listRef.current;
+  if (!el) return;
+  el.scrollTo({ top: el.scrollHeight, behavior });
+};
 
   const measureNearBottom = () => {
     const el = listRef.current;
@@ -543,6 +427,7 @@ function FloatingMessagesDock() {
         unread_count: Number(r.unread_count || 0),
       }));
 
+      // newest conversation at top
       rows.sort((a, b) =>
         (b.last_created_at || "").localeCompare(a.last_created_at || "")
       );
@@ -585,16 +470,19 @@ function FloatingMessagesDock() {
 
       if (error) throw error;
 
+      // ✅ IMPORTANT: tell the layout-effect to scroll after paint
       setMessages(((data || []) as any[]) as MessageRow[]);
 
-      requestAnimationFrame(() => {
-        scrollToBottom("auto");
-        setTimeout(() => scrollToBottom("auto"), 60);
-      });
+// ✅ ALWAYS open at bottom (newest) — same as ThreadPage
+requestAnimationFrame(() => {
+  scrollToBottom("auto");
+  setTimeout(() => scrollToBottom("auto"), 60);
+});
 
-      setTimeout(() => {
-        void markThreadRead(threadId);
-      }, 120);
+// ✅ let the UI finish scrolling first, then mark read (which refreshes inbox)
+setTimeout(() => {
+  void markThreadRead(threadId);
+}, 120);
     } catch (e) {
       console.warn("loadThreadMessages error", e);
       setMessages([]);
@@ -623,20 +511,22 @@ function FloatingMessagesDock() {
       if (error) throw error;
 
       if (data) {
+        // ✅ force scroll after paint
         setMessages((prev) => {
-          const exists = prev.some((x) => x.id === (data as any).id);
-          return exists ? prev : [...prev, data as any as MessageRow];
-        });
+  const exists = prev.some((x) => x.id === (data as any).id);
+  return exists ? prev : [...prev, data as any as MessageRow];
+});
 
-        setDraft("");
+setDraft("");
 
-        requestAnimationFrame(() => {
-          scrollToBottom("smooth");
-          setTimeout(() => scrollToBottom("smooth"), 60);
-        });
+// ✅ after sending, always go bottom — same as ThreadPage
+requestAnimationFrame(() => {
+  scrollToBottom("smooth");
+  setTimeout(() => scrollToBottom("smooth"), 60);
+});
 
-        await loadInbox();
-        await refreshTotalUnreadClamped();
+await loadInbox();
+await refreshTotalUnreadClamped();
       }
     } catch (e: any) {
       alert(e?.message || "Failed to send.");
@@ -715,7 +605,9 @@ function FloatingMessagesDock() {
   const filteredEntangled = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return entangled;
-    return entangled.filter((p) => (p.full_name || "").toLowerCase().includes(q));
+    return entangled.filter((p) =>
+      (p.full_name || "").toLowerCase().includes(q)
+    );
   }, [entangled, search]);
 
   useEffect(() => {
@@ -732,6 +624,7 @@ function FloatingMessagesDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid]);
 
+  // realtime: new dm_messages (badge + inbox refresh)
   useEffect(() => {
     if (!uid) return;
 
@@ -743,30 +636,37 @@ function FloatingMessagesDock() {
         async (payload) => {
           const row = payload.new as any as MessageRow;
 
+          // incoming only
           if (row.sender_id === uid) return;
 
+          // badge increment immediately
           setTotalUnread((prev) => prev + 1);
 
+          // if currently viewing that thread, append + mark read
           if (open && activeThreadId && row.thread_id === activeThreadId) {
             setMessages((prev) => {
               const exists = prev.some((x) => x.id === row.id);
               return exists ? prev : [...prev, row];
             });
 
+            // ✅ only scroll if user is already near-bottom
             if (isNearBottomRef.current) {
-              requestAnimationFrame(() => {
-                scrollToBottom("auto");
-                setTimeout(() => scrollToBottom("auto"), 40);
-              });
-            }
+  requestAnimationFrame(() => {
+    scrollToBottom("auto");
+    setTimeout(() => scrollToBottom("auto"), 40);
+  });
+}
 
             try {
-              await supabase.rpc("dm_mark_thread_read", { p_thread_id: activeThreadId });
+              await supabase.rpc("dm_mark_thread_read", {
+                p_thread_id: activeThreadId,
+              });
             } catch {
               // ignore
             }
           }
 
+          // keep inbox ordering + unread highlights accurate whenever dock is open
           if (open) {
             await loadInbox();
             await refreshTotalUnreadClamped();
@@ -848,14 +748,7 @@ function FloatingMessagesDock() {
           overflow: "visible",
         }}
       >
-        <div
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 14 }}>💬</span>
           <span style={{ fontSize: 13 }}>Messages</span>
 
@@ -1336,8 +1229,56 @@ function FloatingMessagesDock() {
 
             <div style={{ height: 10 }} />
 
-            <div style={{ opacity: 0.85, fontSize: 13 }}>
-              (Modal list unchanged — kept in your file.)
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 420, overflowY: "auto" }}>
+              {filteredEntangled.length === 0 ? (
+                <div style={{ opacity: 0.8, padding: 10 }}>No entangled members found.</div>
+              ) : (
+                filteredEntangled.map((p) => {
+                  const name = p.full_name || "Quantum member";
+                  const initials = initialsOf(p.full_name);
+
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => void openOrCreateThread(p.id)}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        background: "rgba(2,6,23,0.20)",
+                        color: "rgba(226,232,240,0.95)",
+                        padding: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                        <div style={avatarStyle(40)}>
+                          {p.avatar_url ? (
+                            <img
+                              src={p.avatar_url}
+                              alt={name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 900, fontSize: 14 }}>{name}</div>
+                          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>
+                            {subtitle(p as any) || "Entangled member"}
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>Message</div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
