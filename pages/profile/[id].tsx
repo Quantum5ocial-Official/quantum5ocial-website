@@ -168,8 +168,67 @@ export default function MemberProfilePage() {
       profile.highest_education ||
       profile.key_experience);
 
+  // ✅ get-or-create thread then route to /messages/[threadId]
+  const openOrCreateThread = async (otherUserId: string) => {
+    if (!user) {
+      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    try {
+      const { data: existing, error: findErr } = await supabase
+        .from("dm_threads")
+        .select("id, user1, user2, created_at")
+        .or(
+          `and(user1.eq.${user.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${user.id})`
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      if (existing?.id) {
+        router.push(`/messages/${existing.id}`);
+        return;
+      }
+
+      const { data: created, error: createErr } = await supabase
+        .from("dm_threads")
+        .insert({ user1: user.id, user2: otherUserId })
+        .select("id")
+        .maybeSingle();
+
+      if (createErr) throw createErr;
+
+      if (created?.id) {
+        router.push(`/messages/${created.id}`);
+        return;
+      }
+
+      throw new Error("Could not create thread.");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Could not open messages.");
+    }
+  };
+
   const renderEntangleHeaderCTA = () => {
     if (!profile || profileLoading) return null;
+
+    // ✅ tiny pill styles (same size system as your other pills)
+    const pillBase: React.CSSProperties = {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "4px 10px",
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 800,
+      whiteSpace: "nowrap",
+      lineHeight: "16px",
+      textDecoration: "none",
+      width: "fit-content",
+    };
 
     if (isSelf) {
       return (
@@ -177,13 +236,11 @@ export default function MemberProfilePage() {
           href="/profile"
           className="nav-ghost-btn"
           style={{
-            padding: "6px 16px",
-            borderRadius: 999,
+            ...pillBase,
             border: "1px solid rgba(148,163,184,0.6)",
-            fontSize: 13,
-            textDecoration: "none",
             color: "#e5e7eb",
-            whiteSpace: "nowrap",
+            fontWeight: 700,
+            padding: "6px 14px",
           }}
         >
           View / edit my profile
@@ -200,12 +257,11 @@ export default function MemberProfilePage() {
             router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`)
           }
           style={{
-            padding: "6px 16px",
-            borderRadius: 999,
+            ...pillBase,
+            padding: "6px 14px",
             border: "1px solid rgba(148,163,184,0.6)",
-            fontSize: 13,
+            color: "rgba(226,232,240,0.95)",
             cursor: "pointer",
-            whiteSpace: "nowrap",
           }}
         >
           Sign in to entangle
@@ -233,16 +289,13 @@ export default function MemberProfilePage() {
             onClick={() => handleEntangle(profileId)}
             disabled={loadingBtn}
             style={{
+              ...pillBase,
               padding: "6px 14px",
-              borderRadius: 999,
               border: "none",
               background: "linear-gradient(90deg,#22c55e,#16a34a)",
               color: "#0f172a",
-              fontSize: 12,
-              fontWeight: 600,
               cursor: loadingBtn ? "default" : "pointer",
               opacity: loadingBtn ? 0.7 : 1,
-              whiteSpace: "nowrap",
             }}
           >
             {loadingBtn ? "…" : "Accept request"}
@@ -253,15 +306,13 @@ export default function MemberProfilePage() {
             onClick={() => handleDeclineEntangle(profileId)}
             disabled={loadingBtn}
             style={{
+              ...pillBase,
               padding: "6px 14px",
-              borderRadius: 999,
               border: "1px solid rgba(148,163,184,0.7)",
               background: "transparent",
               color: "rgba(248,250,252,0.9)",
-              fontSize: 12,
               cursor: loadingBtn ? "default" : "pointer",
               opacity: loadingBtn ? 0.7 : 1,
-              whiteSpace: "nowrap",
             }}
           >
             Decline
@@ -270,6 +321,43 @@ export default function MemberProfilePage() {
       );
     }
 
+    if (status === "accepted") {
+      return (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* ✅ Message pill */}
+          <button
+            type="button"
+            onClick={() => openOrCreateThread(profileId)}
+            style={{
+              ...pillBase,
+              padding: "6px 14px",
+              border: "none",
+              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+              color: "#0f172a",
+              cursor: "pointer",
+            }}
+          >
+            Message
+          </button>
+
+          {/* ✅ Entangled badge pill */}
+          <span
+            style={{
+              ...pillBase,
+              padding: "6px 12px",
+              border: "1px solid rgba(74,222,128,0.65)",
+              background: "rgba(34,197,94,0.10)",
+              color: "rgba(187,247,208,0.95)",
+            }}
+            title="You are entangled"
+          >
+            Entangled ✓
+          </span>
+        </div>
+      );
+    }
+
+    // default (not entangled yet)
     let label = "Entangle +";
     let border = "none";
     let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
@@ -282,12 +370,6 @@ export default function MemberProfilePage() {
       bg = "transparent";
       color = "rgba(148,163,184,0.95)";
       disabled = true;
-    } else if (status === "accepted") {
-      label = "Entangled ✓";
-      border = "1px solid rgba(74,222,128,0.7)";
-      bg = "transparent";
-      color = "rgba(187,247,208,0.95)";
-      disabled = true;
     }
 
     return (
@@ -296,17 +378,12 @@ export default function MemberProfilePage() {
         onClick={() => handleEntangle(profileId)}
         disabled={loadingBtn || disabled}
         style={{
-          padding: "6px 16px",
-          borderRadius: 999,
+          ...pillBase,
+          padding: "6px 14px",
           border,
           background: bg,
           color,
-          fontSize: 12,
           cursor: loadingBtn || disabled ? "default" : "pointer",
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          whiteSpace: "nowrap",
           opacity: loadingBtn ? 0.7 : 1,
         }}
       >
@@ -353,7 +430,10 @@ export default function MemberProfilePage() {
           }}
         >
           <div>
-            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div
+              className="section-title"
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
               Member profile
             </div>
             <div className="section-sub" style={{ maxWidth: 560 }}>
