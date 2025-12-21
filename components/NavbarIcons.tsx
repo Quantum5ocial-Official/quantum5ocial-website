@@ -836,7 +836,7 @@ export default function NavbarIcons() {
             onClick={closeMobileMenu}
           >
             <img src="/icons/products.svg" className="nav-icon" />
-            <span className="nav-icon-label">Products</span>
+            <span className="nav-icon-label">Marketplace</span>
           </Link>
 
           <Link
