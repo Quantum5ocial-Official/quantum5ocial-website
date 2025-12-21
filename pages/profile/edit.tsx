@@ -48,6 +48,39 @@ type Profile = {
   raw_metadata?: any;
 };
 
+// --- Legacy normalization helpers (backwards-compatible) ---
+const normalizeRole = (roleRaw: string | null | undefined) => {
+  const r = (roleRaw || "").trim();
+  if (!r) return "";
+
+  const map: Record<string, string> = {
+    "Bachelor student": "Bachelor Student",
+    "Master student": "Master Student",
+    "PhD student": "PhD Student",
+    Postdoc: "Postdoctoral Researcher",
+    "Researcher / Scientist": "Research Scientist",
+    "Professor / Group Leader": "Professor / Principal Investigator",
+    "Engineer / Technician": "Hardware Engineer",
+    "Industry Professional": "Industry Professional",
+    "CEO / Founder": "Executive (CEO / CTO / COO / CSO)",
+    "Product / Business role": "Product Manager",
+  };
+
+  // If already canonical or unknown, keep it as-is.
+  return map[r] || r;
+};
+
+const normalizeEducation = (eduRaw: string | null | undefined) => {
+  const e = (eduRaw || "").trim();
+  if (!e) return "";
+
+  const map: Record<string, string> = {
+    Postdoc: "Other / not applicable", // legacy stored value
+  };
+
+  return map[e] || e;
+};
+
 export default function ProfileEditPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -136,11 +169,13 @@ export default function ProfileEditPage() {
         console.error("Error loading profile", error);
       } else if (data) {
         const p = data as Profile;
+
         setForm({
           full_name: p.full_name || "",
           short_bio: p.short_bio || "",
 
-          role: p.role || "",
+          // ✅ normalize legacy stored values so select won't appear empty
+          role: normalizeRole(p.role),
           current_title: p.current_title || "",
 
           affiliation: p.affiliation || "",
@@ -150,7 +185,8 @@ export default function ProfileEditPage() {
           focus_areas: p.focus_areas || "",
           skills: p.skills || "",
 
-          highest_education: p.highest_education || "",
+          // ✅ normalize legacy edu values (e.g. Postdoc)
+          highest_education: normalizeEducation(p.highest_education),
           key_experience: p.key_experience || "",
 
           avatar_url: p.avatar_url || "",
@@ -187,7 +223,6 @@ export default function ProfileEditPage() {
   const normalizeUrlOrNull = (v: string) => {
     const s = (v || "").trim();
     if (!s) return null;
-    // accept already-valid URLs, or auto-prefix if user pasted "linkedin.com/..."
     if (/^https?:\/\//i.test(s)) return s;
     return `https://${s}`;
   };
@@ -219,15 +254,13 @@ export default function ProfileEditPage() {
 
       avatar_url: form.avatar_url || null,
 
-      // Private contact
       phone: form.phone.trim() || null,
 
-      // Links (ordered + normalized)
       institutional_email: form.institutional_email.trim() || null,
       lab_website: normalizeUrlOrNull(form.lab_website),
       google_scholar: normalizeUrlOrNull(form.google_scholar),
       linkedin_url: normalizeUrlOrNull(form.linkedin_url),
-      orcid: form.orcid.trim() || null, // can be ID or URL; keep as text for now
+      orcid: form.orcid.trim() || null,
       github_url: normalizeUrlOrNull(form.github_url),
       personal_website: normalizeUrlOrNull(form.personal_website),
     };
@@ -294,6 +327,41 @@ export default function ProfileEditPage() {
       .join("") || "Q5";
 
   const accountEmail = user?.email || "";
+
+  // Used for resilient dropdown display (shows legacy values if not in list)
+  const knownRoleValues = new Set([
+    "Bachelor Student",
+    "Master Student",
+    "PhD Student",
+    "Postdoctoral Researcher",
+    "Research Scientist",
+    "Professor / Principal Investigator",
+    "Quantum Engineer",
+    "Hardware Engineer",
+    "Software Engineer",
+    "Microwave / RF Engineer",
+    "Cryogenics Engineer",
+    "Nanofabrication Engineer",
+    "Experimental Physicist",
+    "Theoretical Physicist",
+    "Founder / Co-founder",
+    "Executive (CEO / CTO / COO / CSO)",
+    "Technical Lead / Architect",
+    "Engineering Manager",
+    "Product Manager",
+    "Business Development",
+    "Consultant",
+    "Policy / Strategy",
+    "Industry Professional",
+    "Other",
+  ]);
+
+  const knownEduValues = new Set([
+    "Bachelor",
+    "Master",
+    "PhD",
+    "Other / not applicable",
+  ]);
 
   return (
     <>
@@ -391,6 +459,11 @@ export default function ProfileEditPage() {
                       <select value={form.role} onChange={handleChange("role")}>
                         <option value="">Select…</option>
 
+                        {/* ✅ show legacy value so select never appears empty */}
+                        {form.role && !knownRoleValues.has(form.role) && (
+                          <option value={form.role}>{form.role} (legacy)</option>
+                        )}
+
                         <optgroup label="Academia">
                           <option value="Bachelor Student">Bachelor Student</option>
                           <option value="Master Student">Master Student</option>
@@ -437,6 +510,7 @@ export default function ProfileEditPage() {
                             Engineering Manager
                           </option>
                           <option value="Product Manager">Product Manager</option>
+                          <option value="Industry Professional">Industry Professional</option>
                         </optgroup>
 
                         <optgroup label="Other">
@@ -572,6 +646,15 @@ export default function ProfileEditPage() {
                         onChange={handleChange("highest_education")}
                       >
                         <option value="">Select…</option>
+
+                        {/* ✅ show legacy education value if it exists */}
+                        {form.highest_education &&
+                          !knownEduValues.has(form.highest_education) && (
+                            <option value={form.highest_education}>
+                              {form.highest_education} (legacy)
+                            </option>
+                          )}
+
                         <option value="Bachelor">Bachelor</option>
                         <option value="Master">Master</option>
                         <option value="PhD">PhD</option>
