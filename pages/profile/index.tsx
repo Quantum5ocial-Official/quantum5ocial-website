@@ -30,7 +30,6 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
 
-  // keep legacy fields optional (safe)
   institutional_email_verified?: boolean | null;
   email?: string | null;
   provider?: string | null;
@@ -43,7 +42,6 @@ type ProfilePrivate = {
   institutional_email: string | null;
 };
 
-// -------- Profile completeness (private view only) --------
 type CompletenessItem = {
   key: string;
   label: string;
@@ -61,41 +59,25 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const headlineOk = has(p?.current_title) || has(p?.role);
 
   const items: CompletenessItem[] = [
-    // Basics (30)
     { key: "full_name", label: "Add your full name", w: 10, ok: has(p?.full_name) },
     { key: "short_bio", label: "Write a short bio", w: 10, ok: has(p?.short_bio) },
     { key: "headline", label: "Add a current title or primary role", w: 10, ok: headlineOk },
 
-    // Affiliation & location (15)
     { key: "affiliation", label: "Add your affiliation", w: 7, ok: has(p?.affiliation) },
     { key: "country", label: "Add your country", w: 4, ok: has(p?.country) },
     { key: "city", label: "Add your city", w: 4, ok: has(p?.city) },
 
-    // Expertise (20)
     { key: "focus_areas", label: "Add focus areas", w: 10, ok: has(p?.focus_areas) },
     { key: "skills", label: "Add skills", w: 10, ok: has(p?.skills) },
 
-    // Background (10)
-    {
-      key: "highest_education",
-      label: "Select your highest education",
-      w: 5,
-      ok: has(p?.highest_education),
-    },
+    { key: "highest_education", label: "Select your highest education", w: 5, ok: has(p?.highest_education) },
     { key: "key_experience", label: "Add key experience", w: 5, ok: has(p?.key_experience) },
 
-    // Credibility links (15)
     { key: "orcid", label: "Add your ORCID", w: 5, ok: has(p?.orcid) },
     { key: "google_scholar", label: "Add Google Scholar", w: 5, ok: has(p?.google_scholar) },
     { key: "linkedin_url", label: "Add LinkedIn", w: 5, ok: has(p?.linkedin_url) },
 
-    // Private / verification (10)
-    {
-      key: "institutional_email",
-      label: "Add an institutional email",
-      w: 6,
-      ok: has(priv?.institutional_email),
-    },
+    { key: "institutional_email", label: "Add an institutional email", w: 6, ok: has(priv?.institutional_email) },
     { key: "phone", label: "Add a phone number (optional)", w: 4, ok: has(priv?.phone) },
   ];
 
@@ -104,8 +86,7 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const pct = total ? Math.round((score / total) * 100) : 0;
 
   const missing = items.filter((x) => !x.ok).sort((a, b) => b.w - a.w);
-
-  return { pct, score, total, missing };
+  return { pct, missing };
 }
 
 export default function ProfileViewPage() {
@@ -116,20 +97,14 @@ export default function ProfileViewPage() {
   const [privateProfile, setPrivateProfile] = useState<ProfilePrivate | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // shared hook (no UI here)
-  useEntanglements({
-    user,
-    redirectPath: "/profile",
-  });
+  useEntanglements({ user, redirectPath: "/profile" });
 
-  // private view only: must be logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/profile");
     }
   }, [loading, user, router]);
 
-  // Load public profile + private info
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
@@ -193,6 +168,8 @@ export default function ProfileViewPage() {
     if (user) loadProfile();
   }, [user]);
 
+  if (!user && !loading) return null;
+
   const fallbackName =
     (user as any)?.user_metadata?.name ||
     (user as any)?.user_metadata?.full_name ||
@@ -230,6 +207,16 @@ export default function ProfileViewPage() {
     { label: "Lab/Company website", value: profile?.lab_website },
   ].filter((x) => x.value);
 
+  const accountEmail = user?.email || "";
+  const headline = profile?.current_title?.trim()
+    ? profile.current_title
+    : profile?.role?.trim()
+    ? profile.role
+    : null;
+
+  const showContactTile =
+    !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
+
   const hasAnyProfileInfo =
     profile &&
     (profile.full_name ||
@@ -246,7 +233,13 @@ export default function ProfileViewPage() {
       privateProfile?.institutional_email ||
       privateProfile?.phone);
 
-  const editLinkStyle: React.CSSProperties = {
+  const completeness = computeCompleteness(profile, privateProfile);
+  const topAddInline = completeness.missing
+    .slice(0, 3)
+    .map((m) => m.label)
+    .join(" · ");
+
+  const editBtnStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -258,51 +251,39 @@ export default function ProfileViewPage() {
     fontSize: 13,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    width: "fit-content",
   };
 
-  if (!user && !loading) return null;
-
-  const accountEmail = user?.email || "";
-
-  // ✅ Show current title first; fallback to primary role
-  const headline = profile?.current_title?.trim()
-    ? profile.current_title
-    : profile?.role?.trim()
-    ? profile.role
-    : null;
-
-  const showContactTile =
-    !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
-
-  const completeness = computeCompleteness(profile, privateProfile);
-  const topAddInline = completeness.missing
-    .slice(0, 3)
-    .map((m) => m.label)
-    .join(" · ");
+  const smallPillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px 10px", // ✅ smaller pill (just wraps text)
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.55)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    textDecoration: "none",
+    whiteSpace: "nowrap",
+    width: "fit-content", // ✅ no stretching
+    lineHeight: "16px",
+  };
 
   return (
-    <section className="section">
-      <div className="profile-container">
-        {/* ✅ Push header up: tighter margin/padding */}
-        <div className="section-header" style={{ marginBottom: 10, paddingTop: 2 }}>
+    // ✅ REMOVE TOP GAP: override global .section padding/margin here
+    <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
+      <div className="profile-container" style={{ marginTop: 0 }}>
+        {/* Header */}
+        <div className="section-header" style={{ marginBottom: 10, paddingTop: 0 }}>
           <div>
             <div className="section-title">My profile</div>
-            <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
+            <div className="section-sub">
+              This is how you appear inside Quantum5ocial.
+            </div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
-            {/* ✅ Edit only (since completeness has “complete” CTA) */}
-            <Link
-              href="/profile/edit"
-              className="nav-ghost-btn"
-              style={{
-                ...editLinkStyle,
-                maxWidth: "140px",
-                width: "auto",
-                textAlign: "center",
-                padding: "8px 18px",
-              }}
-            >
+            <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
               Edit
             </Link>
           </div>
@@ -323,11 +304,7 @@ export default function ProfileViewPage() {
             </div>
           ) : (
             <>
-              {/* ✅ Completeness block layout:
-                  Row 1: % + CTA same line
-                  Row 2: progress bar
-                  Row 3: Top things to add (single line)
-               */}
+              {/* Completeness */}
               <div
                 className="card"
                 style={{
@@ -338,39 +315,26 @@ export default function ProfileViewPage() {
                   background: "rgba(2,6,23,0.55)",
                 }}
               >
-                {/* Row 1 */}
+                {/* ✅ SAME LINE: Profile completeness (left) + tiny pill (right) */}
                 <div
                   style={{
                     display: "flex",
+                    alignItems: "center",
                     justifyContent: "space-between",
                     gap: 10,
-                    alignItems: "center",
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap", // keep one line as much as possible
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
                     Profile completeness: {completeness.pct}%
                   </div>
 
-                  {/* ✅ pill on same line */}
-                  <Link
-                    href="/profile/edit"
-                    className="nav-ghost-btn"
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(148,163,184,0.6)",
-                      textDecoration: "none",
-                      color: "#e5e7eb",
-                      fontSize: 12,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <Link href="/profile/edit" style={smallPillStyle}>
                     Complete your profile →
                   </Link>
                 </div>
 
-                {/* Row 2: progress bar */}
+                {/* progress bar */}
                 <div style={{ marginTop: 10 }}>
                   <div
                     style={{
@@ -391,7 +355,7 @@ export default function ProfileViewPage() {
                   </div>
                 </div>
 
-                {/* Row 3: Top things to add (single line) */}
+                {/* ✅ Top things BELOW bar */}
                 {!!topAddInline && (
                   <div
                     style={{
@@ -404,7 +368,9 @@ export default function ProfileViewPage() {
                       alignItems: "center",
                     }}
                   >
-                    <span style={{ color: "rgba(148,163,184,0.95)" }}>Top things to add:</span>
+                    <span style={{ color: "rgba(148,163,184,0.95)" }}>
+                      Top things to add:
+                    </span>
                     <span
                       style={{
                         whiteSpace: "nowrap",
@@ -420,7 +386,7 @@ export default function ProfileViewPage() {
                 )}
               </div>
 
-              {/* Top identity */}
+              {/* Identity */}
               <div className="profile-header">
                 <div className="profile-avatar">
                   {profile?.avatar_url ? (
@@ -450,14 +416,14 @@ export default function ProfileViewPage() {
                   )}
 
                   <div style={{ marginTop: 12 }}>
-                    <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
+                    <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
                       Edit
                     </Link>
                   </div>
                 </div>
               </div>
 
-              {/* ✅ Contact info tile (private) */}
+              {/* Contact tile (private) */}
               {showContactTile && (
                 <div
                   className="profile-summary-item"
@@ -502,10 +468,9 @@ export default function ProfileViewPage() {
                 </div>
               )}
 
-              {/* Short bio */}
+              {/* Bio */}
               {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
 
-              {/* Experience inline */}
               {profile?.key_experience && (
                 <p className="profile-bio">
                   <span className="profile-section-label-inline">Experience:</span>{" "}
@@ -513,9 +478,7 @@ export default function ProfileViewPage() {
                 </p>
               )}
 
-              {/* Two-column layout */}
               <div className="profile-two-columns">
-                {/* LEFT */}
                 <div className="profile-col">
                   {profile?.affiliation && (
                     <div className="profile-summary-item">
@@ -558,7 +521,6 @@ export default function ProfileViewPage() {
                   )}
                 </div>
 
-                {/* RIGHT */}
                 <div className="profile-col">
                   {profile?.highest_education && (
                     <div className="profile-summary-item">
