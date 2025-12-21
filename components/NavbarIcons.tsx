@@ -511,7 +511,7 @@ export default function NavbarIcons() {
               }}
             >
               {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
-              {renderIconNavLink("/products", "Products", "/icons/products.svg")}
+              {renderIconNavLink("/products", "Marketplace", "/icons/products.svg")}
               {renderIconNavLink(
                 "/community",
                 "Community",
