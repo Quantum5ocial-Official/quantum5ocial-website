@@ -311,44 +311,58 @@ export default function ThreadPage() {
             ←
           </Link>
 
-          <div style={avatarStyle(40)}>
-            {other?.avatar_url ? (
-              <img
-                src={other.avatar_url}
-                alt={name}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              initials
-            )}
-          </div>
+          {/* ✅ avatar + name are BOTH clickable */}
+          {other?.id ? (
+            <Link
+              href={`/profile/${other.id}`}
+              style={{
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                minWidth: 0,
+              }}
+            >
+              <div style={avatarStyle(40)}>
+                {other?.avatar_url ? (
+                  <img
+                    src={other.avatar_url}
+                    alt={name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
 
-          {/* ✅ name clickable -> profile (no subtitle) */}
-          <div style={{ minWidth: 0 }}>
-            {other?.id ? (
-              <Link
-                href={`/profile/${other.id}`}
+              <div
                 style={{
-                  textDecoration: "none",
-                  display: "block",
-                  minWidth: 0,
+                  fontWeight: 900,
+                  fontSize: 14,
+                  color: "rgba(226,232,240,0.95)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                 }}
+                title={name}
               >
-                <div
-                  style={{
-                    fontWeight: 900,
-                    fontSize: 14,
-                    color: "rgba(226,232,240,0.95)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                  title={name}
-                >
-                  {name}
-                </div>
-              </Link>
-            ) : (
+                {name}
+              </div>
+            </Link>
+          ) : (
+            <>
+              <div style={avatarStyle(40)}>
+                {other?.avatar_url ? (
+                  <img
+                    src={other.avatar_url}
+                    alt={name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+
               <div
                 style={{
                   fontWeight: 900,
@@ -361,8 +375,8 @@ export default function ThreadPage() {
               >
                 {name}
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {other?.id && (
