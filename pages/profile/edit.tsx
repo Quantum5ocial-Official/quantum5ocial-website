@@ -5,47 +5,38 @@ import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-type Profile = {
+type ProfilePublic = {
   id: string;
   full_name: string | null;
   short_bio: string | null;
 
-  // Professional identity
-  role: string | null; // Primary role
-  current_title?: string | null; // Free text
+  role: string | null;
+  current_title: string | null;
 
-  // Affiliation / location
   affiliation: string | null;
   country: string | null;
   city: string | null;
 
-  // Expertise (still stored as comma-separated for now)
   focus_areas: string | null;
   skills: string | null;
 
-  // Background
   highest_education: string | null;
   key_experience: string | null;
 
-  // Media
   avatar_url: string | null;
 
-  // Links
-  institutional_email: string | null;
-  lab_website?: string | null; // rename label to Lab/Company website
+  lab_website: string | null;
   google_scholar: string | null;
   linkedin_url: string | null;
   orcid: string | null;
   github_url: string | null;
   personal_website: string | null;
+};
 
-  // Private contact (hidden by default; only user sees it)
-  phone?: string | null;
-
-  institutional_email_verified?: boolean | null;
-  email?: string | null;
-  provider?: string | null;
-  raw_metadata?: any;
+type ProfilePrivate = {
+  id: string;
+  phone: string | null;
+  institutional_email: string | null;
 };
 
 // --- Legacy normalization helpers (backwards-compatible) ---
@@ -66,7 +57,6 @@ const normalizeRole = (roleRaw: string | null | undefined) => {
     "Product / Business role": "Product Manager",
   };
 
-  // If already canonical or unknown, keep it as-is.
   return map[r] || r;
 };
 
@@ -75,7 +65,7 @@ const normalizeEducation = (eduRaw: string | null | undefined) => {
   if (!e) return "";
 
   const map: Record<string, string> = {
-    Postdoc: "Other / not applicable", // legacy stored value
+    Postdoc: "Other / not applicable",
   };
 
   return map[e] || e;
@@ -109,11 +99,11 @@ export default function ProfileEditPage() {
 
     avatar_url: "",
 
-    // Private contact
+    // Private contact (profile_private)
     phone: "",
-
-    // Links (ordered as requested)
     institutional_email: "",
+
+    // Links (profiles)
     lab_website: "",
     google_scholar: "",
     linkedin_url: "",
@@ -135,7 +125,8 @@ export default function ProfileEditPage() {
       if (!user) return;
       setProfileLoading(true);
 
-      const { data, error } = await supabase
+      // 1) Public profile
+      const { data: pub, error: pubErr } = await supabase
         .from("profiles")
         .select(
           `
@@ -152,8 +143,6 @@ export default function ProfileEditPage() {
             highest_education,
             key_experience,
             avatar_url,
-            phone,
-            institutional_email,
             lab_website,
             google_scholar,
             linkedin_url,
@@ -165,16 +154,27 @@ export default function ProfileEditPage() {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error loading profile", error);
-      } else if (data) {
-        const p = data as Profile;
+      if (pubErr) console.error("Error loading profiles", pubErr);
 
-        setForm({
+      // 2) Private profile
+      const { data: priv, error: privErr } = await supabase
+        .from("profile_private")
+        .select(`id, phone, institutional_email`)
+        .eq("id", user.id)
+        .maybeSingle();
+
+      // It's OK if priv doesn't exist yet (first time)
+      if (privErr) console.error("Error loading profile_private", privErr);
+
+      if (pub) {
+        const p = pub as ProfilePublic;
+
+        setForm((prev) => ({
+          ...prev,
+
           full_name: p.full_name || "",
           short_bio: p.short_bio || "",
 
-          // ✅ normalize legacy stored values so select won't appear empty
           role: normalizeRole(p.role),
           current_title: p.current_title || "",
 
@@ -185,22 +185,28 @@ export default function ProfileEditPage() {
           focus_areas: p.focus_areas || "",
           skills: p.skills || "",
 
-          // ✅ normalize legacy edu values (e.g. Postdoc)
           highest_education: normalizeEducation(p.highest_education),
           key_experience: p.key_experience || "",
 
           avatar_url: p.avatar_url || "",
 
-          phone: p.phone || "",
-
-          institutional_email: p.institutional_email || "",
           lab_website: p.lab_website || "",
           google_scholar: p.google_scholar || "",
           linkedin_url: p.linkedin_url || "",
           orcid: p.orcid || "",
           github_url: p.github_url || "",
           personal_website: p.personal_website || "",
-        });
+        }));
+      }
+
+      if (priv) {
+        const q = priv as ProfilePrivate;
+
+        setForm((prev) => ({
+          ...prev,
+          phone: q.phone || "",
+          institutional_email: q.institutional_email || "",
+        }));
       }
 
       setProfileLoading(false);
@@ -234,7 +240,8 @@ export default function ProfileEditPage() {
     setSaving(true);
     setSaveMessage(null);
 
-    const payload = {
+    // Public payload -> profiles
+    const payloadPublic = {
       id: user.id,
       full_name: form.full_name.trim() || null,
       short_bio: form.short_bio.trim() || null,
@@ -254,9 +261,7 @@ export default function ProfileEditPage() {
 
       avatar_url: form.avatar_url || null,
 
-      phone: form.phone.trim() || null,
-
-      institutional_email: form.institutional_email.trim() || null,
+      // Links (ordered + normalized)
       lab_website: normalizeUrlOrNull(form.lab_website),
       google_scholar: normalizeUrlOrNull(form.google_scholar),
       linkedin_url: normalizeUrlOrNull(form.linkedin_url),
@@ -265,13 +270,33 @@ export default function ProfileEditPage() {
       personal_website: normalizeUrlOrNull(form.personal_website),
     };
 
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(payload, { onConflict: "id" });
+    // Private payload -> profile_private
+    const payloadPrivate = {
+      id: user.id,
+      phone: form.phone.trim() || null,
+      institutional_email: form.institutional_email.trim() || null,
+    };
 
-    if (error) {
-      console.error("Error saving profile", error);
-      setSaveMessage(`Error: ${error.message}`);
+    // Save public first
+    const { error: e1 } = await supabase
+      .from("profiles")
+      .upsert(payloadPublic, { onConflict: "id" });
+
+    if (e1) {
+      console.error("Error saving profiles", e1);
+      setSaveMessage(`Error: ${e1.message}`);
+      setSaving(false);
+      return;
+    }
+
+    // Save private second
+    const { error: e2 } = await supabase
+      .from("profile_private")
+      .upsert(payloadPrivate, { onConflict: "id" });
+
+    if (e2) {
+      console.error("Error saving profile_private", e2);
+      setSaveMessage(`Error: ${e2.message}`);
       setSaving(false);
       return;
     }
@@ -459,7 +484,6 @@ export default function ProfileEditPage() {
                       <select value={form.role} onChange={handleChange("role")}>
                         <option value="">Select…</option>
 
-                        {/* ✅ show legacy value so select never appears empty */}
                         {form.role && !knownRoleValues.has(form.role) && (
                           <option value={form.role}>{form.role} (legacy)</option>
                         )}
@@ -647,7 +671,6 @@ export default function ProfileEditPage() {
                       >
                         <option value="">Select…</option>
 
-                        {/* ✅ show legacy education value if it exists */}
                         {form.highest_education &&
                           !knownEduValues.has(form.highest_education) && (
                             <option value={form.highest_education}>
