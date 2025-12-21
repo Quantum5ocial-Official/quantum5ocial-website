@@ -390,7 +390,8 @@ export default function ProfileEditPage() {
 
   return (
     <>
-      <section className="section">
+      {/* ✅ remove top gap (match profile page) */}
+      <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
         <div className="section-header" style={{ marginBottom: 14 }}>
           <div>
             <div className="section-title">Edit profile</div>
@@ -399,7 +400,12 @@ export default function ProfileEditPage() {
             </div>
           </div>
 
-          <Link href="/profile" className="nav-ghost-btn">
+          {/* ✅ wrap pill to text only */}
+          <Link
+            href="/profile"
+            className="nav-ghost-btn"
+            style={{ width: "fit-content", whiteSpace: "nowrap" }}
+          >
             ← Back to profile
           </Link>
         </div>
@@ -495,7 +501,9 @@ export default function ProfileEditPage() {
                           <option value="Postdoctoral Researcher">
                             Postdoctoral Researcher
                           </option>
-                          <option value="Research Scientist">Research Scientist</option>
+                          <option value="Research Scientist">
+                            Research Scientist
+                          </option>
                           <option value="Professor / Principal Investigator">
                             Professor / Principal Investigator
                           </option>
@@ -503,12 +511,18 @@ export default function ProfileEditPage() {
 
                         <optgroup label="Technical professionals">
                           <option value="Quantum Engineer">Quantum Engineer</option>
-                          <option value="Hardware Engineer">Hardware Engineer</option>
-                          <option value="Software Engineer">Software Engineer</option>
+                          <option value="Hardware Engineer">
+                            Hardware Engineer
+                          </option>
+                          <option value="Software Engineer">
+                            Software Engineer
+                          </option>
                           <option value="Microwave / RF Engineer">
                             Microwave / RF Engineer
                           </option>
-                          <option value="Cryogenics Engineer">Cryogenics Engineer</option>
+                          <option value="Cryogenics Engineer">
+                            Cryogenics Engineer
+                          </option>
                           <option value="Nanofabrication Engineer">
                             Nanofabrication Engineer
                           </option>
@@ -534,13 +548,19 @@ export default function ProfileEditPage() {
                             Engineering Manager
                           </option>
                           <option value="Product Manager">Product Manager</option>
-                          <option value="Industry Professional">Industry Professional</option>
+                          <option value="Industry Professional">
+                            Industry Professional
+                          </option>
                         </optgroup>
 
                         <optgroup label="Other">
-                          <option value="Business Development">Business Development</option>
+                          <option value="Business Development">
+                            Business Development
+                          </option>
                           <option value="Consultant">Consultant</option>
-                          <option value="Policy / Strategy">Policy / Strategy</option>
+                          <option value="Policy / Strategy">
+                            Policy / Strategy
+                          </option>
                           <option value="Other">Other</option>
                         </optgroup>
                       </select>
@@ -781,14 +801,32 @@ export default function ProfileEditPage() {
                   </div>
                 </div>
 
-                <div className="profile-actions">
-                  <button type="submit" className="nav-cta" disabled={saving}>
-                    {saving ? "Saving…" : "Save profile"}
-                  </button>
+                {/* ✅ footer actions: Cancel (left) + Save (right) */}
+                <div
+                  className="profile-actions"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Link
+                    href="/profile"
+                    className="nav-ghost-btn"
+                    style={{ width: "fit-content", whiteSpace: "nowrap" }}
+                  >
+                    Cancel
+                  </Link>
 
-                  {saveMessage && (
-                    <span className="profile-status">{saveMessage}</span>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {saveMessage && <span className="profile-status">{saveMessage}</span>}
+
+                    <button type="submit" className="nav-cta" disabled={saving}>
+                      {saving ? "Saving…" : "Save profile"}
+                    </button>
+                  </div>
                 </div>
               </form>
             </>
