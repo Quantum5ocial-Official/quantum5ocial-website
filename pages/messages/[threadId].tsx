@@ -1,602 +1,489 @@
-// pages/profile/[id].tsx
-import { useEffect, useMemo, useState } from "react";
+// pages/messages/[threadId].tsx
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import { useEntanglements } from "../../lib/useEntanglements";
 
-type Profile = {
+type ThreadRow = { id: string; user1: string; user2: string; created_at: string };
+type ProfileLite = {
   id: string;
   full_name: string | null;
-  short_bio: string | null;
-
-  // ✅ Updated model
-  role: string | null; // Primary role (public)
-  current_title?: string | null; // Free text (public)
-
-  affiliation: string | null;
-  country: string | null;
-  city: string | null;
-
-  focus_areas: string | null;
-  skills: string | null;
-
-  highest_education: string | null;
-  key_experience: string | null;
-
   avatar_url: string | null;
+  highest_education?: string | null;
+  affiliation?: string | null;
+};
+type MessageRow = {
+  id: string;
+  thread_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
 
-  orcid: string | null;
-  google_scholar: string | null;
-  linkedin_url: string | null;
-  github_url: string | null;
-  personal_website: string | null;
-  lab_website: string | null;
+  // optional; we don't rely on it anymore
+  recipient_id?: string;
 };
 
-export default function MemberProfilePage() {
+export default function ThreadPage() {
+  const { user, loading: userLoading } = useSupabaseUser();
   const router = useRouter();
-  const { user } = useSupabaseUser();
-  const { id } = router.query;
 
-  const profileId = typeof id === "string" ? id : null;
+  const threadId = useMemo(() => {
+    const raw = router.query?.threadId;
+    const v = Array.isArray(raw) ? raw[0] : raw;
+    return typeof v === "string" ? v : null;
+  }, [router.query]);
 
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const uid = user?.id ?? null;
 
-  const isSelf = useMemo(
-    () => !!user && !!profileId && user.id === profileId,
-    [user, profileId]
-  );
+  const [loading, setLoading] = useState(true);
+  const [thread, setThread] = useState<ThreadRow | null>(null);
+  const [other, setOther] = useState<ProfileLite | null>(null);
+  const [messages, setMessages] = useState<MessageRow[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // ---- Shared entanglement hook ----
-  const {
-    getConnectionStatus,
-    isEntangleLoading,
-    handleEntangle,
-    handleDeclineEntangle,
-  } = useEntanglements({
-    user,
-    redirectPath: router.asPath || "/community",
-  });
+  const listRef = useRef<HTMLDivElement | null>(null);
 
-  // -------- Load profile --------
-  useEffect(() => {
-    const loadProfile = async () => {
-      if (!profileId) return;
+  // ✅ track if user is currently near the bottom (so we only autoscroll then)
+  const isNearBottomRef = useRef(true);
 
-      setProfileLoading(true);
-      setProfileError(null);
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          `
-            id,
-            full_name,
-            short_bio,
-            role,
-            current_title,
-            affiliation,
-            country,
-            city,
-            focus_areas,
-            skills,
-            highest_education,
-            key_experience,
-            avatar_url,
-            orcid,
-            google_scholar,
-            linkedin_url,
-            github_url,
-            personal_website,
-            lab_website
-          `
-        )
-        .eq("id", profileId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error loading member profile", error);
-        setProfile(null);
-        setProfileError("Could not load this profile.");
-      } else if (data) {
-        setProfile(data as Profile);
-      } else {
-        setProfile(null);
-        setProfileError("Profile not found.");
-      }
-
-      setProfileLoading(false);
-    };
-
-    loadProfile();
-  }, [profileId]);
-
-  // -------- Rendering helpers --------
-  const displayName = profile?.full_name || "Quantum5ocial member";
-
-  const initials =
-    displayName
+  const initialsOf = (name: string | null | undefined) =>
+    (name || "")
       .split(" ")
       .filter(Boolean)
       .slice(0, 2)
       .map((x) => x[0]?.toUpperCase())
-      .join("") || "Q5";
+      .join("") || "Q";
 
-  const focusTags =
-    profile?.focus_areas
-      ?.split(",")
-      .map((t) => t.trim())
-      .filter(Boolean) || [];
-
-  const skillTags =
-    profile?.skills
-      ?.split(",")
-      .map((t) => t.trim())
-      .filter(Boolean) || [];
-
-  // ✅ Show current title first, fallback to role
-  const headline = profile?.current_title?.trim()
-    ? profile.current_title
-    : profile?.role?.trim()
-    ? profile.role
-    : null;
-
-  const links = [
-    { label: "ORCID", value: profile?.orcid },
-    { label: "Google Scholar", value: profile?.google_scholar },
-    { label: "LinkedIn", value: profile?.linkedin_url },
-    { label: "GitHub", value: profile?.github_url },
-    { label: "Personal website", value: profile?.personal_website },
-    { label: "Lab/Company website", value: profile?.lab_website }, // ✅ updated label
-  ].filter((x) => x.value);
-
-  const hasAnyProfileInfo =
-    profile &&
-    (profile.full_name ||
-      profile.short_bio ||
-      profile.role ||
-      profile.current_title ||
-      profile.affiliation ||
-      profile.city ||
-      profile.country ||
-      profile.focus_areas ||
-      profile.skills ||
-      profile.highest_education ||
-      profile.key_experience);
-
-  // ✅ get-or-create thread then route to /messages/[threadId]
-  const openOrCreateThread = async (otherUserId: string) => {
-    if (!user) {
-      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-
-    try {
-      const { data: existing, error: findErr } = await supabase
-        .from("dm_threads")
-        .select("id, user1, user2, created_at")
-        .or(
-          `and(user1.eq.${user.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${user.id})`
-        )
-        .limit(1)
-        .maybeSingle();
-
-      if (findErr) throw findErr;
-
-      if (existing?.id) {
-        router.push(`/messages/${existing.id}`);
-        return;
-      }
-
-      const { data: created, error: createErr } = await supabase
-        .from("dm_threads")
-        .insert({ user1: user.id, user2: otherUserId })
-        .select("id")
-        .maybeSingle();
-
-      if (createErr) throw createErr;
-
-      if (created?.id) {
-        router.push(`/messages/${created.id}`);
-        return;
-      }
-
-      throw new Error("Could not create thread.");
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Could not open messages.");
-    }
-  };
-
-  const renderEntangleHeaderCTA = () => {
-    if (!profile || profileLoading) return null;
-
-    // ✅ tiny pill styles (same size system as your other pills)
-    const pillBase: React.CSSProperties = {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "4px 10px",
-      borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 800,
-      whiteSpace: "nowrap",
-      lineHeight: "16px",
-      textDecoration: "none",
-      width: "fit-content",
-    };
-
-    if (isSelf) {
-      return (
-        <Link
-          href="/profile"
-          className="nav-ghost-btn"
-          style={{
-            ...pillBase,
-            border: "1px solid rgba(148,163,184,0.6)",
-            color: "#e5e7eb",
-            fontWeight: 700,
-            padding: "6px 14px",
-          }}
-        >
-          View / edit my profile
-        </Link>
-      );
-    }
-
-    if (!user) {
-      return (
-        <button
-          type="button"
-          className="nav-ghost-btn"
-          onClick={() =>
-            router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`)
-          }
-          style={{
-            ...pillBase,
-            padding: "6px 14px",
-            border: "1px solid rgba(148,163,184,0.6)",
-            color: "rgba(226,232,240,0.95)",
-            cursor: "pointer",
-          }}
-        >
-          Sign in to entangle
-        </button>
-      );
-    }
-
-    if (!profileId) return null;
-
-    const status = getConnectionStatus(profileId);
-    const loadingBtn = isEntangleLoading(profileId);
-
-    if (status === "pending_incoming") {
-      return (
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => handleEntangle(profileId)}
-            disabled={loadingBtn}
-            style={{
-              ...pillBase,
-              padding: "6px 14px",
-              border: "none",
-              background: "linear-gradient(90deg,#22c55e,#16a34a)",
-              color: "#0f172a",
-              cursor: loadingBtn ? "default" : "pointer",
-              opacity: loadingBtn ? 0.7 : 1,
-            }}
-          >
-            {loadingBtn ? "…" : "Accept request"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleDeclineEntangle(profileId)}
-            disabled={loadingBtn}
-            style={{
-              ...pillBase,
-              padding: "6px 14px",
-              border: "1px solid rgba(148,163,184,0.7)",
-              background: "transparent",
-              color: "rgba(248,250,252,0.9)",
-              cursor: loadingBtn ? "default" : "pointer",
-              opacity: loadingBtn ? 0.7 : 1,
-            }}
-          >
-            Decline
-          </button>
-        </div>
-      );
-    }
-
-    if (status === "accepted") {
-      return (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* ✅ Message pill */}
-          <button
-            type="button"
-            onClick={() => openOrCreateThread(profileId)}
-            style={{
-              ...pillBase,
-              padding: "6px 14px",
-              border: "none",
-              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
-              color: "#0f172a",
-              cursor: "pointer",
-            }}
-          >
-            Message
-          </button>
-
-          {/* ✅ Entangled badge pill */}
-          <span
-            style={{
-              ...pillBase,
-              padding: "6px 12px",
-              border: "1px solid rgba(74,222,128,0.65)",
-              background: "rgba(34,197,94,0.10)",
-              color: "rgba(187,247,208,0.95)",
-            }}
-            title="You are entangled"
-          >
-            Entangled ✓
-          </span>
-        </div>
-      );
-    }
-
-    // default (not entangled yet)
-    let label = "Entangle +";
-    let border = "none";
-    let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
-    let color = "#0f172a";
-    let disabled = false;
-
-    if (status === "pending_outgoing") {
-      label = "Request sent";
-      border = "1px solid rgba(148,163,184,0.7)";
-      bg = "transparent";
-      color = "rgba(148,163,184,0.95)";
-      disabled = true;
-    }
-
-    return (
-      <button
-        type="button"
-        onClick={() => handleEntangle(profileId)}
-        disabled={loadingBtn || disabled}
-        style={{
-          ...pillBase,
-          padding: "6px 14px",
-          border,
-          background: bg,
-          color,
-          cursor: loadingBtn || disabled ? "default" : "pointer",
-          opacity: loadingBtn ? 0.7 : 1,
-        }}
-      >
-        {loadingBtn ? "…" : label}
-      </button>
-    );
-  };
-
-  const editLinkStyle: React.CSSProperties = {
-    display: "inline-flex",
+  const avatarStyle = (size = 34) => ({
+    width: size,
+    height: size,
+    borderRadius: 999,
+    overflow: "hidden" as const,
+    border: "1px solid rgba(148,163,184,0.35)",
+    display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "6px 16px",
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.6)",
-    textDecoration: "none",
-    color: "#e5e7eb",
-    fontSize: 13,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
+    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    color: "#fff",
+    fontWeight: 900,
+    flexShrink: 0 as const,
+  });
+
+  const subtitle = (p: ProfileLite | null) =>
+    [p?.highest_education, p?.affiliation].filter(Boolean).join(" · ");
+
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
   };
 
-  // ---------- UI ----------
+  const measureNearBottom = () => {
+    const el = listRef.current;
+    if (!el) return true;
+    const threshold = 80; // px
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    return dist < threshold;
+  };
+
+  // ✅ mark this thread read for current user
+  const markThreadRead = async () => {
+    if (!uid || !threadId) return;
+    try {
+      await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
+    } catch {
+      // ignore; other pages/dock will reconcile later
+    }
+  };
+
+  const loadThreadAndMessages = async () => {
+    if (!uid || !threadId) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      // 1) thread
+      const { data: t, error: tErr } = await supabase
+        .from("dm_threads")
+        .select("id, user1, user2, created_at")
+        .eq("id", threadId)
+        .maybeSingle();
+
+      if (tErr) throw tErr;
+      if (!t) throw new Error("Thread not found (or access denied).");
+
+      const th = t as ThreadRow;
+      setThread(th);
+
+      const otherId = th.user1 === uid ? th.user2 : th.user1;
+
+      // 2) other profile
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, highest_education, affiliation")
+        .eq("id", otherId)
+        .maybeSingle();
+
+      setOther((p as any) || null);
+
+      // 3) messages
+      const { data: m, error: mErr } = await supabase
+        .from("dm_messages")
+        .select("id, thread_id, sender_id, body, created_at, recipient_id")
+        .eq("thread_id", threadId)
+        .order("created_at", { ascending: true });
+
+      if (mErr) throw mErr;
+
+      setMessages((m as any[])?.map((x) => x as MessageRow) || []);
+
+      // ✅ ALWAYS open at bottom (newest)
+      requestAnimationFrame(() => {
+        scrollToBottom("auto");
+        setTimeout(() => scrollToBottom("auto"), 60);
+      });
+
+      // ✅ mark read on open
+      await markThreadRead();
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not load chat.");
+      setThread(null);
+      setOther(null);
+      setMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const send = async () => {
+    if (!uid || !threadId) return;
+    const body = draft.trim();
+    if (!body) return;
+
+    setSending(true);
+    try {
+      const { data, error } = await supabase
+        .from("dm_messages")
+        .insert({
+          thread_id: threadId,
+          sender_id: uid,
+          body,
+        })
+        .select("id, thread_id, sender_id, body, created_at, recipient_id")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setMessages((prev) => {
+          const exists = prev.some((x) => x.id === (data as any).id);
+          return exists ? prev : [...prev, data as any as MessageRow];
+        });
+        setDraft("");
+
+        // ✅ after sending, always go bottom
+        requestAnimationFrame(() => {
+          scrollToBottom("smooth");
+          setTimeout(() => scrollToBottom("smooth"), 60);
+        });
+      }
+    } catch (e: any) {
+      alert(e?.message || "Failed to send.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userLoading) return;
+    if (!uid) {
+      router.push("/auth?redirect=/messages");
+      return;
+    }
+    void loadThreadAndMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLoading, uid, threadId]);
+
+  // ✅ Keep isNearBottomRef updated
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      isNearBottomRef.current = measureNearBottom();
+    };
+
+    el.addEventListener("scroll", onScroll, { passive: true });
+    // initialize
+    isNearBottomRef.current = measureNearBottom();
+
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, [listRef.current]);
+
+  // ✅ Realtime subscription (ROBUST):
+  // Listen to all inserts, then filter by thread_id + participation.
+  useEffect(() => {
+    if (!uid || !threadId) return;
+
+    const channel = supabase
+      .channel(dm-thread-page:${threadId})
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "dm_messages" },
+        async (payload) => {
+          const row = payload.new as any as MessageRow;
+
+          if (row.thread_id !== threadId) return;
+
+          // if we have thread loaded, only accept messages from me or the other participant
+          if (thread) {
+            const allowed = row.sender_id === thread.user1 || row.sender_id === thread.user2;
+            if (!allowed) return;
+          }
+
+          setMessages((prev) => {
+            const exists = prev.some((x) => x.id === row.id);
+            return exists ? prev : [...prev, row];
+          });
+
+          // ✅ only autoscroll if user is near bottom already
+          if (isNearBottomRef.current) {
+            requestAnimationFrame(() => {
+              scrollToBottom("auto");
+              setTimeout(() => scrollToBottom("auto"), 40);
+            });
+          }
+
+          // ✅ if incoming while you're on this page, mark read immediately
+          if (row.sender_id !== uid) {
+            await markThreadRead();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [uid, threadId, thread]);
+
+  // ✅ Extra safety: when tab/window refocuses, mark read
+  useEffect(() => {
+    if (!uid || !threadId) return;
+
+    const onFocus = () => void markThreadRead();
+    const onVis = () => {
+      if (document.visibilityState === "visible") void markThreadRead();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [uid, threadId]);
+
+  if (loading && !thread) {
+    return <div style={{ opacity: 0.8 }}>Loading chat…</div>;
+  }
+
+  if (error && !thread) {
+    return (
+      <div>
+        <div style={{ color: "#f87171", fontWeight: 900 }}>{error}</div>
+        <div style={{ height: 10 }} />
+        <Link href="/messages" style={{ color: "rgba(34,211,238,0.95)" }}>
+          Back to Messages
+        </Link>
+      </div>
+    );
+  }
+
+  const name = other?.full_name || "Quantum member";
+  const initials = initialsOf(other?.full_name);
+
   return (
-    <section className="section">
-      {/* Header card */}
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
+      {/* header */}
       <div
-        className="card"
         style={{
-          padding: 18,
-          marginBottom: 14,
-          background:
-            "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
-          border: "1px solid rgba(148,163,184,0.35)",
+          border: "1px solid rgba(148,163,184,0.18)",
+          background: "rgba(15,23,42,0.92)",
+          borderRadius: 14,
+          padding: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 16,
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", gap: 10, alignItems: "center" }}
-            >
-              Member profile
-            </div>
-            <div className="section-sub" style={{ maxWidth: 560 }}>
-              This is how this member appears inside Quantum5ocial.
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <Link
+            href="/messages"
+            style={{
+              textDecoration: "none",
+              color: "rgba(226,232,240,0.92)",
+              fontWeight: 900,
+            }}
+          >
+            ←
+          </Link>
+
+          <div style={avatarStyle(40)}>
+            {other?.avatar_url ? (
+              <img
+                src={other.avatar_url}
+                alt={name}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              initials
+            )}
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Link href="/community" className="section-link" style={{ fontSize: 13 }}>
-              ← Back to community
-            </Link>
-            {renderEntangleHeaderCTA()}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 14, lineHeight: 1.2 }}>{name}</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>
+              {subtitle(other) || "Entangled member"}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main profile card */}
-      <div className="profile-summary-card">
-        {profileLoading ? (
-          <p className="profile-muted">Loading profile…</p>
-        ) : profileError ? (
-          <p className="profile-muted" style={{ color: "#f87171" }}>
-            {profileError}
-          </p>
-        ) : !hasAnyProfileInfo ? (
-          <div>
-            <p className="profile-muted" style={{ marginBottom: 12 }}>
-              This member hasn&apos;t filled in their profile yet.
-            </p>
-            {isSelf && (
-              <Link href="/profile/edit" className="nav-cta">
-                Complete your profile
-              </Link>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Top identity */}
-            <div className="profile-header">
-              <div className="profile-avatar">
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={displayName}
-                    className="profile-avatar-img"
-                  />
-                ) : (
-                  <span>{initials}</span>
-                )}
-              </div>
-
-              <div className="profile-header-text">
-                <div className="profile-name">{displayName}</div>
-
-                {(headline || profile?.affiliation) && (
-                  <div className="profile-role">
-                    {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
-                  </div>
-                )}
-
-                {(profile?.city || profile?.country) && (
-                  <div className="profile-location">
-                    {[profile?.city, profile?.country].filter(Boolean).join(", ")}
-                  </div>
-                )}
-
-                {isSelf && (
-                  <div style={{ marginTop: 12 }}>
-                    <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
-                      Edit / complete your profile
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Short bio */}
-            {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
-
-            {/* Experience */}
-            {profile?.key_experience && (
-              <p className="profile-bio">
-                <span className="profile-section-label-inline">Experience:</span>{" "}
-                {profile.key_experience}
-              </p>
-            )}
-
-            {/* Two columns */}
-            <div className="profile-two-columns">
-              {/* LEFT */}
-              <div className="profile-col">
-                {profile?.affiliation && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Affiliation</div>
-                    <div className="profile-summary-text">{profile.affiliation}</div>
-                  </div>
-                )}
-
-                {focusTags.length > 0 && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Focus areas</div>
-                    <div className="profile-tags">
-                      {focusTags.map((tag) => (
-                        <span key={tag} className="profile-tag-chip">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {links.length > 0 && (
-                  <div className="profile-summary-item" style={{ marginTop: 18 }}>
-                    <div className="profile-section-label">Links</div>
-                    <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
-                      {links.map((l) => (
-                        <li key={l.label}>
-                          <a
-                            href={l.value as string}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: "#7dd3fc" }}
-                          >
-                            {l.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT */}
-              <div className="profile-col">
-                {profile?.highest_education && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Highest education</div>
-                    <div className="profile-summary-text">{profile.highest_education}</div>
-                  </div>
-                )}
-
-                {skillTags.length > 0 && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Skills</div>
-                    <div className="profile-tags">
-                      {skillTags.map((tag) => (
-                        <span key={tag} className="profile-tag-chip">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
+        {other?.id && (
+          <Link
+            href={/profile/${other.id}}
+            style={{
+              textDecoration: "none",
+              fontSize: 13,
+              fontWeight: 900,
+              color: "rgba(34,211,238,0.95)",
+            }}
+          >
+            View profile
+          </Link>
         )}
       </div>
-    </section>
+
+      <div style={{ height: 10 }} />
+
+      {/* message list */}
+      <div
+        ref={listRef}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          border: "1px solid rgba(148,163,184,0.14)",
+          background: "rgba(2,6,23,0.18)",
+          borderRadius: 14,
+          padding: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        {messages.length === 0 ? (
+          <div style={{ opacity: 0.8, fontSize: 13 }}>No messages yet. Say hi.</div>
+        ) : (
+          messages.map((m) => {
+            const mine = m.sender_id === uid;
+            return (
+              <div
+                key={m.id}
+                style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}
+              >
+                <div
+                  style={{
+                    maxWidth: "78%",
+                    borderRadius: 14,
+                    padding: "10px 12px",
+                    border: mine
+                      ? "1px solid rgba(59,199,243,0.35)"
+                      : "1px solid rgba(148,163,184,0.18)",
+                    background: mine ? "rgba(59,199,243,0.10)" : "rgba(15,23,42,0.70)",
+                    color: "rgba(226,232,240,0.95)",
+                    fontSize: 14,
+                    lineHeight: 1.45,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {m.body}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div style={{ height: 10 }} />
+
+      {/* composer */}
+      <div
+        style={{
+          border: "1px solid rgba(148,163,184,0.18)",
+          background: "rgba(15,23,42,0.92)",
+          borderRadius: 14,
+          padding: 12,
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+        }}
+      >
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Write a message…"
+          onFocus={() => void markThreadRead()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void send();
+            }
+          }}
+          style={{
+            flex: 1,
+            height: 42,
+            borderRadius: 12,
+            border: "1px solid rgba(148,163,184,0.2)",
+            background: "rgba(2,6,23,0.26)",
+            color: "rgba(226,232,240,0.94)",
+            padding: "0 12px",
+            fontSize: 14,
+            outline: "none",
+          }}
+        />
+
+        <button
+          type="button"
+          onClick={() => void send()}
+          disabled={sending || !draft.trim()}
+          style={{
+            padding: "9px 14px",
+            borderRadius: 999,
+            border: "none",
+            fontSize: 13,
+            fontWeight: 900,
+            cursor: sending ? "default" : "pointer",
+            opacity: sending || !draft.trim() ? 0.55 : 1,
+            background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+            color: "#0f172a",
+          }}
+        >
+          {sending ? "Sending…" : "Send"}
+        </button>
+      </div>
+    </div>
   );
 }
 
-(MemberProfilePage as any).layoutProps = {
-  variant: "two-left",
+(ThreadPage as any).layoutProps = {
+  variant: "three",
   right: null,
 };
