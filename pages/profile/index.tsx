@@ -329,9 +329,23 @@ export default function ProfileViewPage() {
                     Profile completeness: {completeness.pct}%
                   </div>
 
-                  <Link href="/profile/edit" style={smallPillStyle}>
-                    Complete your profile →
-                  </Link>
+                  {completeness.pct >= 100 ? (
+  <span
+    style={{
+      ...smallPillStyle,
+      border: "1px solid rgba(74,222,128,0.6)",
+      color: "rgba(187,247,208,0.95)",
+      cursor: "default",
+    }}
+    title="Nice — your profile is complete!"
+  >
+    Profile completed 🎉
+  </span>
+) : (
+  <Link href="/profile/edit" style={smallPillStyle}>
+    Complete your profile →
+  </Link>
+)}
                 </div>
 
                 {/* progress bar */}
