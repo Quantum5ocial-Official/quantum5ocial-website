@@ -68,9 +68,6 @@ export default function ThreadPage() {
     flexShrink: 0 as const,
   });
 
-  const subtitle = (p: ProfileLite | null) =>
-    [p?.highest_education, p?.affiliation].filter(Boolean).join(" · ");
-
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     const el = listRef.current;
     if (!el) return;
@@ -224,8 +221,7 @@ export default function ThreadPage() {
           if (row.thread_id !== threadId) return;
 
           if (thread) {
-            const allowed =
-              row.sender_id === thread.user1 || row.sender_id === thread.user2;
+            const allowed = row.sender_id === thread.user1 || row.sender_id === thread.user2;
             if (!allowed) return;
           }
 
@@ -327,7 +323,7 @@ export default function ThreadPage() {
             )}
           </div>
 
-          {/* ✅ name (and subtitle) clickable -> profile */}
+          {/* ✅ name clickable -> profile (no subtitle) */}
           <div style={{ minWidth: 0 }}>
             {other?.id ? (
               <Link
@@ -351,54 +347,41 @@ export default function ThreadPage() {
                 >
                   {name}
                 </div>
-                <div style={{ minWidth: 0 }}>
-  {other?.id ? (
-    <Link
-      href={`/profile/${other.id}`}
-      style={{
-        textDecoration: "none",
-        display: "block",
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          fontWeight: 900,
-          fontSize: 14,
-          color: "rgba(226,232,240,0.95)",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-        title={name}
-      >
-        {name}
-      </div>
-    </Link>
-  ) : (
-    <div
-      style={{
-        fontWeight: 900,
-        fontSize: 14,
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}
-      title={name}
-    >
-      {name}
-    </div>
-  )}
-</div>
+              </Link>
+            ) : (
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: 14,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={name}
+              >
+                {name}
+              </div>
+            )}
+          </div>
+        </div>
 
-{other?.id && (
-  <Link
-    href={`/profile/${other.id}`}
-    style={{ fontSize: 13, color: "rgba(34,211,238,0.95)" }}
-  >
-    View profile
-  </Link>
-)}
+        {other?.id && (
+          <Link
+            href={`/profile/${other.id}`}
+            style={{
+              fontSize: 13,
+              color: "rgba(34,211,238,0.95)",
+              textDecoration: "none",
+              fontWeight: 900,
+              whiteSpace: "nowrap",
+            }}
+          >
+            View profile
+          </Link>
+        )}
+      </div>
+
+      <div style={{ height: 10 }} />
 
       {/* message list */}
       <div
@@ -421,7 +404,10 @@ export default function ThreadPage() {
           messages.map((m) => {
             const mine = m.sender_id === uid;
             return (
-              <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+              <div
+                key={m.id}
+                style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}
+              >
                 <div
                   style={{
                     maxWidth: "78%",
@@ -433,6 +419,9 @@ export default function ThreadPage() {
                     background: mine ? "rgba(59,199,243,0.10)" : "rgba(15,23,42,0.70)",
                     color: "rgba(226,232,240,0.95)",
                     fontSize: 14,
+                    lineHeight: 1.45,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
                   }}
                 >
                   {m.body}
@@ -494,6 +483,7 @@ export default function ThreadPage() {
             background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
             color: "#0f172a",
             opacity: sending || !draft.trim() ? 0.55 : 1,
+            cursor: sending || !draft.trim() ? "default" : "pointer",
           }}
         >
           {sending ? "Sending…" : "Send"}
