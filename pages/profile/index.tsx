@@ -414,12 +414,7 @@ export default function ProfileViewPage() {
                       {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                     </div>
                   )}
-
-                  <div style={{ marginTop: 12 }}>
-                    <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
-                      Edit
-                    </Link>
-                  </div>
+                  
                 </div>
               </div>
 
