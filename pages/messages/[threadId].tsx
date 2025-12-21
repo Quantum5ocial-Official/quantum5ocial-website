@@ -351,27 +351,7 @@ export default function ThreadPage() {
                 >
                   {name}
                 </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    opacity: 0.8,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                  title={subtitle(other) || "Entangled member"}
-                >
-                  {subtitle(other) || "Entangled member"}
-                </div>
-              </Link>
-            ) : (
-              <>
-                <div style={{ fontWeight: 900, fontSize: 14 }}>{name}</div>
-                <div style={{ fontSize: 12, opacity: 0.8 }}>
-                  {subtitle(other) || "Entangled member"}
-                </div>
-              </>
-            )}
+                }
           </div>
         </div>
 
