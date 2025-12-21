@@ -10,7 +10,10 @@ type Profile = {
   id: string;
   full_name: string | null;
   short_bio: string | null;
+
   role: string | null;
+  current_title?: string | null;
+
   affiliation: string | null;
   country: string | null;
   city: string | null;
@@ -19,18 +22,25 @@ type Profile = {
   highest_education: string | null;
   key_experience: string | null;
   avatar_url: string | null;
+
   orcid: string | null;
   google_scholar: string | null;
   linkedin_url: string | null;
   github_url: string | null;
   personal_website: string | null;
   lab_website: string | null;
-  institutional_email: string | null;
 
+  // keep legacy fields optional (safe)
   institutional_email_verified?: boolean | null;
   email?: string | null;
   provider?: string | null;
   raw_metadata?: any;
+};
+
+type ProfilePrivate = {
+  id: string;
+  phone: string | null;
+  institutional_email: string | null;
 };
 
 export default function ProfileViewPage() {
@@ -38,6 +48,7 @@ export default function ProfileViewPage() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [privateProfile, setPrivateProfile] = useState<ProfilePrivate | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
   // Initialize shared entanglement logic (no UI here, just consistency / future use)
@@ -53,12 +64,13 @@ export default function ProfileViewPage() {
     }
   }, [loading, user, router]);
 
-  // Load profile from Supabase
+  // Load profile + private contact info
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
       setProfileLoading(true);
 
+      // Public profile
       const { data, error } = await supabase
         .from("profiles")
         .select(
@@ -67,6 +79,7 @@ export default function ProfileViewPage() {
             full_name,
             short_bio,
             role,
+            current_title,
             affiliation,
             country,
             city,
@@ -81,7 +94,6 @@ export default function ProfileViewPage() {
             github_url,
             personal_website,
             lab_website,
-            institutional_email,
             institutional_email_verified,
             email,
             provider,
@@ -94,10 +106,22 @@ export default function ProfileViewPage() {
       if (error) {
         console.error("Error loading profile", error);
         setProfile(null);
-      } else if (data) {
-        setProfile(data as Profile);
       } else {
-        setProfile(null);
+        setProfile((data as Profile) || null);
+      }
+
+      // Private contact (owner-only)
+      const { data: priv, error: privErr } = await supabase
+        .from("profile_private")
+        .select(`id, phone, institutional_email`)
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (privErr) {
+        console.error("Error loading profile_private", privErr);
+        setPrivateProfile(null);
+      } else {
+        setPrivateProfile((priv as ProfilePrivate) || null);
       }
 
       setProfileLoading(false);
@@ -139,7 +163,7 @@ export default function ProfileViewPage() {
     { label: "LinkedIn", value: profile?.linkedin_url },
     { label: "GitHub", value: profile?.github_url },
     { label: "Personal website", value: profile?.personal_website },
-    { label: "Lab website", value: profile?.lab_website },
+    { label: "Lab/Company website", value: profile?.lab_website },
   ].filter((x) => x.value);
 
   const hasAnyProfileInfo =
@@ -147,6 +171,7 @@ export default function ProfileViewPage() {
     (profile.full_name ||
       profile.short_bio ||
       profile.role ||
+      profile.current_title ||
       profile.affiliation ||
       profile.city ||
       profile.country ||
@@ -154,7 +179,8 @@ export default function ProfileViewPage() {
       profile.skills ||
       profile.highest_education ||
       profile.key_experience ||
-      profile.institutional_email);
+      privateProfile?.institutional_email ||
+      privateProfile?.phone);
 
   const editLinkStyle: React.CSSProperties = {
     display: "inline-flex",
@@ -171,6 +197,18 @@ export default function ProfileViewPage() {
   };
 
   if (!user && !loading) return null;
+
+  const accountEmail = user?.email || "";
+
+  // ✅ Show current title first; fallback to primary role
+  const headline = profile?.current_title?.trim()
+    ? profile.current_title
+    : profile?.role?.trim()
+    ? profile.role
+    : null;
+
+  const showContactTile =
+    !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
 
   return (
     <section className="section">
@@ -234,39 +272,68 @@ export default function ProfileViewPage() {
                 <div className="profile-header-text">
                   <div className="profile-name">{displayName}</div>
 
-                  {(profile?.role || profile?.affiliation) && (
+                  {(headline || profile?.affiliation) && (
                     <div className="profile-role">
-                      {[profile?.role, profile?.affiliation]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
                     </div>
                   )}
 
                   {(profile?.city || profile?.country) && (
                     <div className="profile-location">
-                      {[profile?.city, profile?.country]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </div>
-                  )}
-
-                  {profile?.institutional_email && (
-                    <div className="profile-location">
-                      Verified email: {profile.institutional_email}
+                      {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                     </div>
                   )}
 
                   <div style={{ marginTop: 12 }}>
-                    <Link
-                      href="/profile/edit"
-                      className="nav-ghost-btn"
-                      style={editLinkStyle}
-                    >
+                    <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
                       Edit / complete your profile
                     </Link>
                   </div>
                 </div>
               </div>
+
+              {/* ✅ Contact info tile (private, only the user) */}
+              {showContactTile && (
+                <div
+                  className="profile-summary-item"
+                  style={{
+                    marginTop: 14,
+                    border: "1px solid rgba(148,163,184,0.25)",
+                    borderRadius: 14,
+                    padding: 12,
+                    background: "rgba(2,6,23,0.35)",
+                  }}
+                >
+                  <div className="profile-section-label" style={{ marginBottom: 6 }}>
+                    Contact info (private)
+                  </div>
+
+                  <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
+                    {accountEmail && (
+                      <div>
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Account email:</span>{" "}
+                        {accountEmail}
+                      </div>
+                    )}
+
+                    {privateProfile?.institutional_email && (
+                      <div>
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>
+                          Institutional email:
+                        </span>{" "}
+                        {privateProfile.institutional_email}
+                      </div>
+                    )}
+
+                    {privateProfile?.phone && (
+                      <div>
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Phone:</span>{" "}
+                        {privateProfile.phone}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Short bio */}
               {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
