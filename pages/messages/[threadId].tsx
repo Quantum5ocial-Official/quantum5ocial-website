@@ -327,14 +327,59 @@ export default function ThreadPage() {
             )}
           </div>
 
+          {/* ✅ name (and subtitle) clickable -> profile */}
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: 14 }}>{name}</div>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>{subtitle(other) || "Entangled member"}</div>
+            {other?.id ? (
+              <Link
+                href={`/profile/${other.id}`}
+                style={{
+                  textDecoration: "none",
+                  display: "block",
+                  minWidth: 0,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 900,
+                    fontSize: 14,
+                    color: "rgba(226,232,240,0.95)",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={name}
+                >
+                  {name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.8,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={subtitle(other) || "Entangled member"}
+                >
+                  {subtitle(other) || "Entangled member"}
+                </div>
+              </Link>
+            ) : (
+              <>
+                <div style={{ fontWeight: 900, fontSize: 14 }}>{name}</div>
+                <div style={{ fontSize: 12, opacity: 0.8 }}>
+                  {subtitle(other) || "Entangled member"}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {other?.id && (
-          <Link href={`/profile/${other.id}`} style={{ fontSize: 13, color: "rgba(34,211,238,0.95)" }}>
+          <Link
+            href={`/profile/${other.id}`}
+            style={{ fontSize: 13, color: "rgba(34,211,238,0.95)" }}
+          >
             View profile
           </Link>
         )}
