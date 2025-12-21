@@ -30,6 +30,7 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
 
+  // keep legacy fields optional (safe)
   institutional_email_verified?: boolean | null;
   email?: string | null;
   provider?: string | null;
@@ -60,17 +61,21 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const headlineOk = has(p?.current_title) || has(p?.role);
 
   const items: CompletenessItem[] = [
+    // Basics (30)
     { key: "full_name", label: "Add your full name", w: 10, ok: has(p?.full_name) },
     { key: "short_bio", label: "Write a short bio", w: 10, ok: has(p?.short_bio) },
     { key: "headline", label: "Add a current title or primary role", w: 10, ok: headlineOk },
 
+    // Affiliation & location (15)
     { key: "affiliation", label: "Add your affiliation", w: 7, ok: has(p?.affiliation) },
     { key: "country", label: "Add your country", w: 4, ok: has(p?.country) },
     { key: "city", label: "Add your city", w: 4, ok: has(p?.city) },
 
+    // Expertise (20)
     { key: "focus_areas", label: "Add focus areas", w: 10, ok: has(p?.focus_areas) },
     { key: "skills", label: "Add skills", w: 10, ok: has(p?.skills) },
 
+    // Background (10)
     {
       key: "highest_education",
       label: "Select your highest education",
@@ -79,10 +84,12 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
     },
     { key: "key_experience", label: "Add key experience", w: 5, ok: has(p?.key_experience) },
 
+    // Credibility links (15)
     { key: "orcid", label: "Add your ORCID", w: 5, ok: has(p?.orcid) },
     { key: "google_scholar", label: "Add Google Scholar", w: 5, ok: has(p?.google_scholar) },
     { key: "linkedin_url", label: "Add LinkedIn", w: 5, ok: has(p?.linkedin_url) },
 
+    // Private / verification (10)
     {
       key: "institutional_email",
       label: "Add an institutional email",
@@ -109,17 +116,20 @@ export default function ProfileViewPage() {
   const [privateProfile, setPrivateProfile] = useState<ProfilePrivate | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  // shared hook (no UI here)
   useEntanglements({
     user,
     redirectPath: "/profile",
   });
 
+  // private view only: must be logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/profile");
     }
   }, [loading, user, router]);
 
+  // Load public profile + private info
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
@@ -254,6 +264,7 @@ export default function ProfileViewPage() {
 
   const accountEmail = user?.email || "";
 
+  // ✅ Show current title first; fallback to primary role
   const headline = profile?.current_title?.trim()
     ? profile.current_title
     : profile?.role?.trim()
@@ -264,8 +275,6 @@ export default function ProfileViewPage() {
     !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
 
   const completeness = computeCompleteness(profile, privateProfile);
-
-  // Inline "Top things to add" (single-line)
   const topAddInline = completeness.missing
     .slice(0, 3)
     .map((m) => m.label)
@@ -274,15 +283,15 @@ export default function ProfileViewPage() {
   return (
     <section className="section">
       <div className="profile-container">
-        {/* Page header */}
-        <div className="section-header" style={{ marginBottom: 18 }}>
+        {/* ✅ Push header up: tighter margin/padding */}
+        <div className="section-header" style={{ marginBottom: 10, paddingTop: 2 }}>
           <div>
             <div className="section-title">My profile</div>
             <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
-            {/* ✅ rename to Edit */}
+            {/* ✅ Edit only (since completeness has “complete” CTA) */}
             <Link
               href="/profile/edit"
               className="nav-ghost-btn"
@@ -314,7 +323,11 @@ export default function ProfileViewPage() {
             </div>
           ) : (
             <>
-              {/* ✅ Profile completeness meter (compact header + inline missing) */}
+              {/* ✅ Completeness block layout:
+                  Row 1: % + CTA same line
+                  Row 2: progress bar
+                  Row 3: Top things to add (single line)
+               */}
               <div
                 className="card"
                 style={{
@@ -325,7 +338,7 @@ export default function ProfileViewPage() {
                   background: "rgba(2,6,23,0.55)",
                 }}
               >
-                {/* same-line: % + CTA */}
+                {/* Row 1 */}
                 <div
                   style={{
                     display: "flex",
@@ -335,40 +348,11 @@ export default function ProfileViewPage() {
                     flexWrap: "wrap",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 10,
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
-                      Profile completeness: {completeness.pct}%
-                    </div>
-
-                    {/* ✅ inline "Top things to add" (single line) */}
-                    {topAddInline && (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "rgba(148,163,184,0.95)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: 520,
-                        }}
-                        title={topAddInline}
-                      >
-                        <span style={{ color: "rgba(148,163,184,0.95)" }}>
-                          Top things to add:
-                        </span>{" "}
-                        {topAddInline}
-                      </div>
-                    )}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
+                    Profile completeness: {completeness.pct}%
                   </div>
 
-                  {/* ✅ CTA on same line as percentage */}
+                  {/* ✅ pill on same line */}
                   <Link
                     href="/profile/edit"
                     className="nav-ghost-btn"
@@ -386,7 +370,7 @@ export default function ProfileViewPage() {
                   </Link>
                 </div>
 
-                {/* Progress bar */}
+                {/* Row 2: progress bar */}
                 <div style={{ marginTop: 10 }}>
                   <div
                     style={{
@@ -406,13 +390,45 @@ export default function ProfileViewPage() {
                     />
                   </div>
                 </div>
+
+                {/* Row 3: Top things to add (single line) */}
+                {!!topAddInline && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 12,
+                      color: "rgba(226,232,240,0.9)",
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ color: "rgba(148,163,184,0.95)" }}>Top things to add:</span>
+                    <span
+                      style={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: 760,
+                      }}
+                      title={topAddInline}
+                    >
+                      {topAddInline}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Top identity */}
               <div className="profile-header">
                 <div className="profile-avatar">
                   {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+                    <img
+                      src={profile.avatar_url}
+                      alt={displayName}
+                      className="profile-avatar-img"
+                    />
                   ) : (
                     <span>{initials}</span>
                   )}
@@ -434,7 +450,6 @@ export default function ProfileViewPage() {
                   )}
 
                   <div style={{ marginTop: 12 }}>
-                    {/* ✅ rename to Edit */}
                     <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
                       Edit
                     </Link>
@@ -442,7 +457,7 @@ export default function ProfileViewPage() {
                 </div>
               </div>
 
-              {/* Contact info tile (private, only the user) */}
+              {/* ✅ Contact info tile (private) */}
               {showContactTile && (
                 <div
                   className="profile-summary-item"
@@ -461,7 +476,9 @@ export default function ProfileViewPage() {
                   <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
                     {accountEmail && (
                       <div>
-                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Account email:</span>{" "}
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>
+                          Account email:
+                        </span>{" "}
                         {accountEmail}
                       </div>
                     )}
@@ -498,7 +515,7 @@ export default function ProfileViewPage() {
 
               {/* Two-column layout */}
               <div className="profile-two-columns">
-                {/* LEFT COLUMN */}
+                {/* LEFT */}
                 <div className="profile-col">
                   {profile?.affiliation && (
                     <div className="profile-summary-item">
@@ -541,7 +558,7 @@ export default function ProfileViewPage() {
                   )}
                 </div>
 
-                {/* RIGHT COLUMN */}
+                {/* RIGHT */}
                 <div className="profile-col">
                   {profile?.highest_education && (
                     <div className="profile-summary-item">
