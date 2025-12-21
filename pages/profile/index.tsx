@@ -2,9 +2,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { supabase } from "../lib/supabaseClient";
-import { useSupabaseUser } from "../lib/useSupabaseUser";
-import { useEntanglements } from "../lib/useEntanglements";
+import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import { useEntanglements } from "../../lib/useEntanglements";
 
 type Profile = {
   id: string;
