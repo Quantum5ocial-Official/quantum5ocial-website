@@ -43,6 +43,73 @@ type ProfilePrivate = {
   institutional_email: string | null;
 };
 
+// -------- Profile completeness (private view only) --------
+type CompletenessItem = {
+  key: string;
+  label: string;
+  w: number;
+  ok: boolean;
+};
+
+function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
+  const has = (v: any) => {
+    if (v == null) return false;
+    if (typeof v === "string") return v.trim().length > 0;
+    return true;
+  };
+
+  const headlineOk = has(p?.current_title) || has(p?.role);
+
+  const items: CompletenessItem[] = [
+    // Basics (30)
+    { key: "full_name", label: "Add your full name", w: 10, ok: has(p?.full_name) },
+    { key: "short_bio", label: "Write a short bio", w: 10, ok: has(p?.short_bio) },
+    { key: "headline", label: "Add a current title or primary role", w: 10, ok: headlineOk },
+
+    // Affiliation & location (15)
+    { key: "affiliation", label: "Add your affiliation", w: 7, ok: has(p?.affiliation) },
+    { key: "country", label: "Add your country", w: 4, ok: has(p?.country) },
+    { key: "city", label: "Add your city", w: 4, ok: has(p?.city) },
+
+    // Expertise (20)
+    { key: "focus_areas", label: "Add focus areas", w: 10, ok: has(p?.focus_areas) },
+    { key: "skills", label: "Add skills", w: 10, ok: has(p?.skills) },
+
+    // Background (10)
+    {
+      key: "highest_education",
+      label: "Select your highest education",
+      w: 5,
+      ok: has(p?.highest_education),
+    },
+    { key: "key_experience", label: "Add key experience", w: 5, ok: has(p?.key_experience) },
+
+    // Credibility links (15)
+    { key: "orcid", label: "Add your ORCID", w: 5, ok: has(p?.orcid) },
+    { key: "google_scholar", label: "Add Google Scholar", w: 5, ok: has(p?.google_scholar) },
+    { key: "linkedin_url", label: "Add LinkedIn", w: 5, ok: has(p?.linkedin_url) },
+
+    // Private / verification (10)
+    {
+      key: "institutional_email",
+      label: "Add an institutional email",
+      w: 6,
+      ok: has(priv?.institutional_email),
+    },
+    { key: "phone", label: "Add a phone number (optional)", w: 4, ok: has(priv?.phone) },
+  ];
+
+  const total = items.reduce((s, x) => s + x.w, 0);
+  const score = items.reduce((s, x) => s + (x.ok ? x.w : 0), 0);
+  const pct = total ? Math.round((score / total) * 100) : 0;
+
+  const missing = items
+    .filter((x) => !x.ok)
+    .sort((a, b) => b.w - a.w);
+
+  return { pct, score, total, missing };
+}
+
 export default function ProfileViewPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -210,6 +277,9 @@ export default function ProfileViewPage() {
   const showContactTile =
     !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
 
+  // ✅ completeness (private view only)
+  const completeness = computeCompleteness(profile, privateProfile);
+
   return (
     <section className="section">
       <div className="profile-container">
@@ -217,9 +287,7 @@ export default function ProfileViewPage() {
         <div className="section-header" style={{ marginBottom: 18 }}>
           <div>
             <div className="section-title">My profile</div>
-            <div className="section-sub">
-              This is how you appear inside Quantum5ocial.
-            </div>
+            <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
@@ -245,9 +313,8 @@ export default function ProfileViewPage() {
           ) : !hasAnyProfileInfo ? (
             <div>
               <p className="profile-muted" style={{ marginBottom: 12 }}>
-                You haven&apos;t filled in your profile yet. A complete profile
-                helps labs, companies, and collaborators know who you are in the
-                quantum ecosystem.
+                You haven&apos;t filled in your profile yet. A complete profile helps labs,
+                companies, and collaborators know who you are in the quantum ecosystem.
               </p>
               <Link href="/profile/edit" className="nav-cta">
                 Complete your profile
@@ -255,15 +322,81 @@ export default function ProfileViewPage() {
             </div>
           ) : (
             <>
+              {/* ✅ Profile completeness meter (private view only) */}
+              <div
+                className="card"
+                style={{
+                  padding: 14,
+                  marginBottom: 14,
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  borderRadius: 16,
+                  background: "rgba(2,6,23,0.55)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
+                      Profile completeness: {completeness.pct}%
+                    </div>
+                    <div style={{ fontSize: 12, color: "rgba(148,163,184,0.95)", marginTop: 4 }}>
+                      Complete profiles get discovered more.
+                    </div>
+                  </div>
+
+                  <Link href="/profile/edit" className="nav-ghost-btn" style={{ whiteSpace: "nowrap" }}>
+                    Complete profile →
+                  </Link>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ marginTop: 10 }}>
+                  <div
+                    style={{
+                      height: 10,
+                      borderRadius: 999,
+                      background: "rgba(148,163,184,0.25)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${completeness.pct}%`,
+                        borderRadius: 999,
+                        background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Missing items */}
+                {completeness.missing.length > 0 && (
+                  <div style={{ marginTop: 10, fontSize: 12, color: "rgba(226,232,240,0.9)" }}>
+                    <div style={{ color: "rgba(148,163,184,0.95)", marginBottom: 6 }}>
+                      Top things to add:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: 16 }}>
+                      {completeness.missing.slice(0, 3).map((m) => (
+                        <li key={m.key}>{m.label}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
               {/* Top identity */}
               <div className="profile-header">
                 <div className="profile-avatar">
                   {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={displayName}
-                      className="profile-avatar-img"
-                    />
+                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
                   ) : (
                     <span>{initials || "Q5"}</span>
                   )}
