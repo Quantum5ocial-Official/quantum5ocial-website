@@ -30,7 +30,6 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
 
-  // keep legacy fields optional (safe)
   institutional_email_verified?: boolean | null;
   email?: string | null;
   provider?: string | null;
@@ -61,21 +60,17 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const headlineOk = has(p?.current_title) || has(p?.role);
 
   const items: CompletenessItem[] = [
-    // Basics (30)
     { key: "full_name", label: "Add your full name", w: 10, ok: has(p?.full_name) },
     { key: "short_bio", label: "Write a short bio", w: 10, ok: has(p?.short_bio) },
     { key: "headline", label: "Add a current title or primary role", w: 10, ok: headlineOk },
 
-    // Affiliation & location (15)
     { key: "affiliation", label: "Add your affiliation", w: 7, ok: has(p?.affiliation) },
     { key: "country", label: "Add your country", w: 4, ok: has(p?.country) },
     { key: "city", label: "Add your city", w: 4, ok: has(p?.city) },
 
-    // Expertise (20)
     { key: "focus_areas", label: "Add focus areas", w: 10, ok: has(p?.focus_areas) },
     { key: "skills", label: "Add skills", w: 10, ok: has(p?.skills) },
 
-    // Background (10)
     {
       key: "highest_education",
       label: "Select your highest education",
@@ -84,12 +79,10 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
     },
     { key: "key_experience", label: "Add key experience", w: 5, ok: has(p?.key_experience) },
 
-    // Credibility links (15)
     { key: "orcid", label: "Add your ORCID", w: 5, ok: has(p?.orcid) },
     { key: "google_scholar", label: "Add Google Scholar", w: 5, ok: has(p?.google_scholar) },
     { key: "linkedin_url", label: "Add LinkedIn", w: 5, ok: has(p?.linkedin_url) },
 
-    // Private / verification (10)
     {
       key: "institutional_email",
       label: "Add an institutional email",
@@ -103,9 +96,7 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const score = items.reduce((s, x) => s + (x.ok ? x.w : 0), 0);
   const pct = total ? Math.round((score / total) * 100) : 0;
 
-  const missing = items
-    .filter((x) => !x.ok)
-    .sort((a, b) => b.w - a.w);
+  const missing = items.filter((x) => !x.ok).sort((a, b) => b.w - a.w);
 
   return { pct, score, total, missing };
 }
@@ -118,26 +109,22 @@ export default function ProfileViewPage() {
   const [privateProfile, setPrivateProfile] = useState<ProfilePrivate | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
-  // Initialize shared entanglement logic (no UI here, just consistency / future use)
   useEntanglements({
     user,
     redirectPath: "/profile",
   });
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/auth?redirect=/profile");
     }
   }, [loading, user, router]);
 
-  // Load profile + private contact info
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
       setProfileLoading(true);
 
-      // Public profile
       const { data, error } = await supabase
         .from("profiles")
         .select(
@@ -177,7 +164,6 @@ export default function ProfileViewPage() {
         setProfile((data as Profile) || null);
       }
 
-      // Private contact (owner-only)
       const { data: priv, error: privErr } = await supabase
         .from("profile_private")
         .select(`id, phone, institutional_email`)
@@ -205,12 +191,13 @@ export default function ProfileViewPage() {
 
   const displayName = profile?.full_name || fallbackName;
 
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((x) => x[0]?.toUpperCase())
-    .join("");
+  const initials =
+    displayName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "Q5";
 
   const focusTags =
     profile?.focus_areas
@@ -267,7 +254,6 @@ export default function ProfileViewPage() {
 
   const accountEmail = user?.email || "";
 
-  // ✅ Show current title first; fallback to primary role
   const headline = profile?.current_title?.trim()
     ? profile.current_title
     : profile?.role?.trim()
@@ -277,8 +263,13 @@ export default function ProfileViewPage() {
   const showContactTile =
     !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
 
-  // ✅ completeness (private view only)
   const completeness = computeCompleteness(profile, privateProfile);
+
+  // Inline "Top things to add" (single-line)
+  const topAddInline = completeness.missing
+    .slice(0, 3)
+    .map((m) => m.label)
+    .join(" · ");
 
   return (
     <section className="section">
@@ -291,18 +282,19 @@ export default function ProfileViewPage() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
+            {/* ✅ rename to Edit */}
             <Link
               href="/profile/edit"
               className="nav-ghost-btn"
               style={{
                 ...editLinkStyle,
-                maxWidth: "200px",
+                maxWidth: "140px",
                 width: "auto",
                 textAlign: "center",
-                padding: "8px 20px",
+                padding: "8px 18px",
               }}
             >
-              Edit / complete profile
+              Edit
             </Link>
           </div>
         </div>
@@ -322,37 +314,75 @@ export default function ProfileViewPage() {
             </div>
           ) : (
             <>
-              {/* ✅ Profile completeness meter (private view only) */}
+              {/* ✅ Profile completeness meter (compact header + inline missing) */}
               <div
                 className="card"
                 style={{
-                  padding: 14,
-                  marginBottom: 14,
+                  padding: 12,
+                  marginBottom: 12,
                   border: "1px solid rgba(148,163,184,0.35)",
                   borderRadius: 16,
                   background: "rgba(2,6,23,0.55)",
                 }}
               >
+                {/* same-line: % + CTA */}
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    gap: 12,
+                    gap: 10,
+                    alignItems: "center",
                     flexWrap: "wrap",
-                    alignItems: "flex-start",
                   }}
                 >
-                  <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
                       Profile completeness: {completeness.pct}%
                     </div>
-                    <div style={{ fontSize: 12, color: "rgba(148,163,184,0.95)", marginTop: 4 }}>
-                      Complete profiles get discovered more.
-                    </div>
+
+                    {/* ✅ inline "Top things to add" (single line) */}
+                    {topAddInline && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(148,163,184,0.95)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: 520,
+                        }}
+                        title={topAddInline}
+                      >
+                        <span style={{ color: "rgba(148,163,184,0.95)" }}>
+                          Top things to add:
+                        </span>{" "}
+                        {topAddInline}
+                      </div>
+                    )}
                   </div>
 
-                  <Link href="/profile/edit" className="nav-ghost-btn" style={{ whiteSpace: "nowrap" }}>
-                    Complete profile →
+                  {/* ✅ CTA on same line as percentage */}
+                  <Link
+                    href="/profile/edit"
+                    className="nav-ghost-btn"
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.6)",
+                      textDecoration: "none",
+                      color: "#e5e7eb",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Complete your profile →
                   </Link>
                 </div>
 
@@ -376,20 +406,6 @@ export default function ProfileViewPage() {
                     />
                   </div>
                 </div>
-
-                {/* Missing items */}
-                {completeness.missing.length > 0 && (
-                  <div style={{ marginTop: 10, fontSize: 12, color: "rgba(226,232,240,0.9)" }}>
-                    <div style={{ color: "rgba(148,163,184,0.95)", marginBottom: 6 }}>
-                      Top things to add:
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: 16 }}>
-                      {completeness.missing.slice(0, 3).map((m) => (
-                        <li key={m.key}>{m.label}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
 
               {/* Top identity */}
@@ -398,7 +414,7 @@ export default function ProfileViewPage() {
                   {profile?.avatar_url ? (
                     <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
                   ) : (
-                    <span>{initials || "Q5"}</span>
+                    <span>{initials}</span>
                   )}
                 </div>
 
@@ -418,14 +434,15 @@ export default function ProfileViewPage() {
                   )}
 
                   <div style={{ marginTop: 12 }}>
+                    {/* ✅ rename to Edit */}
                     <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
-                      Edit / complete your profile
+                      Edit
                     </Link>
                   </div>
                 </div>
               </div>
 
-              {/* ✅ Contact info tile (private, only the user) */}
+              {/* Contact info tile (private, only the user) */}
               {showContactTile && (
                 <div
                   className="profile-summary-item"
