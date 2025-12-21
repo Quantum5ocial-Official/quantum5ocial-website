@@ -10,15 +10,23 @@ type Profile = {
   id: string;
   full_name: string | null;
   short_bio: string | null;
-  role: string | null;
+
+  // ✅ Updated model
+  role: string | null; // Primary role (public)
+  current_title?: string | null; // Free text (public)
+
   affiliation: string | null;
   country: string | null;
   city: string | null;
+
   focus_areas: string | null;
   skills: string | null;
+
   highest_education: string | null;
   key_experience: string | null;
+
   avatar_url: string | null;
+
   orcid: string | null;
   google_scholar: string | null;
   linkedin_url: string | null;
@@ -29,7 +37,7 @@ type Profile = {
 
 export default function MemberProfilePage() {
   const router = useRouter();
-  const { user, loading } = useSupabaseUser();
+  const { user } = useSupabaseUser();
   const { id } = router.query;
 
   const profileId = typeof id === "string" ? id : null;
@@ -42,10 +50,6 @@ export default function MemberProfilePage() {
     () => !!user && !!profileId && user.id === profileId,
     [user, profileId]
   );
-
-  // Redirect if not logged in? (optional)
-  // If you want profiles public, remove this.
-  // For now: keep it public -> no redirect.
 
   // ---- Shared entanglement hook ----
   const {
@@ -70,25 +74,26 @@ export default function MemberProfilePage() {
         .from("profiles")
         .select(
           `
-          id,
-          full_name,
-          short_bio,
-          role,
-          affiliation,
-          country,
-          city,
-          focus_areas,
-          skills,
-          highest_education,
-          key_experience,
-          avatar_url,
-          orcid,
-          google_scholar,
-          linkedin_url,
-          github_url,
-          personal_website,
-          lab_website
-        `
+            id,
+            full_name,
+            short_bio,
+            role,
+            current_title,
+            affiliation,
+            country,
+            city,
+            focus_areas,
+            skills,
+            highest_education,
+            key_experience,
+            avatar_url,
+            orcid,
+            google_scholar,
+            linkedin_url,
+            github_url,
+            personal_website,
+            lab_website
+          `
         )
         .eq("id", profileId)
         .maybeSingle();
@@ -133,13 +138,20 @@ export default function MemberProfilePage() {
       .map((t) => t.trim())
       .filter(Boolean) || [];
 
+  // ✅ Show current title first, fallback to role
+  const headline = profile?.current_title?.trim()
+    ? profile.current_title
+    : profile?.role?.trim()
+    ? profile.role
+    : null;
+
   const links = [
     { label: "ORCID", value: profile?.orcid },
     { label: "Google Scholar", value: profile?.google_scholar },
     { label: "LinkedIn", value: profile?.linkedin_url },
     { label: "GitHub", value: profile?.github_url },
     { label: "Personal website", value: profile?.personal_website },
-    { label: "Lab website", value: profile?.lab_website },
+    { label: "Lab/Company website", value: profile?.lab_website }, // ✅ updated label
   ].filter((x) => x.value);
 
   const hasAnyProfileInfo =
@@ -147,6 +159,7 @@ export default function MemberProfilePage() {
     (profile.full_name ||
       profile.short_bio ||
       profile.role ||
+      profile.current_title ||
       profile.affiliation ||
       profile.city ||
       profile.country ||
@@ -319,7 +332,7 @@ export default function MemberProfilePage() {
   // ---------- UI ----------
   return (
     <section className="section">
-      {/* Header card (new ecosystem-style header) */}
+      {/* Header card */}
       <div
         className="card"
         style={{
@@ -340,10 +353,7 @@ export default function MemberProfilePage() {
           }}
         >
           <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", gap: 10, alignItems: "center" }}
-            >
+            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
               Member profile
             </div>
             <div className="section-sub" style={{ maxWidth: 560 }}>
@@ -360,7 +370,7 @@ export default function MemberProfilePage() {
         </div>
       </div>
 
-      {/* Main profile card (single middle column tile) */}
+      {/* Main profile card */}
       <div className="profile-summary-card">
         {profileLoading ? (
           <p className="profile-muted">Loading profile…</p>
@@ -381,7 +391,7 @@ export default function MemberProfilePage() {
           </div>
         ) : (
           <>
-            {/* Top identity card */}
+            {/* Top identity */}
             <div className="profile-header">
               <div className="profile-avatar">
                 {profile?.avatar_url ? (
@@ -398,29 +408,21 @@ export default function MemberProfilePage() {
               <div className="profile-header-text">
                 <div className="profile-name">{displayName}</div>
 
-                {(profile?.role || profile?.affiliation) && (
+                {(headline || profile?.affiliation) && (
                   <div className="profile-role">
-                    {[profile?.role, profile?.affiliation]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
                   </div>
                 )}
 
                 {(profile?.city || profile?.country) && (
                   <div className="profile-location">
-                    {[profile?.city, profile?.country]
-                      .filter(Boolean)
-                      .join(", ")}
+                    {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                   </div>
                 )}
 
                 {isSelf && (
                   <div style={{ marginTop: 12 }}>
-                    <Link
-                      href="/profile/edit"
-                      className="nav-ghost-btn"
-                      style={editLinkStyle}
-                    >
+                    <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
                       Edit / complete your profile
                     </Link>
                   </div>
@@ -431,7 +433,7 @@ export default function MemberProfilePage() {
             {/* Short bio */}
             {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
 
-            {/* Experience inline */}
+            {/* Experience */}
             {profile?.key_experience && (
               <p className="profile-bio">
                 <span className="profile-section-label-inline">Experience:</span>{" "}
