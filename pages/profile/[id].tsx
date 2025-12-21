@@ -151,7 +151,7 @@ export default function MemberProfilePage() {
     { label: "LinkedIn", value: profile?.linkedin_url },
     { label: "GitHub", value: profile?.github_url },
     { label: "Personal website", value: profile?.personal_website },
-    { label: "Lab/Company website", value: profile?.lab_website },
+    { label: "Lab/Company website", value: profile?.lab_website }, // ✅ updated label
   ].filter((x) => x.value);
 
   const hasAnyProfileInfo =
@@ -168,19 +168,67 @@ export default function MemberProfilePage() {
       profile.highest_education ||
       profile.key_experience);
 
-  const pillBase: React.CSSProperties = {
-    padding: "6px 14px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 800,
-    whiteSpace: "nowrap",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
+  // ✅ get-or-create thread then route to /messages/[threadId]
+  const openOrCreateThread = async (otherUserId: string) => {
+    if (!user) {
+      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    try {
+      const { data: existing, error: findErr } = await supabase
+        .from("dm_threads")
+        .select("id, user1, user2, created_at")
+        .or(
+          `and(user1.eq.${user.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${user.id})`
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      if (existing?.id) {
+        router.push(`/messages/${existing.id}`);
+        return;
+      }
+
+      const { data: created, error: createErr } = await supabase
+        .from("dm_threads")
+        .insert({ user1: user.id, user2: otherUserId })
+        .select("id")
+        .maybeSingle();
+
+      if (createErr) throw createErr;
+
+      if (created?.id) {
+        router.push(`/messages/${created.id}`);
+        return;
+      }
+
+      throw new Error("Could not create thread.");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Could not open messages.");
+    }
   };
 
   const renderEntangleHeaderCTA = () => {
     if (!profile || profileLoading) return null;
+
+    // ✅ tiny pill styles (same size system as your other pills)
+    const pillBase: React.CSSProperties = {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "4px 10px",
+      borderRadius: 999,
+      fontSize: 12,
+      fontWeight: 800,
+      whiteSpace: "nowrap",
+      lineHeight: "16px",
+      textDecoration: "none",
+      width: "fit-content",
+    };
 
     if (isSelf) {
       return (
@@ -190,8 +238,9 @@ export default function MemberProfilePage() {
           style={{
             ...pillBase,
             border: "1px solid rgba(148,163,184,0.6)",
-            textDecoration: "none",
             color: "#e5e7eb",
+            fontWeight: 700,
+            padding: "6px 14px",
           }}
         >
           View / edit my profile
@@ -209,8 +258,8 @@ export default function MemberProfilePage() {
           }
           style={{
             ...pillBase,
+            padding: "6px 14px",
             border: "1px solid rgba(148,163,184,0.6)",
-            background: "transparent",
             color: "rgba(226,232,240,0.95)",
             cursor: "pointer",
           }}
@@ -224,55 +273,6 @@ export default function MemberProfilePage() {
 
     const status = getConnectionStatus(profileId);
     const loadingBtn = isEntangleLoading(profileId);
-
-    // ✅ Accepted: show TWO small pills (Entangled + Message)
-    if (status === "accepted") {
-      return (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <span
-            style={{
-              ...pillBase,
-              border: "1px solid rgba(74,222,128,0.7)",
-              background: "transparent",
-              color: "rgba(187,247,208,0.95)",
-            }}
-          >
-            Entangled ✓
-          </span>
-
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                // Requires RPC: dm_get_or_create_thread(p_other_user uuid)
-                const { data, error } = await supabase.rpc("dm_get_or_create_thread", {
-                  p_other_user: profileId,
-                });
-                if (error) throw error;
-
-                const tid = (data as any)?.thread_id || data;
-                if (!tid) throw new Error("No thread id returned.");
-
-                router.push(`/messages/${tid}`);
-              } catch (e: any) {
-                alert(e?.message || "Could not open messages.");
-              }
-            }}
-            style={{
-              ...pillBase,
-              border: "1px solid rgba(148,163,184,0.55)",
-              background: "rgba(2,6,23,0.20)",
-              color: "rgba(226,232,240,0.95)",
-              cursor: "pointer",
-              opacity: loadingBtn ? 0.7 : 1,
-            }}
-            disabled={loadingBtn}
-          >
-            Message →
-          </button>
-        </div>
-      );
-    }
 
     if (status === "pending_incoming") {
       return (
@@ -290,6 +290,7 @@ export default function MemberProfilePage() {
             disabled={loadingBtn}
             style={{
               ...pillBase,
+              padding: "6px 14px",
               border: "none",
               background: "linear-gradient(90deg,#22c55e,#16a34a)",
               color: "#0f172a",
@@ -306,6 +307,7 @@ export default function MemberProfilePage() {
             disabled={loadingBtn}
             style={{
               ...pillBase,
+              padding: "6px 14px",
               border: "1px solid rgba(148,163,184,0.7)",
               background: "transparent",
               color: "rgba(248,250,252,0.9)",
@@ -319,6 +321,43 @@ export default function MemberProfilePage() {
       );
     }
 
+    if (status === "accepted") {
+      return (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* ✅ Message pill */}
+          <button
+            type="button"
+            onClick={() => openOrCreateThread(profileId)}
+            style={{
+              ...pillBase,
+              padding: "6px 14px",
+              border: "none",
+              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+              color: "#0f172a",
+              cursor: "pointer",
+            }}
+          >
+            Message
+          </button>
+
+          {/* ✅ Entangled badge pill */}
+          <span
+            style={{
+              ...pillBase,
+              padding: "6px 12px",
+              border: "1px solid rgba(74,222,128,0.65)",
+              background: "rgba(34,197,94,0.10)",
+              color: "rgba(187,247,208,0.95)",
+            }}
+            title="You are entangled"
+          >
+            Entangled ✓
+          </span>
+        </div>
+      );
+    }
+
+    // default (not entangled yet)
     let label = "Entangle +";
     let border = "none";
     let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
@@ -340,6 +379,7 @@ export default function MemberProfilePage() {
         disabled={loadingBtn || disabled}
         style={{
           ...pillBase,
+          padding: "6px 14px",
           border,
           background: bg,
           color,
@@ -378,7 +418,6 @@ export default function MemberProfilePage() {
           background:
             "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
           border: "1px solid rgba(148,163,184,0.35)",
-          borderRadius: 16,
         }}
       >
         <div
