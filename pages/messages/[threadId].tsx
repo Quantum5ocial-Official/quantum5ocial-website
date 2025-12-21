@@ -19,8 +19,6 @@ type MessageRow = {
   sender_id: string;
   body: string;
   created_at: string;
-
-  // optional; we don't rely on it anymore
   recipient_id?: string;
 };
 
@@ -45,8 +43,6 @@ export default function ThreadPage() {
   const [error, setError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
-
-  // ✅ track if user is currently near the bottom (so we only autoscroll then)
   const isNearBottomRef = useRef(true);
 
   const initialsOf = (name: string | null | undefined) =>
@@ -84,19 +80,16 @@ export default function ThreadPage() {
   const measureNearBottom = () => {
     const el = listRef.current;
     if (!el) return true;
-    const threshold = 80; // px
+    const threshold = 80;
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
     return dist < threshold;
   };
 
-  // ✅ mark this thread read for current user
   const markThreadRead = async () => {
     if (!uid || !threadId) return;
     try {
       await supabase.rpc("dm_mark_thread_read", { p_thread_id: threadId });
-    } catch {
-      // ignore; other pages/dock will reconcile later
-    }
+    } catch {}
   };
 
   const loadThreadAndMessages = async () => {
@@ -105,7 +98,6 @@ export default function ThreadPage() {
     setError(null);
 
     try {
-      // 1) thread
       const { data: t, error: tErr } = await supabase
         .from("dm_threads")
         .select("id, user1, user2, created_at")
@@ -120,7 +112,6 @@ export default function ThreadPage() {
 
       const otherId = th.user1 === uid ? th.user2 : th.user1;
 
-      // 2) other profile
       const { data: p } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, highest_education, affiliation")
@@ -129,7 +120,6 @@ export default function ThreadPage() {
 
       setOther((p as any) || null);
 
-      // 3) messages
       const { data: m, error: mErr } = await supabase
         .from("dm_messages")
         .select("id, thread_id, sender_id, body, created_at, recipient_id")
@@ -140,13 +130,11 @@ export default function ThreadPage() {
 
       setMessages((m as any[])?.map((x) => x as MessageRow) || []);
 
-      // ✅ ALWAYS open at bottom (newest)
       requestAnimationFrame(() => {
         scrollToBottom("auto");
         setTimeout(() => scrollToBottom("auto"), 60);
       });
 
-      // ✅ mark read on open
       await markThreadRead();
     } catch (e: any) {
       console.error(e);
@@ -185,7 +173,6 @@ export default function ThreadPage() {
         });
         setDraft("");
 
-        // ✅ after sending, always go bottom
         requestAnimationFrame(() => {
           scrollToBottom("smooth");
           setTimeout(() => scrollToBottom("smooth"), 60);
@@ -205,10 +192,8 @@ export default function ThreadPage() {
       return;
     }
     void loadThreadAndMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid, threadId]);
 
-  // ✅ Keep isNearBottomRef updated
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
@@ -218,7 +203,6 @@ export default function ThreadPage() {
     };
 
     el.addEventListener("scroll", onScroll, { passive: true });
-    // initialize
     isNearBottomRef.current = measureNearBottom();
 
     return () => {
@@ -226,13 +210,11 @@ export default function ThreadPage() {
     };
   }, [listRef.current]);
 
-  // ✅ Realtime subscription (ROBUST):
-  // Listen to all inserts, then filter by thread_id + participation.
   useEffect(() => {
     if (!uid || !threadId) return;
 
     const channel = supabase
-      .channel(dm-thread-page:${threadId})
+      .channel(`dm-thread-page:${threadId}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "dm_messages" },
@@ -241,9 +223,9 @@ export default function ThreadPage() {
 
           if (row.thread_id !== threadId) return;
 
-          // if we have thread loaded, only accept messages from me or the other participant
           if (thread) {
-            const allowed = row.sender_id === thread.user1 || row.sender_id === thread.user2;
+            const allowed =
+              row.sender_id === thread.user1 || row.sender_id === thread.user2;
             if (!allowed) return;
           }
 
@@ -252,7 +234,6 @@ export default function ThreadPage() {
             return exists ? prev : [...prev, row];
           });
 
-          // ✅ only autoscroll if user is near bottom already
           if (isNearBottomRef.current) {
             requestAnimationFrame(() => {
               scrollToBottom("auto");
@@ -260,7 +241,6 @@ export default function ThreadPage() {
             });
           }
 
-          // ✅ if incoming while you're on this page, mark read immediately
           if (row.sender_id !== uid) {
             await markThreadRead();
           }
@@ -273,7 +253,6 @@ export default function ThreadPage() {
     };
   }, [uid, threadId, thread]);
 
-  // ✅ Extra safety: when tab/window refocuses, mark read
   useEffect(() => {
     if (!uid || !threadId) return;
 
@@ -341,7 +320,7 @@ export default function ThreadPage() {
               <img
                 src={other.avatar_url}
                 alt={name}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
               initials
@@ -349,23 +328,13 @@ export default function ThreadPage() {
           </div>
 
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: 14, lineHeight: 1.2 }}>{name}</div>
-            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 3 }}>
-              {subtitle(other) || "Entangled member"}
-            </div>
+            <div style={{ fontWeight: 900, fontSize: 14 }}>{name}</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{subtitle(other) || "Entangled member"}</div>
           </div>
         </div>
 
         {other?.id && (
-          <Link
-            href={/profile/${other.id}}
-            style={{
-              textDecoration: "none",
-              fontSize: 13,
-              fontWeight: 900,
-              color: "rgba(34,211,238,0.95)",
-            }}
-          >
+          <Link href={`/profile/${other.id}`} style={{ fontSize: 13, color: "rgba(34,211,238,0.95)" }}>
             View profile
           </Link>
         )}
@@ -394,10 +363,7 @@ export default function ThreadPage() {
           messages.map((m) => {
             const mine = m.sender_id === uid;
             return (
-              <div
-                key={m.id}
-                style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}
-              >
+              <div key={m.id} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
                 <div
                   style={{
                     maxWidth: "78%",
@@ -409,9 +375,6 @@ export default function ThreadPage() {
                     background: mine ? "rgba(59,199,243,0.10)" : "rgba(15,23,42,0.70)",
                     color: "rgba(226,232,240,0.95)",
                     fontSize: 14,
-                    lineHeight: 1.45,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
                   }}
                 >
                   {m.body}
@@ -470,10 +433,9 @@ export default function ThreadPage() {
             border: "none",
             fontSize: 13,
             fontWeight: 900,
-            cursor: sending ? "default" : "pointer",
-            opacity: sending || !draft.trim() ? 0.55 : 1,
             background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
             color: "#0f172a",
+            opacity: sending || !draft.trim() ? 0.55 : 1,
           }}
         >
           {sending ? "Sending…" : "Send"}
