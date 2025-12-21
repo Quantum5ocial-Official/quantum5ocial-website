@@ -351,21 +351,54 @@ export default function ThreadPage() {
                 >
                   {name}
                 </div>
-                }
-          </div>
-        </div>
-
-        {other?.id && (
-          <Link
-            href={`/profile/${other.id}`}
-            style={{ fontSize: 13, color: "rgba(34,211,238,0.95)" }}
-          >
-            View profile
-          </Link>
-        )}
+                <div style={{ minWidth: 0 }}>
+  {other?.id ? (
+    <Link
+      href={`/profile/${other.id}`}
+      style={{
+        textDecoration: "none",
+        display: "block",
+        minWidth: 0,
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 900,
+          fontSize: 14,
+          color: "rgba(226,232,240,0.95)",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+        title={name}
+      >
+        {name}
       </div>
+    </Link>
+  ) : (
+    <div
+      style={{
+        fontWeight: 900,
+        fontSize: 14,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+      title={name}
+    >
+      {name}
+    </div>
+  )}
+</div>
 
-      <div style={{ height: 10 }} />
+{other?.id && (
+  <Link
+    href={`/profile/${other.id}`}
+    style={{ fontSize: 13, color: "rgba(34,211,238,0.95)" }}
+  >
+    View profile
+  </Link>
+)}
 
       {/* message list */}
       <div
