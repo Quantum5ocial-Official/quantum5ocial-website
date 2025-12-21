@@ -434,10 +434,7 @@ export default function MemberProfilePage() {
               className="section-title"
               style={{ display: "flex", gap: 10, alignItems: "center" }}
             >
-              Member profile
-            </div>
-            <div className="section-sub" style={{ maxWidth: 560 }}>
-              This is how this member appears inside Quantum5ocial.
+              Profile
             </div>
           </div>
 
