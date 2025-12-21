@@ -9,22 +9,38 @@ type Profile = {
   id: string;
   full_name: string | null;
   short_bio: string | null;
-  role: string | null;
+
+  // Professional identity
+  role: string | null; // Primary role
+  current_title?: string | null; // Free text
+
+  // Affiliation / location
   affiliation: string | null;
   country: string | null;
   city: string | null;
+
+  // Expertise (still stored as comma-separated for now)
   focus_areas: string | null;
   skills: string | null;
+
+  // Background
   highest_education: string | null;
   key_experience: string | null;
+
+  // Media
   avatar_url: string | null;
-  orcid: string | null;
+
+  // Links
+  institutional_email: string | null;
+  lab_website?: string | null; // rename label to Lab/Company website
   google_scholar: string | null;
   linkedin_url: string | null;
+  orcid: string | null;
   github_url: string | null;
   personal_website: string | null;
-  lab_website: string | null;
-  institutional_email: string | null;
+
+  // Private contact (hidden by default; only user sees it)
+  phone?: string | null;
 
   institutional_email_verified?: boolean | null;
   email?: string | null;
@@ -44,22 +60,33 @@ export default function ProfileEditPage() {
   const [form, setForm] = useState({
     full_name: "",
     short_bio: "",
+
     role: "",
+    current_title: "",
+
     affiliation: "",
     country: "",
     city: "",
+
     focus_areas: "",
     skills: "",
+
     highest_education: "",
     key_experience: "",
+
     avatar_url: "",
-    orcid: "",
+
+    // Private contact
+    phone: "",
+
+    // Links (ordered as requested)
+    institutional_email: "",
+    lab_website: "",
     google_scholar: "",
     linkedin_url: "",
+    orcid: "",
     github_url: "",
     personal_website: "",
-    lab_website: "",
-    institutional_email: "",
   });
 
   // Redirect if not logged in
@@ -83,6 +110,7 @@ export default function ProfileEditPage() {
             full_name,
             short_bio,
             role,
+            current_title,
             affiliation,
             country,
             city,
@@ -91,13 +119,14 @@ export default function ProfileEditPage() {
             highest_education,
             key_experience,
             avatar_url,
-            orcid,
+            phone,
+            institutional_email,
+            lab_website,
             google_scholar,
             linkedin_url,
+            orcid,
             github_url,
-            personal_website,
-            lab_website,
-            institutional_email
+            personal_website
           `
         )
         .eq("id", user.id)
@@ -110,22 +139,31 @@ export default function ProfileEditPage() {
         setForm({
           full_name: p.full_name || "",
           short_bio: p.short_bio || "",
+
           role: p.role || "",
+          current_title: p.current_title || "",
+
           affiliation: p.affiliation || "",
           country: p.country || "",
           city: p.city || "",
+
           focus_areas: p.focus_areas || "",
           skills: p.skills || "",
+
           highest_education: p.highest_education || "",
           key_experience: p.key_experience || "",
+
           avatar_url: p.avatar_url || "",
-          orcid: p.orcid || "",
+
+          phone: p.phone || "",
+
+          institutional_email: p.institutional_email || "",
+          lab_website: p.lab_website || "",
           google_scholar: p.google_scholar || "",
           linkedin_url: p.linkedin_url || "",
+          orcid: p.orcid || "",
           github_url: p.github_url || "",
           personal_website: p.personal_website || "",
-          lab_website: p.lab_website || "",
-          institutional_email: p.institutional_email || "",
         });
       }
 
@@ -146,6 +184,14 @@ export default function ProfileEditPage() {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
     };
 
+  const normalizeUrlOrNull = (v: string) => {
+    const s = (v || "").trim();
+    if (!s) return null;
+    // accept already-valid URLs, or auto-prefix if user pasted "linkedin.com/..."
+    if (/^https?:\/\//i.test(s)) return s;
+    return `https://${s}`;
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -157,22 +203,33 @@ export default function ProfileEditPage() {
       id: user.id,
       full_name: form.full_name.trim() || null,
       short_bio: form.short_bio.trim() || null,
+
       role: form.role.trim() || null,
+      current_title: form.current_title.trim() || null,
+
       affiliation: form.affiliation.trim() || null,
       country: form.country.trim() || null,
       city: form.city.trim() || null,
+
       focus_areas: form.focus_areas.trim() || null,
       skills: form.skills.trim() || null,
+
       highest_education: form.highest_education || null,
       key_experience: form.key_experience.trim() || null,
+
       avatar_url: form.avatar_url || null,
-      orcid: form.orcid.trim() || null,
-      google_scholar: form.google_scholar.trim() || null,
-      linkedin_url: form.linkedin_url.trim() || null,
-      github_url: form.github_url.trim() || null,
-      personal_website: form.personal_website.trim() || null,
-      lab_website: form.lab_website.trim() || null,
+
+      // Private contact
+      phone: form.phone.trim() || null,
+
+      // Links (ordered + normalized)
       institutional_email: form.institutional_email.trim() || null,
+      lab_website: normalizeUrlOrNull(form.lab_website),
+      google_scholar: normalizeUrlOrNull(form.google_scholar),
+      linkedin_url: normalizeUrlOrNull(form.linkedin_url),
+      orcid: form.orcid.trim() || null, // can be ID or URL; keep as text for now
+      github_url: normalizeUrlOrNull(form.github_url),
+      personal_website: normalizeUrlOrNull(form.personal_website),
     };
 
     const { error } = await supabase
@@ -235,6 +292,8 @@ export default function ProfileEditPage() {
       .slice(0, 2)
       .map((x) => x[0]?.toUpperCase())
       .join("") || "Q5";
+
+  const accountEmail = user?.email || "";
 
   return (
     <>
@@ -328,31 +387,75 @@ export default function ProfileEditPage() {
                     </div>
 
                     <div className="profile-field">
-                      <label>What best describes you?</label>
+                      <label>Primary role</label>
                       <select value={form.role} onChange={handleChange("role")}>
                         <option value="">Select…</option>
-                        <option value="Bachelor student">Bachelor student</option>
-                        <option value="Master student">Master student</option>
-                        <option value="PhD student">PhD student</option>
-                        <option value="Postdoc">Postdoc</option>
-                        <option value="Researcher / Scientist">
-                          Researcher / Scientist
-                        </option>
-                        <option value="Professor / Group Leader">
-                          Professor / Group Leader
-                        </option>
-                        <option value="Engineer / Technician">
-                          Engineer / Technician
-                        </option>
-                        <option value="Industry Professional">
-                          Industry Professional
-                        </option>
-                        <option value="CEO / Founder">CEO / Founder</option>
-                        <option value="Product / Business role">
-                          Product / Business role
-                        </option>
-                        <option value="Other">Other</option>
+
+                        <optgroup label="Academia">
+                          <option value="Bachelor Student">Bachelor Student</option>
+                          <option value="Master Student">Master Student</option>
+                          <option value="PhD Student">PhD Student</option>
+                          <option value="Postdoctoral Researcher">
+                            Postdoctoral Researcher
+                          </option>
+                          <option value="Research Scientist">Research Scientist</option>
+                          <option value="Professor / Principal Investigator">
+                            Professor / Principal Investigator
+                          </option>
+                        </optgroup>
+
+                        <optgroup label="Technical professionals">
+                          <option value="Quantum Engineer">Quantum Engineer</option>
+                          <option value="Hardware Engineer">Hardware Engineer</option>
+                          <option value="Software Engineer">Software Engineer</option>
+                          <option value="Microwave / RF Engineer">
+                            Microwave / RF Engineer
+                          </option>
+                          <option value="Cryogenics Engineer">Cryogenics Engineer</option>
+                          <option value="Nanofabrication Engineer">
+                            Nanofabrication Engineer
+                          </option>
+                          <option value="Experimental Physicist">
+                            Experimental Physicist
+                          </option>
+                          <option value="Theoretical Physicist">
+                            Theoretical Physicist
+                          </option>
+                        </optgroup>
+
+                        <optgroup label="Industry & leadership">
+                          <option value="Founder / Co-founder">
+                            Founder / Co-founder
+                          </option>
+                          <option value="Executive (CEO / CTO / COO / CSO)">
+                            Executive (CEO / CTO / COO / CSO)
+                          </option>
+                          <option value="Technical Lead / Architect">
+                            Technical Lead / Architect
+                          </option>
+                          <option value="Engineering Manager">
+                            Engineering Manager
+                          </option>
+                          <option value="Product Manager">Product Manager</option>
+                        </optgroup>
+
+                        <optgroup label="Other">
+                          <option value="Business Development">Business Development</option>
+                          <option value="Consultant">Consultant</option>
+                          <option value="Policy / Strategy">Policy / Strategy</option>
+                          <option value="Other">Other</option>
+                        </optgroup>
                       </select>
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Current title (optional)</label>
+                      <input
+                        type="text"
+                        value={form.current_title}
+                        onChange={handleChange("current_title")}
+                        placeholder="e.g. CTO, Group Leader, Senior Quantum Engineer"
+                      />
                     </div>
 
                     <div className="profile-field">
@@ -382,6 +485,39 @@ export default function ProfileEditPage() {
                         value={form.city}
                         onChange={handleChange("city")}
                         placeholder="Basel, Zurich, Berlin…"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Private contact */}
+                <div className="profile-section">
+                  <div className="profile-section-header">
+                    <h4 className="profile-section-title">Private contact</h4>
+                    <p className="profile-section-sub">
+                      Your email and phone number are visible only to you.
+                    </p>
+                  </div>
+
+                  <div className="profile-grid">
+                    <div className="profile-field">
+                      <label>Account email (private)</label>
+                      <input
+                        type="email"
+                        value={accountEmail}
+                        readOnly
+                        disabled
+                        placeholder="you@example.com"
+                      />
+                    </div>
+
+                    <div className="profile-field">
+                      <label>Phone number (private, optional)</label>
+                      <input
+                        type="tel"
+                        value={form.phone}
+                        onChange={handleChange("phone")}
+                        placeholder="+41 …"
                       />
                     </div>
                   </div>
@@ -439,7 +575,6 @@ export default function ProfileEditPage() {
                         <option value="Bachelor">Bachelor</option>
                         <option value="Master">Master</option>
                         <option value="PhD">PhD</option>
-                        <option value="Postdoc">Postdoc</option>
                         <option value="Other / not applicable">
                           Other / not applicable
                         </option>
@@ -463,7 +598,7 @@ export default function ProfileEditPage() {
                   <div className="profile-section-header">
                     <h4 className="profile-section-title">Links & verification</h4>
                     <p className="profile-section-sub">
-                      Optional external links for credibility and blue ticks later.
+                      Optional external links for credibility and verification.
                     </p>
                   </div>
 
@@ -479,12 +614,12 @@ export default function ProfileEditPage() {
                     </div>
 
                     <div className="profile-field">
-                      <label>ORCID</label>
+                      <label>Lab/Company website</label>
                       <input
                         type="text"
-                        value={form.orcid}
-                        onChange={handleChange("orcid")}
-                        placeholder="https://orcid.org/…"
+                        value={form.lab_website}
+                        onChange={handleChange("lab_website")}
+                        placeholder="https://…"
                       />
                     </div>
 
@@ -509,6 +644,16 @@ export default function ProfileEditPage() {
                     </div>
 
                     <div className="profile-field">
+                      <label>ORCID</label>
+                      <input
+                        type="text"
+                        value={form.orcid}
+                        onChange={handleChange("orcid")}
+                        placeholder="0000-0002-1825-0097 or https://orcid.org/…"
+                      />
+                    </div>
+
+                    <div className="profile-field">
                       <label>GitHub</label>
                       <input
                         type="text"
@@ -525,16 +670,6 @@ export default function ProfileEditPage() {
                         value={form.personal_website}
                         onChange={handleChange("personal_website")}
                         placeholder="https://yourname.dev"
-                      />
-                    </div>
-
-                    <div className="profile-field">
-                      <label>Lab website</label>
-                      <input
-                        type="text"
-                        value={form.lab_website}
-                        onChange={handleChange("lab_website")}
-                        placeholder="https://yourlab.org"
                       />
                     </div>
                   </div>
