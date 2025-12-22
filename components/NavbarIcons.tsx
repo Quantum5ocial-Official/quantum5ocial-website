@@ -33,8 +33,8 @@ export default function NavbarIcons() {
   const [hasOrganizations, setHasOrganizations] = useState(false);
 
   // mobile drawer
-  const [, set] = useState(false);
-
+const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
   // isMobile – used to hide desktop icon bar on small screens
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
