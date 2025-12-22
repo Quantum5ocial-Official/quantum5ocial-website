@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
+import Q5BadgeChips from "../../components/Q5BadgeChips"; // ✅ NEW
 
 type Profile = {
   id: string;
@@ -229,47 +230,11 @@ export default function MemberProfilePage() {
       profile.highest_education ||
       profile.key_experience);
 
-  // ✅ badge display logic
+  // ✅ badge display logic (data kept the same)
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
-
-  const status = (profile?.q5_badge_review_status || "").toLowerCase();
-  const statusLabel =
-    status === "pending"
-      ? "Pending"
-      : status === "approved"
-      ? "Verified"
-      : status === "rejected"
-      ? "Needs update"
-      : null;
-
-  const badgeChipStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "4px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(34,211,238,0.35)",
-    background: "rgba(34,211,238,0.08)",
-    color: "rgba(226,232,240,0.95)",
-    fontSize: 12,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-  };
-
-  const badgeStatusStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "4px 10px",
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-    border: "1px solid rgba(148,163,184,0.35)",
-    background: "rgba(2,6,23,0.35)",
-    color: "rgba(226,232,240,0.92)",
-  };
 
   // ✅ get-or-create thread then route to /messages/[threadId]
   const openOrCreateThread = async (otherUserId: string) => {
@@ -378,7 +343,14 @@ export default function MemberProfilePage() {
 
     if (status === "pending_incoming") {
       return (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <button
             type="button"
             onClick={() => handleEntangle(profileId)}
@@ -521,7 +493,10 @@ export default function MemberProfilePage() {
           }}
         >
           <div>
-            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div
+              className="section-title"
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
               Profile
             </div>
           </div>
@@ -560,7 +535,11 @@ export default function MemberProfilePage() {
             <div className="profile-header">
               <div className="profile-avatar">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+                  <img
+                    src={profile.avatar_url}
+                    alt={displayName}
+                    className="profile-avatar-img"
+                  />
                 ) : (
                   <span>{initials}</span>
                 )}
@@ -568,38 +547,23 @@ export default function MemberProfilePage() {
 
               <div className="profile-header-text">
                 {/* ✅ Name + badge row */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <div className="profile-name">{displayName}</div>
 
+                  {/* ✅ REPLACED: unified badge pill */}
                   {hasBadge && (
-                    <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-                      <span style={badgeChipStyle} title={badgeLabel}>
-                        {badgeLabel}
-                      </span>
-
-                      {statusLabel && (
-                        <span
-                          style={{
-                            ...badgeStatusStyle,
-                            border:
-                              status === "approved"
-                                ? "1px solid rgba(74,222,128,0.45)"
-                                : status === "rejected"
-                                ? "1px solid rgba(248,113,113,0.45)"
-                                : "1px solid rgba(148,163,184,0.35)",
-                            color:
-                              status === "approved"
-                                ? "rgba(187,247,208,0.95)"
-                                : status === "rejected"
-                                ? "rgba(254,202,202,0.95)"
-                                : "rgba(226,232,240,0.92)",
-                          }}
-                          title={statusLabel}
-                        >
-                          {statusLabel}
-                        </span>
-                      )}
-                    </div>
+                    <Q5BadgeChips
+                      label={badgeLabel}
+                      reviewStatus={profile?.q5_badge_review_status ?? null}
+                      size="md"
+                    />
                   )}
                 </div>
 
@@ -617,7 +581,11 @@ export default function MemberProfilePage() {
 
                 {isSelf && (
                   <div style={{ marginTop: 12 }}>
-                    <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
+                    <Link
+                      href="/profile/edit"
+                      className="nav-ghost-btn"
+                      style={editLinkStyle}
+                    >
                       Edit / complete your profile
                     </Link>
                   </div>
@@ -629,7 +597,8 @@ export default function MemberProfilePage() {
 
             {profile?.key_experience && (
               <p className="profile-bio">
-                <span className="profile-section-label-inline">Experience:</span> {profile.key_experience}
+                <span className="profile-section-label-inline">Experience:</span>{" "}
+                {profile.key_experience}
               </p>
             )}
 
@@ -661,7 +630,12 @@ export default function MemberProfilePage() {
                     <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
                       {links.map((l) => (
                         <li key={l.label}>
-                          <a href={l.value as string} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
+                          <a
+                            href={l.value as string}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ color: "#7dd3fc" }}
+                          >
                             {l.label}
                           </a>
                         </li>
@@ -675,7 +649,9 @@ export default function MemberProfilePage() {
                 {profile?.highest_education && (
                   <div className="profile-summary-item">
                     <div className="profile-section-label">Highest education</div>
-                    <div className="profile-summary-text">{profile.highest_education}</div>
+                    <div className="profile-summary-text">
+                      {profile.highest_education}
+                    </div>
                   </div>
                 )}
 
