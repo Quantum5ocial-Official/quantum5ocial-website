@@ -12,6 +12,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { useEntanglements } from "../lib/useEntanglements";
+import Q5BadgeChips from "../components/Q5BadgeChips";
 
 /* =========================
    TYPES
@@ -22,7 +23,10 @@ type CommunityProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+
   role: string | null;
+  current_title?: string | null;
+
   short_bio: string | null;
   highest_education: string | null;
   affiliation: string | null;
@@ -30,15 +34,16 @@ type CommunityProfile = {
   city: string | null;
   created_at?: string | null;
 
-  // optional extra fields
-  education_level?: string | null;
-  describes_you?: string | null;
-  current_org?: string | null;
-
   // featured fields
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_at?: string | null;
+
+  // ✅ badge fields
+  q5_badge_level?: number | null;
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null;
+  q5_badge_claimed_at?: string | null;
 };
 
 // Organization type for community view
@@ -68,16 +73,26 @@ type CommunityItem = {
   kind: "person" | "organization";
   id: string;
   slug?: string;
+
   name: string;
   avatar_url: string | null;
+
+  // person meta
+  role?: string | null;
+  current_title?: string | null;
+  affiliation?: string | null;
+  short_bio?: string | null;
+
+  // org meta
   typeLabel: string;
   roleLabel: string;
-  affiliationLine: string;
-  short_bio: string;
-  highest_education?: string | null;
-  city?: string | null;
-  country?: string | null;
+
   created_at: string | null;
+
+  // ✅ badge fields (people)
+  q5_badge_level?: number | null;
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null;
 };
 
 type CommunityCtx = {
@@ -90,7 +105,6 @@ type CommunityCtx = {
   loadingOrgs: boolean;
   orgsError: string | null;
 
-  // featured tiles (separate loading)
   featuredProfile: CommunityProfile | null;
   featuredOrg: CommunityOrg | null;
   loadingFeatured: boolean;
@@ -139,7 +153,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseUser();
   const router = useRouter();
 
-  // --- Community data: people + orgs ---
   const [profiles, setProfiles] = useState<CommunityProfile[]>([]);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [profilesError, setProfilesError] = useState<string | null>(null);
@@ -148,14 +161,12 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [orgsError, setOrgsError] = useState<string | null>(null);
 
-  // --- Featured picks (DB-driven like jobs/products) ---
   const [featuredProfile, setFeaturedProfile] = useState<CommunityProfile | null>(null);
   const [featuredOrg, setFeaturedOrg] = useState<CommunityOrg | null>(null);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
 
   const [search, setSearch] = useState("");
 
-  // === CONNECTION STATE (from shared hook) ===
   const {
     getConnectionStatus,
     isEntangleLoading,
@@ -166,14 +177,12 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     redirectPath: "/community",
   });
 
-  // === FOLLOW STATE (orgs) ===
   const [orgFollows, setOrgFollows] = useState<Record<string, boolean>>({});
   const [followLoadingIds, setFollowLoadingIds] = useState<string[]>([]);
 
   const isFollowingOrg = (orgId: string) => !!orgFollows[orgId];
   const isFollowLoading = (orgId: string) => followLoadingIds.includes(orgId);
 
-  // --- FOLLOW / UNFOLLOW ORG HANDLER ---
   const handleFollowOrg = async (orgId: string) => {
     if (!user) {
       router.push("/auth?redirect=/community");
@@ -228,7 +237,28 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("*")
+          .select(
+            `
+            id,
+            full_name,
+            avatar_url,
+            role,
+            current_title,
+            short_bio,
+            highest_education,
+            affiliation,
+            country,
+            city,
+            created_at,
+            is_featured,
+            featured_rank,
+            featured_at,
+            q5_badge_level,
+            q5_badge_label,
+            q5_badge_review_status,
+            q5_badge_claimed_at
+          `
+          )
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -284,7 +314,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     loadOrgs();
   }, []);
 
-  // === LOAD FEATURED PROFILE + FEATURED ORG (DB-driven like jobs/products) ===
+  // === LOAD FEATURED PROFILE + FEATURED ORG ===
   useEffect(() => {
     let cancelled = false;
 
@@ -323,7 +353,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         const [p, o] = await Promise.all([
           pickOne<CommunityProfile>(
             "profiles",
-            "id, full_name, avatar_url, role, short_bio, highest_education, affiliation, city, country, created_at, is_featured, featured_rank, featured_at"
+            "id, full_name, avatar_url, role, current_title, short_bio, affiliation, city, country, created_at, is_featured, featured_rank, featured_at, q5_badge_level, q5_badge_label, q5_badge_review_status"
           ),
           pickOne<CommunityOrg>(
             "organizations",
@@ -392,16 +422,15 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   const communityError = profilesError || orgsError;
   const totalCommunityCount = (profiles?.length || 0) + (orgs?.length || 0);
 
-  // === FILTER PEOPLE + ORGS BY SEARCH ===
   const filteredProfiles = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return profiles;
 
     return profiles.filter((p) => {
       const haystack = (
-        `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""} ${p.short_bio || ""} ${
-          p.city || ""
-        } ${p.country || ""}`
+        `${p.full_name || ""} ${p.current_title || ""} ${p.role || ""} ${p.affiliation || ""} ${
+          p.short_bio || ""
+        } ${p.city || ""} ${p.country || ""}`
       ).toLowerCase();
       return haystack.includes(q);
     });
@@ -423,31 +452,23 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     });
   }, [orgs, search]);
 
-  // === UNIFIED COMMUNITY ITEM LIST (MIXED PEOPLE + ORGS) ===
   const communityItems: CommunityItem[] = useMemo(() => {
     const personItems: CommunityItem[] = filteredProfiles.map((p) => {
-      const name = p.full_name || "Quantum5ocial member";
-      const location = [p.city, p.country].filter(Boolean).join(", ");
-      const affiliationLine = p.affiliation || location || "—";
-      const short_bio =
-        p.short_bio ||
-        (p.affiliation
-          ? `Member of the quantum ecosystem at ${p.affiliation}.`
-          : "Quantum5ocial community member exploring the quantum ecosystem.");
-
       return {
         kind: "person",
         id: p.id,
-        name,
+        name: p.full_name || "Quantum5ocial member",
         avatar_url: p.avatar_url || null,
+        role: p.role || null,
+        current_title: p.current_title || null,
+        affiliation: p.affiliation || null,
+        short_bio: p.short_bio || null,
         typeLabel: "Member",
         roleLabel: p.role || "Quantum5ocial member",
-        affiliationLine,
-        short_bio,
-        highest_education: p.highest_education || null,
-        city: p.city || null,
-        country: p.country || null,
         created_at: p.created_at || null,
+        q5_badge_level: p.q5_badge_level ?? null,
+        q5_badge_label: p.q5_badge_label ?? null,
+        q5_badge_review_status: p.q5_badge_review_status ?? null,
       };
     });
 
@@ -455,25 +476,8 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       const typeLabel = o.kind === "company" ? "Company" : "Research group";
 
       let roleLabel: string;
-      let affiliationLine: string;
-
-      if (o.kind === "company") {
-        roleLabel = o.industry || "Quantum company";
-        const location = [o.city, o.country].filter(Boolean).join(", ");
-        affiliationLine = location || (o.industry || "—");
-      } else {
-        roleLabel = o.institution || "Research group";
-        const base = [o.department || "", o.institution || ""].filter(Boolean).join(", ");
-        const location = [o.city, o.country].filter(Boolean).join(", ");
-        affiliationLine = base || location || "—";
-      }
-
-      const short_bio =
-        o.tagline ||
-        o.focus_areas ||
-        (o.kind === "company"
-          ? "Quantum company active in the quantum ecosystem."
-          : "Research group active in the quantum ecosystem.");
+      if (o.kind === "company") roleLabel = o.industry || "Quantum company";
+      else roleLabel = o.institution || "Research group";
 
       return {
         kind: "organization",
@@ -483,8 +487,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         avatar_url: o.logo_url || null,
         typeLabel,
         roleLabel,
-        affiliationLine,
-        short_bio,
         created_at: o.created_at || null,
       };
     });
@@ -701,7 +703,6 @@ function CommunityMiddle() {
         </div>
       )}
 
-      {/* MAIN CONTENT */}
       {!communityLoading && !communityError && hasAnyCommunity && (
         <>
           {/* Browse header */}
@@ -734,25 +735,32 @@ function CommunityMiddle() {
             </div>
           </div>
 
-          {/* Mixed grid */}
+          {/* ✅ 3-column grid (desktop) */}
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+              gridTemplateColumns: "repeat(3,minmax(0,1fr))",
               gap: 16,
             }}
           >
             {communityItems.map((item) => {
               const initial = item.name.charAt(0).toUpperCase();
-              const location = [item.city, item.country].filter(Boolean).join(", ");
-              const highestEducation =
-                item.kind === "person" ? item.highest_education || "—" : undefined;
-
               const isOrganization = item.kind === "organization";
               const isSelf = item.kind === "person" && user && item.id === user.id;
 
               const isClickable =
                 item.kind === "person" || (item.kind === "organization" && item.slug);
+
+              // ✅ Person headline: current_title (or role) + affiliation
+              const headline = (item.current_title || item.role || "").trim() || null;
+              const headlineLine = [headline, item.affiliation].filter(Boolean).join(" · ") || null;
+
+              const hasBadge =
+                item.kind === "person" && !!(item.q5_badge_label || item.q5_badge_level != null);
+
+              const badgeLabel =
+                (item.q5_badge_label && item.q5_badge_label.trim()) ||
+                (item.q5_badge_level != null ? `Q5-Level ${item.q5_badge_level}` : "");
 
               return (
                 <div
@@ -764,7 +772,7 @@ function CommunityMiddle() {
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: 230,
+                    minHeight: 240,
                     ...(isClickable ? { cursor: "pointer" } : {}),
                   }}
                   onClick={
@@ -778,7 +786,8 @@ function CommunityMiddle() {
                   }
                 >
                   <div className="card-inner">
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8 }}>
+                    {/* Top row: avatar + name + badge/pill */}
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                       <div
                         style={{
                           width: 52,
@@ -814,86 +823,88 @@ function CommunityMiddle() {
                         )}
                       </div>
 
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            flexWrap: "wrap",
+                            marginBottom: 2,
+                          }}
+                        >
                           <div
                             className="card-title"
                             style={{
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
+                              maxWidth: "100%",
                             }}
                           >
                             {item.name}
                           </div>
-                          <span
-                            style={{
-                              fontSize: 10.5,
-                              borderRadius: 999,
-                              padding: "2px 7px",
-                              border: "1px solid rgba(148,163,184,0.7)",
-                              color: "rgba(226,232,240,0.95)",
-                              whiteSpace: "nowrap",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.08em",
-                            }}
-                          >
-                            {item.typeLabel}
-                          </span>
+
+                          {/* ✅ People: show Q5 badge pill (if present) */}
+                          {item.kind === "person" ? (
+                            hasBadge ? (
+                              <Q5BadgeChips
+                                label={badgeLabel}
+                                reviewStatus={item.q5_badge_review_status ?? null}
+                                size="sm"
+                              />
+                            ) : null
+                          ) : (
+                            // Orgs: keep type pill
+                            <span
+                              style={{
+                                fontSize: 10.5,
+                                borderRadius: 999,
+                                padding: "2px 7px",
+                                border: "1px solid rgba(148,163,184,0.7)",
+                                color: "rgba(226,232,240,0.95)",
+                                whiteSpace: "nowrap",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.08em",
+                              }}
+                            >
+                              {item.typeLabel}
+                            </span>
+                          )}
                         </div>
-                        <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4 }}>
-                          {item.roleLabel}
-                        </div>
+
+                        {/* ✅ Under name: current_title(or role) + affiliation */}
+                        {item.kind === "person" ? (
+                          <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4 }}>
+                            {headlineLine || "—"}
+                          </div>
+                        ) : (
+                          <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4 }}>
+                            {item.roleLabel}
+                          </div>
+                        )}
                       </div>
                     </div>
 
+                    {/* ✅ Short bio (people) / tagline (orgs) */}
                     <div
                       style={{
+                        marginTop: 10,
                         fontSize: 12,
-                        color: "var(--text-muted)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 4,
-                        marginTop: 6,
+                        lineHeight: 1.45,
+                        color: "rgba(226,232,240,0.86)",
+                        maxHeight: 70,
+                        overflow: "hidden",
                       }}
                     >
-                      {item.kind === "person" && (
-                        <div>
-                          <span style={{ opacity: 0.7 }}>Education: </span>
-                          <span>{highestEducation || "—"}</span>
-                        </div>
-                      )}
-
-                      <div>
-                        <span style={{ opacity: 0.7 }}>
-                          {item.kind === "person" ? "Affiliation: " : "Location / meta: "}
-                        </span>
-                        <span>{item.affiliationLine || location || "—"}</span>
-                      </div>
-
-                      {location && (
-                        <div>
-                          <span style={{ opacity: 0.7 }}>Location: </span>
-                          <span>{location}</span>
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          marginTop: 6,
-                          fontSize: 12,
-                          lineHeight: 1.4,
-                          maxHeight: 60,
-                          overflow: "hidden",
-                        }}
-                      >
-                        {item.short_bio}
-                      </div>
+                      {item.kind === "person"
+                        ? item.short_bio || "—"
+                        : item.short_bio || "—"}
                     </div>
                   </div>
 
-                  {/* Footer actions */}
-                  <div style={{ marginTop: 10 }}>
+                  {/* Footer actions (unchanged logic) */}
+                  <div style={{ marginTop: 12 }}>
                     {isOrganization ? (
                       (() => {
                         const following = isFollowingOrg(item.id);
@@ -1087,8 +1098,6 @@ export default function CommunityPage() {
   return <CommunityMiddle />;
 }
 
-// ✅ global layout: left-only
-// ✅ wrap so provider context is available
 (CommunityPage as any).layoutProps = {
   variant: "two-left",
   right: null,
