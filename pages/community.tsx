@@ -26,8 +26,6 @@ type CommunityProfile = {
   role: string | null;
   current_title?: string | null;
 
-  short_bio: string | null;
-  highest_education: string | null;
   affiliation: string | null;
   country: string | null;
   city: string | null;
@@ -74,7 +72,6 @@ type CommunityItem = {
   role?: string | null;
   current_title?: string | null;
   affiliation?: string | null;
-  short_bio?: string | null;
 
   typeLabel: string;
   roleLabel: string;
@@ -113,11 +110,13 @@ type CommunityCtx = {
   communityItems: CommunityItem[];
   hasAnyCommunity: boolean;
 
+  // entanglements (people)
   getConnectionStatus: (otherUserId: string) => any;
   isEntangleLoading: (otherUserId: string) => boolean;
   handleEntangle: (otherUserId: string) => Promise<void>;
   handleDeclineEntangle: (otherUserId: string) => Promise<void>;
 
+  // org follows
   orgFollows: Record<string, boolean>;
   followLoadingIds: string[];
 
@@ -150,9 +149,10 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [orgsError, setOrgsError] = useState<string | null>(null);
 
+  // kept for future (even if not rendered)
   const [featuredProfile, setFeaturedProfile] = useState<CommunityProfile | null>(null);
   const [featuredOrg, setFeaturedOrg] = useState<CommunityOrg | null>(null);
-  const [loadingFeatured, setLoadingFeatured] = useState(true);
+  const [loadingFeatured, setLoadingFeatured] = useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -232,15 +232,10 @@ function CommunityProvider({ children }: { children: ReactNode }) {
             avatar_url,
             role,
             current_title,
-            short_bio,
-            highest_education,
             affiliation,
             country,
             city,
             created_at,
-            is_featured,
-            featured_rank,
-            featured_at,
             q5_badge_level,
             q5_badge_label,
             q5_badge_review_status,
@@ -276,9 +271,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from("organizations")
-          .select(
-            "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at, is_featured, featured_rank, featured_at"
-          )
+          .select("id, name, slug, kind, logo_url, industry, institution, city, country, created_at")
           .eq("is_active", true)
           .order("created_at", { ascending: false });
 
@@ -346,8 +339,8 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     return profiles.filter((p) => {
       const haystack = (
         `${p.full_name || ""} ${p.current_title || ""} ${p.role || ""} ${p.affiliation || ""} ${
-          p.short_bio || ""
-        } ${p.city || ""} ${p.country || ""}`
+          p.city || ""
+        } ${p.country || ""}`
       ).toLowerCase();
       return haystack.includes(q);
     });
@@ -361,10 +354,10 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       const location = [org.city, org.country].filter(Boolean).join(" ");
       const meta =
         org.kind === "company"
-          ? `${org.industry || ""} ${org.focus_areas || ""}`
-          : `${org.institution || ""} ${org.department || ""} ${org.focus_areas || ""}`;
+          ? `${org.industry || ""}`
+          : `${org.institution || ""}`;
 
-      const haystack = `${org.name || ""} ${meta} ${org.tagline || ""} ${location}`.toLowerCase();
+      const haystack = `${org.name || ""} ${meta} ${location}`.toLowerCase();
       return haystack.includes(q);
     });
   }, [orgs, search]);
@@ -378,7 +371,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       role: p.role || null,
       current_title: p.current_title || null,
       affiliation: p.affiliation || null,
-      short_bio: p.short_bio || null,
       typeLabel: "Member",
       roleLabel: p.role || "Quantum5ocial member",
       created_at: p.created_at || null,
@@ -390,7 +382,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
       const typeLabel = o.kind === "company" ? "Company" : "Research group";
       const roleLabel = o.kind === "company" ? o.industry || "Quantum company" : o.institution || "Research group";
-      const short_bio = o.tagline || o.focus_areas || null;
 
       return {
         kind: "organization",
@@ -400,7 +391,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         avatar_url: o.logo_url || null,
         typeLabel,
         roleLabel,
-        short_bio,
         created_at: o.created_at || null,
       };
     });
@@ -483,11 +473,6 @@ function CommunityMiddle() {
     isFollowLoading,
     handleFollowOrg,
   } = ctx;
-
-  // ✅ per-card expand/collapse (no modal)
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const toggleExpanded = (key: string) =>
-    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const pillTopRightWrap: React.CSSProperties = {
     position: "absolute",
@@ -687,7 +672,7 @@ function CommunityMiddle() {
                 item.kind === "person" || (item.kind === "organization" && item.slug);
 
               const headline = (item.current_title || item.role || "").trim() || null;
-              const headlineLine =
+              const metaLine =
                 item.kind === "person"
                   ? ([headline, item.affiliation].filter(Boolean).join(" · ") || "—")
                   : item.roleLabel;
@@ -698,10 +683,6 @@ function CommunityMiddle() {
               const badgeLabel =
                 (item.q5_badge_label && item.q5_badge_label.trim()) ||
                 (item.q5_badge_level != null ? `Q5-Level ${item.q5_badge_level}` : "");
-
-              const bio = (item.short_bio || "").trim();
-              const isLongBio = bio.length > 110;
-              const isExpanded = !!expanded[key];
 
               return (
                 <div
@@ -714,7 +695,7 @@ function CommunityMiddle() {
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: 240,
+                    minHeight: 190,
                     ...(isClickable ? { cursor: "pointer" } : {}),
                   }}
                   onClick={
@@ -743,7 +724,7 @@ function CommunityMiddle() {
                   </div>
 
                   <div className="card-inner">
-                    {/* Avatar row */}
+                    {/* ✅ avatar + pill row */}
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                       <div
                         style={{
@@ -760,7 +741,7 @@ function CommunityMiddle() {
                           alignItems: "center",
                           justifyContent: "center",
                           fontSize: 18,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           color: isOrganization ? "#0f172a" : "#e5e7eb",
                         }}
                       >
@@ -775,15 +756,16 @@ function CommunityMiddle() {
                         )}
                       </div>
 
-                      <div style={{ minWidth: 0, flex: 1, paddingRight: 86 /* room for pill */ }}>
-                        {/* ✅ Name BELOW (no pill in this row anymore) */}
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: 86 /* room for pill */ }}>
+                        {/* ✅ Name below (title-like) */}
                         <div
-                          className="card-title"
                           style={{
+                            fontWeight: 800,
+                            fontSize: 14,
+                            lineHeight: 1.2,
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
-                            maxWidth: "100%",
                           }}
                           title={item.name}
                         >
@@ -792,64 +774,24 @@ function CommunityMiddle() {
 
                         {/* ✅ current_title(or role) + affiliation */}
                         <div
-                          className="card-meta"
-                          style={{ fontSize: 12, lineHeight: 1.4, marginTop: 2 }}
-                          title={headlineLine}
+                          style={{
+                            marginTop: 4,
+                            fontSize: 12,
+                            color: "rgba(226,232,240,0.86)",
+                            lineHeight: 1.35,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={metaLine}
                         >
-                          {headlineLine}
+                          {metaLine}
                         </div>
                       </div>
                     </div>
-
-                    {/* ✅ Bio: 1 line + expand/collapse */}
-                    <div style={{ marginTop: 10 }}>
-                      {bio ? (
-                        <>
-                          <div
-                            style={{
-                              fontSize: 12,
-                              lineHeight: 1.45,
-                              color: "rgba(226,232,240,0.86)",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: isExpanded ? "normal" : "nowrap",
-                              maxHeight: isExpanded ? 200 : 18,
-                              transition: "max-height 180ms ease",
-                            }}
-                            title={!isExpanded ? bio : undefined}
-                          >
-                            {bio}
-                          </div>
-
-                          {isLongBio && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleExpanded(key);
-                              }}
-                              style={{
-                                marginTop: 6,
-                                border: "none",
-                                background: "transparent",
-                                color: "rgba(125,211,252,0.95)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                padding: 0,
-                              }}
-                            >
-                              {isExpanded ? "Show less" : "More"}
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <div style={{ fontSize: 12, color: "rgba(148,163,184,0.85)" }}>—</div>
-                      )}
-                    </div>
                   </div>
 
-                  {/* Footer actions (unchanged logic) */}
+                  {/* ✅ Footer actions */}
                   <div style={{ marginTop: 12 }}>
                     {isOrganization ? (
                       (() => {
@@ -934,7 +876,7 @@ function CommunityMiddle() {
                                   background: "linear-gradient(90deg,#22c55e,#16a34a)",
                                   color: "#0f172a",
                                   fontSize: 12,
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                   cursor: loading ? "default" : "pointer",
                                   opacity: loading ? 0.7 : 1,
                                 }}
