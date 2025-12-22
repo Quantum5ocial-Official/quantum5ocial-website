@@ -36,10 +36,10 @@ type Profile = {
   provider?: string | null;
   raw_metadata?: any;
 
-  // ✅ badge fields (optional — only used if present in DB)
+  // ✅ badge fields
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null; // e.g. "pending" | "approved" | "rejected"
+  q5_badge_review_status?: string | null;
   q5_badge_claimed_at?: string | null;
 };
 
@@ -114,6 +114,7 @@ export default function ProfileViewPage() {
     }
   }, [loading, user, router]);
 
+  // -------- Load profile --------
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
@@ -180,6 +181,52 @@ export default function ProfileViewPage() {
 
     if (user) loadProfile();
   }, [user]);
+
+  // ✅ Realtime: reflect backend edits (badge/admin changes) instantly
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`profiles-badge:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          setProfile((prev) => (prev ? { ...prev, ...row } : (row as any)));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
+
+  // (Optional) refresh badge on focus in case realtime is disabled on Supabase
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const onFocus = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("q5_badge_level, q5_badge_label, q5_badge_review_status, q5_badge_claimed_at")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (data) {
+        setProfile((p) => (p ? { ...p, ...(data as any) } : (data as any)));
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [user?.id]);
 
   if (!user && !loading) return null;
 
