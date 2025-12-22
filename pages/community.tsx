@@ -18,7 +18,6 @@ import Q5BadgeChips from "../components/Q5BadgeChips";
    TYPES
    ========================= */
 
-// Community member type (person)
 type CommunityProfile = {
   id: string;
   full_name: string | null;
@@ -34,19 +33,16 @@ type CommunityProfile = {
   city: string | null;
   created_at?: string | null;
 
-  // featured fields
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_at?: string | null;
 
-  // ✅ badge fields
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
   q5_badge_claimed_at?: string | null;
 };
 
-// Organization type for community view
 type CommunityOrg = {
   id: string;
   name: string;
@@ -62,13 +58,11 @@ type CommunityOrg = {
   country: string | null;
   created_at?: string | null;
 
-  // featured fields
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_at?: string | null;
 };
 
-// Unified item in the grid
 type CommunityItem = {
   kind: "person" | "organization";
   id: string;
@@ -77,19 +71,16 @@ type CommunityItem = {
   name: string;
   avatar_url: string | null;
 
-  // person meta
   role?: string | null;
   current_title?: string | null;
   affiliation?: string | null;
   short_bio?: string | null;
 
-  // org meta
   typeLabel: string;
   roleLabel: string;
 
   created_at: string | null;
 
-  // ✅ badge fields (people)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
@@ -122,13 +113,11 @@ type CommunityCtx = {
   communityItems: CommunityItem[];
   hasAnyCommunity: boolean;
 
-  // entanglements (people)
   getConnectionStatus: (otherUserId: string) => any;
   isEntangleLoading: (otherUserId: string) => boolean;
   handleEntangle: (otherUserId: string) => Promise<void>;
   handleDeclineEntangle: (otherUserId: string) => Promise<void>;
 
-  // org follows
   orgFollows: Record<string, boolean>;
   followLoadingIds: string[];
 
@@ -228,7 +217,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // === LOAD COMMUNITY PROFILES (PEOPLE) ===
   useEffect(() => {
     const loadProfiles = async () => {
       setLoadingProfiles(true);
@@ -280,7 +268,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     loadProfiles();
   }, []);
 
-  // === LOAD COMMUNITY ORGANIZATIONS ===
   useEffect(() => {
     const loadOrgs = async () => {
       setLoadingOrgs(true);
@@ -314,76 +301,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     loadOrgs();
   }, []);
 
-  // === LOAD FEATURED PROFILE + FEATURED ORG ===
-  useEffect(() => {
-    let cancelled = false;
-
-    const pickOne = async <T,>(
-      table: string,
-      select: string,
-      extraFilter?: { col: string; value: any }
-    ): Promise<T | null> => {
-      let q = supabase.from(table).select(select).eq("is_featured", true);
-      if (extraFilter) q = q.eq(extraFilter.col, extraFilter.value);
-
-      const { data: featured, error: featErr } = await q
-        .order("featured_rank", { ascending: true, nullsFirst: false })
-        .order("featured_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (!featErr && featured && featured.length > 0) return featured[0] as T;
-
-      let q2 = supabase.from(table).select(select);
-      if (extraFilter) q2 = q2.eq(extraFilter.col, extraFilter.value);
-
-      const { data: latest, error: latErr } = await q2
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (!latErr && latest && latest.length > 0) return latest[0] as T;
-
-      return null;
-    };
-
-    const loadFeatured = async () => {
-      setLoadingFeatured(true);
-
-      try {
-        const [p, o] = await Promise.all([
-          pickOne<CommunityProfile>(
-            "profiles",
-            "id, full_name, avatar_url, role, current_title, short_bio, affiliation, city, country, created_at, is_featured, featured_rank, featured_at, q5_badge_level, q5_badge_label, q5_badge_review_status"
-          ),
-          pickOne<CommunityOrg>(
-            "organizations",
-            "id, name, slug, kind, logo_url, tagline, industry, focus_areas, institution, department, city, country, created_at, is_featured, featured_rank, featured_at",
-            { col: "is_active", value: true }
-          ),
-        ]);
-
-        if (cancelled) return;
-        setFeaturedProfile(p);
-        setFeaturedOrg(o);
-      } catch (e) {
-        console.error("Featured load crashed:", e);
-        if (cancelled) return;
-        setFeaturedProfile(null);
-        setFeaturedOrg(null);
-      } finally {
-        if (cancelled) return;
-        setLoadingFeatured(false);
-      }
-    };
-
-    loadFeatured();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // === LOAD ORG_FOLLOWS FOR FOLLOW STATE ===
   useEffect(() => {
     const loadOrgFollows = async () => {
       if (!user) {
@@ -453,31 +370,27 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   }, [orgs, search]);
 
   const communityItems: CommunityItem[] = useMemo(() => {
-    const personItems: CommunityItem[] = filteredProfiles.map((p) => {
-      return {
-        kind: "person",
-        id: p.id,
-        name: p.full_name || "Quantum5ocial member",
-        avatar_url: p.avatar_url || null,
-        role: p.role || null,
-        current_title: p.current_title || null,
-        affiliation: p.affiliation || null,
-        short_bio: p.short_bio || null,
-        typeLabel: "Member",
-        roleLabel: p.role || "Quantum5ocial member",
-        created_at: p.created_at || null,
-        q5_badge_level: p.q5_badge_level ?? null,
-        q5_badge_label: p.q5_badge_label ?? null,
-        q5_badge_review_status: p.q5_badge_review_status ?? null,
-      };
-    });
+    const personItems: CommunityItem[] = filteredProfiles.map((p) => ({
+      kind: "person",
+      id: p.id,
+      name: p.full_name || "Quantum5ocial member",
+      avatar_url: p.avatar_url || null,
+      role: p.role || null,
+      current_title: p.current_title || null,
+      affiliation: p.affiliation || null,
+      short_bio: p.short_bio || null,
+      typeLabel: "Member",
+      roleLabel: p.role || "Quantum5ocial member",
+      created_at: p.created_at || null,
+      q5_badge_level: p.q5_badge_level ?? null,
+      q5_badge_label: p.q5_badge_label ?? null,
+      q5_badge_review_status: p.q5_badge_review_status ?? null,
+    }));
 
     const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
       const typeLabel = o.kind === "company" ? "Company" : "Research group";
-
-      let roleLabel: string;
-      if (o.kind === "company") roleLabel = o.industry || "Quantum company";
-      else roleLabel = o.institution || "Research group";
+      const roleLabel = o.kind === "company" ? o.industry || "Quantum company" : o.institution || "Research group";
+      const short_bio = o.tagline || o.focus_areas || null;
 
       return {
         kind: "organization",
@@ -487,6 +400,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         avatar_url: o.logo_url || null,
         typeLabel,
         roleLabel,
+        short_bio,
         created_at: o.created_at || null,
       };
     });
@@ -570,6 +484,33 @@ function CommunityMiddle() {
     handleFollowOrg,
   } = ctx;
 
+  // ✅ per-card expand/collapse (no modal)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const toggleExpanded = (key: string) =>
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const pillTopRightWrap: React.CSSProperties = {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+    zIndex: 2,
+  };
+
+  const orgTypePill: React.CSSProperties = {
+    fontSize: 10.5,
+    borderRadius: 999,
+    padding: "2px 7px",
+    border: "1px solid rgba(148,163,184,0.7)",
+    color: "rgba(226,232,240,0.95)",
+    whiteSpace: "nowrap",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+  };
+
   return (
     <section className="section">
       {/* STICKY HEADER + SEARCH */}
@@ -595,10 +536,7 @@ function CommunityMiddle() {
             }}
           >
             <div>
-              <div
-                className="section-title"
-                style={{ display: "flex", alignItems: "center", gap: 10 }}
-              >
+              <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 Quantum5ocial community
                 {!communityLoading && !communityError && (
                   <span
@@ -655,8 +593,7 @@ function CommunityMiddle() {
                 width: "100%",
                 borderRadius: 999,
                 padding: 2,
-                background:
-                  "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
+                background: "linear-gradient(90deg, rgba(56,189,248,0.7), rgba(129,140,248,0.7))",
               }}
             >
               <div
@@ -689,7 +626,6 @@ function CommunityMiddle() {
         </div>
       </div>
 
-      {/* BODY STATES */}
       {communityLoading && <div className="products-status">Loading community members…</div>}
       {communityError && !communityLoading && (
         <div className="products-status" style={{ color: "#f87171" }}>
@@ -726,16 +662,14 @@ function CommunityMiddle() {
               >
                 Browse community
               </div>
-              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
-                Members &amp; organizations
-              </div>
+              <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>Members &amp; organizations</div>
             </div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
               Showing {communityItems.length} match{communityItems.length === 1 ? "" : "es"}
             </div>
           </div>
 
-          {/* ✅ 3-column grid (desktop) */}
+          {/* ✅ 3-column grid */}
           <div
             style={{
               display: "grid",
@@ -744,6 +678,7 @@ function CommunityMiddle() {
             }}
           >
             {communityItems.map((item) => {
+              const key = `${item.kind}-${item.id}`;
               const initial = item.name.charAt(0).toUpperCase();
               const isOrganization = item.kind === "organization";
               const isSelf = item.kind === "person" && user && item.id === user.id;
@@ -751,9 +686,11 @@ function CommunityMiddle() {
               const isClickable =
                 item.kind === "person" || (item.kind === "organization" && item.slug);
 
-              // ✅ Person headline: current_title (or role) + affiliation
               const headline = (item.current_title || item.role || "").trim() || null;
-              const headlineLine = [headline, item.affiliation].filter(Boolean).join(" · ") || null;
+              const headlineLine =
+                item.kind === "person"
+                  ? ([headline, item.affiliation].filter(Boolean).join(" · ") || "—")
+                  : item.roleLabel;
 
               const hasBadge =
                 item.kind === "person" && !!(item.q5_badge_label || item.q5_badge_level != null);
@@ -762,11 +699,16 @@ function CommunityMiddle() {
                 (item.q5_badge_label && item.q5_badge_label.trim()) ||
                 (item.q5_badge_level != null ? `Q5-Level ${item.q5_badge_level}` : "");
 
+              const bio = (item.short_bio || "").trim();
+              const isLongBio = bio.length > 110;
+              const isExpanded = !!expanded[key];
+
               return (
                 <div
-                  key={`${item.kind}-${item.id}`}
+                  key={key}
                   className="card"
                   style={{
+                    position: "relative",
                     textDecoration: "none",
                     padding: 14,
                     display: "flex",
@@ -785,8 +727,23 @@ function CommunityMiddle() {
                         }
                   }
                 >
+                  {/* ✅ Top-right pill */}
+                  <div style={pillTopRightWrap} onClick={(e) => e.stopPropagation()}>
+                    {item.kind === "person" ? (
+                      hasBadge ? (
+                        <Q5BadgeChips
+                          label={badgeLabel}
+                          reviewStatus={item.q5_badge_review_status ?? null}
+                          size="sm"
+                        />
+                      ) : null
+                    ) : (
+                      <span style={orgTypePill}>{item.typeLabel}</span>
+                    )}
+                  </div>
+
                   <div className="card-inner">
-                    {/* Top row: avatar + name + badge/pill */}
+                    {/* Avatar row */}
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                       <div
                         style={{
@@ -811,95 +768,84 @@ function CommunityMiddle() {
                           <img
                             src={item.avatar_url}
                             alt={item.name}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              display: "block",
-                            }}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                           />
                         ) : (
                           <span>{initial}</span>
                         )}
                       </div>
 
-                      <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ minWidth: 0, flex: 1, paddingRight: 86 /* room for pill */ }}>
+                        {/* ✅ Name BELOW (no pill in this row anymore) */}
                         <div
+                          className="card-title"
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            flexWrap: "wrap",
-                            marginBottom: 2,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            maxWidth: "100%",
                           }}
+                          title={item.name}
                         >
-                          <div
-                            className="card-title"
-                            style={{
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              maxWidth: "100%",
-                            }}
-                          >
-                            {item.name}
-                          </div>
-
-                          {/* ✅ People: show Q5 badge pill (if present) */}
-                          {item.kind === "person" ? (
-                            hasBadge ? (
-                              <Q5BadgeChips
-                                label={badgeLabel}
-                                reviewStatus={item.q5_badge_review_status ?? null}
-                                size="sm"
-                              />
-                            ) : null
-                          ) : (
-                            // Orgs: keep type pill
-                            <span
-                              style={{
-                                fontSize: 10.5,
-                                borderRadius: 999,
-                                padding: "2px 7px",
-                                border: "1px solid rgba(148,163,184,0.7)",
-                                color: "rgba(226,232,240,0.95)",
-                                whiteSpace: "nowrap",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.08em",
-                              }}
-                            >
-                              {item.typeLabel}
-                            </span>
-                          )}
+                          {item.name}
                         </div>
 
-                        {/* ✅ Under name: current_title(or role) + affiliation */}
-                        {item.kind === "person" ? (
-                          <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4 }}>
-                            {headlineLine || "—"}
-                          </div>
-                        ) : (
-                          <div className="card-meta" style={{ fontSize: 12, lineHeight: 1.4 }}>
-                            {item.roleLabel}
-                          </div>
-                        )}
+                        {/* ✅ current_title(or role) + affiliation */}
+                        <div
+                          className="card-meta"
+                          style={{ fontSize: 12, lineHeight: 1.4, marginTop: 2 }}
+                          title={headlineLine}
+                        >
+                          {headlineLine}
+                        </div>
                       </div>
                     </div>
 
-                    {/* ✅ Short bio (people) / tagline (orgs) */}
-                    <div
-                      style={{
-                        marginTop: 10,
-                        fontSize: 12,
-                        lineHeight: 1.45,
-                        color: "rgba(226,232,240,0.86)",
-                        maxHeight: 70,
-                        overflow: "hidden",
-                      }}
-                    >
-                      {item.kind === "person"
-                        ? item.short_bio || "—"
-                        : item.short_bio || "—"}
+                    {/* ✅ Bio: 1 line + expand/collapse */}
+                    <div style={{ marginTop: 10 }}>
+                      {bio ? (
+                        <>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              lineHeight: 1.45,
+                              color: "rgba(226,232,240,0.86)",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: isExpanded ? "normal" : "nowrap",
+                              maxHeight: isExpanded ? 200 : 18,
+                              transition: "max-height 180ms ease",
+                            }}
+                            title={!isExpanded ? bio : undefined}
+                          >
+                            {bio}
+                          </div>
+
+                          {isLongBio && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpanded(key);
+                              }}
+                              style={{
+                                marginTop: 6,
+                                border: "none",
+                                background: "transparent",
+                                color: "rgba(125,211,252,0.95)",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              {isExpanded ? "Show less" : "More"}
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "rgba(148,163,184,0.85)" }}>—</div>
+                      )}
                     </div>
                   </div>
 
