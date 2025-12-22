@@ -7,10 +7,6 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 type ProfileSummary = {
   full_name: string | null;
   avatar_url: string | null;
-
-  role: string | null;
-  current_title?: string | null;
-
   education_level?: string | null;
   describes_you?: string | null;
   affiliation?: string | null;
@@ -19,7 +15,9 @@ type ProfileSummary = {
   city?: string | null;
   country?: string | null;
 
-  // ✅ badge fields
+  // ✅ add these (optional)
+  role?: string | null;
+  current_title?: string | null;
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
@@ -92,24 +90,7 @@ export default function LeftSidebar() {
         // Run “independent” queries in parallel
         const profileQ = supabase
           .from("profiles")
-          .select(
-            `
-              full_name,
-              avatar_url,
-              role,
-              current_title,
-              education_level,
-              describes_you,
-              affiliation,
-              highest_education,
-              current_org,
-              city,
-              country,
-              q5_badge_level,
-              q5_badge_label,
-              q5_badge_review_status
-            `
-          )
+          .select("*")
           .eq("id", uid)
           .maybeSingle();
 
@@ -219,11 +200,12 @@ export default function LeftSidebar() {
   const educationLevel = profile?.education_level || profile?.highest_education || "";
   const describesYou = profile?.describes_you || "";
 
-  const headline = profile?.current_title?.trim()
-    ? profile.current_title
-    : profile?.role?.trim()
-    ? profile.role
-    : "";
+  const headline =
+    (profile?.current_title || "").trim()
+      ? (profile?.current_title as string)
+      : (profile?.role || "").trim()
+      ? (profile?.role as string)
+      : "";
 
   const affiliation = profile?.affiliation || profile?.current_org || "";
   const headlineAffLine = [headline, affiliation].filter(Boolean).join(" · ");
@@ -231,19 +213,19 @@ export default function LeftSidebar() {
   const city = profile?.city || "";
   const country = profile?.country || "";
 
-  // ✅ badge display (same style family as other pages)
+  // ✅ badge display logic (same as your other pages)
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
 
-  const status = (profile?.q5_badge_review_status || "").toLowerCase();
-  const statusLabel =
-    status === "pending"
+  const badgeStatus = (profile?.q5_badge_review_status || "").toLowerCase();
+  const badgeStatusLabel =
+    badgeStatus === "pending"
       ? "Pending"
-      : status === "approved"
+      : badgeStatus === "approved"
       ? "Verified"
-      : status === "rejected"
+      : badgeStatus === "rejected"
       ? "Needs update"
       : null;
 
@@ -275,8 +257,7 @@ export default function LeftSidebar() {
     lineHeight: "14px",
   };
 
-  const hasExtras =
-    educationLevel || describesYou || headlineAffLine || city || country || hasBadge;
+  const hasExtras = educationLevel || describesYou || headlineAffLine || city || country;
 
   // ✅ IMPORTANT: never return null; render stable frame
   return (
@@ -310,38 +291,36 @@ export default function LeftSidebar() {
             )}
           </div>
 
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="profile-sidebar-name">
-              {loading ? "Loading…" : fullName}
-            </div>
+          {/* ✅ KEEP SAME element, just add badge row under it */}
+          <div className="profile-sidebar-name">
+            {loading ? "Loading…" : fullName}
 
-            {/* ✅ Badge row (under name, compact) */}
             {!loading && hasBadge && (
               <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                 <span style={badgeChipStyle} title={badgeLabel}>
                   {badgeLabel}
                 </span>
 
-                {statusLabel && (
+                {badgeStatusLabel && (
                   <span
                     style={{
                       ...badgeStatusStyle,
                       border:
-                        status === "approved"
+                        badgeStatus === "approved"
                           ? "1px solid rgba(74,222,128,0.45)"
-                          : status === "rejected"
+                          : badgeStatus === "rejected"
                           ? "1px solid rgba(248,113,113,0.45)"
                           : "1px solid rgba(148,163,184,0.35)",
                       color:
-                        status === "approved"
+                        badgeStatus === "approved"
                           ? "rgba(187,247,208,0.95)"
-                          : status === "rejected"
+                          : badgeStatus === "rejected"
                           ? "rgba(254,202,202,0.95)"
                           : "rgba(226,232,240,0.92)",
                     }}
-                    title={statusLabel}
+                    title={badgeStatusLabel}
                   >
-                    {statusLabel}
+                    {badgeStatusLabel}
                   </span>
                 )}
               </div>
@@ -352,12 +331,8 @@ export default function LeftSidebar() {
         {loading ? (
           <div className="profile-sidebar-info-block" style={{ opacity: 0.8 }}>
             <div className="profile-sidebar-info-value"> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-              {" "}
-            </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-              {" "}
-            </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
           </div>
         ) : (
           hasExtras && (
@@ -365,14 +340,13 @@ export default function LeftSidebar() {
               {educationLevel && (
                 <div className="profile-sidebar-info-value">{educationLevel}</div>
               )}
-
               {describesYou && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {describesYou}
                 </div>
               )}
 
-              {/* ✅ NEW: headline (current title / role) + affiliation on same line */}
+              {/* ✅ NEW: current title/role BEFORE affiliation, same line */}
               {headlineAffLine && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {headlineAffLine}
@@ -397,57 +371,29 @@ export default function LeftSidebar() {
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link
-            href="/dashboard/entangled-states"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Entanglements</span>
             <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-jobs"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved jobs</span>
             <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-products"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved products</span>
             <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/ecosystem"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+          <Link href="/ecosystem" className="dashboard-sidebar-link"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>My Ecosystem</span>
           </Link>
@@ -458,44 +404,14 @@ export default function LeftSidebar() {
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Posts</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Questions</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Answers</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
@@ -538,33 +454,13 @@ export default function LeftSidebar() {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 500,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
+              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {data.myOrg.name}
               </div>
 
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "rgba(148,163,184,0.95)",
-                  marginTop: 4,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                }}
-              >
+              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
                 <div>
-                  Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>
-                    {data.myOrgFollowersCount ?? "…"}
-                  </span>
+                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -588,15 +484,7 @@ export default function LeftSidebar() {
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -617,15 +505,9 @@ export default function LeftSidebar() {
           </div>
         </div>
 
-        <div
-          style={{
-            fontSize: 12,
-            color: "rgba(248,250,252,0.9)",
-            lineHeight: 1.5,
-          }}
-        >
-          Unlock advanced analytics, reduced ads, and premium perks for your profile and
-          organization.
+        <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
+          Unlock advanced analytics, reduced ads, and premium perks for your
+          profile and organization.
         </div>
       </div>
 
@@ -642,29 +524,12 @@ export default function LeftSidebar() {
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a
-            href="mailto:info@quantum5ocial.com"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
-            ✉️
-          </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
-            𝕏
-          </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>
-            in
-          </a>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 12,
-            color: "rgba(148,163,184,0.9)",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
           <img
             src="/Q5_white_bg.png"
             alt="Quantum5ocial logo"
