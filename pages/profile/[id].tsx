@@ -1,11 +1,12 @@
-// pages/profile/[id].tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+// pages/profile.tsx
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
-import Q5BadgeChips from "../../components/Q5BadgeChips"; // ✅ NEW
+import ClaimQ5BadgeModal from "../../components/ClaimQ5BadgeModal";
+import Q5BadgeChips from "../../components/Q5BadgeChips";
 
 type Profile = {
   id: string;
@@ -18,13 +19,10 @@ type Profile = {
   affiliation: string | null;
   country: string | null;
   city: string | null;
-
   focus_areas: string | null;
   skills: string | null;
-
   highest_education: string | null;
   key_experience: string | null;
-
   avatar_url: string | null;
 
   orcid: string | null;
@@ -34,19 +32,28 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
 
-  // ✅ badge fields (optional)
+  institutional_email_verified?: boolean | null;
+  email?: string | null;
+  provider?: string | null;
+  raw_metadata?: any;
+
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null; // "pending" | "approved" | "rejected"
+  q5_badge_review_status?: string | null;
   q5_badge_claimed_at?: string | null;
 };
 
-type FeedProfile = {
+type ProfilePrivate = {
   id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  highest_education?: string | null;
-  affiliation?: string | null;
+  phone: string | null;
+  institutional_email: string | null;
+};
+
+type CompletenessItem = {
+  key: string;
+  label: string;
+  w: number;
+  ok: boolean;
 };
 
 type PostRow = {
@@ -57,72 +64,455 @@ type PostRow = {
   image_url: string | null;
 };
 
-type PostVM = {
-  post: PostRow;
-  author: FeedProfile | null;
-  likeCount: number;
-  commentCount: number;
-  likedByMe: boolean;
-};
+function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
+  const has = (v: any) => {
+    if (v == null) return false;
+    if (typeof v === "string") return v.trim().length > 0;
+    return true;
+  };
 
-function useIsMobile(maxWidth = 720) {
-  const [isMobile, setIsMobile] = useState(false);
+  const headlineOk = has(p?.current_title) || has(p?.role);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
-    const set = () => setIsMobile(mq.matches);
-    set();
-    const anyMq = mq as any;
-    if (mq.addEventListener) {
-      mq.addEventListener("change", set);
-      return () => mq.removeEventListener("change", set);
-    }
-    if (anyMq.addListener) {
-      anyMq.addListener(set);
-      return () => anyMq.removeListener(set);
-    }
-    return;
-  }, [maxWidth]);
+  const items: CompletenessItem[] = [
+    { key: "full_name", label: "Add your full name", w: 10, ok: has(p?.full_name) },
+    { key: "short_bio", label: "Write a short bio", w: 10, ok: has(p?.short_bio) },
+    { key: "headline", label: "Add a current title or primary role", w: 10, ok: headlineOk },
 
-  return isMobile;
+    { key: "affiliation", label: "Add your affiliation", w: 7, ok: has(p?.affiliation) },
+    { key: "country", label: "Add your country", w: 4, ok: has(p?.country) },
+    { key: "city", label: "Add your city", w: 4, ok: has(p?.city) },
+
+    { key: "focus_areas", label: "Add focus areas", w: 10, ok: has(p?.focus_areas) },
+    { key: "skills", label: "Add skills", w: 10, ok: has(p?.skills) },
+
+    { key: "highest_education", label: "Select your highest education", w: 5, ok: has(p?.highest_education) },
+    { key: "key_experience", label: "Add key experience", w: 5, ok: has(p?.key_experience) },
+
+    { key: "orcid", label: "Add your ORCID", w: 5, ok: has(p?.orcid) },
+    { key: "google_scholar", label: "Add Google Scholar", w: 5, ok: has(p?.google_scholar) },
+    { key: "linkedin_url", label: "Add LinkedIn", w: 5, ok: has(p?.linkedin_url) },
+
+    { key: "institutional_email", label: "Add an institutional email", w: 6, ok: has(priv?.institutional_email) },
+    { key: "phone", label: "Add a phone number (optional)", w: 4, ok: has(priv?.phone) },
+  ];
+
+  const total = items.reduce((s, x) => s + x.w, 0);
+  const score = items.reduce((s, x) => s + (x.ok ? x.w : 0), 0);
+  const pct = total ? Math.round((score / total) * 100) : 0;
+
+  const missing = items.filter((x) => !x.ok).sort((a, b) => b.w - a.w);
+  return { pct, missing };
 }
 
-export default function MemberProfilePage() {
-  const router = useRouter();
-  const { user } = useSupabaseUser();
-  const { id } = router.query;
+// hover effect without touching global CSS
+function ClaimPill({
+  onClick,
+  base,
+  hover,
+  label,
+  title,
+}: {
+  onClick: () => void;
+  base: React.CSSProperties;
+  hover: React.CSSProperties;
+  label: string;
+  title: string;
+}) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{ ...base, ...(h ? hover : {}) }}
+      title={title}
+    >
+      {label}
+    </button>
+  );
+}
 
-  const profileId = typeof id === "string" ? id : null;
+function LinkifyText({ text }: { text: string }) {
+  const parts = (text || "").split(/(https?:\/\/[^\s]+)/g);
+
+  return (
+    <>
+      {parts.map((part, idx) => {
+        const isUrl = /^https?:\/\/[^\s]+$/.test(part);
+        if (!isUrl) return <span key={idx}>{part}</span>;
+
+        return (
+          <a
+            key={idx}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              color: "rgba(34,211,238,0.95)",
+              textDecoration: "underline",
+              wordBreak: "break-word",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      })}
+    </>
+  );
+}
+
+function formatRelativeTime(created_at: string | null) {
+  if (!created_at) return "";
+  const t = Date.parse(created_at);
+  if (Number.isNaN(t)) return "";
+  const diffMs = Date.now() - t;
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec} seconds ago`;
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+
+  const diffMo = Math.floor(diffDay / 30);
+  return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
+}
+
+function PostPreviewCard({ post }: { post: PostRow }) {
+  const mediaH = 220;
+  const hasImage = !!post.image_url;
+  const hasText = !!(post.body || "").trim();
+
+  const openPost = () => {
+    // click opens expanded post (same pattern as your homepage modal)
+    window.location.href = `/?post=${post.id}`;
+  };
+
+  return (
+    <div
+      className="card"
+      onClick={openPost}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") openPost();
+      }}
+      style={{
+        padding: 14,
+        borderRadius: 14,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(15,23,42,0.92)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 360,
+        cursor: "pointer",
+      }}
+    >
+      {/* Frame: image (contain) OR text centered inside */}
+      <div
+        style={{
+          height: mediaH,
+          borderRadius: 14,
+          border: "1px solid rgba(148,163,184,0.14)",
+          background: "rgba(2,6,23,0.24)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: hasImage ? 0 : 14,
+        }}
+      >
+        {hasImage ? (
+          <img
+            src={post.image_url as string}
+            alt="Post image"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+            }}
+            loading="lazy"
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "left",
+              color: "rgba(226,232,240,0.92)",
+              fontSize: 13,
+              lineHeight: 1.5,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                display: "-webkit-box",
+                WebkitLineClamp: 8,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                wordBreak: "break-word",
+              }}
+            >
+              {hasText ? <LinkifyText text={post.body || ""} /> : <span style={{ opacity: 0.7 }}>—</span>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 11, opacity: 0.72 }}>
+        {formatRelativeTime(post.created_at)}
+      </div>
+
+      {/* body below only when image exists */}
+      {hasImage && (
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 13,
+            lineHeight: 1.45,
+            color: "rgba(226,232,240,0.92)",
+            flex: 1,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 6,
+            WebkitBoxOrient: "vertical",
+            wordBreak: "break-word",
+          }}
+        >
+          <LinkifyText text={post.body || ""} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HorizontalPostsRow({ userId, limit = 50 }: { userId: string; limit?: number }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<PostRow[]>([]);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: postErr } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+
+        if (postErr) throw postErr;
+
+        if (cancelled) return;
+        setItems((data as PostRow[]) || []);
+      } catch (e: any) {
+        if (cancelled) return;
+        setError(e?.message || "Could not load posts.");
+        setItems([]);
+      } finally {
+        if (cancelled) return;
+        setLoading(false);
+      }
+    };
+
+    if (userId) load();
+
+    const channel = supabase
+      .channel(`profile-posts:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts", filter: `user_id=eq.${userId}` },
+        () => load()
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [userId, limit]);
+
+  const scrollByViewport = (dir: -1 | 1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    // scroll ~ one “page” (3 cards on desktop)
+    const gap = 12;
+    const cardW = Math.max(280, Math.floor((el.clientWidth - gap * 2) / 3));
+    const amount = dir * (cardW * 3 + gap * 3);
+    el.scrollBy({ left: amount, behavior: "smooth" });
+  };
+
+  if (loading) return <div className="products-status">Loading posts…</div>;
+  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
+  if (!items.length) return <div className="products-empty">No posts yet.</div>;
+
+  const railBg = "linear-gradient(180deg, rgba(2,6,23,0.28), rgba(2,6,23,0.10))";
+
+  const arrowBtn: React.CSSProperties = {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.28)",
+    background: "rgba(2,6,23,0.72)",
+    color: "rgba(226,232,240,0.95)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    zIndex: 6,
+    backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
+    boxShadow: "0 14px 40px rgba(0,0,0,0.35)",
+    userSelect: "none",
+  };
+
+  return (
+    <div
+      className="card"
+      style={{
+        position: "relative",
+        padding: 14,
+        borderRadius: 16,
+        border: "1px solid rgba(148,163,184,0.20)",
+        background: railBg,
+        overflow: "hidden",
+      }}
+    >
+      {/* edge fade */}
+      <div
+        style={{
+          pointerEvents: "none",
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(90deg, rgba(15,23,42,0.96) 0%, rgba(15,23,42,0) 8%, rgba(15,23,42,0) 92%, rgba(15,23,42,0.96) 100%)",
+          opacity: 0.55,
+          zIndex: 1,
+        }}
+      />
+
+      {/* arrows pinned */}
+      <button
+        type="button"
+        onClick={() => scrollByViewport(-1)}
+        style={{ ...arrowBtn, left: 10 }}
+        aria-label="Scroll left"
+        title="Scroll left"
+      >
+        ‹
+      </button>
+
+      <button
+        type="button"
+        onClick={() => scrollByViewport(1)}
+        style={{ ...arrowBtn, right: 10 }}
+        aria-label="Scroll right"
+        title="Scroll right"
+      >
+        ›
+      </button>
+
+      <div
+        ref={scrollerRef}
+        className="q5-posts-scroller"
+        style={{
+          position: "relative",
+          zIndex: 2,
+          display: "grid",
+          gridAutoFlow: "column",
+          gridAutoColumns: "calc((100% - 24px) / 3)", // 3 across
+          gap: 12,
+          overflowX: "auto",
+          padding: "4px 52px 10px 52px", // room for arrows
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",
+        }}
+      >
+        {items.map((p) => (
+          <div key={p.id} style={{ scrollSnapAlign: "start" }}>
+            <PostPreviewCard post={p} />
+          </div>
+        ))}
+      </div>
+
+      <style jsx>{`
+        .q5-posts-scroller::-webkit-scrollbar {
+          display: none;
+        }
+        @media (max-width: 980px) {
+          .q5-posts-scroller {
+            grid-auto-columns: calc((100% - 12px) / 2) !important; /* 2 across */
+          }
+        }
+        @media (max-width: 640px) {
+          .q5-posts-scroller {
+            grid-auto-columns: 100% !important; /* 1 across */
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+export default function ProfileViewPage() {
+  const { user, loading } = useSupabaseUser();
+  const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [privateProfile, setPrivateProfile] = useState<ProfilePrivate | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
 
-  const isMobile = useIsMobile(720);
+  const [badgeOpen, setBadgeOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const isSelf = useMemo(
-    () => !!user && !!profileId && user.id === profileId,
-    [user, profileId]
-  );
+  useEntanglements({ user, redirectPath: "/profile" });
 
-  const {
-    getConnectionStatus,
-    isEntangleLoading,
-    handleEntangle,
-    handleDeclineEntangle,
-  } = useEntanglements({
-    user,
-    redirectPath: router.asPath || "/community",
-  });
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth?redirect=/profile");
+    }
+  }, [loading, user, router]);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 720);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // -------- Load profile --------
   useEffect(() => {
     const loadProfile = async () => {
-      if (!profileId) return;
-
+      if (!user) return;
       setProfileLoading(true);
-      setProfileError(null);
 
       const { data, error } = await supabase
         .from("profiles")
@@ -147,45 +537,58 @@ export default function MemberProfilePage() {
             github_url,
             personal_website,
             lab_website,
+            institutional_email_verified,
+            email,
+            provider,
+            raw_metadata,
             q5_badge_level,
             q5_badge_label,
             q5_badge_review_status,
             q5_badge_claimed_at
           `
         )
-        .eq("id", profileId)
+        .eq("id", user.id)
         .maybeSingle();
 
       if (error) {
-        console.error("Error loading member profile", error);
+        console.error("Error loading profile", error);
         setProfile(null);
-        setProfileError("Could not load this profile.");
-      } else if (data) {
-        setProfile(data as Profile);
       } else {
-        setProfile(null);
-        setProfileError("Profile not found.");
+        setProfile((data as Profile) || null);
+      }
+
+      const { data: priv, error: privErr } = await supabase
+        .from("profile_private")
+        .select(`id, phone, institutional_email`)
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (privErr) {
+        console.error("Error loading profile_private", privErr);
+        setPrivateProfile(null);
+      } else {
+        setPrivateProfile((priv as ProfilePrivate) || null);
       }
 
       setProfileLoading(false);
     };
 
-    loadProfile();
-  }, [profileId]);
+    if (user) loadProfile();
+  }, [user]);
 
-  // ✅ Realtime: reflect backend badge edits instantly for THIS viewed profile
+  // ✅ Realtime: reflect backend edits instantly
   useEffect(() => {
-    if (!profileId) return;
+    if (!user?.id) return;
 
     const channel = supabase
-      .channel(`profiles-badge-view:${profileId}`)
+      .channel(`profiles-badge:${user.id}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "profiles",
-          filter: `id=eq.${profileId}`,
+          filter: `id=eq.${user.id}`,
         },
         (payload) => {
           const row = payload.new as any;
@@ -197,24 +600,17 @@ export default function MemberProfilePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profileId]);
+  }, [user?.id]);
 
-  // (Optional) refresh badge on focus in case realtime isn't enabled
+  // refresh badge on focus
   useEffect(() => {
-    if (!profileId) return;
+    if (!user?.id) return;
 
     const onFocus = async () => {
       const { data } = await supabase
         .from("profiles")
-        .select(
-          `
-            q5_badge_level,
-            q5_badge_label,
-            q5_badge_review_status,
-            q5_badge_claimed_at
-          `
-        )
-        .eq("id", profileId)
+        .select("q5_badge_level, q5_badge_label, q5_badge_review_status, q5_badge_claimed_at")
+        .eq("id", user.id)
         .maybeSingle();
 
       if (data) {
@@ -224,10 +620,17 @@ export default function MemberProfilePage() {
 
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [profileId]);
+  }, [user?.id]);
 
-  // -------- Rendering helpers --------
-  const displayName = profile?.full_name || "Quantum5ocial member";
+  if (!user && !loading) return null;
+
+  const fallbackName =
+    (user as any)?.user_metadata?.name ||
+    (user as any)?.user_metadata?.full_name ||
+    (user as any)?.email?.split("@")[0] ||
+    "User";
+
+  const displayName = profile?.full_name || fallbackName;
 
   const initials =
     displayName
@@ -249,12 +652,6 @@ export default function MemberProfilePage() {
       .map((t) => t.trim())
       .filter(Boolean) || [];
 
-  const headline = profile?.current_title?.trim()
-    ? profile.current_title
-    : profile?.role?.trim()
-    ? profile.role
-    : null;
-
   const links = [
     { label: "ORCID", value: profile?.orcid },
     { label: "Google Scholar", value: profile?.google_scholar },
@@ -263,6 +660,16 @@ export default function MemberProfilePage() {
     { label: "Personal website", value: profile?.personal_website },
     { label: "Lab/Company website", value: profile?.lab_website },
   ].filter((x) => x.value);
+
+  const accountEmail = user?.email || "";
+  const headline = profile?.current_title?.trim()
+    ? profile.current_title
+    : profile?.role?.trim()
+    ? profile.role
+    : null;
+
+  const showContactTile =
+    !!accountEmail || !!privateProfile?.institutional_email || !!privateProfile?.phone;
 
   const hasAnyProfileInfo =
     profile &&
@@ -276,235 +683,17 @@ export default function MemberProfilePage() {
       profile.focus_areas ||
       profile.skills ||
       profile.highest_education ||
-      profile.key_experience);
+      profile.key_experience ||
+      privateProfile?.institutional_email ||
+      privateProfile?.phone);
 
-  // ✅ badge display logic
-  const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
-  const badgeLabel =
-    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
-    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
+  const completeness = computeCompleteness(profile, privateProfile);
+  const topAddInline = completeness.missing
+    .slice(0, 3)
+    .map((m) => m.label)
+    .join(" · ");
 
-  // ✅ get-or-create thread then route to /messages/[threadId]
-  const openOrCreateThread = async (otherUserId: string) => {
-    if (!user) {
-      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
-      return;
-    }
-
-    try {
-      const { data: existing, error: findErr } = await supabase
-        .from("dm_threads")
-        .select("id, user1, user2, created_at")
-        .or(
-          `and(user1.eq.${user.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${user.id})`
-        )
-        .limit(1)
-        .maybeSingle();
-
-      if (findErr) throw findErr;
-
-      if (existing?.id) {
-        router.push(`/messages/${existing.id}`);
-        return;
-      }
-
-      const { data: created, error: createErr } = await supabase
-        .from("dm_threads")
-        .insert({ user1: user.id, user2: otherUserId })
-        .select("id")
-        .maybeSingle();
-
-      if (createErr) throw createErr;
-
-      if (created?.id) {
-        router.push(`/messages/${created.id}`);
-        return;
-      }
-
-      throw new Error("Could not create thread.");
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Could not open messages.");
-    }
-  };
-
-  const renderEntangleHeaderCTA = () => {
-    if (!profile || profileLoading) return null;
-
-    const pillBase: React.CSSProperties = {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "4px 10px",
-      borderRadius: 999,
-      fontSize: 12,
-      fontWeight: 800,
-      whiteSpace: "nowrap",
-      lineHeight: "16px",
-      textDecoration: "none",
-      width: "fit-content",
-    };
-
-    if (isSelf) {
-      return (
-        <Link
-          href="/profile"
-          className="nav-ghost-btn"
-          style={{
-            ...pillBase,
-            border: "1px solid rgba(148,163,184,0.6)",
-            color: "#e5e7eb",
-            fontWeight: 700,
-            padding: "6px 14px",
-          }}
-        >
-          View / edit my profile
-        </Link>
-      );
-    }
-
-    if (!user) {
-      return (
-        <button
-          type="button"
-          className="nav-ghost-btn"
-          onClick={() =>
-            router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`)
-          }
-          style={{
-            ...pillBase,
-            padding: "6px 14px",
-            border: "1px solid rgba(148,163,184,0.6)",
-            color: "rgba(226,232,240,0.95)",
-            cursor: "pointer",
-          }}
-        >
-          Sign in to entangle
-        </button>
-      );
-    }
-
-    if (!profileId) return null;
-
-    const status = getConnectionStatus(profileId);
-    const loadingBtn = isEntangleLoading(profileId);
-
-    if (status === "pending_incoming") {
-      return (
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => handleEntangle(profileId)}
-            disabled={loadingBtn}
-            style={{
-              ...pillBase,
-              padding: "6px 14px",
-              border: "none",
-              background: "linear-gradient(90deg,#22c55e,#16a34a)",
-              color: "#0f172a",
-              cursor: loadingBtn ? "default" : "pointer",
-              opacity: loadingBtn ? 0.7 : 1,
-            }}
-          >
-            {loadingBtn ? "…" : "Accept request"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleDeclineEntangle(profileId)}
-            disabled={loadingBtn}
-            style={{
-              ...pillBase,
-              padding: "6px 14px",
-              border: "1px solid rgba(148,163,184,0.7)",
-              background: "transparent",
-              color: "rgba(248,250,252,0.9)",
-              cursor: loadingBtn ? "default" : "pointer",
-              opacity: loadingBtn ? 0.7 : 1,
-            }}
-          >
-            Decline
-          </button>
-        </div>
-      );
-    }
-
-    if (status === "accepted") {
-      return (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            type="button"
-            onClick={() => openOrCreateThread(profileId)}
-            style={{
-              ...pillBase,
-              padding: "6px 14px",
-              border: "none",
-              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
-              color: "#0f172a",
-              cursor: "pointer",
-            }}
-          >
-            Message
-          </button>
-
-          <span
-            style={{
-              ...pillBase,
-              padding: "6px 12px",
-              border: "1px solid rgba(74,222,128,0.65)",
-              background: "rgba(34,197,94,0.10)",
-              color: "rgba(187,247,208,0.95)",
-            }}
-            title="You are entangled"
-          >
-            Entangled ✓
-          </span>
-        </div>
-      );
-    }
-
-    let label = "Entangle +";
-    let border = "none";
-    let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
-    let color = "#0f172a";
-    let disabled = false;
-
-    if (status === "pending_outgoing") {
-      label = "Request sent";
-      border = "1px solid rgba(148,163,184,0.7)";
-      bg = "transparent";
-      color = "rgba(148,163,184,0.95)";
-      disabled = true;
-    }
-
-    return (
-      <button
-        type="button"
-        onClick={() => handleEntangle(profileId)}
-        disabled={loadingBtn || disabled}
-        style={{
-          ...pillBase,
-          padding: "6px 14px",
-          border,
-          background: bg,
-          color,
-          cursor: loadingBtn || disabled ? "default" : "pointer",
-          opacity: loadingBtn ? 0.7 : 1,
-        }}
-      >
-        {loadingBtn ? "…" : label}
-      </button>
-    );
-  };
-
-  const editLinkStyle: React.CSSProperties = {
+  const editBtnStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -516,212 +705,384 @@ export default function MemberProfilePage() {
     fontSize: 13,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    width: "fit-content",
+  };
+
+  const smallPillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.55)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    textDecoration: "none",
+    whiteSpace: "nowrap",
+    width: "fit-content",
+    lineHeight: "16px",
+  };
+
+  const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
+  const badgeLabel =
+    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
+    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
+
+  const claimPillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.45)",
+    background: "rgba(2,6,23,0.25)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+    boxShadow: "0 0 0 rgba(0,0,0,0)",
+  };
+
+  const claimPillHoverStyle: React.CSSProperties = {
+    transform: "translateY(-1px)",
+    borderColor: "rgba(34,211,238,0.55)",
+    boxShadow: "0 10px 26px rgba(34,211,238,0.12)",
   };
 
   return (
-    <section className="section">
-      {/* Header card */}
-      <div
-        className="card"
-        style={{
-          padding: 18,
-          marginBottom: 14,
-          background:
-            "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
-          border: "1px solid rgba(148,163,184,0.35)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            gap: 16,
-            alignItems: "flex-start",
-            flexWrap: "wrap",
-          }}
-        >
+    <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
+      <div className="profile-container" style={{ marginTop: 0 }}>
+        {/* Header */}
+        <div className="section-header" style={{ marginBottom: 10, paddingTop: 0 }}>
           <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", gap: 10, alignItems: "center" }}
-            >
-              Profile
-            </div>
+            <div className="section-title">My profile</div>
+            <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Link href="/community" className="section-link" style={{ fontSize: 13 }}>
-              ← Back to community
+          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
+            <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
+              Edit
             </Link>
-            {renderEntangleHeaderCTA()}
           </div>
         </div>
-      </div>
 
-      {/* Main profile card */}
-      <div className="profile-summary-card">
-        {profileLoading ? (
-          <p className="profile-muted">Loading profile…</p>
-        ) : profileError ? (
-          <p className="profile-muted" style={{ color: "#f87171" }}>
-            {profileError}
-          </p>
-        ) : !hasAnyProfileInfo ? (
-          <div>
-            <p className="profile-muted" style={{ marginBottom: 12 }}>
-              This member hasn&apos;t filled in their profile yet.
-            </p>
-            {isSelf && (
+        <div className="profile-summary-card">
+          {profileLoading ? (
+            <p className="profile-muted">Loading your profile…</p>
+          ) : !hasAnyProfileInfo ? (
+            <div>
+              <p className="profile-muted" style={{ marginBottom: 12 }}>
+                You haven&apos;t filled in your profile yet. A complete profile helps labs,
+                companies, and collaborators know who you are in the quantum ecosystem.
+              </p>
               <Link href="/profile/edit" className="nav-cta">
                 Complete your profile
               </Link>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Top identity */}
-            <div className="profile-header">
-              <div className="profile-avatar">
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={displayName}
-                    className="profile-avatar-img"
-                  />
-                ) : (
-                  <span>{initials}</span>
-                )}
-              </div>
-
-              <div className="profile-header-text">
-                {/* ✅ Name + badge row */}
+            </div>
+          ) : (
+            <>
+              {/* Completeness */}
+              <div
+                className="card"
+                style={{
+                  padding: 12,
+                  marginBottom: 12,
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  borderRadius: 16,
+                  background: "rgba(2,6,23,0.55)",
+                }}
+              >
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: "space-between",
                     gap: 10,
-                    flexWrap: "wrap",
+                    flexWrap: "nowrap",
                   }}
                 >
-                  <div className="profile-name">{displayName}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
+                    Profile completeness: {completeness.pct}%
+                  </div>
 
-                  {hasBadge && (
-                    <Q5BadgeChips
-                      label={badgeLabel}
-                      reviewStatus={profile?.q5_badge_review_status ?? null}
-                      size="md"
-                    />
+                  {completeness.pct >= 100 ? (
+                    <span
+                      style={{
+                        ...smallPillStyle,
+                        border: "1px solid rgba(74,222,128,0.6)",
+                        color: "rgba(187,247,208,0.95)",
+                        cursor: "default",
+                      }}
+                      title="Nice — your profile is complete!"
+                    >
+                      Profile completed 🎉
+                    </span>
+                  ) : (
+                    <Link href="/profile/edit" style={smallPillStyle}>
+                      Complete your profile →
+                    </Link>
                   )}
                 </div>
 
-                {(headline || profile?.affiliation) && (
-                  <div className="profile-role">
-                    {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
+                <div style={{ marginTop: 10 }}>
+                  <div
+                    style={{
+                      height: 10,
+                      borderRadius: 999,
+                      background: "rgba(148,163,184,0.25)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${completeness.pct}%`,
+                        borderRadius: 999,
+                        background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+                      }}
+                    />
                   </div>
-                )}
+                </div>
 
-                {(profile?.city || profile?.country) && (
-                  <div className="profile-location">
-                    {[profile?.city, profile?.country].filter(Boolean).join(", ")}
-                  </div>
-                )}
-
-                {isSelf && (
-                  <div style={{ marginTop: 12 }}>
-                    <Link
-                      href="/profile/edit"
-                      className="nav-ghost-btn"
-                      style={editLinkStyle}
+                {!!topAddInline && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 12,
+                      color: "rgba(226,232,240,0.9)",
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ color: "rgba(148,163,184,0.95)" }}>Top things to add:</span>
+                    <span
+                      style={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: 760,
+                      }}
+                      title={topAddInline}
                     >
-                      Edit / complete your profile
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
-
-            {profile?.key_experience && (
-              <p className="profile-bio">
-                <span className="profile-section-label-inline">Experience:</span>{" "}
-                {profile.key_experience}
-              </p>
-            )}
-
-            <div className="profile-two-columns">
-              <div className="profile-col">
-                {profile?.affiliation && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Affiliation</div>
-                    <div className="profile-summary-text">{profile.affiliation}</div>
-                  </div>
-                )}
-
-                {focusTags.length > 0 && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Focus areas</div>
-                    <div className="profile-tags">
-                      {focusTags.map((tag) => (
-                        <span key={tag} className="profile-tag-chip">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {links.length > 0 && (
-                  <div className="profile-summary-item" style={{ marginTop: 18 }}>
-                    <div className="profile-section-label">Links</div>
-                    <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
-                      {links.map((l) => (
-                        <li key={l.label}>
-                          <a
-                            href={l.value as string}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: "#7dd3fc" }}
-                          >
-                            {l.label}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
+                      {topAddInline}
+                    </span>
                   </div>
                 )}
               </div>
 
-              <div className="profile-col">
-                {profile?.highest_education && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Highest education</div>
-                    <div className="profile-summary-text">
-                      {profile.highest_education}
-                    </div>
-                  </div>
-                )}
+              {/* Identity */}
+              <div className="profile-header">
+                <div className="profile-avatar">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
 
-                {skillTags.length > 0 && (
-                  <div className="profile-summary-item">
-                    <div className="profile-section-label">Skills</div>
-                    <div className="profile-tags">
-                      {skillTags.map((tag) => (
-                        <span key={tag} className="profile-tag-chip">
-                          {tag}
-                        </span>
-                      ))}
+                <div className="profile-header-text" style={{ width: "100%" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      width: "100%",
+                      minWidth: 0,
+                      flexWrap: isMobile ? "wrap" : "nowrap",
+                      justifyContent: isMobile ? "center" : "flex-start",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                        flex: isMobile ? "0 1 100%" : 1,
+                        flexWrap: "wrap",
+                        justifyContent: isMobile ? "center" : "flex-start",
+                      }}
+                    >
+                      <div
+                        className="profile-name"
+                        style={{
+                          minWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          textAlign: isMobile ? "center" : "left",
+                          maxWidth: isMobile ? "100%" : undefined,
+                        }}
+                        title={displayName}
+                      >
+                        {displayName}
+                      </div>
+
+                      {hasBadge && (
+                        <Q5BadgeChips
+                          label={badgeLabel}
+                          reviewStatus={profile?.q5_badge_review_status ?? null}
+                          size="md"
+                        />
+                      )}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: isMobile ? "center" : "flex-end",
+                        width: isMobile ? "100%" : "auto",
+                      }}
+                    >
+                      <ClaimPill
+                        onClick={() => setBadgeOpen(true)}
+                        base={claimPillStyle}
+                        hover={claimPillHoverStyle}
+                        label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+                        title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+                      />
                     </div>
                   </div>
-                )}
+
+                  {(headline || profile?.affiliation) && (
+                    <div className="profile-role" style={{ textAlign: isMobile ? "center" : "left" }}>
+                      {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+
+                  {(profile?.city || profile?.country) && (
+                    <div className="profile-location" style={{ textAlign: isMobile ? "center" : "left" }}>
+                      {[profile?.city, profile?.country].filter(Boolean).join(", ")}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </>
-        )}
-      </div>
 
-      {/* ✅ POSTS STRIP (same sideways scroller as /profile) */}
-      {profileId && (
+              {/* Contact tile (private) */}
+              {showContactTile && (
+                <div
+                  className="profile-summary-item"
+                  style={{
+                    marginTop: 14,
+                    border: "1px solid rgba(148,163,184,0.25)",
+                    borderRadius: 14,
+                    padding: 12,
+                    background: "rgba(2,6,23,0.35)",
+                  }}
+                >
+                  <div className="profile-section-label" style={{ marginBottom: 6 }}>
+                    Contact info (private)
+                  </div>
+
+                  <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
+                    {accountEmail && (
+                      <div>
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Account email:</span>{" "}
+                        {accountEmail}
+                      </div>
+                    )}
+
+                    {privateProfile?.institutional_email && (
+                      <div>
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Institutional email:</span>{" "}
+                        {privateProfile.institutional_email}
+                      </div>
+                    )}
+
+                    {privateProfile?.phone && (
+                      <div>
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Phone:</span>{" "}
+                        {privateProfile.phone}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Bio */}
+              {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
+
+              {profile?.key_experience && (
+                <p className="profile-bio">
+                  <span className="profile-section-label-inline">Experience:</span>{" "}
+                  {profile.key_experience}
+                </p>
+              )}
+
+              <div className="profile-two-columns">
+                <div className="profile-col">
+                  {profile?.affiliation && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Affiliation</div>
+                      <div className="profile-summary-text">{profile.affiliation}</div>
+                    </div>
+                  )}
+
+                  {focusTags.length > 0 && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Focus areas</div>
+                      <div className="profile-tags">
+                        {focusTags.map((tag) => (
+                          <span key={tag} className="profile-tag-chip">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {links.length > 0 && (
+                    <div className="profile-summary-item" style={{ marginTop: 18 }}>
+                      <div className="profile-section-label">Links</div>
+                      <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
+                        {links.map((l) => (
+                          <li key={l.label}>
+                            <a
+                              href={l.value as string}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: "#7dd3fc" }}
+                            >
+                              {l.label}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                <div className="profile-col">
+                  {profile?.highest_education && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Highest education</div>
+                      <div className="profile-summary-text">{profile.highest_education}</div>
+                    </div>
+                  )}
+
+                  {skillTags.length > 0 && (
+                    <div className="profile-summary-item">
+                      <div className="profile-section-label">Skills</div>
+                      <div className="profile-tags">
+                        {skillTags.map((tag) => (
+                          <span key={tag} className="profile-tag-chip">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ✅ POSTS SECTION — clean bounded rail, 3 cards per width + arrows */}
         <div style={{ marginTop: 14 }}>
           <div
             className="card"
@@ -744,404 +1105,52 @@ export default function MemberProfilePage() {
               }}
             >
               <div>
-                <div
-                  className="section-title"
-                  style={{ display: "flex", alignItems: "center", gap: 10 }}
-                >
+                <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   Posts
                 </div>
                 <div className="section-sub" style={{ maxWidth: 620 }}>
-                  Public posts by this member (click a card to open the post on the global feed).
+                  Your public posts. Click a card to open it expanded.
                 </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <Link href="/ecosystem/my-posts" className="section-link" style={{ fontSize: 13 }}>
+                  View all →
+                </Link>
               </div>
             </div>
           </div>
 
-          <ProfilePostsStrip filterUserId={profileId} />
+          {!!user?.id && <HorizontalPostsRow userId={user.id} limit={50} />}
         </div>
+      </div>
+
+      {/* Claim/Update badge modal */}
+      {user?.id && (
+        <ClaimQ5BadgeModal
+          open={badgeOpen}
+          onClose={() => setBadgeOpen(false)}
+          userId={user.id}
+          onClaimed={(r) => {
+            setProfile((p) =>
+              p
+                ? {
+                    ...p,
+                    q5_badge_level: r.level,
+                    q5_badge_label: r.label,
+                    q5_badge_review_status: r.review_status,
+                    q5_badge_claimed_at: new Date().toISOString(),
+                  }
+                : p
+            );
+          }}
+        />
       )}
     </section>
   );
 }
 
-/* =========================
-   POSTS STRIP — 2 columns inside each card, 1 row total, horizontal scroll
-   ========================= */
-
-function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
-  const router = useRouter();
-  const { user } = useSupabaseUser();
-
-  const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<PostVM[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  const initialsOf = (name: string | null | undefined) =>
-    (name || "")
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((x) => x[0]?.toUpperCase())
-      .join("") || "Q";
-
-  const formatRelativeTime = (created_at: string | null) => {
-    if (!created_at) return "";
-    const t = Date.parse(created_at);
-    if (Number.isNaN(t)) return "";
-    const diffMs = Date.now() - t;
-    const diffSec = Math.floor(diffMs / 1000);
-
-    if (diffSec < 5) return "just now";
-    if (diffSec < 60) return `${diffSec} seconds ago`;
-
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
-
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
-
-    const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
-
-    const diffWk = Math.floor(diffDay / 7);
-    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
-
-    const diffMo = Math.floor(diffDay / 30);
-    return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
-  };
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const { data: postRows, error: postErr } = await supabase
-        .from("posts")
-        .select("id, user_id, body, created_at, image_url")
-        .eq("user_id", filterUserId)
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      if (postErr) throw postErr;
-
-      const posts = (postRows || []) as PostRow[];
-      const postIds = posts.map((p) => p.id);
-      const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
-
-      // author profile map (mostly 1 user, but keep generic)
-      let profileMap = new Map<string, FeedProfile>();
-      if (userIds.length > 0) {
-        const { data: profRows, error: profErr } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, highest_education, affiliation")
-          .in("id", userIds);
-
-        if (!profErr && profRows) {
-          (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
-        }
-      }
-
-      // likes (optional)
-      let likeRows: { post_id: string; user_id: string }[] = [];
-      if (postIds.length > 0) {
-        const { data: likes, error: likeErr } = await supabase
-          .from("post_likes")
-          .select("post_id, user_id")
-          .in("post_id", postIds);
-
-        if (!likeErr && likes) likeRows = likes as any;
-      }
-
-      // comments count (optional)
-      let commentRows: { post_id: string }[] = [];
-      if (postIds.length > 0) {
-        const { data: comments, error: cErr } = await supabase
-          .from("post_comments")
-          .select("post_id")
-          .in("post_id", postIds);
-
-        if (!cErr && comments) commentRows = comments as any;
-      }
-
-      const likeCountByPost: Record<string, number> = {};
-      const likedByMeSet = new Set<string>();
-      likeRows.forEach((r) => {
-        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
-        if (user?.id && r.user_id === user.id) likedByMeSet.add(r.post_id);
-      });
-
-      const commentCountByPost: Record<string, number> = {};
-      commentRows.forEach((r) => {
-        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
-      });
-
-      const vms: PostVM[] = posts.map((p) => ({
-        post: p,
-        author: profileMap.get(p.user_id) || null,
-        likeCount: likeCountByPost[p.id] || 0,
-        commentCount: commentCountByPost[p.id] || 0,
-        likedByMe: likedByMeSet.has(p.id),
-      }));
-
-      setItems(vms);
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Could not load posts.");
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterUserId]);
-
-  const scrollByCard = (dir: -1 | 1) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const amount = Math.max(260, Math.floor(el.clientWidth * 0.85));
-    el.scrollBy({ left: dir * amount, behavior: "smooth" });
-  };
-
-  const openPost = (postId: string) => {
-    // homepage feed opens expanded by post param
-    router.push(`/?post=${encodeURIComponent(postId)}`);
-  };
-
-  if (loading) return <div className="products-status">Loading posts…</div>;
-  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
-  if (items.length === 0) {
-    return <div className="products-empty">No posts yet.</div>;
-  }
-
-  const chipStyle: React.CSSProperties = {
-    fontSize: 12,
-    padding: "5px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.30)",
-    background: "rgba(2,6,23,0.22)",
-    color: "rgba(226,232,240,0.92)",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    fontWeight: 800,
-    userSelect: "none",
-  };
-
-  return (
-    <div style={{ position: "relative" }}>
-      {/* arrows */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
-        <button
-          type="button"
-          onClick={() => scrollByCard(-1)}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            border: "1px solid rgba(148,163,184,0.22)",
-            background: "rgba(2,6,23,0.22)",
-            color: "rgba(226,232,240,0.92)",
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
-          aria-label="Scroll left"
-          title="Scroll left"
-        >
-          ‹
-        </button>
-
-        <button
-          type="button"
-          onClick={() => scrollByCard(1)}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            border: "1px solid rgba(148,163,184,0.22)",
-            background: "rgba(2,6,23,0.22)",
-            color: "rgba(226,232,240,0.92)",
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
-          aria-label="Scroll right"
-          title="Scroll right"
-        >
-          ›
-        </button>
-      </div>
-
-      {/* scroller */}
-      <div
-        ref={scrollerRef}
-        style={{
-          display: "flex",
-          gap: 12,
-          overflowX: "auto",
-          paddingBottom: 8,
-          scrollSnapType: "x mandatory",
-          WebkitOverflowScrolling: "touch",
-        }}
-      >
-        {items.map((it) => {
-          const p = it.post;
-          const a = it.author;
-
-          const name = a?.full_name || "Quantum member";
-          const initials = initialsOf(a?.full_name);
-
-          const hasImage = !!p.image_url;
-          const body = (p.body || "").trim();
-
-          return (
-            <div
-              key={p.id}
-              onClick={() => openPost(p.id)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") openPost(p.id);
-              }}
-              style={{
-                scrollSnapAlign: "start",
-                flex: "0 0 auto",
-                width: "min(620px, 92vw)",
-                cursor: "pointer",
-              }}
-            >
-              <div
-                className="card"
-                style={{
-                  padding: 14,
-                  borderRadius: 16,
-                  border: "1px solid rgba(148,163,184,0.18)",
-                  background: "rgba(15,23,42,0.92)",
-                }}
-              >
-                {/* header */}
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <div
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 999,
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.35)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                      color: "#fff",
-                      fontWeight: 900,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {a?.avatar_url ? (
-                      <img
-                        src={a.avatar_url}
-                        alt={name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      initials
-                    )}
-                  </div>
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.1 }}>
-                      {name}
-                    </div>
-                    <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
-                      {formatRelativeTime(p.created_at)}
-                    </div>
-                  </div>
-
-                  <span style={chipStyle} title="Likes / comments">
-                    ❤ {it.likeCount} · 💬 {it.commentCount}
-                  </span>
-                </div>
-
-                {/* content: 2 columns inside the card, 1 row total */}
-                <div
-                  style={{
-                    marginTop: 12,
-                    display: "grid",
-                    gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr",
-                    gap: 12,
-                    alignItems: "stretch",
-                  }}
-                >
-                  {hasImage && (
-                    <div
-                      style={{
-                        borderRadius: 14,
-                        overflow: "hidden",
-                        border: "1px solid rgba(148,163,184,0.14)",
-                        background: "rgba(2,6,23,0.22)",
-                        minHeight: 180,
-                      }}
-                    >
-                      <img
-                        src={p.image_url as string}
-                        alt="Post image"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          display: "block",
-                        }}
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-
-                  <div
-                    style={{
-                      borderRadius: 14,
-                      border: "1px solid rgba(148,163,184,0.14)",
-                      background: "rgba(2,6,23,0.18)",
-                      padding: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      minHeight: 180,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "100%",
-                        fontSize: 14,
-                        lineHeight: 1.45,
-                        color: "rgba(226,232,240,0.92)",
-                        whiteSpace: "pre-wrap",
-                        overflow: "hidden",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 9,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                      title={body}
-                    >
-                      {body || "—"}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-                  Click to open post →
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-(MemberProfilePage as any).layoutProps = {
+(ProfileViewPage as any).layoutProps = {
   variant: "two-left",
   right: null,
 };
