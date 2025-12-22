@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import Q5BadgeChips from "./Q5BadgeChips";
 
 type ProfileSummary = {
   full_name: string | null;
@@ -15,7 +16,7 @@ type ProfileSummary = {
   city?: string | null;
   country?: string | null;
 
-  // ✅ add these (optional)
+  // badge + headline bits
   role?: string | null;
   current_title?: string | null;
   q5_badge_level?: number | null;
@@ -213,51 +214,12 @@ export default function LeftSidebar() {
   const city = profile?.city || "";
   const country = profile?.country || "";
 
-  // ✅ badge display logic (same as your other pages)
+  const hasExtras = educationLevel || describesYou || headlineAffLine || city || country;
+
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
-
-  const badgeStatus = (profile?.q5_badge_review_status || "").toLowerCase();
-  const badgeStatusLabel =
-    badgeStatus === "pending"
-      ? "Pending"
-      : badgeStatus === "approved"
-      ? "Verified"
-      : badgeStatus === "rejected"
-      ? "Needs update"
-      : null;
-
-  const badgeChipStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "3px 8px",
-    borderRadius: 999,
-    border: "1px solid rgba(34,211,238,0.35)",
-    background: "rgba(34,211,238,0.08)",
-    color: "rgba(226,232,240,0.95)",
-    fontSize: 11,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-    lineHeight: "14px",
-  };
-
-  const badgeStatusStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "3px 8px",
-    borderRadius: 999,
-    fontSize: 10,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-    border: "1px solid rgba(148,163,184,0.35)",
-    background: "rgba(2,6,23,0.35)",
-    color: "rgba(226,232,240,0.92)",
-    lineHeight: "14px",
-  };
-
-  const hasExtras = educationLevel || describesYou || headlineAffLine || city || country;
 
   // ✅ IMPORTANT: never return null; render stable frame
   return (
@@ -277,62 +239,48 @@ export default function LeftSidebar() {
         }}
       >
         <div className="profile-sidebar-header">
-          <div className="profile-sidebar-avatar-wrapper">
+          {/* ✅ avatar wrapper becomes relative so we can place badge top-right */}
+          <div className="profile-sidebar-avatar-wrapper" style={{ position: "relative" }}>
             {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={fullName}
-                className="profile-sidebar-avatar"
-              />
+              <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
             ) : (
               <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
                 {(fullName || "Q").charAt(0).toUpperCase()}
               </div>
             )}
-          </div>
 
-          {/* ✅ KEEP SAME element, just add badge row under it */}
-          <div className="profile-sidebar-name">
-            {loading ? "Loading…" : fullName}
-
+            {/* ✅ badge sits top-right of avatar (same line area) */}
             {!loading && hasBadge && (
-              <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                <span style={badgeChipStyle} title={badgeLabel}>
-                  {badgeLabel}
-                </span>
-
-                {badgeStatusLabel && (
-                  <span
-                    style={{
-                      ...badgeStatusStyle,
-                      border:
-                        badgeStatus === "approved"
-                          ? "1px solid rgba(74,222,128,0.45)"
-                          : badgeStatus === "rejected"
-                          ? "1px solid rgba(248,113,113,0.45)"
-                          : "1px solid rgba(148,163,184,0.35)",
-                      color:
-                        badgeStatus === "approved"
-                          ? "rgba(187,247,208,0.95)"
-                          : badgeStatus === "rejected"
-                          ? "rgba(254,202,202,0.95)"
-                          : "rgba(226,232,240,0.92)",
-                    }}
-                    title={badgeStatusLabel}
-                  >
-                    {badgeStatusLabel}
-                  </span>
-                )}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  zIndex: 2,
+                  pointerEvents: "none",
+                }}
+              >
+                <Q5BadgeChips
+                  label={badgeLabel}
+                  reviewStatus={profile?.q5_badge_review_status || null}
+                  size="sm"
+                />
               </div>
             )}
           </div>
+
+          <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
         </div>
 
         {loading ? (
           <div className="profile-sidebar-info-block" style={{ opacity: 0.8 }}>
             <div className="profile-sidebar-info-value"> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              {" "}
+            </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              {" "}
+            </div>
           </div>
         ) : (
           hasExtras && (
@@ -346,7 +294,7 @@ export default function LeftSidebar() {
                 </div>
               )}
 
-              {/* ✅ NEW: current title/role BEFORE affiliation, same line */}
+              {/* ✅ current title/role BEFORE affiliation, same line */}
               {headlineAffLine && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {headlineAffLine}
@@ -371,29 +319,57 @@ export default function LeftSidebar() {
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+          <Link
+            href="/dashboard/entangled-states"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
           >
             <span>Entanglements</span>
             <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
           </Link>
 
-          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+          <Link
+            href="/dashboard/saved-jobs"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
           >
             <span>Saved jobs</span>
             <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
           </Link>
 
-          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+          <Link
+            href="/dashboard/saved-products"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
           >
             <span>Saved products</span>
             <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
           </Link>
 
-          <Link href="/ecosystem" className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+          <Link
+            href="/ecosystem"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
           >
             <span>My Ecosystem</span>
           </Link>
@@ -404,14 +380,44 @@ export default function LeftSidebar() {
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Posts</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Questions</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Answers</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
@@ -454,13 +460,31 @@ export default function LeftSidebar() {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {data.myOrg.name}
               </div>
 
-              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(148,163,184,0.95)",
+                  marginTop: 4,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
                 <div>
-                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers:{" "}
+                  <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -484,7 +508,15 @@ export default function LeftSidebar() {
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -506,8 +538,8 @@ export default function LeftSidebar() {
         </div>
 
         <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
-          Unlock advanced analytics, reduced ads, and premium perks for your
-          profile and organization.
+          Unlock advanced analytics, reduced ads, and premium perks for your profile and
+          organization.
         </div>
       </div>
 
@@ -524,12 +556,26 @@ export default function LeftSidebar() {
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>
+            ✉️
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
+            𝕏
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>
+            in
+          </a>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            color: "rgba(148,163,184,0.9)",
+          }}
+        >
           <img
             src="/Q5_white_bg.png"
             alt="Quantum5ocial logo"
