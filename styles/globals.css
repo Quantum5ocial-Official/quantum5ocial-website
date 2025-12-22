@@ -2656,7 +2656,21 @@ html.theme-light footer {
 .nav-drawer-open {
   transform: translateX(0);
 }
+/* Mobile menu backdrop (click outside closes) */
+.nav-drawer-backdrop {
+  position: fixed;
+  top: 84px;              /* match NAV_HEADER_HEIGHT */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9998;          /* just under drawer */
+}
 
+/* Drawer should be above backdrop */
+.nav-drawer {
+  z-index: 9999;          /* above backdrop */
+}
 .nav-links-mobile {
   display: flex;
   flex-direction: column;
