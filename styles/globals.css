@@ -3659,3 +3659,8 @@ html.theme-light footer {
   opacity: 0.55;
   cursor: default;
 }
+@media (max-width: 768px) {
+  .q5-community-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
