@@ -74,7 +74,12 @@ const steps = [
   { key: "impact", title: "Recognition / impact" },
 ] as const;
 
-export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: Props) {
+export default function ClaimQ5BadgeModal({
+  open,
+  onClose,
+  userId,
+  onClaimed,
+}: Props) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -103,41 +108,58 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
   const saveClaim = async () => {
     setSaving(true);
     setErr(null);
+
     try {
       const r = computeQ5Badge(answers);
 
-      // insert claim
-      const { error: e1 } = await supabase.from("profile_badge_claims").insert({
-        user_id: userId,
-        involvement: answers.involvement,
-        contribution: answers.contribution,
-        role_context: answers.role_context,
-        education: answers.education,
-        impact: answers.impact,
-        computed_level: r.level,
-        computed_label: r.label,
-        review_status: r.review_status,
-      });
+      // ✅ UPSERT claim (one row per user)
+      const { data: claimRow, error: e1 } = await supabase
+        .from("profile_badge_claims")
+        .upsert(
+          {
+            user_id: userId,
+            involvement: answers.involvement,
+            contribution: answers.contribution,
+            role_context: answers.role_context,
+            education: answers.education,
+            impact: answers.impact,
+            computed_level: r.level,
+            computed_label: r.label,
+            review_status: r.review_status,
+          },
+          { onConflict: "user_id" }
+        )
+        .select("computed_level, computed_label, review_status")
+        .maybeSingle();
 
       if (e1) throw e1;
 
-      // mirror into profiles (so we can show badge everywhere without joining)
+      const finalLevel = (claimRow as any)?.computed_level ?? r.level;
+      const finalLabel = (claimRow as any)?.computed_label ?? r.label;
+      const finalStatus = (claimRow as any)?.review_status ?? r.review_status;
+
+      // ✅ Mirror into profiles (fast read everywhere)
       const { error: e2 } = await supabase
         .from("profiles")
         .upsert(
           {
             id: userId,
-            q5_badge_level: r.level,
-            q5_badge_label: r.label,
+            q5_badge_level: finalLevel,
+            q5_badge_label: finalLabel,
             q5_badge_claimed_at: new Date().toISOString(),
-            q5_badge_review_status: r.review_status,
+            q5_badge_review_status: finalStatus,
           },
           { onConflict: "id" }
         );
 
       if (e2) throw e2;
 
-      onClaimed?.({ level: r.level, label: r.label, review_status: r.review_status });
+      onClaimed?.({
+        level: finalLevel,
+        label: finalLabel,
+        review_status: finalStatus,
+      });
+
       close();
     } catch (e: any) {
       setErr(e?.message || "Could not claim badge.");
@@ -158,9 +180,13 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           <select
             style={fieldStyle}
             value={answers.involvement}
-            onChange={(e) => setAnswers((p) => ({ ...p, involvement: Number(e.target.value) }))}
+            onChange={(e) =>
+              setAnswers((p) => ({ ...p, involvement: Number(e.target.value) }))
+            }
           >
-            <option value={0}>Q5-Observer — I am not yet working in quantum, but I want to engage.</option>
+            <option value={0}>
+              Q5-Observer — I am not yet working in quantum, but I want to engage.
+            </option>
             <option value={1}>Q5-Initiate — I’m learning / transitioning into quantum.</option>
             <option value={2}>Q5-Practitioner — I’m actively contributing to quantum work.</option>
             <option value={3}>Q5-Expert track — I deliver independently at a professional level.</option>
@@ -301,15 +327,31 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
         </div>
 
         {/* Body */}
-        <div style={{ marginTop: 14, padding: 12, borderRadius: 14, background: "rgba(2,6,23,0.25)" }}>
+        <div
+          style={{
+            marginTop: 14,
+            padding: 12,
+            borderRadius: 14,
+            background: "rgba(2,6,23,0.25)",
+          }}
+        >
           {renderStep()}
         </div>
 
         {/* Preview */}
-        <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
           <div style={{ fontSize: 13 }}>
             <div style={{ fontWeight: 900 }}>
-              Preview: <span style={{ color: "rgba(34,211,238,0.95)" }}>{result.label}</span>
+              Preview:{" "}
+              <span style={{ color: "rgba(34,211,238,0.95)" }}>{result.label}</span>
               {result.review_status === "pending" ? " (review)" : ""}
             </div>
             <div style={{ opacity: 0.85, marginTop: 2 }}>{result.rationale}</div>
