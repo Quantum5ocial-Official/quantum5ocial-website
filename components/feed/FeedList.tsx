@@ -1,4 +1,3 @@
-// components/feed/FeedList.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
@@ -43,9 +42,13 @@ type PostVM = {
 export default function FeedList({
   filterUserId,
   limit = 30,
+  hideCopyLink = false,
+  imageFit = "cover",
 }: {
   filterUserId?: string | null;
   limit?: number;
+  hideCopyLink?: boolean;
+  imageFit?: "cover" | "contain";
 }) {
   const { user, loading: userLoading } = useSupabaseUser();
   const router = useRouter();
@@ -414,7 +417,9 @@ export default function FeedList({
   if (items.length === 0) {
     return (
       <div className="products-empty">
-        {filterUserId ? "No posts yet." : "No posts yet. Be the first to post something for the community."}
+        {filterUserId
+          ? "No posts yet."
+          : "No posts yet. Be the first to post something for the community."}
       </div>
     );
   }
@@ -472,7 +477,10 @@ export default function FeedList({
                         {a?.id ? (
                           <Link
                             href={`/profile/${a.id}`}
-                            style={{ color: "rgba(226,232,240,0.95)", textDecoration: "none" }}
+                            style={{
+                              color: "rgba(226,232,240,0.95)",
+                              textDecoration: "none",
+                            }}
                           >
                             {name}
                           </Link>
@@ -490,17 +498,19 @@ export default function FeedList({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
-                      onClick={() => {
-                        navigator.clipboard
-                          ?.writeText(`${window.location.origin}/?post=${p.id}`)
-                          .catch(() => {});
-                      }}
-                    >
-                      Copy link
-                    </button>
+                    {!hideCopyLink && (
+                      <button
+                        type="button"
+                        style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
+                        onClick={() => {
+                          navigator.clipboard
+                            ?.writeText(`${window.location.origin}/?post=${p.id}`)
+                            .catch(() => {});
+                        }}
+                      >
+                        Copy link
+                      </button>
+                    )}
                   </div>
 
                   <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
@@ -515,7 +525,7 @@ export default function FeedList({
                         style={{
                           width: "100%",
                           maxHeight: 420,
-                          objectFit: "cover",
+                          objectFit: imageFit,
                           borderRadius: 14,
                           border: "1px solid rgba(148,163,184,0.14)",
                           background: "rgba(2,6,23,0.25)",
