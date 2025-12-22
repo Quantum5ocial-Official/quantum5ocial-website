@@ -2842,10 +2842,12 @@ html.theme-light footer {
   }
 
   /* drawer top aligned with smaller navbar */
+  @media (max-width: 768px) {
   .nav-drawer {
-    top: 60px;
-    height: calc(100vh - 60px);
+    top: 84px;
+    height: calc(100vh - 84px);
   }
+}
 
   /* make nav-link / buttons look good in drawer */
   .nav-links-mobile .nav-link,
