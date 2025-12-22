@@ -14,13 +14,6 @@ type ProfileSummary = {
   current_org?: string | null;
   city?: string | null;
   country?: string | null;
-
-  current_title?: string | null;
-  role?: string | null;
-
-  q5_badge_level?: number | null;
-  q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null;
 };
 
 type MyOrgSummary = {
@@ -39,68 +32,10 @@ type SidebarData = {
   myOrgFollowersCount: number | null;
 };
 
-function Q5BadgePill({
-  label,
-  status,
-}: {
-  label: string;
-  status?: string | null;
-}) {
-  const s = (status || "").toLowerCase();
-
-  const border =
-    s === "approved"
-      ? "1px solid rgba(74,222,128,0.55)"
-      : s === "rejected"
-      ? "1px solid rgba(248,113,113,0.55)"
-      : s === "pending"
-      ? "1px solid rgba(148,163,184,0.35)"
-      : "1px solid rgba(34,211,238,0.40)";
-
-  const bg =
-    s === "approved"
-      ? "rgba(34,197,94,0.10)"
-      : s === "rejected"
-      ? "rgba(248,113,113,0.10)"
-      : s === "pending"
-      ? "rgba(2,6,23,0.45)"
-      : "rgba(34,211,238,0.10)";
-
-  const color =
-    s === "approved"
-      ? "rgba(187,247,208,0.95)"
-      : s === "rejected"
-      ? "rgba(254,202,202,0.95)"
-      : "rgba(226,232,240,0.95)";
-
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "4px 8px",
-        borderRadius: 999,
-        border,
-        background: bg,
-        color,
-        fontSize: 11,
-        fontWeight: 900,
-        lineHeight: "14px",
-        whiteSpace: "nowrap",
-        boxShadow: "0 8px 18px rgba(0,0,0,0.22)",
-        pointerEvents: "none",
-      }}
-      title={label}
-    >
-      {label}
-    </span>
-  );
-}
-
 export default function LeftSidebar() {
   const { user, loading: userLoading } = useSupabaseUser();
 
+  // single state object = fewer rerenders
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SidebarData>({
     profile: null,
@@ -111,6 +46,7 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
+  // Keep a stable fallback name (don’t “jump” name mid-load)
   const fallbackName = useMemo(() => {
     return (
       user?.user_metadata?.full_name ||
@@ -118,13 +54,14 @@ export default function LeftSidebar() {
       user?.email?.split("@")[0] ||
       "User"
     );
-  }, [user?.id]);
+  }, [user?.id]); // lock to user id
 
   useEffect(() => {
     let alive = true;
 
     const uid = user?.id;
     if (!uid) {
+      // no user yet: keep sidebar frame, show skeleton
       setLoading(true);
       setData({
         profile: null,
@@ -141,8 +78,14 @@ export default function LeftSidebar() {
 
     const loadAll = async () => {
       setLoading(true);
+
       try {
-        const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+        // Run “independent” queries in parallel
+        const profileQ = supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", uid)
+          .maybeSingle();
 
         const connectionsQ = supabase
           .from("connections")
@@ -150,8 +93,15 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
-        const savedProductsQ = supabase.from("saved_products").select("product_id").eq("user_id", uid);
+        const savedJobsQ = supabase
+          .from("saved_jobs")
+          .select("job_id")
+          .eq("user_id", uid);
+
+        const savedProductsQ = supabase
+          .from("saved_products")
+          .select("product_id")
+          .eq("user_id", uid);
 
         const orgQ = supabase
           .from("organizations")
@@ -172,6 +122,7 @@ export default function LeftSidebar() {
 
         const profile = (pRes.data as ProfileSummary) || null;
 
+        // entangled count
         let entangledCount = 0;
         if (!cRes.error && cRes.data && cRes.data.length > 0) {
           const otherIds = Array.from(
@@ -189,6 +140,7 @@ export default function LeftSidebar() {
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
+        // followers count (depends on org)
         let myOrgFollowersCount: number | null = null;
         if (myOrg?.id) {
           const { data: followRows, error: followErr } = await supabase
@@ -227,6 +179,7 @@ export default function LeftSidebar() {
     };
 
     void loadAll();
+
     return () => {
       alive = false;
     };
@@ -239,26 +192,18 @@ export default function LeftSidebar() {
 
   const educationLevel = profile?.education_level || profile?.highest_education || "";
   const describesYou = profile?.describes_you || "";
-
-  const headline = profile?.current_title?.trim()
-    ? profile.current_title
-    : profile?.role?.trim()
-    ? profile.role
-    : "";
-
   const affiliation = profile?.affiliation || profile?.current_org || "";
   const city = profile?.city || "";
   const country = profile?.country || "";
 
-  const hasExtras = educationLevel || describesYou || headline || affiliation || city || country;
+  const hasExtras = educationLevel || describesYou || affiliation || city || country;
 
-  const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
-  const badgeLabel =
-    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
-    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
-
+  // ✅ IMPORTANT: never return null; render stable frame
   return (
-    <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <aside
+      className="layout-left sticky-col"
+      style={{ display: "flex", flexDirection: "column", gap: 6 }}
+    >
       {/* PROFILE CARD */}
       <Link
         href={user ? "/profile" : "/auth"}
@@ -271,48 +216,23 @@ export default function LeftSidebar() {
         }}
       >
         <div className="profile-sidebar-header">
-          {/* Outer anchor (no clipping) */}
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              position: "relative",
-              overflow: "visible",
-              flexShrink: 0,
-            }}
-          >
-            {/* Avatar circle (keeps your existing CSS & clipping) */}
-            <div className="profile-sidebar-avatar-wrapper" style={{ width: 56, height: 56 }}>
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
-              ) : (
-                <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                  {(fullName || "Q").charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            {/* ✅ HARD-FORCED TOP RIGHT */}
-            {hasBadge && badgeLabel && (
-              <div
-                style={{
-                  position: "absolute",
-                  // force-inset (kills any global left:0 / inset rules)
-                  inset: "auto -8px auto auto",
-                  top: -8,
-                  right: -8,
-                  left: "auto",
-                  bottom: "auto",
-                  zIndex: 999,
-                  pointerEvents: "none",
-                }}
-              >
-                <Q5BadgePill label={badgeLabel} status={profile?.q5_badge_review_status} />
+          <div className="profile-sidebar-avatar-wrapper">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={fullName}
+                className="profile-sidebar-avatar"
+              />
+            ) : (
+              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                {(fullName || "Q").charAt(0).toUpperCase()}
               </div>
             )}
           </div>
 
-          <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
+          <div className="profile-sidebar-name">
+            {loading ? "Loading…" : fullName}
+          </div>
         </div>
 
         {loading ? (
@@ -324,23 +244,24 @@ export default function LeftSidebar() {
         ) : (
           hasExtras && (
             <div className="profile-sidebar-info-block">
-              {educationLevel && <div className="profile-sidebar-info-value">{educationLevel}</div>}
-
+              {educationLevel && (
+                <div className="profile-sidebar-info-value">{educationLevel}</div>
+              )}
               {describesYou && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {describesYou}
                 </div>
               )}
-
-              {/* title before affiliation, same line */}
-              {(headline || affiliation) && (
+              {affiliation && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-                  {[headline, affiliation].filter(Boolean).join(" · ")}
+                  {affiliation}
                 </div>
               )}
-
               {(city || country) && (
-                <div className="profile-sidebar-info-value" style={{ marginTop: 4, opacity: 0.9 }}>
+                <div
+                  className="profile-sidebar-info-value"
+                  style={{ marginTop: 4, opacity: 0.9 }}
+                >
                   {[city, country].filter(Boolean).join(", ")}
                 </div>
               )}
@@ -354,36 +275,28 @@ export default function LeftSidebar() {
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link
-            href="/dashboard/entangled-states"
-            className="dashboard-sidebar-link"
+          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Entanglements</span>
             <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-jobs"
-            className="dashboard-sidebar-link"
+          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved jobs</span>
             <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/dashboard/saved-products"
-            className="dashboard-sidebar-link"
+          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved products</span>
             <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
           </Link>
 
-          <Link
-            href="/ecosystem"
-            className="dashboard-sidebar-link"
+          <Link href="/ecosystem" className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>My Ecosystem</span>
@@ -469,7 +382,8 @@ export default function LeftSidebar() {
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+          background:
+            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
@@ -496,11 +410,20 @@ export default function LeftSidebar() {
         </div>
 
         <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
-          Unlock advanced analytics, reduced ads, and premium perks for your profile and organization.
+          Unlock advanced analytics, reduced ads, and premium perks for your
+          profile and organization.
         </div>
       </div>
 
-      <div style={{ width: "100%", height: 1, background: "rgba(148,163,184,0.18)", marginTop: 6, marginBottom: 6 }} />
+      <div
+        style={{
+          width: "100%",
+          height: 1,
+          background: "rgba(148,163,184,0.18)",
+          marginTop: 6,
+          marginBottom: 6,
+        }}
+      />
 
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -511,7 +434,11 @@ export default function LeftSidebar() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-          <img src="/Q5_white_bg.png" alt="Quantum5ocial logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
+          <img
+            src="/Q5_white_bg.png"
+            alt="Quantum5ocial logo"
+            style={{ width: 24, height: 24, borderRadius: 4 }}
+          />
           <span>© 2025 Quantum5ocial</span>
         </div>
       </div>
