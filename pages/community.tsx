@@ -618,6 +618,7 @@ function CommunityMiddle() {
 
           {/* ✅ 3-column grid */}
           <div
+            className="q5-community-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(3,minmax(0,1fr))",
