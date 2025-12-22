@@ -11,9 +11,8 @@ type Profile = {
   full_name: string | null;
   short_bio: string | null;
 
-  // ✅ Updated model
-  role: string | null; // Primary role (public)
-  current_title?: string | null; // Free text (public)
+  role: string | null;
+  current_title?: string | null;
 
   affiliation: string | null;
   country: string | null;
@@ -33,6 +32,12 @@ type Profile = {
   github_url: string | null;
   personal_website: string | null;
   lab_website: string | null;
+
+  // ✅ badge fields (optional)
+  q5_badge_level?: number | null;
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null; // "pending" | "approved" | "rejected"
+  q5_badge_claimed_at?: string | null;
 };
 
 export default function MemberProfilePage() {
@@ -51,7 +56,6 @@ export default function MemberProfilePage() {
     [user, profileId]
   );
 
-  // ---- Shared entanglement hook ----
   const {
     getConnectionStatus,
     isEntangleLoading,
@@ -62,7 +66,6 @@ export default function MemberProfilePage() {
     redirectPath: router.asPath || "/community",
   });
 
-  // -------- Load profile --------
   useEffect(() => {
     const loadProfile = async () => {
       if (!profileId) return;
@@ -92,7 +95,11 @@ export default function MemberProfilePage() {
             linkedin_url,
             github_url,
             personal_website,
-            lab_website
+            lab_website,
+            q5_badge_level,
+            q5_badge_label,
+            q5_badge_review_status,
+            q5_badge_claimed_at
           `
         )
         .eq("id", profileId)
@@ -115,7 +122,6 @@ export default function MemberProfilePage() {
     loadProfile();
   }, [profileId]);
 
-  // -------- Rendering helpers --------
   const displayName = profile?.full_name || "Quantum5ocial member";
 
   const initials =
@@ -138,7 +144,6 @@ export default function MemberProfilePage() {
       .map((t) => t.trim())
       .filter(Boolean) || [];
 
-  // ✅ Show current title first, fallback to role
   const headline = profile?.current_title?.trim()
     ? profile.current_title
     : profile?.role?.trim()
@@ -151,7 +156,7 @@ export default function MemberProfilePage() {
     { label: "LinkedIn", value: profile?.linkedin_url },
     { label: "GitHub", value: profile?.github_url },
     { label: "Personal website", value: profile?.personal_website },
-    { label: "Lab/Company website", value: profile?.lab_website }, // ✅ updated label
+    { label: "Lab/Company website", value: profile?.lab_website },
   ].filter((x) => x.value);
 
   const hasAnyProfileInfo =
@@ -167,6 +172,48 @@ export default function MemberProfilePage() {
       profile.skills ||
       profile.highest_education ||
       profile.key_experience);
+
+  // ✅ badge display logic
+  const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
+  const badgeLabel =
+    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
+    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
+
+  const status = (profile?.q5_badge_review_status || "").toLowerCase();
+  const statusLabel =
+    status === "pending"
+      ? "Pending"
+      : status === "approved"
+      ? "Verified"
+      : status === "rejected"
+      ? "Needs update"
+      : null;
+
+  const badgeChipStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(34,211,238,0.35)",
+    background: "rgba(34,211,238,0.08)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  };
+
+  const badgeStatusStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+    border: "1px solid rgba(148,163,184,0.35)",
+    background: "rgba(2,6,23,0.35)",
+    color: "rgba(226,232,240,0.92)",
+  };
 
   // ✅ get-or-create thread then route to /messages/[threadId]
   const openOrCreateThread = async (otherUserId: string) => {
@@ -215,7 +262,6 @@ export default function MemberProfilePage() {
   const renderEntangleHeaderCTA = () => {
     if (!profile || profileLoading) return null;
 
-    // ✅ tiny pill styles (same size system as your other pills)
     const pillBase: React.CSSProperties = {
       display: "inline-flex",
       alignItems: "center",
@@ -276,14 +322,7 @@ export default function MemberProfilePage() {
 
     if (status === "pending_incoming") {
       return (
-        <div
-          style={{
-            display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button
             type="button"
             onClick={() => handleEntangle(profileId)}
@@ -324,7 +363,6 @@ export default function MemberProfilePage() {
     if (status === "accepted") {
       return (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {/* ✅ Message pill */}
           <button
             type="button"
             onClick={() => openOrCreateThread(profileId)}
@@ -340,7 +378,6 @@ export default function MemberProfilePage() {
             Message
           </button>
 
-          {/* ✅ Entangled badge pill */}
           <span
             style={{
               ...pillBase,
@@ -357,7 +394,6 @@ export default function MemberProfilePage() {
       );
     }
 
-    // default (not entangled yet)
     let label = "Entangle +";
     let border = "none";
     let bg = "linear-gradient(90deg,#22d3ee,#6366f1)";
@@ -406,7 +442,6 @@ export default function MemberProfilePage() {
     whiteSpace: "nowrap",
   };
 
-  // ---------- UI ----------
   return (
     <section className="section">
       {/* Header card */}
@@ -430,10 +465,7 @@ export default function MemberProfilePage() {
           }}
         >
           <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", gap: 10, alignItems: "center" }}
-            >
+            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
               Profile
             </div>
           </div>
@@ -472,18 +504,55 @@ export default function MemberProfilePage() {
             <div className="profile-header">
               <div className="profile-avatar">
                 {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt={displayName}
-                    className="profile-avatar-img"
-                  />
+                  <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
                 ) : (
                   <span>{initials}</span>
                 )}
               </div>
 
               <div className="profile-header-text">
-                <div className="profile-name">{displayName}</div>
+                {/* ✅ Name + badge row */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div className="profile-name">{displayName}</div>
+
+                  {hasBadge && (
+                    <div style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+                      <span style={badgeChipStyle} title={badgeLabel}>
+                        {badgeLabel}
+                      </span>
+
+                      {statusLabel && (
+                        <span
+                          style={{
+                            ...badgeStatusStyle,
+                            border:
+                              status === "approved"
+                                ? "1px solid rgba(74,222,128,0.45)"
+                                : status === "rejected"
+                                ? "1px solid rgba(248,113,113,0.45)"
+                                : "1px solid rgba(148,163,184,0.35)",
+                            color:
+                              status === "approved"
+                                ? "rgba(187,247,208,0.95)"
+                                : status === "rejected"
+                                ? "rgba(254,202,202,0.95)"
+                                : "rgba(226,232,240,0.92)",
+                          }}
+                          title={statusLabel}
+                        >
+                          {statusLabel}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {(headline || profile?.affiliation) && (
                   <div className="profile-role">
@@ -507,20 +576,15 @@ export default function MemberProfilePage() {
               </div>
             </div>
 
-            {/* Short bio */}
             {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
 
-            {/* Experience */}
             {profile?.key_experience && (
               <p className="profile-bio">
-                <span className="profile-section-label-inline">Experience:</span>{" "}
-                {profile.key_experience}
+                <span className="profile-section-label-inline">Experience:</span> {profile.key_experience}
               </p>
             )}
 
-            {/* Two columns */}
             <div className="profile-two-columns">
-              {/* LEFT */}
               <div className="profile-col">
                 {profile?.affiliation && (
                   <div className="profile-summary-item">
@@ -548,12 +612,7 @@ export default function MemberProfilePage() {
                     <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
                       {links.map((l) => (
                         <li key={l.label}>
-                          <a
-                            href={l.value as string}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: "#7dd3fc" }}
-                          >
+                          <a href={l.value as string} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
                             {l.label}
                           </a>
                         </li>
@@ -563,7 +622,6 @@ export default function MemberProfilePage() {
                 )}
               </div>
 
-              {/* RIGHT */}
               <div className="profile-col">
                 {profile?.highest_education && (
                   <div className="profile-summary-item">
