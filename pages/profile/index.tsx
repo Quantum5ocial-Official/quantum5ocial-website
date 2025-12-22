@@ -1,5 +1,5 @@
 // pages/profile.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -62,6 +62,13 @@ type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
+};
+
+type PostVM = {
+  post: PostRow;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
 };
 
 function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
@@ -189,165 +196,108 @@ function formatRelativeTime(created_at: string | null) {
   return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
 }
 
-function PostPreviewCard({ post }: { post: PostRow }) {
-  const mediaH = 220;
-  const hasImage = !!post.image_url;
-  const hasText = !!(post.body || "").trim();
+/* =========================
+   POSTS STRIP — SAME VISUAL AS /profile/[id].tsx
+   ========================= */
 
-  const openPost = () => {
-    // Same pattern as homepage + copy-link
-    window.location.href = `/?post=${post.id}`;
-  };
-
-  return (
-    <div
-      className="card"
-      onClick={openPost}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") openPost();
-      }}
-      style={{
-        padding: 14,
-        borderRadius: 14,
-        border: "1px solid rgba(148,163,184,0.18)",
-        background: "rgba(15,23,42,0.92)",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 360,
-        cursor: "pointer",
-      }}
-    >
-      {/* Frame: image (contain) OR text centered inside */}
-      <div
-        style={{
-          height: mediaH,
-          borderRadius: 14,
-          border: "1px solid rgba(148,163,184,0.14)",
-          background: "rgba(2,6,23,0.24)",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: hasImage ? 0 : 14,
-        }}
-      >
-        {hasImage ? (
-          <img
-            src={post.image_url as string}
-            alt="Post image"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-            }}
-            loading="lazy"
-          />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              textAlign: "left",
-              color: "rgba(226,232,240,0.92)",
-              fontSize: 13,
-              lineHeight: 1.5,
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: "100%",
-                display: "-webkit-box",
-                WebkitLineClamp: 8,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                wordBreak: "break-word",
-              }}
-            >
-              {hasText ? <LinkifyText text={post.body || ""} /> : <span style={{ opacity: 0.7 }}>—</span>}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 10, fontSize: 11, opacity: 0.72 }}>
-        {formatRelativeTime(post.created_at)}
-      </div>
-
-      {/* body below only when image exists */}
-      {hasImage && (
-        <div
-          style={{
-            marginTop: 8,
-            fontSize: 13,
-            lineHeight: 1.45,
-            color: "rgba(226,232,240,0.92)",
-            flex: 1,
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 6,
-            WebkitBoxOrient: "vertical",
-            wordBreak: "break-word",
-          }}
-        >
-          <LinkifyText text={post.body || ""} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function HorizontalPostsRow({
+function MyProfilePostsStrip({
   userId,
-  limit = 50,
+  displayName,
+  avatarUrl,
+  initials,
 }: {
   userId: string;
-  limit?: number;
+  displayName: string;
+  avatarUrl: string | null;
+  initials: string;
 }) {
+  const router = useRouter();
+  const { user } = useSupabaseUser();
+
   const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PostVM[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<PostRow[]>([]);
+
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data: postRows, error: postErr } = await supabase
+        .from("posts")
+        .select("id, user_id, body, created_at, image_url")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (postErr) throw postErr;
+
+      const posts = (postRows || []) as PostRow[];
+      const postIds = posts.map((p) => p.id);
+
+      let likeRows: { post_id: string; user_id: string }[] = [];
+      if (postIds.length > 0) {
+        const { data: likes, error: likeErr } = await supabase
+          .from("post_likes")
+          .select("post_id, user_id")
+          .in("post_id", postIds);
+
+        if (!likeErr && likes) likeRows = likes as any;
+      }
+
+      let commentRows: { post_id: string }[] = [];
+      if (postIds.length > 0) {
+        const { data: comments, error: cErr } = await supabase
+          .from("post_comments")
+          .select("post_id")
+          .in("post_id", postIds);
+
+        if (!cErr && comments) commentRows = comments as any;
+      }
+
+      const likeCountByPost: Record<string, number> = {};
+      const likedByMeSet = new Set<string>();
+      likeRows.forEach((r) => {
+        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
+        if (user?.id && r.user_id === user.id) likedByMeSet.add(r.post_id);
+      });
+
+      const commentCountByPost: Record<string, number> = {};
+      commentRows.forEach((r) => {
+        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
+      });
+
+      const vms: PostVM[] = posts.map((p) => ({
+        post: p,
+        likeCount: likeCountByPost[p.id] || 0,
+        commentCount: commentCountByPost[p.id] || 0,
+        likedByMe: likedByMeSet.has(p.id),
+      }));
+
+      setItems(vms);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not load posts.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const { data, error: postErr } = await supabase
-          .from("posts")
-          .select("id, user_id, body, created_at, image_url")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(limit);
-
-        if (postErr) throw postErr;
-
-        if (cancelled) return;
-        setItems((data as PostRow[]) || []);
-      } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message || "Could not load posts.");
-        setItems([]);
-      } finally {
-        if (cancelled) return;
-        setLoading(false);
-      }
+    const run = async () => {
+      if (cancelled) return;
+      await load();
     };
 
-    if (userId) load();
+    if (userId) run();
 
-    // realtime updates on create/delete/update
     const channel = supabase
-      .channel(`profile-posts:${userId}`)
+      .channel(`my-profile-posts:${userId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "posts", filter: `user_id=eq.${userId}` },
@@ -361,30 +311,293 @@ function HorizontalPostsRow({
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [userId, limit]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const scrollByCard = (dir: -1 | 1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const amount = Math.max(260, Math.floor(el.clientWidth * 0.9));
+    el.scrollBy({ left: dir * amount, behavior: "smooth" });
+  };
+
+  const openPost = (postId: string) => {
+    router.push(`/?post=${encodeURIComponent(postId)}`);
+  };
 
   if (loading) return <div className="products-status">Loading posts…</div>;
   if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
-  if (!items.length) return <div className="products-empty">No posts yet.</div>;
+  if (items.length === 0) return <div className="products-empty">No posts yet.</div>;
 
-  // single row, 2 columns visible (scroll horizontally)
+  const chipStyle: React.CSSProperties = {
+    fontSize: 12,
+    padding: "5px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.30)",
+    background: "rgba(2,6,23,0.22)",
+    color: "rgba(226,232,240,0.92)",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    fontWeight: 800,
+    userSelect: "none",
+    whiteSpace: "nowrap",
+  };
+
+  const edgeBtn: React.CSSProperties = {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.28)",
+    background: "rgba(2,6,23,0.65)",
+    color: "rgba(226,232,240,0.95)",
+    cursor: "pointer",
+    fontWeight: 900,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+    zIndex: 5,
+    backdropFilter: "blur(8px)",
+  };
+
   return (
     <div
+      className="card"
       style={{
-        display: "grid",
-        gridAutoFlow: "column",
-        gridAutoColumns: "minmax(260px, 1fr)",
-        gap: 12,
-        overflowX: "auto",
-        paddingBottom: 6,
-        scrollSnapType: "x mandatory",
+        position: "relative",
+        padding: 14,
+        borderRadius: 16,
+        border: "1px solid rgba(148,163,184,0.22)",
+        background: "rgba(15,23,42,0.72)",
+        overflow: "hidden",
       }}
     >
-      {items.map((p) => (
-        <div key={p.id} style={{ scrollSnapAlign: "start" }}>
-          <PostPreviewCard post={p} />
-        </div>
-      ))}
+      {/* edge fades */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 44,
+          background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: 44,
+          background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
+
+      {/* arrows */}
+      <button
+        type="button"
+        onClick={() => scrollByCard(-1)}
+        style={{ ...edgeBtn, left: 10 }}
+        aria-label="Scroll left"
+        title="Scroll left"
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        onClick={() => scrollByCard(1)}
+        style={{ ...edgeBtn, right: 10 }}
+        aria-label="Scroll right"
+        title="Scroll right"
+      >
+        ›
+      </button>
+
+      <div
+        ref={scrollerRef}
+        style={{
+          display: "flex",
+          gap: 12,
+          overflowX: "auto",
+          padding: "4px 44px 10px 44px",
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {items.map((it) => {
+          const p = it.post;
+          const hasImage = !!p.image_url;
+          const body = (p.body || "").trim();
+
+          return (
+            <div
+              key={p.id}
+              onClick={() => openPost(p.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") openPost(p.id);
+              }}
+              style={{
+                scrollSnapAlign: "start",
+                flex: "0 0 auto",
+                width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
+                cursor: "pointer",
+              }}
+            >
+              <div
+                className="card"
+                style={{
+                  padding: 12,
+                  borderRadius: 16,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(2,6,23,0.42)",
+                  height: "100%",
+                }}
+              >
+                {/* header */}
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 999,
+                      overflow: "hidden",
+                      border: "1px solid rgba(148,163,184,0.35)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                      color: "#fff",
+                      fontWeight: 900,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 13,
+                        lineHeight: 1.1,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={displayName}
+                    >
+                      {displayName || "Quantum member"}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
+                      {formatRelativeTime(p.created_at)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* content */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    border: "1px solid rgba(148,163,184,0.14)",
+                    background: "rgba(15,23,42,0.55)",
+                    minHeight: 210,
+                    display: "grid",
+                    gridTemplateColumns: "1fr",
+                    gridTemplateRows: hasImage ? "190px auto" : "1fr",
+                    gap: 10,
+                    padding: 10,
+                    alignItems: "stretch",
+                  }}
+                >
+                  {hasImage && (
+                    <div
+                      style={{
+                        borderRadius: 12,
+                        overflow: "hidden",
+                        border: "1px solid rgba(148,163,184,0.14)",
+                        background: "rgba(2,6,23,0.22)",
+                        height: 190,
+                      }}
+                    >
+                      <img
+                        src={p.image_url as string}
+                        alt="Post image"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      border: "1px solid rgba(148,163,184,0.14)",
+                      background: "rgba(2,6,23,0.18)",
+                      padding: 10,
+                      display: "flex",
+                      alignItems: hasImage ? "flex-start" : "center",
+                      minHeight: hasImage ? 0 : 190,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "100%",
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        color: "rgba(226,232,240,0.92)",
+                        whiteSpace: "pre-wrap",
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: hasImage ? 4 : 9,
+                        WebkitBoxOrient: "vertical",
+                        wordBreak: "break-word",
+                      }}
+                      title={body}
+                    >
+                      <LinkifyText text={p.body || "—"} />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-start" }}>
+                  <span style={chipStyle} title="Likes / comments">
+                    ❤ {it.likeCount} · 💬 {it.commentCount}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -989,7 +1202,7 @@ export default function ProfileViewPage() {
           )}
         </div>
 
-        {/* ✅ POSTS SECTION — horizontal 2-column row, click opens expanded */}
+        {/* ✅ POSTS SECTION — same strip UI */}
         <div style={{ marginTop: 14 }}>
           <div
             className="card"
@@ -1028,7 +1241,14 @@ export default function ProfileViewPage() {
             </div>
           </div>
 
-          {!!user?.id && <HorizontalPostsRow userId={user.id} limit={50} />}
+          {!!user?.id && (
+            <MyProfilePostsStrip
+              userId={user.id}
+              displayName={displayName}
+              avatarUrl={profile?.avatar_url || null}
+              initials={initials}
+            />
+          )}
         </div>
       </div>
 
