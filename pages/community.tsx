@@ -672,114 +672,115 @@ function CommunityMiddle() {
                   }
                 >
                   {/* ✅ top-right badge pill */}
-                  <div
-                    className="community-card-name">
-                    style={{
-                      position: "absolute",
-                      top: 10,
-                      right: 10,
-                      zIndex: 2,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      gap: 8,
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {item.kind === "person" ? (
-                      hasBadge ? (
-                        <Q5BadgeChips
-                          label={badgeLabel}
-                          reviewStatus={item.q5_badge_review_status ?? null}
-                          size="sm"
-                        />
-                      ) : null
-                    ) : (
-                      <span style={orgTypePill}>{item.typeLabel}</span>
-                    )}
-                  </div>
+<div
+  className="community-badge-pill"
+  style={{
+    position: "absolute",
+    top: 10,
+    right: 10,
+    zIndex: 2,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 8,
+  }}
+  onClick={(e) => e.stopPropagation()}
+>
+  {item.kind === "person" ? (
+    hasBadge ? (
+      <Q5BadgeChips
+        label={badgeLabel}
+        reviewStatus={item.q5_badge_review_status ?? null}
+        size="sm"
+      />
+    ) : null
+  ) : (
+    <span style={orgTypePill}>{item.typeLabel}</span>
+  )}
+</div>
 
-                  {/* TOP: avatar centered + text BELOW */}
-                  <div className="card-inner">
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        textAlign: "center",
-                        gap: 10,
-                        paddingTop: 6,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 62,
-                          height: 62,
-                          borderRadius: isOrganization ? 16 : 999,
-                          overflow: "hidden",
-                          flexShrink: 0,
-                          border: "1px solid rgba(148,163,184,0.4)",
-                          background: isOrganization
-                            ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-                            : "rgba(15,23,42,0.9)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 20,
-                          fontWeight: 800,
-                          color: isOrganization ? "#0f172a" : "#e5e7eb",
-                        }}
-                      >
-                        {item.avatar_url ? (
-                          <img
-                            src={item.avatar_url}
-                            alt={item.name}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                              display: "block",
-                            }}
-                          />
-                        ) : (
-                          <span>{initial}</span>
-                        )}
-                      </div>
+{/* TOP: avatar centered + text BELOW */}
+<div className="card-inner">
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      textAlign: "center",
+      gap: 10,
+      paddingTop: 6,
+    }}
+  >
+    <div
+      style={{
+        width: 62,
+        height: 62,
+        borderRadius: isOrganization ? 16 : 999,
+        overflow: "hidden",
+        flexShrink: 0,
+        border: "1px solid rgba(148,163,184,0.4)",
+        background: isOrganization
+          ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+          : "rgba(15,23,42,0.9)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 20,
+        fontWeight: 800,
+        color: isOrganization ? "#0f172a" : "#e5e7eb",
+      }}
+    >
+      {item.avatar_url ? (
+        <img
+          src={item.avatar_url}
+          alt={item.name}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+      ) : (
+        <span>{initial}</span>
+      )}
+    </div>
 
-                      {/* Name */}
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          fontSize: 14,
-                          lineHeight: 1.2,
-                          maxWidth: "100%",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                        title={item.name}
-                      >
-                        {item.name}
-                      </div>
+    {/* Name */}
+    <div
+      className="community-card-name"
+      style={{
+        fontWeight: 900,
+        fontSize: 14,
+        lineHeight: 1.2,
+        maxWidth: "100%",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+      title={item.name}
+    >
+      {item.name}
+    </div>
 
-                      {/* title/role + affiliation */}
-                      <div
-                        className="community-card-meta">
-                        style={{
-                          fontSize: 12,
-                          color: "rgba(226,232,240,0.86)",
-                          lineHeight: 1.35,
-                          maxWidth: "100%",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                        title={metaLine}
-                      >
-                        {metaLine}
-                      </div>
-                    </div>
-                  </div>
+    {/* title/role + affiliation */}
+    <div
+      className="community-card-meta"
+      style={{
+        fontSize: 12,
+        color: "rgba(226,232,240,0.86)",
+        lineHeight: 1.35,
+        maxWidth: "100%",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+      title={metaLine}
+    >
+      {metaLine}
+    </div>
+  </div>
+</div>
 
                   {/* FOOTER ACTIONS */}
                   <div style={{ marginTop: 14 }}>
