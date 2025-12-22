@@ -2,12 +2,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { supabase } from "../lib/supabaseClient";
-import { useSupabaseUser } from "../lib/useSupabaseUser";
-import { useEntanglements } from "../lib/useEntanglements";
-import ClaimQ5BadgeModal from "../components/ClaimQ5BadgeModal";
-import Q5BadgeChips from "../components/Q5BadgeChips";
-import FeedList from "../components/feed/FeedList";
+import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import { useEntanglements } from "../../lib/useEntanglements";
+import ClaimQ5BadgeModal from "../../components/ClaimQ5BadgeModal";
+import Q5BadgeChips from "../../components/Q5BadgeChips";
+import FeedList from "../../components/feed/FeedList";
 
 type Profile = {
   id: string;
