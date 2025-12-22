@@ -1,4 +1,3 @@
-// pages/ecosystem/my-posts.tsx
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -58,7 +57,12 @@ export default function EcosystemMyPostsPage() {
       </div>
 
       {/* Feed only (filtered to me) */}
-      <FeedList filterUserId={user?.id} limit={200} />
+      <FeedList
+        filterUserId={user?.id}
+        limit={200}
+        hideCopyLink
+        imageFit="contain"
+      />
     </section>
   );
 }
