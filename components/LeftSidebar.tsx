@@ -15,11 +15,11 @@ type ProfileSummary = {
   city?: string | null;
   country?: string | null;
 
-  // ✅ for "current title (if not then primary role)"
+  // headline: current title first, else role
   current_title?: string | null;
   role?: string | null;
 
-  // ✅ badge fields
+  // badge fields (whatever you already store)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
@@ -42,6 +42,12 @@ type SidebarData = {
   myOrgFollowersCount: number | null;
 };
 
+/**
+ * NOTE:
+ * You said “import from profile page later so changes propagate”.
+ * For now, we keep this self-contained but **the UI is isolated in one function**
+ * so swapping to an imported component later is trivial (one-line change).
+ */
 function Q5BadgePill({
   label,
   status,
@@ -104,7 +110,6 @@ function Q5BadgePill({
 export default function LeftSidebar() {
   const { user, loading: userLoading } = useSupabaseUser();
 
-  // single state object = fewer rerenders
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SidebarData>({
     profile: null,
@@ -115,7 +120,6 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
-  // Keep a stable fallback name (don’t “jump” name mid-load)
   const fallbackName = useMemo(() => {
     return (
       user?.user_metadata?.full_name ||
@@ -123,14 +127,13 @@ export default function LeftSidebar() {
       user?.email?.split("@")[0] ||
       "User"
     );
-  }, [user?.id]); // lock to user id
+  }, [user?.id]);
 
   useEffect(() => {
     let alive = true;
 
     const uid = user?.id;
     if (!uid) {
-      // no user yet: keep sidebar frame, show skeleton
       setLoading(true);
       setData({
         profile: null,
@@ -149,7 +152,6 @@ export default function LeftSidebar() {
       setLoading(true);
 
       try {
-        // Run “independent” queries in parallel
         const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
 
         const connectionsQ = supabase
@@ -160,10 +162,7 @@ export default function LeftSidebar() {
 
         const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
 
-        const savedProductsQ = supabase
-          .from("saved_products")
-          .select("product_id")
-          .eq("user_id", uid);
+        const savedProductsQ = supabase.from("saved_products").select("product_id").eq("user_id", uid);
 
         const orgQ = supabase
           .from("organizations")
@@ -184,7 +183,6 @@ export default function LeftSidebar() {
 
         const profile = (pRes.data as ProfileSummary) || null;
 
-        // entangled count
         let entangledCount = 0;
         if (!cRes.error && cRes.data && cRes.data.length > 0) {
           const otherIds = Array.from(
@@ -202,7 +200,6 @@ export default function LeftSidebar() {
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
-        // followers count (depends on org)
         let myOrgFollowersCount: number | null = null;
         if (myOrg?.id) {
           const { data: followRows, error: followErr } = await supabase
@@ -267,13 +264,11 @@ export default function LeftSidebar() {
 
   const hasExtras = educationLevel || describesYou || headline || affiliation || city || country;
 
-  // ✅ badge label
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
 
-  // ✅ IMPORTANT: never return null; render stable frame
   return (
     <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {/* PROFILE CARD */}
@@ -288,27 +283,35 @@ export default function LeftSidebar() {
         }}
       >
         <div className="profile-sidebar-header">
-          {/* ✅ Make wrapper relative + overflow visible so badge can sit outside */}
+          {/* ✅ NEW: outer anchor that is NOT overflow-hidden */}
           <div
-            className="profile-sidebar-avatar-wrapper"
-            style={{ position: "relative", overflow: "visible" }}
+            style={{
+              width: 56,
+              height: 56,
+              position: "relative",
+              overflow: "visible",
+              flexShrink: 0,
+            }}
           >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
-            ) : (
-              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {(fullName || "Q").charAt(0).toUpperCase()}
-              </div>
-            )}
+            {/* keep your existing class exactly (still overflow:hidden) */}
+            <div className="profile-sidebar-avatar-wrapper" style={{ width: 56, height: 56 }}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
+              ) : (
+                <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                  {(fullName || "Q").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
 
-            {/* ✅ Badge top-right */}
+            {/* ✅ Badge pinned to TOP RIGHT of the avatar */}
             {hasBadge && badgeLabel && (
               <div
                 style={{
                   position: "absolute",
-                  top: -6,
-                  right: -6,
-                  zIndex: 3,
+                  top: -8,
+                  right: -8,
+                  zIndex: 10,
                 }}
               >
                 <Q5BadgePill label={badgeLabel} status={profile?.q5_badge_review_status} />
@@ -322,8 +325,12 @@ export default function LeftSidebar() {
         {loading ? (
           <div className="profile-sidebar-info-block" style={{ opacity: 0.8 }}>
             <div className="profile-sidebar-info-value"> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              {" "}
+            </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              {" "}
+            </div>
           </div>
         ) : (
           hasExtras && (
@@ -336,7 +343,7 @@ export default function LeftSidebar() {
                 </div>
               )}
 
-              {/* ✅ current title/role BEFORE affiliation, same line */}
+              {/* ✅ headline BEFORE affiliation, same line */}
               {(headline || affiliation) && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {[headline, affiliation].filter(Boolean).join(" · ")}
@@ -401,21 +408,42 @@ export default function LeftSidebar() {
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
           <div
             className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
           >
-            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
+            <span>Posts</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
           <div
             className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
           >
-            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
+            <span>Questions</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
           <div
             className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
           >
-            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
+            <span>Answers</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
@@ -458,13 +486,31 @@ export default function LeftSidebar() {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {data.myOrg.name}
               </div>
 
-              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(148,163,184,0.95)",
+                  marginTop: 4,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
                 <div>
-                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers:{" "}
+                  <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -487,7 +533,15 @@ export default function LeftSidebar() {
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -513,18 +567,44 @@ export default function LeftSidebar() {
         </div>
       </div>
 
-      <div style={{ width: "100%", height: 1, background: "rgba(148,163,184,0.18)", marginTop: 6, marginBottom: 6 }} />
+      <div
+        style={{
+          width: "100%",
+          height: 1,
+          background: "rgba(148,163,184,0.18)",
+          marginTop: 6,
+          marginBottom: 6,
+        }}
+      />
 
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>
+            ✉️
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
+            𝕏
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>
+            in
+          </a>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-          <img src="/Q5_white_bg.png" alt="Quantum5ocial logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            color: "rgba(148,163,184,0.9)",
+          }}
+        >
+          <img
+            src="/Q5_white_bg.png"
+            alt="Quantum5ocial logo"
+            style={{ width: 24, height: 24, borderRadius: 4 }}
+          />
           <span>© 2025 Quantum5ocial</span>
         </div>
       </div>
