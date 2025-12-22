@@ -74,12 +74,7 @@ const steps = [
   { key: "impact", title: "Recognition / impact" },
 ] as const;
 
-export default function ClaimQ5BadgeModal({
-  open,
-  onClose,
-  userId,
-  onClaimed,
-}: Props) {
+export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: Props) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -92,6 +87,7 @@ export default function ClaimQ5BadgeModal({
     impact: 0,
   });
 
+  // ✅ keep original: live compute based on answers
   const result = useMemo(() => computeQ5Badge(answers), [answers]);
 
   if (!open) return null;
@@ -102,17 +98,18 @@ export default function ClaimQ5BadgeModal({
     onClose();
   };
 
+  // ✅ fix: never go past last step (was causing "blank step" issues)
   const next = () => setStep((s) => Math.min(s + 1, steps.length - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
   const saveClaim = async () => {
     setSaving(true);
     setErr(null);
-
     try {
       const r = computeQ5Badge(answers);
 
-      // ✅ one row per user: upsert on user_id
+      // ✅ IMPORTANT: one-row-per-user => upsert on user_id
+      // (keeps your logic the same; just prevents duplicate key error)
       const { error: e1 } = await supabase.from("profile_badge_claims").upsert(
         {
           user_id: userId,
@@ -124,14 +121,13 @@ export default function ClaimQ5BadgeModal({
           computed_level: r.level,
           computed_label: r.label,
           review_status: r.review_status,
-          // updated_at handled by trigger
         },
         { onConflict: "user_id" }
       );
 
       if (e1) throw e1;
 
-      // ✅ mirror into profiles so UI can read badge without joins
+      // mirror into profiles (so we can show badge everywhere without joining)
       const { error: e2 } = await supabase
         .from("profiles")
         .upsert(
@@ -147,11 +143,7 @@ export default function ClaimQ5BadgeModal({
 
       if (e2) throw e2;
 
-      onClaimed?.({
-        level: r.level,
-        label: r.label,
-        review_status: r.review_status,
-      });
+      onClaimed?.({ level: r.level, label: r.label, review_status: r.review_status });
       close();
     } catch (e: any) {
       setErr(e?.message || "Could not claim badge.");
@@ -163,6 +155,7 @@ export default function ClaimQ5BadgeModal({
   const renderStep = () => {
     const k = steps[step]?.key;
 
+    // ✅ keep your neutral involvement options (NO badge names here)
     if (k === "involvement") {
       return (
         <>
@@ -173,21 +166,16 @@ export default function ClaimQ5BadgeModal({
             style={fieldStyle}
             value={answers.involvement}
             onChange={(e) =>
-              setAnswers((p) => ({
-                ...p,
-                involvement: Number(e.target.value),
-              }))
+              setAnswers((p) => ({ ...p, involvement: Number(e.target.value) }))
             }
           >
             <option value={0}>
-              Q5-Observer — I am not yet working in quantum, but I want to engage.
+              I am not yet working in quantum, but I want to engage with the ecosystem
             </option>
-            <option value={1}>Q5-Initiate — I’m learning / transitioning into quantum.</option>
-            <option value={2}>Q5-Practitioner — I’m actively contributing to quantum work.</option>
-            <option value={3}>
-              Q5-Expert track — I deliver independently at a professional level.
-            </option>
-            <option value={4}>Leadership track — I lead teams/products/research in quantum.</option>
+            <option value={1}>I’m learning / transitioning into quantum</option>
+            <option value={2}>I’m actively contributing to quantum work</option>
+            <option value={3}>I deliver independently at a professional level</option>
+            <option value={4}>I lead teams/products/research in quantum</option>
           </select>
         </>
       );
@@ -203,10 +191,7 @@ export default function ClaimQ5BadgeModal({
             style={fieldStyle}
             value={answers.contribution}
             onChange={(e) =>
-              setAnswers((p) => ({
-                ...p,
-                contribution: Number(e.target.value),
-              }))
+              setAnswers((p) => ({ ...p, contribution: Number(e.target.value) }))
             }
           >
             <option value={0}>Exploring / learning only</option>
@@ -228,12 +213,7 @@ export default function ClaimQ5BadgeModal({
           <select
             style={fieldStyle}
             value={answers.role_context}
-            onChange={(e) =>
-              setAnswers((p) => ({
-                ...p,
-                role_context: e.target.value,
-              }))
-            }
+            onChange={(e) => setAnswers((p) => ({ ...p, role_context: e.target.value }))}
           >
             <option>Student / Trainee</option>
             <option>Researcher / Scientist</option>
@@ -257,12 +237,7 @@ export default function ClaimQ5BadgeModal({
           <select
             style={fieldStyle}
             value={answers.education}
-            onChange={(e) =>
-              setAnswers((p) => ({
-                ...p,
-                education: e.target.value,
-              }))
-            }
+            onChange={(e) => setAnswers((p) => ({ ...p, education: e.target.value }))}
           >
             <option>Secondary / High school</option>
             <option>Bachelor</option>
@@ -283,12 +258,7 @@ export default function ClaimQ5BadgeModal({
           <select
             style={fieldStyle}
             value={answers.impact}
-            onChange={(e) =>
-              setAnswers((p) => ({
-                ...p,
-                impact: Number(e.target.value),
-              }))
-            }
+            onChange={(e) => setAnswers((p) => ({ ...p, impact: Number(e.target.value) }))}
           >
             <option value={0}>Not yet / personal learning only</option>
             <option value={1}>Within my team / lab / company</option>
@@ -353,7 +323,7 @@ export default function ClaimQ5BadgeModal({
           {renderStep()}
         </div>
 
-        {/* Preview + actions */}
+        {/* Preview */}
         <div
           style={{
             marginTop: 12,
