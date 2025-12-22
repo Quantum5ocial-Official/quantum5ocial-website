@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
 import ClaimQ5BadgeModal from "../../components/ClaimQ5BadgeModal";
+import Q5BadgeChips from "../../components/Q5BadgeChips"; // ✅ NEW
 
 type Profile = {
   id: string;
@@ -338,34 +339,11 @@ export default function ProfileViewPage() {
     lineHeight: "16px",
   };
 
-  // ✅ badge logic
+  // ✅ badge logic (kept as-is for data)
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
-
-  const status = (profile?.q5_badge_review_status || "").toLowerCase();
-  const statusLabel =
-    status === "pending"
-      ? "Pending verification"
-      : status === "approved"
-      ? "Verified"
-      : status === "rejected"
-      ? "Needs update"
-      : null;
-
-  const statusPillStyle: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "4px 10px",
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-    border: "1px solid rgba(148,163,184,0.35)",
-    background: "rgba(2,6,23,0.35)",
-    color: "rgba(226,232,240,0.92)",
-  };
 
   // ✅ desktop stays EXACTLY as-is; only mobile tweaks via wrapper styles
   const claimPillStyle: React.CSSProperties = {
@@ -568,47 +546,13 @@ export default function ProfileViewPage() {
                         {displayName}
                       </div>
 
+                      {/* ✅ REPLACED: use the shared component pill */}
                       {hasBadge && (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "4px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(34,211,238,0.35)",
-                            background: "rgba(34,211,238,0.08)",
-                            color: "rgba(226,232,240,0.95)",
-                            fontSize: 12,
-                            fontWeight: 900,
-                            whiteSpace: "nowrap",
-                          }}
-                          title={badgeLabel}
-                        >
-                          {badgeLabel}
-                        </span>
-                      )}
-
-                      {hasBadge && statusLabel && (
-                        <span
-                          style={{
-                            ...statusPillStyle,
-                            border:
-                              status === "approved"
-                                ? "1px solid rgba(74,222,128,0.45)"
-                                : status === "rejected"
-                                ? "1px solid rgba(248,113,113,0.45)"
-                                : "1px solid rgba(148,163,184,0.35)",
-                            color:
-                              status === "approved"
-                                ? "rgba(187,247,208,0.95)"
-                                : status === "rejected"
-                                ? "rgba(254,202,202,0.95)"
-                                : "rgba(226,232,240,0.92)",
-                          }}
-                          title={statusLabel}
-                        >
-                          {statusLabel}
-                        </span>
+                        <Q5BadgeChips
+                          label={badgeLabel}
+                          reviewStatus={profile?.q5_badge_review_status ?? null}
+                          size="md"
+                        />
                       )}
                     </div>
 
