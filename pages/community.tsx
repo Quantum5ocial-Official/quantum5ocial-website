@@ -673,6 +673,7 @@ function CommunityMiddle() {
                 >
                   {/* ✅ top-right badge pill */}
                   <div
+                    className="community-card-name">
                     style={{
                       position: "absolute",
                       top: 10,
@@ -763,6 +764,7 @@ function CommunityMiddle() {
 
                       {/* title/role + affiliation */}
                       <div
+                        className="community-card-meta">
                         style={{
                           fontSize: 12,
                           color: "rgba(226,232,240,0.86)",
