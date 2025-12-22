@@ -1,5 +1,5 @@
 // pages/profile.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -7,7 +7,6 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
 import ClaimQ5BadgeModal from "../../components/ClaimQ5BadgeModal";
 import Q5BadgeChips from "../../components/Q5BadgeChips";
-import FeedList from "../../components/feed/FeedList";
 
 type Profile = {
   id: string;
@@ -570,10 +569,7 @@ export default function ProfileViewPage() {
                   )}
 
                   {(profile?.city || profile?.country) && (
-                    <div
-                      className="profile-location"
-                      style={{ textAlign: isMobile ? "center" : "left" }}
-                    >
+                    <div className="profile-location" style={{ textAlign: isMobile ? "center" : "left" }}>
                       {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                     </div>
                   )}
@@ -700,7 +696,7 @@ export default function ProfileViewPage() {
           )}
         </div>
 
-        {/* ✅ POSTS SECTION — now using the shared FeedList (same as homepage) */}
+        {/* ✅ POSTS SECTION — horizontal: 2 columns per page, scroll left/right */}
         <div style={{ marginTop: 14 }}>
           <div
             className="card"
@@ -727,7 +723,7 @@ export default function ProfileViewPage() {
                   Posts
                 </div>
                 <div className="section-sub" style={{ maxWidth: 620 }}>
-                  Your public posts on the global feed (same cards as homepage).
+                  Your public posts — now in a sideways carousel (2 at a time).
                 </div>
               </div>
 
@@ -739,7 +735,7 @@ export default function ProfileViewPage() {
             </div>
           </div>
 
-          <FeedList filterUserId={user?.id} limit={50} />
+          <ProfilePostsCarousel userId={user?.id || ""} limit={50} />
         </div>
       </div>
 
@@ -794,6 +790,321 @@ function ClaimPill({
     >
       {label}
     </button>
+  );
+}
+
+/* =========================
+   Profile posts carousel
+   - ONE ROW, scroll x
+   - Each “page” shows 2 columns
+   - Image shows FULL (contain), consistent media height
+   ========================= */
+
+type PostRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
+  image_url: string | null;
+};
+
+function formatRelativeTime(created_at: string | null) {
+  if (!created_at) return "";
+  const t = Date.parse(created_at);
+  if (Number.isNaN(t)) return "";
+  const diffMs = Date.now() - t;
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec} seconds ago`;
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+
+  const diffMo = Math.floor(diffDay / 30);
+  return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
+}
+
+function LinkifyText({ text }: { text: string }) {
+  const parts = (text || "").split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <>
+      {parts.map((part, idx) => {
+        const isUrl = /^https?:\/\/[^\s]+$/.test(part);
+        if (!isUrl) return <span key={idx}>{part}</span>;
+        return (
+          <a
+            key={idx}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "rgba(34,211,238,0.95)", textDecoration: "underline", wordBreak: "break-word" }}
+          >
+            {part}
+          </a>
+        );
+      })}
+    </>
+  );
+}
+
+function ProfilePostsCarousel({ userId, limit = 50 }: { userId: string; limit?: number }) {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<PostRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const pages = useMemo(() => {
+    const out: PostRow[][] = [];
+    for (let i = 0; i < rows.length; i += 2) out.push(rows.slice(i, i + 2));
+    return out;
+  }, [rows]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data, error } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        setRows((data as PostRow[]) || []);
+      } catch (e: any) {
+        if (cancelled) return;
+        console.error("ProfilePostsCarousel load error:", e);
+        setRows([]);
+        setError(e?.message || "Could not load posts.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, limit]);
+
+  const scrollByPage = (dir: -1 | 1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const amount = el.clientWidth; // one “page” width
+    el.scrollBy({ left: dir * amount, behavior: "smooth" });
+  };
+
+  if (loading) return <div className="products-status">Loading posts…</div>;
+  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
+  if (!rows.length) return <div className="products-empty">No posts yet.</div>;
+
+  return (
+    <div style={{ position: "relative" }}>
+      {/* arrows */}
+      <button
+        type="button"
+        onClick={() => scrollByPage(-1)}
+        aria-label="Scroll left"
+        style={arrowBtnStyle("left")}
+      >
+        ❮
+      </button>
+
+      <button
+        type="button"
+        onClick={() => scrollByPage(1)}
+        aria-label="Scroll right"
+        style={arrowBtnStyle("right")}
+      >
+        ❯
+      </button>
+
+      <div
+        ref={scrollerRef}
+        style={{
+          display: "flex",
+          gap: 14,
+          overflowX: "auto",
+          paddingBottom: 8,
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "thin",
+        }}
+      >
+        {pages.map((pair, i) => (
+          <div
+            key={`page-${i}`}
+            style={{
+              flex: "0 0 100%",
+              scrollSnapAlign: "start",
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: 12,
+            }}
+          >
+            {pair.map((p) => (
+              <PostPreviewCard key={p.id} post={p} />
+            ))}
+
+            {/* if odd count, keep grid balance */}
+            {pair.length === 1 && <div aria-hidden="true" />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function arrowBtnStyle(side: "left" | "right"): React.CSSProperties {
+  return {
+    position: "absolute",
+    top: "50%",
+    transform: "translateY(-50%)",
+    zIndex: 5,
+    ...(side === "left" ? { left: -6 } : { right: -6 }),
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.24)",
+    background: "rgba(2,6,23,0.55)",
+    color: "rgba(226,232,240,0.95)",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
+    backdropFilter: "blur(8px)",
+    WebkitBackdropFilter: "blur(8px)",
+  };
+}
+
+function PostPreviewCard({ post }: { post: PostRow }) {
+  const mediaH = 220;
+
+  return (
+    <div
+      className="card"
+      style={{
+        padding: 14,
+        borderRadius: 14,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(15,23,42,0.92)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 360,
+      }}
+    >
+      {/* media area */}
+      <div
+        style={{
+          height: mediaH,
+          borderRadius: 14,
+          border: "1px solid rgba(148,163,184,0.14)",
+          background: "rgba(2,6,23,0.24)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {post.image_url ? (
+          <img
+            src={post.image_url}
+            alt="Post image"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain", // ✅ full image visible
+              display: "block",
+            }}
+            loading="lazy"
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background:
+                "radial-gradient(circle at 20% 10%, rgba(34,211,238,0.18), rgba(2,6,23,0.0) 60%), radial-gradient(circle at 80% 40%, rgba(99,102,241,0.16), rgba(2,6,23,0.0) 55%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "rgba(148,163,184,0.85)",
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            Text post
+          </div>
+        )}
+      </div>
+
+      {/* meta */}
+      <div style={{ marginTop: 10, fontSize: 11, opacity: 0.72 }}>
+        {formatRelativeTime(post.created_at)}
+      </div>
+
+      {/* body */}
+      <div
+        style={{
+          marginTop: 8,
+          fontSize: 13,
+          lineHeight: 1.45,
+          color: "rgba(226,232,240,0.92)",
+          flex: 1,
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 6,
+          WebkitBoxOrient: "vertical",
+        }}
+      >
+        <LinkifyText text={post.body || ""} />
+      </div>
+
+      {/* actions */}
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard
+              ?.writeText(`${window.location.origin}/?post=${post.id}`)
+              .catch(() => {});
+          }}
+          style={{
+            fontSize: 12,
+            padding: "6px 10px",
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.24)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          Copy link
+        </button>
+      </div>
+    </div>
   );
 }
 
