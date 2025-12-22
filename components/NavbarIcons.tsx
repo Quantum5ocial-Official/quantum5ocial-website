@@ -756,28 +756,27 @@ export default function NavbarIcons() {
           )}
         </div>
       </div>
-
-            {/* ✅ MOBILE OVERLAY — click outside closes drawer */}
-      {isMobile && isMobileMenuOpen && (
-        <div
-          aria-hidden="true"
-          onClick={closeMobileMenu}
-          style={{
-  position: "fixed",
-  top: 72,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  zIndex: 59,
-  background: "rgba(0,0,0,0.45)",
-}}
-        />
-      )}
+      
+      {/* ✅ MOBILE OVERLAY — click outside closes drawer */}
+{isMobile && isMobileMenuOpen && (
+  <div
+    aria-hidden="true"
+    onMouseDown={closeMobileMenu}
+    style={{
+      position: "fixed",
+      top: NAV_HEADER_HEIGHT, // use 84, matches your header
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 80,
+      background: "rgba(0,0,0,0.45)",
+    }}
+  />
+)}
 
       {/* MOBILE DRAWER */}
             <div
         className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
-        style={{ zIndex: 999 }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <nav className="nav-links nav-links-mobile">
