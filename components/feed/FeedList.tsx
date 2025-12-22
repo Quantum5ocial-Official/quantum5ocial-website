@@ -451,67 +451,87 @@ export default function FeedList({
               }}
             >
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={avatarStyle(40)}>
-                  {a?.avatar_url ? (
-                    <img
-                      src={a.avatar_url}
-                      alt={name}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    initials
-                  )}
-                </div>
+  {a?.id ? (
+    <Link
+      href={`/profile/${a.id}`}
+      style={{ textDecoration: "none", display: "inline-flex", cursor: "pointer" }}
+      aria-label={`Open profile: ${name}`}
+    >
+      <div style={avatarStyle(40)}>
+        {a?.avatar_url ? (
+          <img
+            src={a.avatar_url}
+            alt={name}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          initials
+        )}
+      </div>
+    </Link>
+  ) : (
+    <div style={avatarStyle(40)}>
+      {a?.avatar_url ? (
+        <img
+          src={a.avatar_url}
+          alt={name}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  )}
 
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 10,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
-                        {a?.id ? (
-                          <Link
-                            href={`/profile/${a.id}`}
-                            style={{
-                              color: "rgba(226,232,240,0.95)",
-                              textDecoration: "none",
-                            }}
-                          >
-                            {name}
-                          </Link>
-                        ) : (
-                          name
-                        )}
-                      </div>
+  <div style={{ flex: 1, minWidth: 0 }}>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 10,
+        alignItems: "flex-start",
+      }}
+    >
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
+          {a?.id ? (
+            <Link
+              href={`/profile/${a.id}`}
+              style={{
+                color: "rgba(226,232,240,0.95)",
+                textDecoration: "none",
+              }}
+            >
+              {name}
+            </Link>
+          ) : (
+            name
+          )}
+        </div>
 
-                      <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
-                        {formatSubtitle(a) || "Quantum5ocial member"}
-                      </div>
+        <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
+          {formatSubtitle(a) || "Quantum5ocial member"}
+        </div>
 
-                      <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
-                        {formatRelativeTime(p.created_at)}
-                      </div>
-                    </div>
+        <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
+          {formatRelativeTime(p.created_at)}
+        </div>
+      </div>
 
-                    {!hideCopyLink && (
-                      <button
-                        type="button"
-                        style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
-                        onClick={() => {
-                          navigator.clipboard
-                            ?.writeText(`${window.location.origin}/?post=${p.id}`)
-                            .catch(() => {});
-                        }}
-                      >
-                        Copy link
-                      </button>
-                    )}
-                  </div>
+      {!hideCopyLink && (
+        <button
+          type="button"
+          style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
+          onClick={() => {
+            navigator.clipboard
+              ?.writeText(`${window.location.origin}/?post=${p.id}`)
+              .catch(() => {});
+          }}
+        >
+          Copy link
+        </button>
+      )}
+    </div>
 
                   <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
                     <LinkifyText text={p.body} />
