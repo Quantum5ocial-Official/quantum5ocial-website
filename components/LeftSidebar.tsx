@@ -240,34 +240,42 @@ export default function LeftSidebar() {
       >
         <div className="profile-sidebar-header">
           {/* ✅ avatar wrapper becomes relative so we can place badge top-right */}
-          <div className="profile-sidebar-avatar-wrapper" style={{ position: "relative" }}>
-            {avatarUrl ? (
-              <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
-            ) : (
-              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {(fullName || "Q").charAt(0).toUpperCase()}
-              </div>
-            )}
+          <div
+  className="profile-sidebar-avatar-wrapper"
+  style={{
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  {avatarUrl ? (
+    <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
+  ) : (
+    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+      {(fullName || "Q").charAt(0).toUpperCase()}
+    </div>
+  )}
 
-            {/* ✅ badge sits top-right of avatar (same line area) */}
-            {!loading && hasBadge && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: -6,
-                  right: -6,
-                  zIndex: 2,
-                  pointerEvents: "none",
-                }}
-              >
-                <Q5BadgeChips
-                  label={badgeLabel}
-                  reviewStatus={profile?.q5_badge_review_status || null}
-                  size="sm"
-                />
-              </div>
-            )}
-          </div>
+  {!loading && hasBadge && (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        transform: "translate(35%, -35%)",
+        zIndex: 3,
+        pointerEvents: "none",
+      }}
+    >
+      <Q5BadgeChips
+        label={badgeLabel}
+        reviewStatus={profile?.q5_badge_review_status || null}
+        size="sm"
+      />
+    </div>
+  )}
+</div>
 
           <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
         </div>
