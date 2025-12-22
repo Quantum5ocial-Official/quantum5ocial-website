@@ -103,32 +103,25 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
   const saveClaim = async () => {
     setSaving(true);
     setErr(null);
-
     try {
       const r = computeQ5Badge(answers);
-      const nowIso = new Date().toISOString();
 
-      // ✅ 1 row per user: upsert into profile_badge_claims
-      const { error: e1 } = await supabase.from("profile_badge_claims").upsert(
-        {
-          user_id: userId,
-          involvement: answers.involvement,
-          contribution: answers.contribution,
-          role_context: answers.role_context,
-          education: answers.education,
-          impact: answers.impact,
-          computed_level: r.level,
-          computed_label: r.label,
-          review_status: r.review_status,
-          // updated_at is handled by trigger, but harmless if omitted
-        },
-        { onConflict: "user_id" }
-      );
+      // insert claim
+      const { error: e1 } = await supabase.from("profile_badge_claims").insert({
+        user_id: userId,
+        involvement: answers.involvement,
+        contribution: answers.contribution,
+        role_context: answers.role_context,
+        education: answers.education,
+        impact: answers.impact,
+        computed_level: r.level,
+        computed_label: r.label,
+        review_status: r.review_status,
+      });
 
       if (e1) throw e1;
 
-      // ✅ mirror into profiles (this is what your pages read)
-      // ❌ DO NOT write q5_badge_updated_at (doesn't exist)
+      // mirror into profiles (so we can show badge everywhere without joining)
       const { error: e2 } = await supabase
         .from("profiles")
         .upsert(
@@ -136,8 +129,8 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
             id: userId,
             q5_badge_level: r.level,
             q5_badge_label: r.label,
+            q5_badge_claimed_at: new Date().toISOString(),
             q5_badge_review_status: r.review_status,
-            q5_badge_claimed_at: nowIso, // ✅ correct existing column
           },
           { onConflict: "id" }
         );
