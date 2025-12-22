@@ -1069,9 +1069,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                     </div>
                   </div>
 
-                  <span style={chipStyle} title="Likes / comments">
-                    ❤ {it.likeCount} · 💬 {it.commentCount}
-                  </span>
+            
                 </div>
 
                 {/* content */}
@@ -1149,9 +1147,17 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                   </div>
                 </div>
 
-                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-                  Click to open →
-                </div>
+                <div
+  style={{
+    marginTop: 10,
+    display: "flex",
+    justifyContent: "flex-start",
+  }}
+>
+  <span style={chipStyle} title="Likes / comments">
+    ❤ {it.likeCount} · 💬 {it.commentCount}
+  </span>
+</div>
               </div>
             </div>
           );
