@@ -50,6 +50,13 @@ type ProfilePrivate = {
   institutional_email: string | null;
 };
 
+type PostRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
+};
+
 type CompletenessItem = {
   key: string;
   label: string;
@@ -97,6 +104,32 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   return { pct, missing };
 }
 
+function formatRelativeTime(created_at: string | null) {
+  if (!created_at) return "";
+  const t = Date.parse(created_at);
+  if (Number.isNaN(t)) return "";
+  const diffMs = Date.now() - t;
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec} seconds ago`;
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+
+  const diffMo = Math.floor(diffDay / 30);
+  return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
+}
+
 export default function ProfileViewPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -107,6 +140,11 @@ export default function ProfileViewPage() {
 
   const [badgeOpen, setBadgeOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ posts state
+  const [posts, setPosts] = useState<PostRow[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [postsError, setPostsError] = useState<string | null>(null);
 
   useEntanglements({ user, redirectPath: "/profile" });
 
@@ -191,6 +229,35 @@ export default function ProfileViewPage() {
 
     if (user) loadProfile();
   }, [user]);
+
+  // ✅ Load my posts (read-only feed-style cards)
+  useEffect(() => {
+    const loadMyPosts = async () => {
+      if (!user?.id) return;
+
+      setPostsLoading(true);
+      setPostsError(null);
+
+      const { data, error } = await supabase
+        .from("posts")
+        .select("id, user_id, body, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error("Error loading profile posts", error);
+        setPosts([]);
+        setPostsError("Could not load posts.");
+      } else {
+        setPosts((data || []) as PostRow[]);
+      }
+
+      setPostsLoading(false);
+    };
+
+    loadMyPosts();
+  }, [user?.id]);
 
   // ✅ Realtime: reflect backend edits instantly
   useEffect(() => {
@@ -369,6 +436,90 @@ export default function ProfileViewPage() {
     boxShadow: "0 10px 26px rgba(34,211,238,0.12)",
   };
 
+  // "feed-style" post shell (read-only, same vibe as homepage)
+  const PostCard = ({ p }: { p: PostRow }) => {
+    const name = displayName;
+    const avatar = profile?.avatar_url || null;
+    const initial = (name || "Q").charAt(0).toUpperCase();
+
+    return (
+      <div
+        className="card"
+        style={{
+          padding: 14,
+          borderRadius: 14,
+          border: "1px solid rgba(148,163,184,0.18)",
+          background: "rgba(15,23,42,0.92)",
+        }}
+      >
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              overflow: "hidden",
+              border: "1px solid rgba(148,163,184,0.35)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+              color: "#0f172a",
+              fontWeight: 900,
+              flexShrink: 0,
+            }}
+            aria-hidden="true"
+          >
+            {avatar ? (
+              <img
+                src={avatar}
+                alt={name}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              initial
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color: "#e5e7eb",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={name}
+                >
+                  {name}
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
+                  {formatRelativeTime(p.created_at)}
+                </div>
+              </div>
+
+              <Link
+                href={`/?post=${p.id}`}
+                className="section-link"
+                style={{ fontSize: 12, whiteSpace: "nowrap" }}
+              >
+                Open in feed →
+              </Link>
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "#e5e7eb" }}>
+              {p.body}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
       <div className="profile-container" style={{ marginTop: 0 }}>
@@ -496,19 +647,13 @@ export default function ProfileViewPage() {
               <div className="profile-header">
                 <div className="profile-avatar">
                   {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={displayName}
-                      className="profile-avatar-img"
-                    />
+                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
                   ) : (
                     <span>{initials}</span>
                   )}
                 </div>
 
                 <div className="profile-header-text" style={{ width: "100%" }}>
-                  {/* ✅ desktop unchanged: badge + claim pill on same row
-                      ✅ mobile: keep same DOM, but wrap and center so it doesn't overflow */}
                   <div
                     style={{
                       display: "flex",
@@ -546,7 +691,6 @@ export default function ProfileViewPage() {
                         {displayName}
                       </div>
 
-                      {/* ✅ REPLACED: use the shared component pill */}
                       {hasBadge && (
                         <Q5BadgeChips
                           label={badgeLabel}
@@ -556,7 +700,6 @@ export default function ProfileViewPage() {
                       )}
                     </div>
 
-                    {/* Claim pill: unchanged; only wrapper behavior changes on mobile */}
                     <div
                       style={{
                         display: "flex",
@@ -581,10 +724,7 @@ export default function ProfileViewPage() {
                   )}
 
                   {(profile?.city || profile?.country) && (
-                    <div
-                      className="profile-location"
-                      style={{ textAlign: isMobile ? "center" : "left" }}
-                    >
+                    <div className="profile-location" style={{ textAlign: isMobile ? "center" : "left" }}>
                       {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                     </div>
                   )}
@@ -617,9 +757,7 @@ export default function ProfileViewPage() {
 
                     {privateProfile?.institutional_email && (
                       <div>
-                        <span style={{ color: "rgba(148,163,184,0.9)" }}>
-                          Institutional email:
-                        </span>{" "}
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Institutional email:</span>{" "}
                         {privateProfile.institutional_email}
                       </div>
                     )}
@@ -710,6 +848,81 @@ export default function ProfileViewPage() {
                 </div>
               </div>
             </>
+          )}
+        </div>
+
+        {/* ✅ POSTS SECTION (read-only, full cards) */}
+        <div style={{ marginTop: 14 }}>
+          <div
+            className="card"
+            style={{
+              padding: 16,
+              marginBottom: 12,
+              background:
+                "radial-gradient(circle at 0% 0%, rgba(59,130,246,0.16), rgba(15,23,42,0.98))",
+              border: "1px solid rgba(148,163,184,0.35)",
+              boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  Posts
+                  {!postsLoading && !postsError && (
+                    <span
+                      style={{
+                        fontSize: 12,
+                        padding: "2px 10px",
+                        borderRadius: 999,
+                        background: "rgba(15,23,42,0.9)",
+                        border: "1px solid rgba(59,130,246,0.55)",
+                        color: "rgba(191,219,254,0.95)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {posts.length} total
+                    </span>
+                  )}
+                </div>
+                <div className="section-sub" style={{ maxWidth: 620 }}>
+                  Your public posts on the global feed.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <Link href="/ecosystem/my-posts" className="section-link" style={{ fontSize: 13 }}>
+                  View all →
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {postsLoading && <div className="products-status">Loading posts…</div>}
+
+          {!postsLoading && postsError && (
+            <div className="products-status" style={{ color: "#f87171" }}>
+              {postsError}
+            </div>
+          )}
+
+          {!postsLoading && !postsError && posts.length === 0 && (
+            <div className="products-empty">No posts yet.</div>
+          )}
+
+          {!postsLoading && !postsError && posts.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {posts.map((p) => (
+                <PostCard key={p.id} p={p} />
+              ))}
+            </div>
           )}
         </div>
       </div>
