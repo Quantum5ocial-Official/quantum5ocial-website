@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import Q5BadgeChips from "./Q5BadgeChips"; // ✅ NEW
 
 type ProfileSummary = {
   full_name: string | null;
@@ -14,6 +15,10 @@ type ProfileSummary = {
   current_org?: string | null;
   city?: string | null;
   country?: string | null;
+
+  // ✅ NEW (already mirrored into profiles by your claim modal)
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null;
 };
 
 type MyOrgSummary = {
@@ -81,11 +86,7 @@ export default function LeftSidebar() {
 
       try {
         // Run “independent” queries in parallel
-        const profileQ = supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", uid)
-          .maybeSingle();
+        const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
 
         const connectionsQ = supabase
           .from("connections")
@@ -93,10 +94,7 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", uid);
+        const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
 
         const savedProductsQ = supabase
           .from("saved_products")
@@ -127,9 +125,7 @@ export default function LeftSidebar() {
         if (!cRes.error && cRes.data && cRes.data.length > 0) {
           const otherIds = Array.from(
             new Set(
-              (cRes.data as any[]).map((c: any) =>
-                c.user_id === uid ? c.target_user_id : c.user_id
-              )
+              (cRes.data as any[]).map((c: any) => (c.user_id === uid ? c.target_user_id : c.user_id))
             )
           ).filter(Boolean);
           entangledCount = otherIds.length;
@@ -198,12 +194,13 @@ export default function LeftSidebar() {
 
   const hasExtras = educationLevel || describesYou || affiliation || city || country;
 
+  // ✅ NEW: badge props (rendered via shared component)
+  const badgeLabel = profile?.q5_badge_label || null;
+  const badgeStatus = profile?.q5_badge_review_status || null;
+
   // ✅ IMPORTANT: never return null; render stable frame
   return (
-    <aside
-      className="layout-left sticky-col"
-      style={{ display: "flex", flexDirection: "column", gap: 6 }}
-    >
+    <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {/* PROFILE CARD */}
       <Link
         href={user ? "/profile" : "/auth"}
@@ -216,37 +213,50 @@ export default function LeftSidebar() {
         }}
       >
         <div className="profile-sidebar-header">
-          <div className="profile-sidebar-avatar-wrapper">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={fullName}
-                className="profile-sidebar-avatar"
-              />
-            ) : (
-              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {(fullName || "Q").charAt(0).toUpperCase()}
-              </div>
-            )}
+          {/* ✅ Avatar wrapper becomes positioning context for top-right badge */}
+          <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
+            <div className="profile-sidebar-avatar-wrapper">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
+              ) : (
+                <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                  {(fullName || "Q").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            {/* ✅ Badge pinned to TOP-RIGHT of avatar */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                transform: "translate(35%, -35%)",
+                zIndex: 2,
+                pointerEvents: "none",
+              }}
+            >
+              <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
+            </div>
           </div>
 
-          <div className="profile-sidebar-name">
-            {loading ? "Loading…" : fullName}
-          </div>
+          <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
         </div>
 
         {loading ? (
           <div className="profile-sidebar-info-block" style={{ opacity: 0.8 }}>
             <div className="profile-sidebar-info-value"> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}> </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              {" "}
+            </div>
+            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
+              {" "}
+            </div>
           </div>
         ) : (
           hasExtras && (
             <div className="profile-sidebar-info-block">
-              {educationLevel && (
-                <div className="profile-sidebar-info-value">{educationLevel}</div>
-              )}
+              {educationLevel && <div className="profile-sidebar-info-value">{educationLevel}</div>}
               {describesYou && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {describesYou}
@@ -258,10 +268,7 @@ export default function LeftSidebar() {
                 </div>
               )}
               {(city || country) && (
-                <div
-                  className="profile-sidebar-info-value"
-                  style={{ marginTop: 4, opacity: 0.9 }}
-                >
+                <div className="profile-sidebar-info-value" style={{ marginTop: 4, opacity: 0.9 }}>
                   {[city, country].filter(Boolean).join(", ")}
                 </div>
               )}
@@ -275,28 +282,36 @@ export default function LeftSidebar() {
         <div className="dashboard-sidebar-title">Quick dashboard</div>
 
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link href="/dashboard/entangled-states" className="dashboard-sidebar-link"
+          <Link
+            href="/dashboard/entangled-states"
+            className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Entanglements</span>
             <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
           </Link>
 
-          <Link href="/dashboard/saved-jobs" className="dashboard-sidebar-link"
+          <Link
+            href="/dashboard/saved-jobs"
+            className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved jobs</span>
             <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
           </Link>
 
-          <Link href="/dashboard/saved-products" className="dashboard-sidebar-link"
+          <Link
+            href="/dashboard/saved-products"
+            className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved products</span>
             <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
           </Link>
 
-          <Link href="/ecosystem" className="dashboard-sidebar-link"
+          <Link
+            href="/ecosystem"
+            className="dashboard-sidebar-link"
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>My Ecosystem</span>
@@ -308,14 +323,44 @@ export default function LeftSidebar() {
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Posts</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Questions</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Answers</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
@@ -358,13 +403,31 @@ export default function LeftSidebar() {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {data.myOrg.name}
               </div>
 
-              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(148,163,184,0.95)",
+                  marginTop: 4,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
                 <div>
-                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers:{" "}
+                  <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -382,13 +445,20 @@ export default function LeftSidebar() {
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background:
-            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+          background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            marginBottom: 6,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -410,8 +480,7 @@ export default function LeftSidebar() {
         </div>
 
         <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
-          Unlock advanced analytics, reduced ads, and premium perks for your
-          profile and organization.
+          Unlock advanced analytics, reduced ads, and premium perks for your profile and organization.
         </div>
       </div>
 
@@ -428,12 +497,26 @@ export default function LeftSidebar() {
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>
+            ✉️
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
+            𝕏
+          </a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>
+            in
+          </a>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            color: "rgba(148,163,184,0.9)",
+          }}
+        >
           <img
             src="/Q5_white_bg.png"
             alt="Quantum5ocial logo"
