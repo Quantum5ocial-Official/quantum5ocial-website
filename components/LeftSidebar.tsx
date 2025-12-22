@@ -9,20 +9,15 @@ type ProfileSummary = {
   full_name: string | null;
   avatar_url: string | null;
 
-  education_level?: string | null;
   highest_education?: string | null;
 
+  role?: string | null; // ✅ primary role is "role"
+  current_title?: string | null; // ✅ optional override
   affiliation?: string | null;
-  current_org?: string | null;
 
-  // ✅ Badge mirror fields
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
-
-  // ✅ Optional “current title”
-  current_title?: string | null;
-  primary_role?: string | null;
 };
 
 type MyOrgSummary = {
@@ -84,7 +79,6 @@ export default function LeftSidebar() {
 
     const loadAll = async () => {
       setLoading(true);
-
       try {
         const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
 
@@ -175,7 +169,6 @@ export default function LeftSidebar() {
     };
 
     void loadAll();
-
     return () => {
       alive = false;
     };
@@ -189,15 +182,14 @@ export default function LeftSidebar() {
   const badgeLabel = profile?.q5_badge_label ?? null;
   const badgeStatus = profile?.q5_badge_review_status ?? null;
 
-  const highestEducation = profile?.highest_education || profile?.education_level || "";
+  const highestEducation = (profile?.highest_education || "").trim();
 
+  // ✅ FIX: "primary role" is `role` in your schema
   const currentTitle =
-    (profile?.current_title || "").trim() || (profile?.primary_role || "").trim() || "";
-  const affiliation = (profile?.affiliation || profile?.current_org || "").trim();
-  const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
+    (profile?.current_title || "").trim() || (profile?.role || "").trim();
+  const affiliation = (profile?.affiliation || "").trim();
 
-  // If you want it to ALWAYS show something even when missing:
-  // const titleLine = [currentTitle || "—", affiliation].filter(Boolean).join(" · ");
+  const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
   return (
     <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -212,10 +204,18 @@ export default function LeftSidebar() {
           pointerEvents: user ? "auto" : "none",
         }}
       >
-        <div className="profile-sidebar-header" style={{ display: "flex", flexDirection: "column" }}>
-          {/* ✅ 1) Badge pill (top) */}
+        <div
+          className="profile-sidebar-header"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 6, // ✅ compact spacing, no extra margins
+          }}
+        >
+          {/* ✅ 1) Badge pill */}
           {!loading && badgeLabel && (
-            <div style={{ marginBottom: 10 }}>
+            <div>
               <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
             </div>
           )}
@@ -232,42 +232,28 @@ export default function LeftSidebar() {
           </div>
 
           {/* ✅ 3) Full name */}
-          <div className="profile-sidebar-name" style={{ marginTop: 10 }}>
+          <div className="profile-sidebar-name">
             {loading ? "Loading…" : fullName}
           </div>
 
           {/* ✅ 4) Highest education */}
           {!loading && highestEducation && (
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 13,
-                color: "rgba(226,232,240,0.88)",
-                lineHeight: 1.3,
-              }}
-            >
+            <div style={{ fontSize: 13, color: "rgba(226,232,240,0.88)", lineHeight: 1.2 }}>
               {highestEducation}
             </div>
           )}
 
-          {/* ✅ 5) Current title (or primary role) + affiliation */}
+          {/* ✅ 5) Current title(or role) + affiliation */}
           {!loading && titleLine && (
-            <div
-              style={{
-                marginTop: 6,
-                fontSize: 13,
-                color: "rgba(148,163,184,0.95)",
-                lineHeight: 1.3,
-              }}
-            >
+            <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", lineHeight: 1.2 }}>
               {titleLine}
             </div>
           )}
         </div>
 
-        {/* Skeleton spacing */}
+        {/* Skeleton (compact) */}
         {loading && (
-          <div className="profile-sidebar-info-block" style={{ opacity: 0.7 }}>
+          <div style={{ marginTop: 10, opacity: 0.7 }}>
             <div className="profile-sidebar-info-value" style={{ height: 12 }} />
             <div className="profile-sidebar-info-value" style={{ height: 12, marginTop: 6 }} />
           </div>
@@ -359,11 +345,7 @@ export default function LeftSidebar() {
               }}
             >
               {data.myOrg.logo_url ? (
-                <img
-                  src={data.myOrg.logo_url}
-                  alt={data.myOrg.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
+                <img src={data.myOrg.logo_url} alt={data.myOrg.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 data.myOrg.name.charAt(0).toUpperCase()
               )}
