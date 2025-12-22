@@ -66,6 +66,7 @@ export default function MemberProfilePage() {
     redirectPath: router.asPath || "/community",
   });
 
+  // -------- Load profile --------
   useEffect(() => {
     const loadProfile = async () => {
       if (!profileId) return;
@@ -122,6 +123,61 @@ export default function MemberProfilePage() {
     loadProfile();
   }, [profileId]);
 
+  // ✅ Realtime: reflect backend badge edits instantly for THIS viewed profile
+  useEffect(() => {
+    if (!profileId) return;
+
+    const channel = supabase
+      .channel(`profiles-badge-view:${profileId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${profileId}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          // merge only; keeps local fields if any
+          setProfile((prev) => (prev ? { ...prev, ...row } : (row as any)));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId]);
+
+  // (Optional) refresh badge on focus in case realtime isn't enabled
+  useEffect(() => {
+    if (!profileId) return;
+
+    const onFocus = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select(
+          `
+            q5_badge_level,
+            q5_badge_label,
+            q5_badge_review_status,
+            q5_badge_claimed_at
+          `
+        )
+        .eq("id", profileId)
+        .maybeSingle();
+
+      if (data) {
+        setProfile((p) => (p ? { ...p, ...(data as any) } : (data as any)));
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [profileId]);
+
+  // -------- Rendering helpers --------
   const displayName = profile?.full_name || "Quantum5ocial member";
 
   const initials =
@@ -512,14 +568,7 @@ export default function MemberProfilePage() {
 
               <div className="profile-header-text">
                 {/* ✅ Name + badge row */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <div className="profile-name">{displayName}</div>
 
                   {hasBadge && (
