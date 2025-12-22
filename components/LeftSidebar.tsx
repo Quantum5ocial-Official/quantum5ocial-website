@@ -16,9 +16,6 @@ type ProfileSummary = {
   affiliation?: string | null;
   current_org?: string | null;
 
-  city?: string | null;
-  country?: string | null;
-
   // ✅ Badge mirror fields (synced from profile_badge_claims via trigger)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
@@ -48,7 +45,6 @@ type SidebarData = {
 export default function LeftSidebar() {
   const { user, loading: userLoading } = useSupabaseUser();
 
-  // single state object = fewer rerenders
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SidebarData>({
     profile: null,
@@ -59,7 +55,6 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
-  // Keep a stable fallback name (don’t “jump” name mid-load)
   const fallbackName = useMemo(() => {
     return (
       user?.user_metadata?.full_name ||
@@ -67,14 +62,13 @@ export default function LeftSidebar() {
       user?.email?.split("@")[0] ||
       "User"
     );
-  }, [user?.id]); // lock to user id
+  }, [user?.id]);
 
   useEffect(() => {
     let alive = true;
 
     const uid = user?.id;
     if (!uid) {
-      // no user yet: keep sidebar frame, show skeleton
       setLoading(true);
       setData({
         profile: null,
@@ -93,12 +87,7 @@ export default function LeftSidebar() {
       setLoading(true);
 
       try {
-        // Run “independent” queries in parallel
-        const profileQ = supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", uid)
-          .maybeSingle();
+        const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
 
         const connectionsQ = supabase
           .from("connections")
@@ -106,10 +95,7 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", uid);
+        const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
 
         const savedProductsQ = supabase
           .from("saved_products")
@@ -135,7 +121,6 @@ export default function LeftSidebar() {
 
         const profile = (pRes.data as ProfileSummary) || null;
 
-        // entangled count
         let entangledCount = 0;
         if (!cRes.error && cRes.data && cRes.data.length > 0) {
           const otherIds = Array.from(
@@ -153,7 +138,6 @@ export default function LeftSidebar() {
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
-        // followers count (depends on org)
         let myOrgFollowersCount: number | null = null;
         if (myOrg?.id) {
           const { data: followRows, error: followErr } = await supabase
@@ -207,22 +191,17 @@ export default function LeftSidebar() {
   const badgeLabel = profile?.q5_badge_label ?? null;
   const badgeStatus = profile?.q5_badge_review_status ?? null;
 
-  // ✅ “title line” under badge: current title (if present) + affiliation
+  // ✅ Highest education line
+  const highestEducation = profile?.highest_education || profile?.education_level || "";
+
+  // ✅ Title + affiliation line
   const currentTitle =
     (profile as any)?.current_title?.trim?.() ||
     (profile as any)?.primary_role?.trim?.() ||
-    ""; // safe fallback if fields don't exist
+    "";
   const affiliation = profile?.affiliation || profile?.current_org || "";
   const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
-  // Keep education/location in the info block (and avoid repeating affiliation/title there)
-  const educationLevel = profile?.education_level || profile?.highest_education || "";
-  const city = profile?.city || "";
-  const country = profile?.country || "";
-
-  const hasExtras = educationLevel || city || country;
-
-  // ✅ IMPORTANT: never return null; render stable frame
   return (
     <aside
       className="layout-left sticky-col"
@@ -240,13 +219,10 @@ export default function LeftSidebar() {
         }}
       >
         <div className="profile-sidebar-header">
+          {/* ✅ Avatar */}
           <div className="profile-sidebar-avatar-wrapper">
             {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={fullName}
-                className="profile-sidebar-avatar"
-              />
+              <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
             ) : (
               <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
                 {(fullName || "Q").charAt(0).toUpperCase()}
@@ -254,19 +230,31 @@ export default function LeftSidebar() {
             )}
           </div>
 
-          {/* ✅ Name */}
-          <div className="profile-sidebar-name">
-            {loading ? "Loading…" : fullName}
-          </div>
+          {/* ✅ Full name */}
+          <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
 
-          {/* ✅ Badge directly under name */}
+          {/* ✅ Badge pill */}
           {!loading && badgeLabel && (
-            <div style={{ marginTop: 4 }}>
+            <div style={{ marginTop: 6 }}>
               <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
             </div>
           )}
 
-          {/* ✅ Title + Affiliation on next line */}
+          {/* ✅ Highest education */}
+          {!loading && highestEducation && (
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 13,
+                color: "rgba(226,232,240,0.88)",
+                lineHeight: 1.3,
+              }}
+            >
+              {highestEducation}
+            </div>
+          )}
+
+          {/* ✅ Current title + affiliation */}
           {!loading && titleLine && (
             <div
               style={{
@@ -281,35 +269,12 @@ export default function LeftSidebar() {
           )}
         </div>
 
-        {loading ? (
-          <div className="profile-sidebar-info-block" style={{ opacity: 0.8 }}>
-            <div className="profile-sidebar-info-value"> </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-              {" "}
-            </div>
-            <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-              {" "}
-            </div>
+        {/* Skeleton spacing (keeps card height stable while loading) */}
+        {loading && (
+          <div className="profile-sidebar-info-block" style={{ opacity: 0.7 }}>
+            <div className="profile-sidebar-info-value" style={{ height: 12 }} />
+            <div className="profile-sidebar-info-value" style={{ height: 12, marginTop: 6 }} />
           </div>
-        ) : (
-          hasExtras && (
-            <div className="profile-sidebar-info-block">
-              {/* ✅ Keep education */}
-              {educationLevel && (
-                <div className="profile-sidebar-info-value">{educationLevel}</div>
-              )}
-
-              {/* ✅ Keep location */}
-              {(city || country) && (
-                <div
-                  className="profile-sidebar-info-value"
-                  style={{ marginTop: 4, opacity: 0.9 }}
-                >
-                  {[city, country].filter(Boolean).join(", ")}
-                </div>
-              )}
-            </div>
-          )
         )}
       </Link>
 
@@ -430,14 +395,7 @@ export default function LeftSidebar() {
         >
           <div className="dashboard-sidebar-title">My organization</div>
 
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
+          <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
             <div
               style={{
                 width: 48,
@@ -458,11 +416,7 @@ export default function LeftSidebar() {
                 <img
                   src={data.myOrg.logo_url}
                   alt={data.myOrg.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
                 data.myOrg.name.charAt(0).toUpperCase()
@@ -494,16 +448,12 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>
-                    {data.myOrgFollowersCount ?? "…"}
-                  </span>
+                  <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
                 </div>
-                <div style={{ marginTop: 4, color: "#7dd3fc" }}>
-                  Analytics →
-                </div>
+                <div style={{ marginTop: 4, color: "#7dd3fc" }}>Analytics →</div>
               </div>
             </div>
           </div>
@@ -551,15 +501,9 @@ export default function LeftSidebar() {
           </div>
         </div>
 
-        <div
-          style={{
-            fontSize: 12,
-            color: "rgba(248,250,252,0.9)",
-            lineHeight: 1.5,
-          }}
-        >
-          Unlock advanced analytics, reduced ads, and premium perks for your
-          profile and organization.
+        <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
+          Unlock advanced analytics, reduced ads, and premium perks for your profile and
+          organization.
         </div>
       </div>
 
@@ -576,22 +520,13 @@ export default function LeftSidebar() {
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a
-            href="mailto:info@quantum5ocial.com"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>
             ✉️
           </a>
           <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
             𝕏
           </a>
-          <a
-            href="#"
-            style={{
-              color: "rgba(148,163,184,0.9)",
-              fontWeight: 600,
-            }}
-          >
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>
             in
           </a>
         </div>
