@@ -3,11 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
-import Q5BadgeChips from "./Q5BadgeChips";
 
 type ProfileSummary = {
   full_name: string | null;
   avatar_url: string | null;
+
+  // existing fields you already use
   education_level?: string | null;
   describes_you?: string | null;
   affiliation?: string | null;
@@ -16,12 +17,15 @@ type ProfileSummary = {
   city?: string | null;
   country?: string | null;
 
-  // badge + headline bits
-  role?: string | null;
+  // ✅ for "current title (or role)"
   current_title?: string | null;
+  role?: string | null;
+
+  // ✅ Q5 badge fields (mirrored onto profiles)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
+  q5_badge_claimed_at?: string | null;
 };
 
 type MyOrgSummary = {
@@ -40,10 +44,68 @@ type SidebarData = {
   myOrgFollowersCount: number | null;
 };
 
+function Q5BadgePill({
+  label,
+  status,
+}: {
+  label: string;
+  status?: string | null;
+}) {
+  const s = (status || "").toLowerCase();
+
+  const border =
+    s === "approved"
+      ? "1px solid rgba(74,222,128,0.55)"
+      : s === "rejected"
+      ? "1px solid rgba(248,113,113,0.55)"
+      : s === "pending"
+      ? "1px solid rgba(148,163,184,0.35)"
+      : "1px solid rgba(34,211,238,0.40)";
+
+  const bg =
+    s === "approved"
+      ? "rgba(34,197,94,0.10)"
+      : s === "rejected"
+      ? "rgba(248,113,113,0.10)"
+      : s === "pending"
+      ? "rgba(2,6,23,0.45)"
+      : "rgba(34,211,238,0.10)";
+
+  const color =
+    s === "approved"
+      ? "rgba(187,247,208,0.95)"
+      : s === "rejected"
+      ? "rgba(254,202,202,0.95)"
+      : "rgba(226,232,240,0.95)";
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "4px 8px",
+        borderRadius: 999,
+        border,
+        background: bg,
+        color,
+        fontSize: 11,
+        fontWeight: 900,
+        lineHeight: "14px",
+        whiteSpace: "nowrap",
+        boxShadow: "0 8px 18px rgba(0,0,0,0.22)",
+        pointerEvents: "none",
+      }}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
 export default function LeftSidebar() {
   const { user, loading: userLoading } = useSupabaseUser();
 
-  // single state object = fewer rerenders
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<SidebarData>({
     profile: null,
@@ -54,7 +116,6 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
-  // Keep a stable fallback name (don’t “jump” name mid-load)
   const fallbackName = useMemo(() => {
     return (
       user?.user_metadata?.full_name ||
@@ -62,14 +123,13 @@ export default function LeftSidebar() {
       user?.email?.split("@")[0] ||
       "User"
     );
-  }, [user?.id]); // lock to user id
+  }, [user?.id]);
 
   useEffect(() => {
     let alive = true;
 
     const uid = user?.id;
     if (!uid) {
-      // no user yet: keep sidebar frame, show skeleton
       setLoading(true);
       setData({
         profile: null,
@@ -88,7 +148,6 @@ export default function LeftSidebar() {
       setLoading(true);
 
       try {
-        // Run “independent” queries in parallel
         const profileQ = supabase
           .from("profiles")
           .select("*")
@@ -101,10 +160,7 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", uid);
+        const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
 
         const savedProductsQ = supabase
           .from("saved_products")
@@ -130,7 +186,6 @@ export default function LeftSidebar() {
 
         const profile = (pRes.data as ProfileSummary) || null;
 
-        // entangled count
         let entangledCount = 0;
         if (!cRes.error && cRes.data && cRes.data.length > 0) {
           const otherIds = Array.from(
@@ -148,7 +203,6 @@ export default function LeftSidebar() {
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
-        // followers count (depends on org)
         let myOrgFollowersCount: number | null = null;
         if (myOrg?.id) {
           const { data: followRows, error: followErr } = await supabase
@@ -201,27 +255,24 @@ export default function LeftSidebar() {
   const educationLevel = profile?.education_level || profile?.highest_education || "";
   const describesYou = profile?.describes_you || "";
 
-  const headline =
-    (profile?.current_title || "").trim()
-      ? (profile?.current_title as string)
-      : (profile?.role || "").trim()
-      ? (profile?.role as string)
-      : "";
+  const headline = profile?.current_title?.trim()
+    ? profile.current_title
+    : profile?.role?.trim()
+    ? profile.role
+    : "";
 
   const affiliation = profile?.affiliation || profile?.current_org || "";
-  const headlineAffLine = [headline, affiliation].filter(Boolean).join(" · ");
-
   const city = profile?.city || "";
   const country = profile?.country || "";
 
-  const hasExtras = educationLevel || describesYou || headlineAffLine || city || country;
+  const hasExtras = educationLevel || describesYou || headline || affiliation || city || country;
 
+  // ✅ badge label from profiles mirror (preferred)
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
 
-  // ✅ IMPORTANT: never return null; render stable frame
   return (
     <aside
       className="layout-left sticky-col"
@@ -239,43 +290,36 @@ export default function LeftSidebar() {
         }}
       >
         <div className="profile-sidebar-header">
-          {/* ✅ avatar wrapper becomes relative so we can place badge top-right */}
+          {/* ✅ Avatar wrapper must be RELATIVE so badge positions top-right correctly */}
           <div
-  className="profile-sidebar-avatar-wrapper"
-  style={{
-    position: "relative",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
-  {avatarUrl ? (
-    <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
-  ) : (
-    <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-      {(fullName || "Q").charAt(0).toUpperCase()}
-    </div>
-  )}
+            className="profile-sidebar-avatar-wrapper"
+            style={{ position: "relative" }}
+          >
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
+            ) : (
+              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                {(fullName || "Q").charAt(0).toUpperCase()}
+              </div>
+            )}
 
-  {!loading && hasBadge && (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        right: 0,
-        transform: "translate(35%, -35%)",
-        zIndex: 3,
-        pointerEvents: "none",
-      }}
-    >
-      <Q5BadgeChips
-        label={badgeLabel}
-        reviewStatus={profile?.q5_badge_review_status || null}
-        size="sm"
-      />
-    </div>
-  )}
-</div>
+            {/* ✅ Badge top-right of avatar (same line/row) */}
+            {hasBadge && badgeLabel && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  zIndex: 2,
+                }}
+              >
+                <Q5BadgePill
+                  label={badgeLabel}
+                  status={profile?.q5_badge_review_status}
+                />
+              </div>
+            )}
+          </div>
 
           <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
         </div>
@@ -296,16 +340,17 @@ export default function LeftSidebar() {
               {educationLevel && (
                 <div className="profile-sidebar-info-value">{educationLevel}</div>
               )}
+
               {describesYou && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
                   {describesYou}
                 </div>
               )}
 
-              {/* ✅ current title/role BEFORE affiliation, same line */}
-              {headlineAffLine && (
+              {/* ✅ headline BEFORE affiliation, same line */}
+              {(headline || affiliation) && (
                 <div className="profile-sidebar-info-value" style={{ marginTop: 4 }}>
-                  {headlineAffLine}
+                  {[headline, affiliation].filter(Boolean).join(" · ")}
                 </div>
               )}
 
@@ -492,7 +537,9 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
+                  <span style={{ color: "#e5e7eb" }}>
+                    {data.myOrgFollowersCount ?? "…"}
+                  </span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -546,8 +593,8 @@ export default function LeftSidebar() {
         </div>
 
         <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
-          Unlock advanced analytics, reduced ads, and premium perks for your profile and
-          organization.
+          Unlock advanced analytics, reduced ads, and premium perks for your profile
+          and organization.
         </div>
       </div>
 
