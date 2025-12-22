@@ -5,6 +5,7 @@ import LeftSidebar from "./LeftSidebar";
 import Link from "next/link";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import { useRouter } from "next/router";
 
 const Navbar = dynamic(() => import("./NavbarIcons"), { ssr: false });
 
@@ -38,6 +39,7 @@ export default function AppLayout({
 
   // ✅ mobile left drawer (ONLY used in mobile middle-only mode)
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,6 +63,16 @@ export default function AppLayout({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileLeftOpen]);
+
+  // ✅ Close drawer on navigation (mobile drawer only)
+useEffect(() => {
+  if (!isMobile || mobileMode !== "middle-only") return;
+
+  const close = () => setMobileLeftOpen(false);
+
+  router.events.on("routeChangeStart", close);
+  return () => router.events.off("routeChangeStart", close);
+}, [router.events, isMobile, mobileMode]);
 
   const resolvedLeft = useMemo(() => {
     if (left === undefined) return <LeftSidebar />;
