@@ -671,19 +671,9 @@ function CommunityMiddle() {
                         }
                   }
                 >
-                  {/* ✅ top-right badge pill */}
+                  {/* ✅ top badge (we will move it to centered-above-avatar on MOBILE via CSS) */}
 <div
   className="community-badge-pill"
-  style={{
-    position: "absolute",
-    top: 10,
-    right: 10,
-    zIndex: 2,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 8,
-  }}
   onClick={(e) => e.stopPropagation()}
 >
   {item.kind === "person" ? (
@@ -700,7 +690,7 @@ function CommunityMiddle() {
 </div>
 
 {/* TOP: avatar centered + text BELOW */}
-<div className="card-inner">
+<div className="card-inner community-card-top">
   <div
     style={{
       display: "flex",
@@ -747,36 +737,12 @@ function CommunityMiddle() {
     </div>
 
     {/* Name */}
-    <div
-      className="community-card-name"
-      style={{
-        fontWeight: 900,
-        fontSize: 14,
-        lineHeight: 1.2,
-        maxWidth: "100%",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}
-      title={item.name}
-    >
+    <div className="community-card-name" title={item.name}>
       {item.name}
     </div>
 
     {/* title/role + affiliation */}
-    <div
-      className="community-card-meta"
-      style={{
-        fontSize: 12,
-        color: "rgba(226,232,240,0.86)",
-        lineHeight: 1.35,
-        maxWidth: "100%",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-      }}
-      title={metaLine}
-    >
+    <div className="community-card-meta" title={metaLine}>
       {metaLine}
     </div>
   </div>
