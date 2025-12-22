@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
-import Q5BadgeChips from "../../components/Q5BadgeChips";
+import Q5BadgeChips from "../../components/Q5BadgeChips"; // ✅ NEW
 
 type Profile = {
   id: string;
@@ -34,9 +34,10 @@ type Profile = {
   personal_website: string | null;
   lab_website: string | null;
 
+  // ✅ badge fields (optional)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null;
+  q5_badge_review_status?: string | null; // "pending" | "approved" | "rejected"
   q5_badge_claimed_at?: string | null;
 };
 
@@ -92,8 +93,7 @@ export default function MemberProfilePage() {
   const { user } = useSupabaseUser();
   const { id } = router.query;
 
-  const profileId =
-    typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
+  const profileId = typeof id === "string" ? id : null;
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -116,18 +116,9 @@ export default function MemberProfilePage() {
     redirectPath: router.asPath || "/community",
   });
 
-  // reset immediately on route change
-  useEffect(() => {
-    if (!router.isReady) return;
-    setProfile(null);
-    setProfileError(null);
-    setProfileLoading(true);
-  }, [router.isReady, profileId]);
-
   // -------- Load profile --------
   useEffect(() => {
     const loadProfile = async () => {
-      if (!router.isReady) return;
       if (!profileId) return;
 
       setProfileLoading(true);
@@ -180,11 +171,10 @@ export default function MemberProfilePage() {
     };
 
     loadProfile();
-  }, [router.isReady, profileId]);
+  }, [profileId]);
 
-  // realtime badge edits
+  // ✅ Realtime: reflect backend badge edits instantly for THIS viewed profile
   useEffect(() => {
-    if (!router.isReady) return;
     if (!profileId) return;
 
     const channel = supabase
@@ -207,11 +197,10 @@ export default function MemberProfilePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [router.isReady, profileId]);
+  }, [profileId]);
 
-  // refresh badge on focus
+  // (Optional) refresh badge on focus in case realtime isn't enabled
   useEffect(() => {
-    if (!router.isReady) return;
     if (!profileId) return;
 
     const onFocus = async () => {
@@ -235,7 +224,7 @@ export default function MemberProfilePage() {
 
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [router.isReady, profileId]);
+  }, [profileId]);
 
   // -------- Rendering helpers --------
   const displayName = profile?.full_name || "Quantum5ocial member";
@@ -289,11 +278,13 @@ export default function MemberProfilePage() {
       profile.highest_education ||
       profile.key_experience);
 
+  // ✅ badge display logic
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
 
+  // ✅ get-or-create thread then route to /messages/[threadId]
   const openOrCreateThread = async (otherUserId: string) => {
     if (!user) {
       router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
@@ -377,7 +368,9 @@ export default function MemberProfilePage() {
         <button
           type="button"
           className="nav-ghost-btn"
-          onClick={() => router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`)}
+          onClick={() =>
+            router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`)
+          }
           style={{
             ...pillBase,
             padding: "6px 14px",
@@ -398,7 +391,14 @@ export default function MemberProfilePage() {
 
     if (status === "pending_incoming") {
       return (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <button
             type="button"
             onClick={() => handleEntangle(profileId)}
@@ -541,7 +541,10 @@ export default function MemberProfilePage() {
           }}
         >
           <div>
-            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div
+              className="section-title"
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
               Profile
             </div>
           </div>
@@ -580,14 +583,26 @@ export default function MemberProfilePage() {
             <div className="profile-header">
               <div className="profile-avatar">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+                  <img
+                    src={profile.avatar_url}
+                    alt={displayName}
+                    className="profile-avatar-img"
+                  />
                 ) : (
                   <span>{initials}</span>
                 )}
               </div>
 
               <div className="profile-header-text">
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {/* ✅ Name + badge row */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
                   <div className="profile-name">{displayName}</div>
 
                   {hasBadge && (
@@ -613,7 +628,11 @@ export default function MemberProfilePage() {
 
                 {isSelf && (
                   <div style={{ marginTop: 12 }}>
-                    <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
+                    <Link
+                      href="/profile/edit"
+                      className="nav-ghost-btn"
+                      style={editLinkStyle}
+                    >
                       Edit / complete your profile
                     </Link>
                   </div>
@@ -677,7 +696,9 @@ export default function MemberProfilePage() {
                 {profile?.highest_education && (
                   <div className="profile-summary-item">
                     <div className="profile-section-label">Highest education</div>
-                    <div className="profile-summary-text">{profile.highest_education}</div>
+                    <div className="profile-summary-text">
+                      {profile.highest_education}
+                    </div>
                   </div>
                 )}
 
@@ -699,7 +720,7 @@ export default function MemberProfilePage() {
         )}
       </div>
 
-      {/* POSTS STRIP */}
+      {/* ✅ POSTS STRIP (same sideways scroller as /profile) */}
       {profileId && (
         <div style={{ marginTop: 14 }}>
           <div
@@ -713,13 +734,24 @@ export default function MemberProfilePage() {
               boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
               <div>
-                <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  className="section-title"
+                  style={{ display: "flex", alignItems: "center", gap: 10 }}
+                >
                   Posts
                 </div>
                 <div className="section-sub" style={{ maxWidth: 620 }}>
-                  Public posts by this member (click a card to open it on the global feed).
+                  Public posts by this member (click a card to open the post on the global feed).
                 </div>
               </div>
             </div>
@@ -733,7 +765,8 @@ export default function MemberProfilePage() {
 }
 
 /* =========================
-   POSTS STRIP
+   POSTS STRIP — 1 row total, horizontal scroll
+   Image (top) + text (below) inside the card
    ========================= */
 
 function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
@@ -798,6 +831,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
       const postIds = posts.map((p) => p.id);
       const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
 
+      // author profile map (mostly 1 user, but keep generic)
       let profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
@@ -810,6 +844,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
         }
       }
 
+      // likes (optional)
       let likeRows: { post_id: string; user_id: string }[] = [];
       if (postIds.length > 0) {
         const { data: likes, error: likeErr } = await supabase
@@ -820,6 +855,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
         if (!likeErr && likes) likeRows = likes as any;
       }
 
+      // comments count (optional)
       let commentRows: { post_id: string }[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -868,17 +904,25 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
   const scrollByCard = (dir: -1 | 1) => {
     const el = scrollerRef.current;
     if (!el) return;
-    const amount = Math.max(260, Math.floor(el.clientWidth * 0.9));
+    const amount = Math.max(260, Math.floor(el.clientWidth * 0.85));
     el.scrollBy({ left: dir * amount, behavior: "smooth" });
   };
 
   const openPost = (postId: string) => {
+    // homepage feed opens expanded by post param
     router.push(`/?post=${encodeURIComponent(postId)}`);
   };
 
   if (loading) return <div className="products-status">Loading posts…</div>;
-  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
-  if (items.length === 0) return <div className="products-empty">No posts yet.</div>;
+  if (error)
+    return (
+      <div className="products-status" style={{ color: "#f87171" }}>
+        {error}
+      </div>
+    );
+  if (items.length === 0) {
+    return <div className="products-empty">No posts yet.</div>;
+  }
 
   const chipStyle: React.CSSProperties = {
     fontSize: 12,
@@ -892,84 +936,59 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
     gap: 8,
     fontWeight: 800,
     userSelect: "none",
-    whiteSpace: "nowrap",
-  };
-
-  const edgeBtn: React.CSSProperties = {
-    position: "absolute",
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.28)",
-    background: "rgba(2,6,23,0.65)",
-    color: "rgba(226,232,240,0.95)",
-    cursor: "pointer",
-    fontWeight: 900,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-    zIndex: 5,
-    backdropFilter: "blur(8px)",
   };
 
   return (
-    <div
-      className="card"
-      style={{
-        position: "relative",
-        padding: 14,
-        borderRadius: 16,
-        border: "1px solid rgba(148,163,184,0.22)",
-        background: "rgba(15,23,42,0.72)",
-        overflow: "hidden",
-      }}
-    >
-      {/* edge fades */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 44,
-          background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
-          pointerEvents: "none",
-          zIndex: 2,
-        }}
-      />
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: 44,
-          background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
-          pointerEvents: "none",
-          zIndex: 2,
-        }}
-      />
-
+    <div style={{ position: "relative" }}>
       {/* arrows */}
-      <button type="button" onClick={() => scrollByCard(-1)} style={{ ...edgeBtn, left: 10 }} aria-label="Scroll left" title="Scroll left">
-        ‹
-      </button>
-      <button type="button" onClick={() => scrollByCard(1)} style={{ ...edgeBtn, right: 10 }} aria-label="Scroll right" title="Scroll right">
-        ›
-      </button>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
+        <button
+          type="button"
+          onClick={() => scrollByCard(-1)}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+          aria-label="Scroll left"
+          title="Scroll left"
+        >
+          ‹
+        </button>
 
+        <button
+          type="button"
+          onClick={() => scrollByCard(1)}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+          aria-label="Scroll right"
+          title="Scroll right"
+        >
+          ›
+        </button>
+      </div>
+
+      {/* scroller */}
       <div
         ref={scrollerRef}
         style={{
           display: "flex",
           gap: 12,
           overflowX: "auto",
-          padding: "4px 44px 10px 44px",
+          paddingBottom: 8,
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
         }}
@@ -996,18 +1015,17 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
               style={{
                 scrollSnapAlign: "start",
                 flex: "0 0 auto",
-                width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
+                width: "min(620px, 92vw)",
                 cursor: "pointer",
               }}
             >
               <div
                 className="card"
                 style={{
-                  padding: 12,
+                  padding: 14,
                   borderRadius: 16,
                   border: "1px solid rgba(148,163,184,0.18)",
-                  background: "rgba(2,6,23,0.42)",
-                  height: "100%",
+                  background: "rgba(15,23,42,0.92)",
                 }}
               >
                 {/* header */}
@@ -1040,16 +1058,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                   </div>
 
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: 900,
-                        fontSize: 13,
-                        lineHeight: 1.1,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
+                    <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.1 }}>
                       {name}
                     </div>
                     <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
@@ -1062,30 +1071,16 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                   </span>
                 </div>
 
-                {/* content */}
-                <div
-                  style={{
-                    marginTop: 10,
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    border: "1px solid rgba(148,163,184,0.14)",
-                    background: "rgba(15,23,42,0.55)",
-                    minHeight: 210,
-                    display: "grid",
-                    gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr",
-                    gap: 10,
-                    padding: 10,
-                    alignItems: "stretch",
-                  }}
-                >
+                {/* ✅ CONTENT — image TOP, text BELOW (like your screenshot) */}
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
                   {hasImage && (
                     <div
                       style={{
-                        borderRadius: 12,
+                        borderRadius: 14,
                         overflow: "hidden",
                         border: "1px solid rgba(148,163,184,0.14)",
                         background: "rgba(2,6,23,0.22)",
-                        minHeight: 190,
+                        height: 220,
                       }}
                     >
                       <img
@@ -1102,31 +1097,28 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                     </div>
                   )}
 
-                  {/* ✅ ONLY CHANGE: keep text on the SIDE always (not below) by preventing wrap + ensuring equal columns */}
                   <div
                     style={{
-                      borderRadius: 12,
+                      borderRadius: 14,
                       border: "1px solid rgba(148,163,184,0.14)",
                       background: "rgba(2,6,23,0.18)",
-                      padding: 10,
+                      padding: 12,
+                      minHeight: hasImage ? 92 : 180,
                       display: "flex",
-                      alignItems: "center",
-                      minHeight: 190,
-                      minWidth: 0, // critical for grid children to shrink instead of wrapping
+                      alignItems: hasImage ? "flex-start" : "center",
                     }}
                   >
                     <div
                       style={{
                         width: "100%",
-                        fontSize: 13,
+                        fontSize: 14,
                         lineHeight: 1.45,
                         color: "rgba(226,232,240,0.92)",
                         whiteSpace: "pre-wrap",
                         overflow: "hidden",
                         display: "-webkit-box",
-                        WebkitLineClamp: 9,
+                        WebkitLineClamp: hasImage ? 4 : 9,
                         WebkitBoxOrient: "vertical",
-                        wordBreak: "break-word",
                       }}
                       title={body}
                     >
@@ -1136,7 +1128,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-                  Click to open →
+                  Click to open post →
                 </div>
               </div>
             </div>
