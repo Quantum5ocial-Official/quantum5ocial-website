@@ -982,19 +982,14 @@ a:focus {
 
 /* allow badge to overflow outside the circular avatar */
 .profile-sidebar-avatar-wrapper {
-  overflow: visible !important;  /* was hidden */
-  position: relative;            /* so absolute children can anchor here */
-}
-
-.profile-sidebar-avatar-wrapper { overflow: visible !important; }
-
-.q5-avatar-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  transform: translate(35%, -35%);
-  z-index: 10;
-  pointer-events: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .profile-sidebar-avatar {
