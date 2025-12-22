@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
+import ClaimQ5BadgeModal from "../../components/ClaimQ5BadgeModal";
 
 type Profile = {
   id: string;
@@ -34,6 +35,12 @@ type Profile = {
   email?: string | null;
   provider?: string | null;
   raw_metadata?: any;
+
+  // ✅ badge fields (optional; safe even if columns not added yet)
+  q5_badge_level?: number | null;
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null;
+  q5_badge_claimed_at?: string | null;
 };
 
 type ProfilePrivate = {
@@ -97,6 +104,8 @@ export default function ProfileViewPage() {
   const [privateProfile, setPrivateProfile] = useState<ProfilePrivate | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  const [badgeOpen, setBadgeOpen] = useState(false);
+
   useEntanglements({ user, redirectPath: "/profile" });
 
   useEffect(() => {
@@ -136,7 +145,11 @@ export default function ProfileViewPage() {
             institutional_email_verified,
             email,
             provider,
-            raw_metadata
+            raw_metadata,
+            q5_badge_level,
+            q5_badge_label,
+            q5_badge_review_status,
+            q5_badge_claimed_at
           `
         )
         .eq("id", user.id)
@@ -254,35 +267,47 @@ export default function ProfileViewPage() {
     width: "fit-content",
   };
 
+  const claimBtnStyle: React.CSSProperties = {
+    ...editBtnStyle,
+    border: "1px solid rgba(148,163,184,0.45)",
+    background: "rgba(2,6,23,0.25)",
+  };
+
   const smallPillStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "4px 10px", // ✅ smaller pill (just wraps text)
+    padding: "4px 10px",
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.55)",
     color: "rgba(226,232,240,0.95)",
     fontSize: 12,
     textDecoration: "none",
     whiteSpace: "nowrap",
-    width: "fit-content", // ✅ no stretching
+    width: "fit-content",
     lineHeight: "16px",
   };
 
   return (
-    // ✅ REMOVE TOP GAP: override global .section padding/margin here
     <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
       <div className="profile-container" style={{ marginTop: 0 }}>
         {/* Header */}
         <div className="section-header" style={{ marginBottom: 10, paddingTop: 0 }}>
           <div>
             <div className="section-title">My profile</div>
-            <div className="section-sub">
-              This is how you appear inside Quantum5ocial.
-            </div>
+            <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1, gap: 8 }}>
+            <button
+              type="button"
+              className="nav-ghost-btn"
+              style={claimBtnStyle}
+              onClick={() => setBadgeOpen(true)}
+            >
+              Claim your Q5 badge
+            </button>
+
             <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
               Edit
             </Link>
@@ -315,14 +340,13 @@ export default function ProfileViewPage() {
                   background: "rgba(2,6,23,0.55)",
                 }}
               >
-                {/* ✅ SAME LINE: Profile completeness (left) + tiny pill (right) */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 10,
-                    flexWrap: "nowrap", // keep one line as much as possible
+                    flexWrap: "nowrap",
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
@@ -330,25 +354,24 @@ export default function ProfileViewPage() {
                   </div>
 
                   {completeness.pct >= 100 ? (
-  <span
-    style={{
-      ...smallPillStyle,
-      border: "1px solid rgba(74,222,128,0.6)",
-      color: "rgba(187,247,208,0.95)",
-      cursor: "default",
-    }}
-    title="Nice — your profile is complete!"
-  >
-    Profile completed 🎉
-  </span>
-) : (
-  <Link href="/profile/edit" style={smallPillStyle}>
-    Complete your profile →
-  </Link>
-)}
+                    <span
+                      style={{
+                        ...smallPillStyle,
+                        border: "1px solid rgba(74,222,128,0.6)",
+                        color: "rgba(187,247,208,0.95)",
+                        cursor: "default",
+                      }}
+                      title="Nice — your profile is complete!"
+                    >
+                      Profile completed 🎉
+                    </span>
+                  ) : (
+                    <Link href="/profile/edit" style={smallPillStyle}>
+                      Complete your profile →
+                    </Link>
+                  )}
                 </div>
 
-                {/* progress bar */}
                 <div style={{ marginTop: 10 }}>
                   <div
                     style={{
@@ -369,7 +392,6 @@ export default function ProfileViewPage() {
                   </div>
                 </div>
 
-                {/* ✅ Top things BELOW bar */}
                 {!!topAddInline && (
                   <div
                     style={{
@@ -382,9 +404,7 @@ export default function ProfileViewPage() {
                       alignItems: "center",
                     }}
                   >
-                    <span style={{ color: "rgba(148,163,184,0.95)" }}>
-                      Top things to add:
-                    </span>
+                    <span style={{ color: "rgba(148,163,184,0.95)" }}>Top things to add:</span>
                     <span
                       style={{
                         whiteSpace: "nowrap",
@@ -428,7 +448,6 @@ export default function ProfileViewPage() {
                       {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                     </div>
                   )}
-                  
                 </div>
               </div>
 
@@ -451,9 +470,7 @@ export default function ProfileViewPage() {
                   <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
                     {accountEmail && (
                       <div>
-                        <span style={{ color: "rgba(148,163,184,0.9)" }}>
-                          Account email:
-                        </span>{" "}
+                        <span style={{ color: "rgba(148,163,184,0.9)" }}>Account email:</span>{" "}
                         {accountEmail}
                       </div>
                     )}
@@ -556,6 +573,27 @@ export default function ProfileViewPage() {
           )}
         </div>
       </div>
+
+      {/* ✅ Claim badge modal */}
+      {user?.id && (
+        <ClaimQ5BadgeModal
+          open={badgeOpen}
+          onClose={() => setBadgeOpen(false)}
+          userId={user.id}
+          onClaimed={(r) => {
+            setProfile((p) =>
+              p
+                ? {
+                    ...p,
+                    q5_badge_level: r.level,
+                    q5_badge_label: r.label,
+                    q5_badge_review_status: r.review_status,
+                  }
+                : p
+            );
+          }}
+        />
+      )}
     </section>
   );
 }
