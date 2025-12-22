@@ -2639,7 +2639,7 @@ html.theme-light footer {
 
 .nav-drawer {
   position: fixed;
-  top: 72px; /* matches navbar height on desktop */
+  top: 84px; /* matches navbar height on desktop */
   right: 0;
   width: 80%;
   max-width: 320px;
@@ -2656,6 +2656,10 @@ html.theme-light footer {
 .nav-drawer-open {
   transform: translateX(0);
 }
+/* Drawer should be above backdrop */
+.nav-drawer {
+  z-index: 9999;          /* above backdrop */
+}
 /* Mobile menu backdrop (click outside closes) */
 .nav-drawer-backdrop {
   position: fixed;
@@ -2667,10 +2671,6 @@ html.theme-light footer {
   z-index: 9998;          /* just under drawer */
 }
 
-/* Drawer should be above backdrop */
-.nav-drawer {
-  z-index: 9999;          /* above backdrop */
-}
 .nav-links-mobile {
   display: flex;
   flex-direction: column;
