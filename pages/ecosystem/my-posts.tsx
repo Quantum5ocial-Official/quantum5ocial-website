@@ -1,3 +1,4 @@
+// pages/ecosystem/my-posts.tsx
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -41,11 +42,19 @@ export default function EcosystemMyPostsPage() {
           <div>
             <div className="section-title">📝 My posts</div>
             <div className="section-sub" style={{ maxWidth: 560 }}>
-              Your public posts on the global feed — same view as homepage (likes/comments included).
+              Your public posts on the global feed — same view as homepage
+              (likes and comments included).
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 6,
+            }}
+          >
             <Link href="/profile" className="section-link" style={{ fontSize: 13 }}>
               ← Back to profile
             </Link>
@@ -56,13 +65,15 @@ export default function EcosystemMyPostsPage() {
         </div>
       </div>
 
-      {/* Feed only (filtered to me) */}
-      <FeedList
-        filterUserId={user?.id}
-        limit={200}
-        hideCopyLink
-        imageFit="contain"
-      />
+      {/* ✅ IMPORTANT: render FeedList ONLY when user.id exists */}
+      {user?.id && (
+        <FeedList
+          filterUserId={user.id}
+          limit={200}
+          hideCopyLink
+          imageFit="contain"
+        />
+      )}
     </section>
   );
 }
