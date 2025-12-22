@@ -299,29 +299,6 @@ function PostPreviewCard({ post }: { post: PostRow }) {
           <LinkifyText text={post.body || ""} />
         </div>
       )}
-
-      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigator.clipboard?.writeText(`${window.location.origin}/?post=${post.id}`).catch(() => {});
-          }}
-          style={{
-            fontSize: 12,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: "1px solid rgba(148,163,184,0.24)",
-            background: "rgba(2,6,23,0.22)",
-            color: "rgba(226,232,240,0.92)",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-          title="Copy a link that opens this post expanded"
-        >
-          Copy link
-        </button>
-      </div>
     </div>
   );
 }
