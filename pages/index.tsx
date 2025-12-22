@@ -9,7 +9,7 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 
 // ✅ Option 2: homepage keeps header + loading/error/empty,
 // and ONLY the feed cards list is extracted into a reusable component.
-import FeedList from "../components/feed/FeedList";
+import FeedCards from "../components/feed/FeedCards";
 
 const POSTS_BUCKET = "post-images"; // ✅ must exist in Supabase Storage
 
@@ -796,7 +796,7 @@ function HomeGlobalFeed() {
 
       {/* ✅ Option 2 boundary: Only the feed cards list is rendered by <FeedList/> */}
       {!loading && !error && items.length > 0 && (
-        <FeedList
+        <FeedCards
           items={items}
           user={user}
           openComments={openComments}
