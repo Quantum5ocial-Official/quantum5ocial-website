@@ -36,9 +36,10 @@ type Profile = {
   provider?: string | null;
   raw_metadata?: any;
 
+  // ✅ badge fields (optional — only used if present in DB)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null;
+  q5_badge_review_status?: string | null; // e.g. "pending" | "approved" | "rejected"
   q5_badge_claimed_at?: string | null;
 };
 
@@ -281,7 +282,35 @@ export default function ProfileViewPage() {
     lineHeight: "16px",
   };
 
-  // ✅ inside the card, right of the name
+  // ✅ badge logic
+  const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
+  const badgeLabel =
+    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
+    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
+
+  const status = (profile?.q5_badge_review_status || "").toLowerCase();
+  const statusLabel =
+    status === "pending"
+      ? "Pending verification"
+      : status === "approved"
+      ? "Verified"
+      : status === "rejected"
+      ? "Needs update"
+      : null;
+
+  const statusPillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+    border: "1px solid rgba(148,163,184,0.35)",
+    background: "rgba(2,6,23,0.35)",
+    color: "rgba(226,232,240,0.92)",
+  };
+
   const claimPillStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -304,10 +333,6 @@ export default function ProfileViewPage() {
     borderColor: "rgba(34,211,238,0.55)",
     boxShadow: "0 10px 26px rgba(34,211,238,0.12)",
   };
-
-  const badgeLabel =
-    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
-    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : null);
 
   return (
     <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
@@ -447,7 +472,7 @@ export default function ProfileViewPage() {
                 </div>
 
                 <div className="profile-header-text" style={{ width: "100%" }}>
-                  {/* ✅ name row: name (left) + claim badge (right) */}
+                  {/* ✅ name row: name + badge (if any) + update/claim (right) */}
                   <div
                     style={{
                       display: "flex",
@@ -464,6 +489,7 @@ export default function ProfileViewPage() {
                         gap: 10,
                         minWidth: 0,
                         flex: 1,
+                        flexWrap: "wrap",
                       }}
                     >
                       <div
@@ -479,8 +505,8 @@ export default function ProfileViewPage() {
                         {displayName}
                       </div>
 
-                      {/* ✅ optional tiny badge label (if already assigned) */}
-                      {badgeLabel && (
+                      {/* ✅ show badge once claimed */}
+                      {hasBadge && (
                         <span
                           style={{
                             display: "inline-flex",
@@ -491,7 +517,7 @@ export default function ProfileViewPage() {
                             background: "rgba(34,211,238,0.08)",
                             color: "rgba(226,232,240,0.95)",
                             fontSize: 12,
-                            fontWeight: 800,
+                            fontWeight: 900,
                             whiteSpace: "nowrap",
                           }}
                           title={badgeLabel}
@@ -499,9 +525,39 @@ export default function ProfileViewPage() {
                           {badgeLabel}
                         </span>
                       )}
+
+                      {/* ✅ optional status */}
+                      {hasBadge && statusLabel && (
+                        <span
+                          style={{
+                            ...statusPillStyle,
+                            border:
+                              status === "approved"
+                                ? "1px solid rgba(74,222,128,0.45)"
+                                : status === "rejected"
+                                ? "1px solid rgba(248,113,113,0.45)"
+                                : "1px solid rgba(148,163,184,0.35)",
+                            color:
+                              status === "approved"
+                                ? "rgba(187,247,208,0.95)"
+                                : status === "rejected"
+                                ? "rgba(254,202,202,0.95)"
+                                : "rgba(226,232,240,0.92)",
+                          }}
+                          title={statusLabel}
+                        >
+                          {statusLabel}
+                        </span>
+                      )}
                     </div>
 
-                    <ClaimPill onClick={() => setBadgeOpen(true)} base={claimPillStyle} hover={claimPillHoverStyle} />
+                    <ClaimPill
+                      onClick={() => setBadgeOpen(true)}
+                      base={claimPillStyle}
+                      hover={claimPillHoverStyle}
+                      label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+                      title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+                    />
                   </div>
 
                   {(headline || profile?.affiliation) && (
@@ -641,13 +697,14 @@ export default function ProfileViewPage() {
         </div>
       </div>
 
-      {/* ✅ Claim badge modal */}
+      {/* ✅ Claim/Update badge modal */}
       {user?.id && (
         <ClaimQ5BadgeModal
           open={badgeOpen}
           onClose={() => setBadgeOpen(false)}
           userId={user.id}
           onClaimed={(r) => {
+            // ✅ update UI immediately after claiming/updating
             setProfile((p) =>
               p
                 ? {
@@ -655,6 +712,7 @@ export default function ProfileViewPage() {
                     q5_badge_level: r.level,
                     q5_badge_label: r.label,
                     q5_badge_review_status: r.review_status,
+                    q5_badge_claimed_at: new Date().toISOString(),
                   }
                 : p
             );
@@ -665,15 +723,19 @@ export default function ProfileViewPage() {
   );
 }
 
-// tiny component inside same file: hover effect without CSS changes
+// hover effect without touching global CSS
 function ClaimPill({
   onClick,
   base,
   hover,
+  label,
+  title,
 }: {
   onClick: () => void;
   base: React.CSSProperties;
   hover: React.CSSProperties;
+  label: string;
+  title: string;
 }) {
   const [h, setH] = useState(false);
   return (
@@ -683,9 +745,9 @@ function ClaimPill({
       onMouseEnter={() => setH(true)}
       onMouseLeave={() => setH(false)}
       style={{ ...base, ...(h ? hover : {}) }}
-      title="Claim your Q5 badge"
+      title={title}
     >
-      Claim your Q5 badge ✦
+      {label}
     </button>
   );
 }
