@@ -7,6 +7,10 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
+// ✅ Option 2: homepage keeps header + loading/error/empty,
+// and ONLY the feed cards list is extracted into a reusable component.
+import FeedList from "../components/feed/FeedList";
+
 const POSTS_BUCKET = "post-images"; // ✅ must exist in Supabase Storage
 
 type Job = {
@@ -232,45 +236,45 @@ export default function Home() {
           ✅ Mobile-only floating right-edge tab to open drawer. */}
       {isMobile && (
         <button
-  type="button"
-  aria-label={rightOpen ? "Close explore drawer" : "Open explore drawer"}
-  onClick={() => setRightOpen((v) => !v)}
-  style={{
-    position: "fixed",
-    right: 0,
-    top: "80%",
-    transform: "translateY(-50%)",
-    zIndex: 60,
-    width: 30,
-    height: 80,
-    border: "1px solid rgba(148,163,184,0.35)",
-    borderRight: "none",
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    background: "rgba(2,6,23,0.72)",
-    backdropFilter: "blur(10px)",
-    WebkitBackdropFilter: "blur(10px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-  }}
->
-  <span
-    aria-hidden="true"
-    style={{
-      fontSize: 22,
-      lineHeight: 1,
-      color: "rgba(226,232,240,0.95)",
-      transform: rightOpen ? "rotate(180deg)" : "none",
-      transition: "transform 160ms ease",
-      userSelect: "none",
-    }}
-  >
-    ❮
-  </span>
-</button>
+          type="button"
+          aria-label={rightOpen ? "Close explore drawer" : "Open explore drawer"}
+          onClick={() => setRightOpen((v) => !v)}
+          style={{
+            position: "fixed",
+            right: 0,
+            top: "80%",
+            transform: "translateY(-50%)",
+            zIndex: 60,
+            width: 30,
+            height: 80,
+            border: "1px solid rgba(148,163,184,0.35)",
+            borderRight: "none",
+            borderTopLeftRadius: 16,
+            borderBottomLeftRadius: 16,
+            background: "rgba(2,6,23,0.72)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: 22,
+              lineHeight: 1,
+              color: "rgba(226,232,240,0.95)",
+              transform: rightOpen ? "rotate(180deg)" : "none",
+              transition: "transform 160ms ease",
+              userSelect: "none",
+            }}
+          >
+            ❮
+          </span>
+        </button>
       )}
 
       {/* POST + ASK PLACEHOLDERS */}
@@ -703,7 +707,7 @@ function HomeGlobalFeed() {
 
       setCommentsByPost((prev) => {
         const cur = prev[postId] || [];
-        const next = data ? [...cur, (data as CommentRow)] : cur;
+        const next = data ? [...cur, data as CommentRow] : cur;
         return { ...prev, [postId]: next };
       });
 
@@ -759,20 +763,6 @@ function HomeGlobalFeed() {
       .map((x) => x[0]?.toUpperCase())
       .join("") || "Q";
 
-  function FeedIcon({ path, size = 18 }: { path: string; size?: number }) {
-    return (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-        <path
-          d={path}
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  }
-
   return (
     <div>
       <div className="section-header" style={{ marginTop: 0 }}>
@@ -804,330 +794,28 @@ function HomeGlobalFeed() {
         </div>
       )}
 
+      {/* ✅ Option 2 boundary: Only the feed cards list is rendered by <FeedList/> */}
       {!loading && !error && items.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {items.map((it) => {
-            const p = it.post;
-            const a = it.author;
-
-            const name = a?.full_name || "Quantum member";
-            const initials = initialsOf(a?.full_name);
-
-            const isOpen = !!openComments[p.id];
-            const comments = commentsByPost[p.id] || [];
-
-            return (
-              <div key={p.id}>
-                <div
-                  className="card"
-                  ref={(node) => {
-                    postRefs.current[p.id] = node;
-                  }}
-                  style={{
-                    padding: 14,
-                    borderRadius: 14,
-                    border: "1px solid rgba(148,163,184,0.18)",
-                    background: "rgba(15,23,42,0.92)",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={avatarStyle(40)}>
-                      {a?.avatar_url ? (
-                        <img
-                          src={a.avatar_url}
-                          alt={name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      ) : (
-                        initials
-                      )}
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
-                            {a?.id ? (
-                              <Link
-                                href={`/profile/${a.id}`}
-                                style={{
-                                  color: "rgba(226,232,240,0.95)",
-                                  textDecoration: "none",
-                                }}
-                              >
-                                {name}
-                              </Link>
-                            ) : (
-                              name
-                            )}
-                          </div>
-
-                          <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
-                            {formatSubtitle(a) || "Quantum5ocial member"}
-                          </div>
-
-                          <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
-                            {formatRelativeTime(p.created_at)}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
-                          onClick={() => {
-                            navigator.clipboard
-                              ?.writeText(`${window.location.origin}/?post=${p.id}`)
-                              .catch(() => {});
-                          }}
-                        >
-                          Copy link
-                        </button>
-                      </div>
-
-                      <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
-                        <LinkifyText text={p.body} />
-                      </div>
-
-                      {p.image_url && (
-                        <div style={{ marginTop: 10 }}>
-                          <img
-                            src={p.image_url}
-                            alt="Post image"
-                            style={{
-                              width: "100%",
-                              maxHeight: 420,
-                              objectFit: "cover",
-                              borderRadius: 14,
-                              border: "1px solid rgba(148,163,184,0.14)",
-                              background: "rgba(2,6,23,0.25)",
-                              display: "block",
-                            }}
-                            loading="lazy"
-                          />
-                        </div>
-                      )}
-
-                      <div
-                        style={{
-                          marginTop: 12,
-                          display: "flex",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggleLike(p.id)}
-                          aria-label="Like"
-                          title="Like"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "7px 10px",
-                            borderRadius: 999,
-                            border: it.likedByMe
-                              ? "1px solid rgba(34,211,238,0.65)"
-                              : "1px solid rgba(148,163,184,0.35)",
-                            background: it.likedByMe ? "rgba(34,211,238,0.12)" : "rgba(2,6,23,0.2)",
-                            color: "rgba(226,232,240,0.92)",
-                            cursor: "pointer",
-                            fontSize: 13,
-                            fontWeight: 800,
-                          }}
-                        >
-                          <span style={{ display: "inline-flex", alignItems: "center" }}>
-                            <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
-                          </span>
-                          <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
-                            if (!commentsByPost[p.id]) void loadComments(p.id);
-                          }}
-                          aria-label="Comment"
-                          title="Comment"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "7px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(148,163,184,0.35)",
-                            background: "rgba(2,6,23,0.2)",
-                            color: "rgba(226,232,240,0.92)",
-                            cursor: "pointer",
-                            fontSize: 13,
-                            fontWeight: 800,
-                          }}
-                        >
-                          <span style={{ display: "inline-flex", alignItems: "center" }}>
-                            <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
-                          </span>
-                          <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.commentCount}</span>
-                        </button>
-                      </div>
-
-                      {isOpen && (
-                        <div style={{ marginTop: 12 }}>
-                          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                            <div style={avatarStyle(30)}>
-                              {user ? (user.email?.[0]?.toUpperCase() || "U") : "U"}
-                            </div>
-
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <textarea
-                                value={commentDraft[p.id] || ""}
-                                onChange={(e) =>
-                                  setCommentDraft((prev) => ({
-                                    ...prev,
-                                    [p.id]: e.target.value,
-                                  }))
-                                }
-                                placeholder={user ? "Write a comment…" : "Login to comment…"}
-                                disabled={!user}
-                                style={{
-                                  width: "100%",
-                                  minHeight: 54,
-                                  borderRadius: 12,
-                                  border: "1px solid rgba(148,163,184,0.2)",
-                                  background: "rgba(2,6,23,0.26)",
-                                  color: "rgba(226,232,240,0.94)",
-                                  padding: 10,
-                                  fontSize: 13,
-                                  lineHeight: 1.45,
-                                  outline: "none",
-                                  resize: "vertical",
-                                }}
-                              />
-
-                              <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
-                                <button
-                                  type="button"
-                                  onClick={() => submitComment(p.id)}
-                                  disabled={!user || commentSaving[p.id] || !(commentDraft[p.id] || "").trim()}
-                                  style={{
-                                    padding: "8px 14px",
-                                    borderRadius: 999,
-                                    border: "none",
-                                    fontSize: 13,
-                                    fontWeight: 900,
-                                    cursor: !user || commentSaving[p.id] ? "default" : "pointer",
-                                    opacity: !user || commentSaving[p.id] ? 0.6 : 1,
-                                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                                    color: "#0f172a",
-                                  }}
-                                >
-                                  {commentSaving[p.id] ? "Posting…" : "Post comment"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-                            {comments.length === 0 ? (
-                              <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
-                            ) : (
-                              comments.map((c) => {
-                                const cp = commenterProfiles[c.user_id];
-                                const cName = cp?.full_name || "Quantum member";
-                                const cInitials = initialsOf(cp?.full_name);
-
-                                return (
-                                  <div
-                                    key={c.id}
-                                    style={{
-                                      padding: 10,
-                                      borderRadius: 12,
-                                      border: "1px solid rgba(148,163,184,0.14)",
-                                      background: "rgba(2,6,23,0.18)",
-                                    }}
-                                  >
-                                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                                      <div style={avatarStyle(30)}>
-                                        {cp?.avatar_url ? (
-                                          <img
-                                            src={cp.avatar_url}
-                                            alt={cName}
-                                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                                          />
-                                        ) : (
-                                          cInitials
-                                        )}
-                                      </div>
-
-                                      <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div
-                                          style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            gap: 10,
-                                            alignItems: "flex-start",
-                                          }}
-                                        >
-                                          <div style={{ minWidth: 0 }}>
-                                            <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
-                                              {cp?.id ? (
-                                                <Link
-                                                  href={`/profile/${cp.id}`}
-                                                  style={{
-                                                    color: "rgba(226,232,240,0.95)",
-                                                    textDecoration: "none",
-                                                  }}
-                                                >
-                                                  {cName}
-                                                </Link>
-                                              ) : (
-                                                cName
-                                              )}
-                                            </div>
-                                            <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
-                                              {formatSubtitle(cp) || "Quantum5ocial member"}
-                                            </div>
-                                          </div>
-
-                                          <div style={{ fontSize: 11, opacity: 0.68 }}>
-                                            {formatRelativeTime(c.created_at)}
-                                          </div>
-                                        </div>
-
-                                        <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45 }}>
-                                          {c.body}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    height: 1,
-                    background: "rgba(148,163,184,0.18)",
-                    margin: "14px 0",
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
+        <FeedList
+          items={items}
+          user={user}
+          openComments={openComments}
+          setOpenComments={setOpenComments}
+          commentsByPost={commentsByPost}
+          commenterProfiles={commenterProfiles}
+          commentDraft={commentDraft}
+          setCommentDraft={setCommentDraft}
+          commentSaving={commentSaving}
+          onToggleLike={toggleLike}
+          onLoadComments={loadComments}
+          onSubmitComment={submitComment}
+          formatRelativeTime={formatRelativeTime}
+          formatSubtitle={formatSubtitle}
+          initialsOf={initialsOf}
+          avatarStyle={avatarStyle}
+          LinkifyText={LinkifyText}
+          postRefs={postRefs}
+        />
       )}
     </div>
   );
