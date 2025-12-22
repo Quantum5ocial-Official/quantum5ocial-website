@@ -381,17 +381,42 @@ export default function ProfileViewPage() {
     boxShadow: "0 10px 26px rgba(34,211,238,0.12)",
   };
 
+  // ✅ MOBILE helpers (no CSS file changes)
+  const twoColStyle: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: 12,
+  };
+
   return (
-    <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
+    <section
+      className="section"
+      style={{
+        paddingTop: 0,
+        // ✅ only lift up on desktop; keep normal spacing on mobile
+        marginTop: "clamp(-18px, -1.5vw, 0px)" as any,
+      }}
+    >
       <div className="profile-container" style={{ marginTop: 0 }}>
         {/* Header */}
-        <div className="section-header" style={{ marginBottom: 10, paddingTop: 0 }}>
-          <div>
+        <div
+          className="section-header"
+          style={{
+            marginBottom: 10,
+            paddingTop: 0,
+            // ✅ mobile wrap so title + Edit doesn't crush
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+          }}
+        >
+          <div style={{ minWidth: 220, flex: 1 }}>
             <div className="section-title">My profile</div>
             <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
               Edit
             </Link>
@@ -427,10 +452,10 @@ export default function ProfileViewPage() {
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "center",
+                    alignItems: "flex-start",
                     justifyContent: "space-between",
                     gap: 10,
-                    flexWrap: "nowrap",
+                    flexWrap: "wrap", // ✅ mobile wrap
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
@@ -489,15 +514,7 @@ export default function ProfileViewPage() {
                     }}
                   >
                     <span style={{ color: "rgba(148,163,184,0.95)" }}>Top things to add:</span>
-                    <span
-                      style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: 760,
-                      }}
-                      title={topAddInline}
-                    >
+                    <span style={{ maxWidth: "100%" }} title={topAddInline}>
                       {topAddInline}
                     </span>
                   </div>
@@ -505,8 +522,16 @@ export default function ProfileViewPage() {
               </div>
 
               {/* Identity */}
-              <div className="profile-header">
-                <div className="profile-avatar">
+              <div
+                className="profile-header"
+                style={{
+                  // ✅ stack avatar + text on small screens
+                  display: "flex",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div className="profile-avatar" style={{ flex: "0 0 auto" }}>
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -518,15 +543,16 @@ export default function ProfileViewPage() {
                   )}
                 </div>
 
-                <div className="profile-header-text" style={{ width: "100%" }}>
-                  {/* ✅ name row: name + badge (if any) + update/claim (right) */}
+                <div className="profile-header-text" style={{ width: "100%", minWidth: 0, flex: 1 }}>
+                  {/* ✅ name row becomes 2 rows on mobile naturally */}
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "center",
-                      gap: 12,
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: 10,
                       width: "100%",
-                      minWidth: 0,
+                      flexWrap: "wrap", // ✅ allow stacking
                     }}
                   >
                     <div
@@ -546,13 +572,13 @@ export default function ProfileViewPage() {
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
+                          maxWidth: "100%",
                         }}
                         title={displayName}
                       >
                         {displayName}
                       </div>
 
-                      {/* ✅ show badge once claimed */}
                       {hasBadge && (
                         <span
                           style={{
@@ -573,7 +599,6 @@ export default function ProfileViewPage() {
                         </span>
                       )}
 
-                      {/* ✅ optional status */}
                       {hasBadge && statusLabel && (
                         <span
                           style={{
@@ -598,17 +623,20 @@ export default function ProfileViewPage() {
                       )}
                     </div>
 
-                    <ClaimPill
-                      onClick={() => setBadgeOpen(true)}
-                      base={claimPillStyle}
-                      hover={claimPillHoverStyle}
-                      label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
-                      title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
-                    />
+                    {/* ✅ keep pill aligned right on desktop, drops below on mobile */}
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <ClaimPill
+                        onClick={() => setBadgeOpen(true)}
+                        base={claimPillStyle}
+                        hover={claimPillHoverStyle}
+                        label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+                        title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+                      />
+                    </div>
                   </div>
 
                   {(headline || profile?.affiliation) && (
-                    <div className="profile-role">
+                    <div className="profile-role" style={{ marginTop: 6 }}>
                       {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
                     </div>
                   )}
@@ -639,14 +667,14 @@ export default function ProfileViewPage() {
 
                   <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
                     {accountEmail && (
-                      <div>
+                      <div style={{ wordBreak: "break-word" }}>
                         <span style={{ color: "rgba(148,163,184,0.9)" }}>Account email:</span>{" "}
                         {accountEmail}
                       </div>
                     )}
 
                     {privateProfile?.institutional_email && (
-                      <div>
+                      <div style={{ wordBreak: "break-word" }}>
                         <span style={{ color: "rgba(148,163,184,0.9)" }}>
                           Institutional email:
                         </span>{" "}
@@ -655,7 +683,7 @@ export default function ProfileViewPage() {
                     )}
 
                     {privateProfile?.phone && (
-                      <div>
+                      <div style={{ wordBreak: "break-word" }}>
                         <span style={{ color: "rgba(148,163,184,0.9)" }}>Phone:</span>{" "}
                         {privateProfile.phone}
                       </div>
@@ -674,7 +702,8 @@ export default function ProfileViewPage() {
                 </p>
               )}
 
-              <div className="profile-two-columns">
+              {/* ✅ Make “two columns” collapse nicely on mobile without relying on global CSS */}
+              <div className="profile-two-columns" style={twoColStyle}>
                 <div className="profile-col">
                   {profile?.affiliation && (
                     <div className="profile-summary-item">
@@ -701,7 +730,7 @@ export default function ProfileViewPage() {
                       <div className="profile-section-label">Links</div>
                       <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
                         {links.map((l) => (
-                          <li key={l.label}>
+                          <li key={l.label} style={{ wordBreak: "break-word" }}>
                             <a
                               href={l.value as string}
                               target="_blank"
@@ -751,7 +780,6 @@ export default function ProfileViewPage() {
           onClose={() => setBadgeOpen(false)}
           userId={user.id}
           onClaimed={(r) => {
-            // ✅ update UI immediately after claiming/updating
             setProfile((p) =>
               p
                 ? {
