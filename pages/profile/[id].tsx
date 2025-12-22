@@ -92,7 +92,6 @@ export default function MemberProfilePage() {
   const { user } = useSupabaseUser();
   const { id } = router.query;
 
-  // ✅ support both string and array params
   const profileId =
     typeof id === "string" ? id : Array.isArray(id) ? id[0] : null;
 
@@ -117,7 +116,7 @@ export default function MemberProfilePage() {
     redirectPath: router.asPath || "/community",
   });
 
-  // ✅ IMPORTANT: reset immediately on route change to avoid showing the previous profile (often "mine")
+  // reset immediately on route change
   useEffect(() => {
     if (!router.isReady) return;
     setProfile(null);
@@ -183,7 +182,7 @@ export default function MemberProfilePage() {
     loadProfile();
   }, [router.isReady, profileId]);
 
-  // ✅ Realtime: reflect backend badge edits instantly for THIS viewed profile
+  // realtime badge edits
   useEffect(() => {
     if (!router.isReady) return;
     if (!profileId) return;
@@ -210,7 +209,7 @@ export default function MemberProfilePage() {
     };
   }, [router.isReady, profileId]);
 
-  // refresh badge on focus (optional)
+  // refresh badge on focus
   useEffect(() => {
     if (!router.isReady) return;
     if (!profileId) return;
@@ -700,7 +699,7 @@ export default function MemberProfilePage() {
         )}
       </div>
 
-      {/* ✅ POSTS STRIP — clean boundary + edge arrows + ~3 visible on desktop */}
+      {/* POSTS STRIP */}
       {profileId && (
         <div style={{ marginTop: 14 }}>
           <div
@@ -734,7 +733,7 @@ export default function MemberProfilePage() {
 }
 
 /* =========================
-   POSTS STRIP — clean + bounded, edge arrows, ~3 cards visible on desktop
+   POSTS STRIP
    ========================= */
 
 function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
@@ -928,7 +927,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
         overflow: "hidden",
       }}
     >
-      {/* subtle edge fades */}
+      {/* edge fades */}
       <div
         aria-hidden
         style={{
@@ -956,7 +955,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
         }}
       />
 
-      {/* edge arrows */}
+      {/* arrows */}
       <button type="button" onClick={() => scrollByCard(-1)} style={{ ...edgeBtn, left: 10 }} aria-label="Scroll left" title="Scroll left">
         ‹
       </button>
@@ -970,7 +969,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
           display: "flex",
           gap: 12,
           overflowX: "auto",
-          padding: "4px 44px 10px 44px", // leave space so arrows don’t overlap cards
+          padding: "4px 44px 10px 44px",
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
         }}
@@ -997,7 +996,6 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
               style={{
                 scrollSnapAlign: "start",
                 flex: "0 0 auto",
-                // ✅ ~3 cards visible on desktop, auto shrinks on smaller screens
                 width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
                 cursor: "pointer",
               }}
@@ -1042,7 +1040,16 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                   </div>
 
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 13,
+                        lineHeight: 1.1,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
                       {name}
                     </div>
                     <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
@@ -1095,6 +1102,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                     </div>
                   )}
 
+                  {/* ✅ ONLY CHANGE: keep text on the SIDE always (not below) by preventing wrap + ensuring equal columns */}
                   <div
                     style={{
                       borderRadius: 12,
@@ -1104,6 +1112,7 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                       display: "flex",
                       alignItems: "center",
                       minHeight: 190,
+                      minWidth: 0, // critical for grid children to shrink instead of wrapping
                     }}
                   >
                     <div
