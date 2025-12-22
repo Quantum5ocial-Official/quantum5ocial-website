@@ -1,5 +1,5 @@
 // pages/profile/[id].tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -41,6 +41,53 @@ type Profile = {
   q5_badge_claimed_at?: string | null;
 };
 
+type FeedProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  highest_education?: string | null;
+  affiliation?: string | null;
+};
+
+type PostRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
+  image_url: string | null;
+};
+
+type PostVM = {
+  post: PostRow;
+  author: FeedProfile | null;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+};
+
+function useIsMobile(maxWidth = 720) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+    set();
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
 export default function MemberProfilePage() {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -51,6 +98,8 @@ export default function MemberProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  const isMobile = useIsMobile(720);
 
   const isSelf = useMemo(
     () => !!user && !!profileId && user.id === profileId,
@@ -140,7 +189,6 @@ export default function MemberProfilePage() {
         },
         (payload) => {
           const row = payload.new as any;
-          // merge only; keeps local fields if any
           setProfile((prev) => (prev ? { ...prev, ...row } : (row as any)));
         }
       )
@@ -230,7 +278,7 @@ export default function MemberProfilePage() {
       profile.highest_education ||
       profile.key_experience);
 
-  // ✅ badge display logic (data kept the same)
+  // ✅ badge display logic
   const hasBadge = !!(profile?.q5_badge_label || profile?.q5_badge_level != null);
   const badgeLabel =
     (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
@@ -557,7 +605,6 @@ export default function MemberProfilePage() {
                 >
                   <div className="profile-name">{displayName}</div>
 
-                  {/* ✅ REPLACED: unified badge pill */}
                   {hasBadge && (
                     <Q5BadgeChips
                       label={badgeLabel}
@@ -672,7 +719,425 @@ export default function MemberProfilePage() {
           </>
         )}
       </div>
+
+      {/* ✅ POSTS STRIP (same sideways scroller as /profile) */}
+      {profileId && (
+        <div style={{ marginTop: 14 }}>
+          <div
+            className="card"
+            style={{
+              padding: 16,
+              marginBottom: 12,
+              background:
+                "radial-gradient(circle at 0% 0%, rgba(59,130,246,0.16), rgba(15,23,42,0.98))",
+              border: "1px solid rgba(148,163,184,0.35)",
+              boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div
+                  className="section-title"
+                  style={{ display: "flex", alignItems: "center", gap: 10 }}
+                >
+                  Posts
+                </div>
+                <div className="section-sub" style={{ maxWidth: 620 }}>
+                  Public posts by this member (click a card to open the post on the global feed).
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ProfilePostsStrip filterUserId={profileId} />
+        </div>
+      )}
     </section>
+  );
+}
+
+/* =========================
+   POSTS STRIP — 2 columns inside each card, 1 row total, horizontal scroll
+   ========================= */
+
+function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
+  const router = useRouter();
+  const { user } = useSupabaseUser();
+
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<PostVM[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+
+  const initialsOf = (name: string | null | undefined) =>
+    (name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "Q";
+
+  const formatRelativeTime = (created_at: string | null) => {
+    if (!created_at) return "";
+    const t = Date.parse(created_at);
+    if (Number.isNaN(t)) return "";
+    const diffMs = Date.now() - t;
+    const diffSec = Math.floor(diffMs / 1000);
+
+    if (diffSec < 5) return "just now";
+    if (diffSec < 60) return `${diffSec} seconds ago`;
+
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+
+    const diffWk = Math.floor(diffDay / 7);
+    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+
+    const diffMo = Math.floor(diffDay / 30);
+    return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
+  };
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data: postRows, error: postErr } = await supabase
+        .from("posts")
+        .select("id, user_id, body, created_at, image_url")
+        .eq("user_id", filterUserId)
+        .order("created_at", { ascending: false })
+        .limit(30);
+
+      if (postErr) throw postErr;
+
+      const posts = (postRows || []) as PostRow[];
+      const postIds = posts.map((p) => p.id);
+      const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
+
+      // author profile map (mostly 1 user, but keep generic)
+      let profileMap = new Map<string, FeedProfile>();
+      if (userIds.length > 0) {
+        const { data: profRows, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, highest_education, affiliation")
+          .in("id", userIds);
+
+        if (!profErr && profRows) {
+          (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
+        }
+      }
+
+      // likes (optional)
+      let likeRows: { post_id: string; user_id: string }[] = [];
+      if (postIds.length > 0) {
+        const { data: likes, error: likeErr } = await supabase
+          .from("post_likes")
+          .select("post_id, user_id")
+          .in("post_id", postIds);
+
+        if (!likeErr && likes) likeRows = likes as any;
+      }
+
+      // comments count (optional)
+      let commentRows: { post_id: string }[] = [];
+      if (postIds.length > 0) {
+        const { data: comments, error: cErr } = await supabase
+          .from("post_comments")
+          .select("post_id")
+          .in("post_id", postIds);
+
+        if (!cErr && comments) commentRows = comments as any;
+      }
+
+      const likeCountByPost: Record<string, number> = {};
+      const likedByMeSet = new Set<string>();
+      likeRows.forEach((r) => {
+        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
+        if (user?.id && r.user_id === user.id) likedByMeSet.add(r.post_id);
+      });
+
+      const commentCountByPost: Record<string, number> = {};
+      commentRows.forEach((r) => {
+        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
+      });
+
+      const vms: PostVM[] = posts.map((p) => ({
+        post: p,
+        author: profileMap.get(p.user_id) || null,
+        likeCount: likeCountByPost[p.id] || 0,
+        commentCount: commentCountByPost[p.id] || 0,
+        likedByMe: likedByMeSet.has(p.id),
+      }));
+
+      setItems(vms);
+    } catch (e: any) {
+      console.error(e);
+      setError(e?.message || "Could not load posts.");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterUserId]);
+
+  const scrollByCard = (dir: -1 | 1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const amount = Math.max(260, Math.floor(el.clientWidth * 0.85));
+    el.scrollBy({ left: dir * amount, behavior: "smooth" });
+  };
+
+  const openPost = (postId: string) => {
+    // homepage feed opens expanded by post param
+    router.push(`/?post=${encodeURIComponent(postId)}`);
+  };
+
+  if (loading) return <div className="products-status">Loading posts…</div>;
+  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
+  if (items.length === 0) {
+    return <div className="products-empty">No posts yet.</div>;
+  }
+
+  const chipStyle: React.CSSProperties = {
+    fontSize: 12,
+    padding: "5px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.30)",
+    background: "rgba(2,6,23,0.22)",
+    color: "rgba(226,232,240,0.92)",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    fontWeight: 800,
+    userSelect: "none",
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      {/* arrows */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 10 }}>
+        <button
+          type="button"
+          onClick={() => scrollByCard(-1)}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+          aria-label="Scroll left"
+          title="Scroll left"
+        >
+          ‹
+        </button>
+
+        <button
+          type="button"
+          onClick={() => scrollByCard(1)}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+          aria-label="Scroll right"
+          title="Scroll right"
+        >
+          ›
+        </button>
+      </div>
+
+      {/* scroller */}
+      <div
+        ref={scrollerRef}
+        style={{
+          display: "flex",
+          gap: 12,
+          overflowX: "auto",
+          paddingBottom: 8,
+          scrollSnapType: "x mandatory",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        {items.map((it) => {
+          const p = it.post;
+          const a = it.author;
+
+          const name = a?.full_name || "Quantum member";
+          const initials = initialsOf(a?.full_name);
+
+          const hasImage = !!p.image_url;
+          const body = (p.body || "").trim();
+
+          return (
+            <div
+              key={p.id}
+              onClick={() => openPost(p.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") openPost(p.id);
+              }}
+              style={{
+                scrollSnapAlign: "start",
+                flex: "0 0 auto",
+                width: "min(620px, 92vw)",
+                cursor: "pointer",
+              }}
+            >
+              <div
+                className="card"
+                style={{
+                  padding: 14,
+                  borderRadius: 16,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(15,23,42,0.92)",
+                }}
+              >
+                {/* header */}
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 999,
+                      overflow: "hidden",
+                      border: "1px solid rgba(148,163,184,0.35)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                      color: "#fff",
+                      fontWeight: 900,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {a?.avatar_url ? (
+                      <img
+                        src={a.avatar_url}
+                        alt={name}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.1 }}>
+                      {name}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
+                      {formatRelativeTime(p.created_at)}
+                    </div>
+                  </div>
+
+                  <span style={chipStyle} title="Likes / comments">
+                    ❤ {it.likeCount} · 💬 {it.commentCount}
+                  </span>
+                </div>
+
+                {/* content: 2 columns inside the card, 1 row total */}
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "grid",
+                    gridTemplateColumns: hasImage ? "1fr 1fr" : "1fr",
+                    gap: 12,
+                    alignItems: "stretch",
+                  }}
+                >
+                  {hasImage && (
+                    <div
+                      style={{
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        border: "1px solid rgba(148,163,184,0.14)",
+                        background: "rgba(2,6,23,0.22)",
+                        minHeight: 180,
+                      }}
+                    >
+                      <img
+                        src={p.image_url as string}
+                        alt="Post image"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.14)",
+                      background: "rgba(2,6,23,0.18)",
+                      padding: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      minHeight: 180,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "100%",
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                        color: "rgba(226,232,240,0.92)",
+                        whiteSpace: "pre-wrap",
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 9,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                      title={body}
+                    >
+                      {body || "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
+                  Click to open post →
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
