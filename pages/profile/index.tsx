@@ -36,7 +36,6 @@ type Profile = {
   provider?: string | null;
   raw_metadata?: any;
 
-  // ✅ badge fields (optional; safe even if columns not added yet)
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
@@ -267,12 +266,6 @@ export default function ProfileViewPage() {
     width: "fit-content",
   };
 
-  const claimBtnStyle: React.CSSProperties = {
-    ...editBtnStyle,
-    border: "1px solid rgba(148,163,184,0.45)",
-    background: "rgba(2,6,23,0.25)",
-  };
-
   const smallPillStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -288,6 +281,34 @@ export default function ProfileViewPage() {
     lineHeight: "16px",
   };
 
+  // ✅ inside the card, right of the name
+  const claimPillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "6px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.45)",
+    background: "rgba(2,6,23,0.25)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
+    boxShadow: "0 0 0 rgba(0,0,0,0)",
+  };
+
+  const claimPillHoverStyle: React.CSSProperties = {
+    transform: "translateY(-1px)",
+    borderColor: "rgba(34,211,238,0.55)",
+    boxShadow: "0 10px 26px rgba(34,211,238,0.12)",
+  };
+
+  const badgeLabel =
+    (profile?.q5_badge_label && profile.q5_badge_label.trim()) ||
+    (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : null);
+
   return (
     <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
       <div className="profile-container" style={{ marginTop: 0 }}>
@@ -298,16 +319,7 @@ export default function ProfileViewPage() {
             <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1, gap: 8 }}>
-            <button
-              type="button"
-              className="nav-ghost-btn"
-              style={claimBtnStyle}
-              onClick={() => setBadgeOpen(true)}
-            >
-              Claim your Q5 badge
-            </button>
-
+          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
             <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
               Edit
             </Link>
@@ -434,8 +446,63 @@ export default function ProfileViewPage() {
                   )}
                 </div>
 
-                <div className="profile-header-text">
-                  <div className="profile-name">{displayName}</div>
+                <div className="profile-header-text" style={{ width: "100%" }}>
+                  {/* ✅ name row: name (left) + claim badge (right) */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      width: "100%",
+                      minWidth: 0,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
+                      <div
+                        className="profile-name"
+                        style={{
+                          minWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={displayName}
+                      >
+                        {displayName}
+                      </div>
+
+                      {/* ✅ optional tiny badge label (if already assigned) */}
+                      {badgeLabel && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "4px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(34,211,238,0.35)",
+                            background: "rgba(34,211,238,0.08)",
+                            color: "rgba(226,232,240,0.95)",
+                            fontSize: 12,
+                            fontWeight: 800,
+                            whiteSpace: "nowrap",
+                          }}
+                          title={badgeLabel}
+                        >
+                          {badgeLabel}
+                        </span>
+                      )}
+                    </div>
+
+                    <ClaimPill onClick={() => setBadgeOpen(true)} base={claimPillStyle} hover={claimPillHoverStyle} />
+                  </div>
 
                   {(headline || profile?.affiliation) && (
                     <div className="profile-role">
@@ -595,6 +662,31 @@ export default function ProfileViewPage() {
         />
       )}
     </section>
+  );
+}
+
+// tiny component inside same file: hover effect without CSS changes
+function ClaimPill({
+  onClick,
+  base,
+  hover,
+}: {
+  onClick: () => void;
+  base: React.CSSProperties;
+  hover: React.CSSProperties;
+}) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{ ...base, ...(h ? hover : {}) }}
+      title="Claim your Q5 badge"
+    >
+      Claim your Q5 badge ✦
+    </button>
   );
 }
 
