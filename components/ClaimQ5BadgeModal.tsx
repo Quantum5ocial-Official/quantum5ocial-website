@@ -106,7 +106,6 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
     try {
       const r = computeQ5Badge(answers);
 
-      // insert claim
       const { error: e1 } = await supabase.from("profile_badge_claims").insert({
         user_id: userId,
         involvement: answers.involvement,
@@ -121,7 +120,6 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
 
       if (e1) throw e1;
 
-      // mirror into profiles (so we can show badge everywhere without joining)
       const { error: e2 } = await supabase
         .from("profiles")
         .upsert(
@@ -149,6 +147,7 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
   const renderStep = () => {
     const k = steps[step]?.key;
 
+    // ✅ FIXED: neutral involvement options (no badge names here)
     if (k === "involvement") {
       return (
         <>
@@ -158,13 +157,17 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           <select
             style={fieldStyle}
             value={answers.involvement}
-            onChange={(e) => setAnswers((p) => ({ ...p, involvement: Number(e.target.value) }))}
+            onChange={(e) =>
+              setAnswers((p) => ({ ...p, involvement: Number(e.target.value) }))
+            }
           >
-            <option value={0}>Q5-Observer — I am not yet working in quantum, but I want to engage.</option>
-            <option value={1}>Q5-Initiate — I’m learning / transitioning into quantum.</option>
-            <option value={2}>Q5-Practitioner — I’m actively contributing to quantum work.</option>
-            <option value={3}>Q5-Expert track — I deliver independently at a professional level.</option>
-            <option value={4}>Leadership track — I lead teams/products/research in quantum.</option>
+            <option value={0}>
+              I am not yet working in quantum, but I want to engage with the ecosystem
+            </option>
+            <option value={1}>I’m learning / transitioning into quantum</option>
+            <option value={2}>I’m actively contributing to quantum work</option>
+            <option value={3}>I deliver independently at a professional level</option>
+            <option value={4}>I lead teams/products/research in quantum</option>
           </select>
         </>
       );
@@ -267,7 +270,6 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
   return (
     <div style={overlayStyle} onMouseDown={close}>
       <div style={modalStyle} onMouseDown={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 16 }}>Claim your Q5 badge</div>
@@ -280,7 +282,6 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           </button>
         </div>
 
-        {/* Step indicator */}
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
           {steps.map((s, i) => (
             <div
@@ -300,13 +301,26 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           ))}
         </div>
 
-        {/* Body */}
-        <div style={{ marginTop: 14, padding: 12, borderRadius: 14, background: "rgba(2,6,23,0.25)" }}>
+        <div
+          style={{
+            marginTop: 14,
+            padding: 12,
+            borderRadius: 14,
+            background: "rgba(2,6,23,0.25)",
+          }}
+        >
           {renderStep()}
         </div>
 
-        {/* Preview */}
-        <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div
+          style={{
+            marginTop: 12,
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
           <div style={{ fontSize: 13 }}>
             <div style={{ fontWeight: 900 }}>
               Preview: <span style={{ color: "rgba(34,211,238,0.95)" }}>{result.label}</span>
