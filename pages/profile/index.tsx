@@ -362,13 +362,13 @@ export default function ProfileViewPage() {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "6px 12px",
+    padding: "8px 16px",
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.45)",
     background: "rgba(2,6,23,0.25)",
     color: "rgba(226,232,240,0.95)",
-    fontSize: 12,
-    fontWeight: 800,
+    fontSize: 13,
+    fontWeight: 900,
     cursor: "pointer",
     whiteSpace: "nowrap",
     transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
@@ -381,42 +381,17 @@ export default function ProfileViewPage() {
     boxShadow: "0 10px 26px rgba(34,211,238,0.12)",
   };
 
-  // ✅ MOBILE helpers (no CSS file changes)
-  const twoColStyle: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr",
-    gap: 12,
-  };
-
   return (
-    <section
-      className="section"
-      style={{
-        paddingTop: 0,
-        // ✅ only lift up on desktop; keep normal spacing on mobile
-        marginTop: "clamp(-18px, -1.5vw, 0px)" as any,
-      }}
-    >
+    <section className="section" style={{ paddingTop: 0, marginTop: -18 }}>
       <div className="profile-container" style={{ marginTop: 0 }}>
         {/* Header */}
-        <div
-          className="section-header"
-          style={{
-            marginBottom: 10,
-            paddingTop: 0,
-            // ✅ mobile wrap so title + Edit doesn't crush
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            alignItems: "flex-start",
-          }}
-        >
-          <div style={{ minWidth: 220, flex: 1 }}>
+        <div className="section-header" style={{ marginBottom: 10, paddingTop: 0 }}>
+          <div>
             <div className="section-title">My profile</div>
             <div className="section-sub">This is how you appear inside Quantum5ocial.</div>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", flex: 1 }}>
             <Link href="/profile/edit" className="nav-ghost-btn" style={editBtnStyle}>
               Edit
             </Link>
@@ -452,10 +427,10 @@ export default function ProfileViewPage() {
                 <div
                   style={{
                     display: "flex",
-                    alignItems: "flex-start",
+                    alignItems: "center",
                     justifyContent: "space-between",
                     gap: 10,
-                    flexWrap: "wrap", // ✅ mobile wrap
+                    flexWrap: "nowrap",
                   }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
@@ -514,24 +489,41 @@ export default function ProfileViewPage() {
                     }}
                   >
                     <span style={{ color: "rgba(148,163,184,0.95)" }}>Top things to add:</span>
-                    <span style={{ maxWidth: "100%" }} title={topAddInline}>
+                    <span
+                      style={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: 760,
+                      }}
+                      title={topAddInline}
+                    >
                       {topAddInline}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Identity */}
+              {/* ✅ Claim/Update badge CTA (centered, above avatar+name) */}
               <div
-                className="profile-header"
                 style={{
-                  // ✅ stack avatar + text on small screens
                   display: "flex",
-                  gap: 12,
-                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  marginBottom: 12,
                 }}
               >
-                <div className="profile-avatar" style={{ flex: "0 0 auto" }}>
+                <ClaimPill
+                  onClick={() => setBadgeOpen(true)}
+                  base={claimPillStyle}
+                  hover={claimPillHoverStyle}
+                  label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+                  title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+                />
+              </div>
+
+              {/* Identity */}
+              <div className="profile-header">
+                <div className="profile-avatar">
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -543,100 +535,79 @@ export default function ProfileViewPage() {
                   )}
                 </div>
 
-                <div className="profile-header-text" style={{ width: "100%", minWidth: 0, flex: 1 }}>
-                  {/* ✅ name row becomes 2 rows on mobile naturally */}
+                <div className="profile-header-text" style={{ width: "100%" }}>
+                  {/* name row: name + badge (if any) */}
                   <div
                     style={{
                       display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      gap: 10,
+                      alignItems: "center",
+                      gap: 12,
                       width: "100%",
-                      flexWrap: "wrap", // ✅ allow stacking
+                      minWidth: 0,
+                      flexWrap: "wrap",
                     }}
                   >
                     <div
+                      className="profile-name"
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
                         minWidth: 0,
-                        flex: 1,
-                        flexWrap: "wrap",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
+                      title={displayName}
                     >
-                      <div
-                        className="profile-name"
+                      {displayName}
+                    </div>
+
+                    {/* show badge once claimed */}
+                    {hasBadge && (
+                      <span
                         style={{
-                          minWidth: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(34,211,238,0.35)",
+                          background: "rgba(34,211,238,0.08)",
+                          color: "rgba(226,232,240,0.95)",
+                          fontSize: 12,
+                          fontWeight: 900,
                           whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: "100%",
                         }}
-                        title={displayName}
+                        title={badgeLabel}
                       >
-                        {displayName}
-                      </div>
+                        {badgeLabel}
+                      </span>
+                    )}
 
-                      {hasBadge && (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            padding: "4px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(34,211,238,0.35)",
-                            background: "rgba(34,211,238,0.08)",
-                            color: "rgba(226,232,240,0.95)",
-                            fontSize: 12,
-                            fontWeight: 900,
-                            whiteSpace: "nowrap",
-                          }}
-                          title={badgeLabel}
-                        >
-                          {badgeLabel}
-                        </span>
-                      )}
-
-                      {hasBadge && statusLabel && (
-                        <span
-                          style={{
-                            ...statusPillStyle,
-                            border:
-                              status === "approved"
-                                ? "1px solid rgba(74,222,128,0.45)"
-                                : status === "rejected"
-                                ? "1px solid rgba(248,113,113,0.45)"
-                                : "1px solid rgba(148,163,184,0.35)",
-                            color:
-                              status === "approved"
-                                ? "rgba(187,247,208,0.95)"
-                                : status === "rejected"
-                                ? "rgba(254,202,202,0.95)"
-                                : "rgba(226,232,240,0.92)",
-                          }}
-                          title={statusLabel}
-                        >
-                          {statusLabel}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* ✅ keep pill aligned right on desktop, drops below on mobile */}
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                      <ClaimPill
-                        onClick={() => setBadgeOpen(true)}
-                        base={claimPillStyle}
-                        hover={claimPillHoverStyle}
-                        label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
-                        title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
-                      />
-                    </div>
+                    {/* optional status */}
+                    {hasBadge && statusLabel && (
+                      <span
+                        style={{
+                          ...statusPillStyle,
+                          border:
+                            status === "approved"
+                              ? "1px solid rgba(74,222,128,0.45)"
+                              : status === "rejected"
+                              ? "1px solid rgba(248,113,113,0.45)"
+                              : "1px solid rgba(148,163,184,0.35)",
+                          color:
+                            status === "approved"
+                              ? "rgba(187,247,208,0.95)"
+                              : status === "rejected"
+                              ? "rgba(254,202,202,0.95)"
+                              : "rgba(226,232,240,0.92)",
+                        }}
+                        title={statusLabel}
+                      >
+                        {statusLabel}
+                      </span>
+                    )}
                   </div>
 
                   {(headline || profile?.affiliation) && (
-                    <div className="profile-role" style={{ marginTop: 6 }}>
+                    <div className="profile-role">
                       {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
                     </div>
                   )}
@@ -667,14 +638,14 @@ export default function ProfileViewPage() {
 
                   <div style={{ display: "grid", gap: 6, fontSize: 13, color: "#e5e7eb" }}>
                     {accountEmail && (
-                      <div style={{ wordBreak: "break-word" }}>
+                      <div>
                         <span style={{ color: "rgba(148,163,184,0.9)" }}>Account email:</span>{" "}
                         {accountEmail}
                       </div>
                     )}
 
                     {privateProfile?.institutional_email && (
-                      <div style={{ wordBreak: "break-word" }}>
+                      <div>
                         <span style={{ color: "rgba(148,163,184,0.9)" }}>
                           Institutional email:
                         </span>{" "}
@@ -683,7 +654,7 @@ export default function ProfileViewPage() {
                     )}
 
                     {privateProfile?.phone && (
-                      <div style={{ wordBreak: "break-word" }}>
+                      <div>
                         <span style={{ color: "rgba(148,163,184,0.9)" }}>Phone:</span>{" "}
                         {privateProfile.phone}
                       </div>
@@ -702,8 +673,7 @@ export default function ProfileViewPage() {
                 </p>
               )}
 
-              {/* ✅ Make “two columns” collapse nicely on mobile without relying on global CSS */}
-              <div className="profile-two-columns" style={twoColStyle}>
+              <div className="profile-two-columns">
                 <div className="profile-col">
                   {profile?.affiliation && (
                     <div className="profile-summary-item">
@@ -730,7 +700,7 @@ export default function ProfileViewPage() {
                       <div className="profile-section-label">Links</div>
                       <ul style={{ paddingLeft: 16, fontSize: 13, marginTop: 4 }}>
                         {links.map((l) => (
-                          <li key={l.label} style={{ wordBreak: "break-word" }}>
+                          <li key={l.label}>
                             <a
                               href={l.value as string}
                               target="_blank"
