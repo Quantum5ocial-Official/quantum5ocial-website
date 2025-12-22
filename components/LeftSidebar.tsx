@@ -12,16 +12,15 @@ type ProfileSummary = {
   education_level?: string | null;
   highest_education?: string | null;
 
-  describes_you?: string | null;
   affiliation?: string | null;
   current_org?: string | null;
 
-  // ✅ Badge mirror fields (synced from profile_badge_claims via trigger)
+  // ✅ Badge mirror fields
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
 
-  // ✅ Optional “current title” if you have it in profiles (safe if missing)
+  // ✅ Optional “current title”
   current_title?: string | null;
   primary_role?: string | null;
 };
@@ -187,26 +186,21 @@ export default function LeftSidebar() {
   const fullName = profile?.full_name || fallbackName;
   const avatarUrl = profile?.avatar_url || null;
 
-  // ✅ Badge data (synced to profiles by trigger)
   const badgeLabel = profile?.q5_badge_label ?? null;
   const badgeStatus = profile?.q5_badge_review_status ?? null;
 
-  // ✅ Highest education line
   const highestEducation = profile?.highest_education || profile?.education_level || "";
 
-  // ✅ Title + affiliation line
   const currentTitle =
-    (profile as any)?.current_title?.trim?.() ||
-    (profile as any)?.primary_role?.trim?.() ||
-    "";
-  const affiliation = profile?.affiliation || profile?.current_org || "";
+    (profile?.current_title || "").trim() || (profile?.primary_role || "").trim() || "";
+  const affiliation = (profile?.affiliation || profile?.current_org || "").trim();
   const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
+  // If you want it to ALWAYS show something even when missing:
+  // const titleLine = [currentTitle || "—", affiliation].filter(Boolean).join(" · ");
+
   return (
-    <aside
-      className="layout-left sticky-col"
-      style={{ display: "flex", flexDirection: "column", gap: 6 }}
-    >
+    <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {/* PROFILE CARD */}
       <Link
         href={user ? "/profile" : "/auth"}
@@ -218,8 +212,15 @@ export default function LeftSidebar() {
           pointerEvents: user ? "auto" : "none",
         }}
       >
-        <div className="profile-sidebar-header">
-          {/* ✅ Avatar */}
+        <div className="profile-sidebar-header" style={{ display: "flex", flexDirection: "column" }}>
+          {/* ✅ 1) Badge pill (top) */}
+          {!loading && badgeLabel && (
+            <div style={{ marginBottom: 10 }}>
+              <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
+            </div>
+          )}
+
+          {/* ✅ 2) Avatar */}
           <div className="profile-sidebar-avatar-wrapper">
             {avatarUrl ? (
               <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
@@ -230,21 +231,16 @@ export default function LeftSidebar() {
             )}
           </div>
 
-          {/* ✅ Full name */}
-          <div className="profile-sidebar-name">{loading ? "Loading…" : fullName}</div>
+          {/* ✅ 3) Full name */}
+          <div className="profile-sidebar-name" style={{ marginTop: 10 }}>
+            {loading ? "Loading…" : fullName}
+          </div>
 
-          {/* ✅ Badge pill */}
-          {!loading && badgeLabel && (
-            <div style={{ marginTop: 6 }}>
-              <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
-            </div>
-          )}
-
-          {/* ✅ Highest education */}
+          {/* ✅ 4) Highest education */}
           {!loading && highestEducation && (
             <div
               style={{
-                marginTop: 8,
+                marginTop: 10,
                 fontSize: 13,
                 color: "rgba(226,232,240,0.88)",
                 lineHeight: 1.3,
@@ -254,7 +250,7 @@ export default function LeftSidebar() {
             </div>
           )}
 
-          {/* ✅ Current title + affiliation */}
+          {/* ✅ 5) Current title (or primary role) + affiliation */}
           {!loading && titleLine && (
             <div
               style={{
@@ -269,7 +265,7 @@ export default function LeftSidebar() {
           )}
         </div>
 
-        {/* Skeleton spacing (keeps card height stable while loading) */}
+        {/* Skeleton spacing */}
         {loading && (
           <div className="profile-sidebar-info-block" style={{ opacity: 0.7 }}>
             <div className="profile-sidebar-info-value" style={{ height: 12 }} />
@@ -286,12 +282,7 @@ export default function LeftSidebar() {
           <Link
             href="/dashboard/entangled-states"
             className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Entanglements</span>
             <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
@@ -300,12 +291,7 @@ export default function LeftSidebar() {
           <Link
             href="/dashboard/saved-jobs"
             className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved jobs</span>
             <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
@@ -314,12 +300,7 @@ export default function LeftSidebar() {
           <Link
             href="/dashboard/saved-products"
             className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>Saved products</span>
             <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
@@ -328,12 +309,7 @@ export default function LeftSidebar() {
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span>My Ecosystem</span>
           </Link>
@@ -344,44 +320,14 @@ export default function LeftSidebar() {
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
         <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Posts</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Questions</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              cursor: "default",
-            }}
-          >
-            <span>Answers</span>
-            <span style={{ opacity: 0.9 }}>0</span>
+          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
+            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
@@ -424,31 +370,13 @@ export default function LeftSidebar() {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontSize: 15,
-                  fontWeight: 500,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-              >
+              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                 {data.myOrg.name}
               </div>
 
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "rgba(148,163,184,0.95)",
-                  marginTop: 4,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                }}
-              >
+              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
                 <div>
-                  Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
@@ -466,21 +394,12 @@ export default function LeftSidebar() {
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background:
-            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+          background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -502,49 +421,22 @@ export default function LeftSidebar() {
         </div>
 
         <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
-          Unlock advanced analytics, reduced ads, and premium perks for your profile and
-          organization.
+          Unlock advanced analytics, reduced ads, and premium perks for your profile and organization.
         </div>
       </div>
 
-      <div
-        style={{
-          width: "100%",
-          height: 1,
-          background: "rgba(148,163,184,0.18)",
-          marginTop: 6,
-          marginBottom: 6,
-        }}
-      />
+      <div style={{ width: "100%", height: 1, background: "rgba(148,163,184,0.18)", marginTop: 6, marginBottom: 6 }} />
 
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>
-            ✉️
-          </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
-            𝕏
-          </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>
-            in
-          </a>
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 12,
-            color: "rgba(148,163,184,0.9)",
-          }}
-        >
-          <img
-            src="/Q5_white_bg.png"
-            alt="Quantum5ocial logo"
-            style={{ width: 24, height: 24, borderRadius: 4 }}
-          />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
+          <img src="/Q5_white_bg.png" alt="Quantum5ocial logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
           <span>© 2025 Quantum5ocial</span>
         </div>
       </div>
