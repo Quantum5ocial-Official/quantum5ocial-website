@@ -3664,3 +3664,28 @@ html.theme-light footer {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+/* MOBILE ONLY */
+@media (max-width: 768px) {
+  .community-card-name {
+    font-size: 13px;        /* slightly smaller */
+    white-space: normal;   /* allow wrap */
+    overflow: visible;
+    text-overflow: unset;
+    text-align: center;
+  }
+
+  .community-card-meta {
+    white-space: normal;   /* allow full text */
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
+    text-align: center;
+  }
+}
+@media (max-width: 768px) {
+  .community-badge-pill {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+  }
+}
