@@ -74,7 +74,12 @@ const steps = [
   { key: "impact", title: "Recognition / impact" },
 ] as const;
 
-export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: Props) {
+export default function ClaimQ5BadgeModal({
+  open,
+  onClose,
+  userId,
+  onClaimed,
+}: Props) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -97,29 +102,36 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
     onClose();
   };
 
-  const next = () => setStep((s) => Math.min(s + 1, steps.length));
+  const next = () => setStep((s) => Math.min(s + 1, steps.length - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
   const saveClaim = async () => {
     setSaving(true);
     setErr(null);
+
     try {
       const r = computeQ5Badge(answers);
 
-      const { error: e1 } = await supabase.from("profile_badge_claims").insert({
-        user_id: userId,
-        involvement: answers.involvement,
-        contribution: answers.contribution,
-        role_context: answers.role_context,
-        education: answers.education,
-        impact: answers.impact,
-        computed_level: r.level,
-        computed_label: r.label,
-        review_status: r.review_status,
-      });
+      // ✅ one row per user: upsert on user_id
+      const { error: e1 } = await supabase.from("profile_badge_claims").upsert(
+        {
+          user_id: userId,
+          involvement: answers.involvement,
+          contribution: answers.contribution,
+          role_context: answers.role_context,
+          education: answers.education,
+          impact: answers.impact,
+          computed_level: r.level,
+          computed_label: r.label,
+          review_status: r.review_status,
+          // updated_at handled by trigger
+        },
+        { onConflict: "user_id" }
+      );
 
       if (e1) throw e1;
 
+      // ✅ mirror into profiles so UI can read badge without joins
       const { error: e2 } = await supabase
         .from("profiles")
         .upsert(
@@ -135,7 +147,11 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
 
       if (e2) throw e2;
 
-      onClaimed?.({ level: r.level, label: r.label, review_status: r.review_status });
+      onClaimed?.({
+        level: r.level,
+        label: r.label,
+        review_status: r.review_status,
+      });
       close();
     } catch (e: any) {
       setErr(e?.message || "Could not claim badge.");
@@ -147,7 +163,6 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
   const renderStep = () => {
     const k = steps[step]?.key;
 
-    // ✅ FIXED: neutral involvement options (no badge names here)
     if (k === "involvement") {
       return (
         <>
@@ -158,16 +173,21 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
             style={fieldStyle}
             value={answers.involvement}
             onChange={(e) =>
-              setAnswers((p) => ({ ...p, involvement: Number(e.target.value) }))
+              setAnswers((p) => ({
+                ...p,
+                involvement: Number(e.target.value),
+              }))
             }
           >
             <option value={0}>
-              I am not yet working in quantum, but I want to engage with the ecosystem
+              Q5-Observer — I am not yet working in quantum, but I want to engage.
             </option>
-            <option value={1}>I’m learning / transitioning into quantum</option>
-            <option value={2}>I’m actively contributing to quantum work</option>
-            <option value={3}>I deliver independently at a professional level</option>
-            <option value={4}>I lead teams/products/research in quantum</option>
+            <option value={1}>Q5-Initiate — I’m learning / transitioning into quantum.</option>
+            <option value={2}>Q5-Practitioner — I’m actively contributing to quantum work.</option>
+            <option value={3}>
+              Q5-Expert track — I deliver independently at a professional level.
+            </option>
+            <option value={4}>Leadership track — I lead teams/products/research in quantum.</option>
           </select>
         </>
       );
@@ -183,7 +203,10 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
             style={fieldStyle}
             value={answers.contribution}
             onChange={(e) =>
-              setAnswers((p) => ({ ...p, contribution: Number(e.target.value) }))
+              setAnswers((p) => ({
+                ...p,
+                contribution: Number(e.target.value),
+              }))
             }
           >
             <option value={0}>Exploring / learning only</option>
@@ -205,7 +228,12 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           <select
             style={fieldStyle}
             value={answers.role_context}
-            onChange={(e) => setAnswers((p) => ({ ...p, role_context: e.target.value }))}
+            onChange={(e) =>
+              setAnswers((p) => ({
+                ...p,
+                role_context: e.target.value,
+              }))
+            }
           >
             <option>Student / Trainee</option>
             <option>Researcher / Scientist</option>
@@ -229,7 +257,12 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           <select
             style={fieldStyle}
             value={answers.education}
-            onChange={(e) => setAnswers((p) => ({ ...p, education: e.target.value }))}
+            onChange={(e) =>
+              setAnswers((p) => ({
+                ...p,
+                education: e.target.value,
+              }))
+            }
           >
             <option>Secondary / High school</option>
             <option>Bachelor</option>
@@ -250,7 +283,12 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           <select
             style={fieldStyle}
             value={answers.impact}
-            onChange={(e) => setAnswers((p) => ({ ...p, impact: Number(e.target.value) }))}
+            onChange={(e) =>
+              setAnswers((p) => ({
+                ...p,
+                impact: Number(e.target.value),
+              }))
+            }
           >
             <option value={0}>Not yet / personal learning only</option>
             <option value={1}>Within my team / lab / company</option>
@@ -270,6 +308,7 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
   return (
     <div style={overlayStyle} onMouseDown={close}>
       <div style={modalStyle} onMouseDown={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 16 }}>Claim your Q5 badge</div>
@@ -282,6 +321,7 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           </button>
         </div>
 
+        {/* Step indicator */}
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
           {steps.map((s, i) => (
             <div
@@ -301,6 +341,7 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           ))}
         </div>
 
+        {/* Body */}
         <div
           style={{
             marginTop: 14,
@@ -312,6 +353,7 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
           {renderStep()}
         </div>
 
+        {/* Preview + actions */}
         <div
           style={{
             marginTop: 12,
@@ -323,7 +365,8 @@ export default function ClaimQ5BadgeModal({ open, onClose, userId, onClaimed }: 
         >
           <div style={{ fontSize: 13 }}>
             <div style={{ fontWeight: 900 }}>
-              Preview: <span style={{ color: "rgba(34,211,238,0.95)" }}>{result.label}</span>
+              Preview:{" "}
+              <span style={{ color: "rgba(34,211,238,0.95)" }}>{result.label}</span>
               {result.review_status === "pending" ? " (review)" : ""}
             </div>
             <div style={{ opacity: 0.85, marginTop: 2 }}>{result.rationale}</div>
