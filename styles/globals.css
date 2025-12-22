@@ -986,6 +986,17 @@ a:focus {
   position: relative;            /* so absolute children can anchor here */
 }
 
+.profile-sidebar-avatar-wrapper { overflow: visible !important; }
+
+.q5-avatar-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(35%, -35%);
+  z-index: 10;
+  pointer-events: none;
+}
+
 .profile-sidebar-avatar {
   width: 100%;
   height: 100%;
