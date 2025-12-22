@@ -43,6 +43,7 @@ export default function NavbarIcons() {
 
   const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
 
   // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
@@ -240,9 +241,28 @@ export default function NavbarIcons() {
 
   // Lock scroll when mobile drawer is open
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.body.style.overflow =  ? "hidden" : "";
-  }, [isMobileMenuOpen]);
+  if (typeof document === "undefined") return;
+  document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+  return () => {
+    document.body.style.overflow = "";
+  };
+}, [isMobileMenuOpen]);
+
+  useEffect(() => {
+  if (!isMobileMenuOpen) return;
+  if (typeof document === "undefined") return;
+
+  const onPointerDown = (e: PointerEvent) => {
+    const drawerEl = mobileDrawerRef.current;
+    if (!drawerEl) return;
+    if (!drawerEl.contains(e.target as Node)) {
+      setIsMobileMenuOpen(false);
+    }
+  };
+
+  document.addEventListener("pointerdown", onPointerDown, true);
+  return () => document.removeEventListener("pointerdown", onPointerDown, true);
+}, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -768,9 +788,10 @@ export default function NavbarIcons() {
 
       {/* MOBILE DRAWER */}
             <div
-        className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+  ref={mobileDrawerRef}
+  className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
+  style={{ zIndex: 999 }}
+>
         <nav className="nav-links nav-links-mobile">
           {/* PROFILE ROW (mobile) */}
           {!loading && user && (
