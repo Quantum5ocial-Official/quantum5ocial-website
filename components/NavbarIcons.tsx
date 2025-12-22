@@ -33,7 +33,7 @@ export default function NavbarIcons() {
   const [hasOrganizations, setHasOrganizations] = useState(false);
 
   // mobile drawer
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [, set] = useState(false);
 
   // isMobile – used to hide desktop icon bar on small screens
   const [isMobile, setIsMobile] = useState<boolean>(() => {
@@ -241,7 +241,7 @@ export default function NavbarIcons() {
   // Lock scroll when mobile drawer is open
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+    document.body.style.overflow =  ? "hidden" : "";
   }, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
@@ -760,17 +760,9 @@ export default function NavbarIcons() {
       {/* ✅ MOBILE OVERLAY — click outside closes drawer */}
 {isMobile && isMobileMenuOpen && (
   <div
+    className="nav-drawer-backdrop"
     aria-hidden="true"
-    onMouseDown={closeMobileMenu}
-    style={{
-      position: "fixed",
-      top: NAV_HEADER_HEIGHT, // use 84, matches your header
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 80,
-      background: "rgba(0,0,0,0.45)",
-    }}
+    onPointerDown={closeMobileMenu}
   />
 )}
 
