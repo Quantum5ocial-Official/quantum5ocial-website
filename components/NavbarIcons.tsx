@@ -763,11 +763,14 @@ export default function NavbarIcons() {
           aria-hidden="true"
           onClick={closeMobileMenu}
           style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 998,
-            background: "rgba(0,0,0,0.45)",
-          }}
+  position: "fixed",
+  top: 72,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 59,
+  background: "rgba(0,0,0,0.45)",
+}}
         />
       )}
 
