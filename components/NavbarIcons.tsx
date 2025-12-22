@@ -757,8 +757,26 @@ export default function NavbarIcons() {
         </div>
       </div>
 
+            {/* ✅ MOBILE OVERLAY — click outside closes drawer */}
+      {isMobile && isMobileMenuOpen && (
+        <div
+          aria-hidden="true"
+          onClick={closeMobileMenu}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 998,
+            background: "rgba(0,0,0,0.45)",
+          }}
+        />
+      )}
+
       {/* MOBILE DRAWER */}
-      <div className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}>
+            <div
+        className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
+        style={{ zIndex: 999 }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <nav className="nav-links nav-links-mobile">
           {/* PROFILE ROW (mobile) */}
           {!loading && user && (
