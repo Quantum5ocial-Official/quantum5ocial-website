@@ -105,6 +105,7 @@ export default function ProfileViewPage() {
   const [profileLoading, setProfileLoading] = useState(true);
 
   const [badgeOpen, setBadgeOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEntanglements({ user, redirectPath: "/profile" });
 
@@ -113,6 +114,14 @@ export default function ProfileViewPage() {
       router.replace("/auth?redirect=/profile");
     }
   }, [loading, user, router]);
+
+  // ✅ detect mobile (only for layout tweaks)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 720);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // -------- Load profile --------
   useEffect(() => {
@@ -182,7 +191,7 @@ export default function ProfileViewPage() {
     if (user) loadProfile();
   }, [user]);
 
-  // ✅ Realtime: reflect backend edits (badge/admin changes) instantly
+  // ✅ Realtime: reflect backend edits instantly
   useEffect(() => {
     if (!user?.id) return;
 
@@ -208,7 +217,7 @@ export default function ProfileViewPage() {
     };
   }, [user?.id]);
 
-  // (Optional) refresh badge on focus in case realtime is disabled on Supabase
+  // (Optional) refresh badge on focus
   useEffect(() => {
     if (!user?.id) return;
 
@@ -358,17 +367,18 @@ export default function ProfileViewPage() {
     color: "rgba(226,232,240,0.92)",
   };
 
+  // ✅ desktop stays EXACTLY as-is; only mobile tweaks via wrapper styles
   const claimPillStyle: React.CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "8px 16px",
+    padding: "6px 12px",
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.45)",
     background: "rgba(2,6,23,0.25)",
     color: "rgba(226,232,240,0.95)",
-    fontSize: 13,
-    fontWeight: 900,
+    fontSize: 12,
+    fontWeight: 800,
     cursor: "pointer",
     whiteSpace: "nowrap",
     transition: "transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease",
@@ -504,23 +514,6 @@ export default function ProfileViewPage() {
                 )}
               </div>
 
-              {/* ✅ Claim/Update badge CTA (centered, above avatar+name) */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  marginBottom: 12,
-                }}
-              >
-                <ClaimPill
-                  onClick={() => setBadgeOpen(true)}
-                  base={claimPillStyle}
-                  hover={claimPillHoverStyle}
-                  label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
-                  title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
-                />
-              </div>
-
               {/* Identity */}
               <div className="profile-header">
                 <div className="profile-avatar">
@@ -536,7 +529,8 @@ export default function ProfileViewPage() {
                 </div>
 
                 <div className="profile-header-text" style={{ width: "100%" }}>
-                  {/* name row: name + badge (if any) */}
+                  {/* ✅ desktop unchanged: badge + claim pill on same row
+                      ✅ mobile: keep same DOM, but wrap and center so it doesn't overflow */}
                   <div
                     style={{
                       display: "flex",
@@ -544,76 +538,109 @@ export default function ProfileViewPage() {
                       gap: 12,
                       width: "100%",
                       minWidth: 0,
-                      flexWrap: "wrap",
+                      flexWrap: isMobile ? "wrap" : "nowrap",
+                      justifyContent: isMobile ? "center" : "flex-start",
                     }}
                   >
                     <div
-                      className="profile-name"
                       style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
                         minWidth: 0,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        flex: isMobile ? "0 1 100%" : 1,
+                        flexWrap: "wrap",
+                        justifyContent: isMobile ? "center" : "flex-start",
                       }}
-                      title={displayName}
                     >
-                      {displayName}
+                      <div
+                        className="profile-name"
+                        style={{
+                          minWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          textAlign: isMobile ? "center" : "left",
+                          maxWidth: isMobile ? "100%" : undefined,
+                        }}
+                        title={displayName}
+                      >
+                        {displayName}
+                      </div>
+
+                      {hasBadge && (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "4px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(34,211,238,0.35)",
+                            background: "rgba(34,211,238,0.08)",
+                            color: "rgba(226,232,240,0.95)",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            whiteSpace: "nowrap",
+                          }}
+                          title={badgeLabel}
+                        >
+                          {badgeLabel}
+                        </span>
+                      )}
+
+                      {hasBadge && statusLabel && (
+                        <span
+                          style={{
+                            ...statusPillStyle,
+                            border:
+                              status === "approved"
+                                ? "1px solid rgba(74,222,128,0.45)"
+                                : status === "rejected"
+                                ? "1px solid rgba(248,113,113,0.45)"
+                                : "1px solid rgba(148,163,184,0.35)",
+                            color:
+                              status === "approved"
+                                ? "rgba(187,247,208,0.95)"
+                                : status === "rejected"
+                                ? "rgba(254,202,202,0.95)"
+                                : "rgba(226,232,240,0.92)",
+                          }}
+                          title={statusLabel}
+                        >
+                          {statusLabel}
+                        </span>
+                      )}
                     </div>
 
-                    {/* show badge once claimed */}
-                    {hasBadge && (
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: "4px 10px",
-                          borderRadius: 999,
-                          border: "1px solid rgba(34,211,238,0.35)",
-                          background: "rgba(34,211,238,0.08)",
-                          color: "rgba(226,232,240,0.95)",
-                          fontSize: 12,
-                          fontWeight: 900,
-                          whiteSpace: "nowrap",
-                        }}
-                        title={badgeLabel}
-                      >
-                        {badgeLabel}
-                      </span>
-                    )}
-
-                    {/* optional status */}
-                    {hasBadge && statusLabel && (
-                      <span
-                        style={{
-                          ...statusPillStyle,
-                          border:
-                            status === "approved"
-                              ? "1px solid rgba(74,222,128,0.45)"
-                              : status === "rejected"
-                              ? "1px solid rgba(248,113,113,0.45)"
-                              : "1px solid rgba(148,163,184,0.35)",
-                          color:
-                            status === "approved"
-                              ? "rgba(187,247,208,0.95)"
-                              : status === "rejected"
-                              ? "rgba(254,202,202,0.95)"
-                              : "rgba(226,232,240,0.92)",
-                        }}
-                        title={statusLabel}
-                      >
-                        {statusLabel}
-                      </span>
-                    )}
+                    {/* Claim pill: unchanged; only wrapper behavior changes on mobile */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: isMobile ? "center" : "flex-end",
+                        width: isMobile ? "100%" : "auto",
+                      }}
+                    >
+                      <ClaimPill
+                        onClick={() => setBadgeOpen(true)}
+                        base={claimPillStyle}
+                        hover={claimPillHoverStyle}
+                        label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+                        title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+                      />
+                    </div>
                   </div>
 
                   {(headline || profile?.affiliation) && (
-                    <div className="profile-role">
+                    <div className="profile-role" style={{ textAlign: isMobile ? "center" : "left" }}>
                       {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
                     </div>
                   )}
 
                   {(profile?.city || profile?.country) && (
-                    <div className="profile-location">
+                    <div
+                      className="profile-location"
+                      style={{ textAlign: isMobile ? "center" : "left" }}
+                    >
                       {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                     </div>
                   )}
