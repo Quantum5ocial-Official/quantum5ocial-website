@@ -31,10 +31,6 @@ type CommunityProfile = {
   city: string | null;
   created_at?: string | null;
 
-  is_featured?: boolean | null;
-  featured_rank?: number | null;
-  featured_at?: string | null;
-
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
@@ -47,18 +43,11 @@ type CommunityOrg = {
   slug: string;
   kind: "company" | "research_group";
   logo_url: string | null;
-  tagline: string | null;
   industry: string | null;
-  focus_areas: string | null;
   institution: string | null;
-  department: string | null;
   city: string | null;
   country: string | null;
   created_at?: string | null;
-
-  is_featured?: boolean | null;
-  featured_rank?: number | null;
-  featured_at?: string | null;
 };
 
 type CommunityItem = {
@@ -73,8 +62,8 @@ type CommunityItem = {
   current_title?: string | null;
   affiliation?: string | null;
 
-  typeLabel: string;
-  roleLabel: string;
+  typeLabel: string; // org only (Company/Research group)
+  roleLabel: string; // org meta label
 
   created_at: string | null;
 
@@ -92,10 +81,6 @@ type CommunityCtx = {
 
   loadingOrgs: boolean;
   orgsError: string | null;
-
-  featuredProfile: CommunityProfile | null;
-  featuredOrg: CommunityOrg | null;
-  loadingFeatured: boolean;
 
   search: string;
   setSearch: (v: string) => void;
@@ -148,11 +133,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   const [orgs, setOrgs] = useState<CommunityOrg[]>([]);
   const [loadingOrgs, setLoadingOrgs] = useState(true);
   const [orgsError, setOrgsError] = useState<string | null>(null);
-
-  // kept for future (even if not rendered)
-  const [featuredProfile, setFeaturedProfile] = useState<CommunityProfile | null>(null);
-  const [featuredOrg, setFeaturedOrg] = useState<CommunityOrg | null>(null);
-  const [loadingFeatured, setLoadingFeatured] = useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -352,11 +332,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
     return orgs.filter((org) => {
       const location = [org.city, org.country].filter(Boolean).join(" ");
-      const meta =
-        org.kind === "company"
-          ? `${org.industry || ""}`
-          : `${org.institution || ""}`;
-
+      const meta = org.kind === "company" ? `${org.industry || ""}` : `${org.institution || ""}`;
       const haystack = `${org.name || ""} ${meta} ${location}`.toLowerCase();
       return haystack.includes(q);
     });
@@ -411,10 +387,6 @@ function CommunityProvider({ children }: { children: ReactNode }) {
     profilesError,
     loadingOrgs,
     orgsError,
-
-    featuredProfile,
-    featuredOrg,
-    loadingFeatured,
 
     search,
     setSearch,
@@ -474,17 +446,6 @@ function CommunityMiddle() {
     handleFollowOrg,
   } = ctx;
 
-  const pillTopRightWrap: React.CSSProperties = {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 8,
-    zIndex: 2,
-  };
-
   const orgTypePill: React.CSSProperties = {
     fontSize: 10.5,
     borderRadius: 999,
@@ -494,6 +455,7 @@ function CommunityMiddle() {
     whiteSpace: "nowrap",
     textTransform: "uppercase",
     letterSpacing: "0.08em",
+    background: "rgba(2,6,23,0.35)",
   };
 
   return (
@@ -695,7 +657,7 @@ function CommunityMiddle() {
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
-                    minHeight: 190,
+                    minHeight: 210,
                     ...(isClickable ? { cursor: "pointer" } : {}),
                   }}
                   onClick={
@@ -708,8 +670,20 @@ function CommunityMiddle() {
                         }
                   }
                 >
-                  {/* ✅ Top-right pill */}
-                  <div style={pillTopRightWrap} onClick={(e) => e.stopPropagation()}>
+                  {/* ✅ top-right badge pill */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 10,
+                      right: 10,
+                      zIndex: 2,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      gap: 8,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {item.kind === "person" ? (
                       hasBadge ? (
                         <Q5BadgeChips
@@ -723,14 +697,23 @@ function CommunityMiddle() {
                     )}
                   </div>
 
+                  {/* TOP: avatar centered + text BELOW */}
                   <div className="card-inner">
-                    {/* ✅ avatar + pill row */}
-                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        textAlign: "center",
+                        gap: 10,
+                        paddingTop: 6,
+                      }}
+                    >
                       <div
                         style={{
-                          width: 52,
-                          height: 52,
-                          borderRadius: isOrganization ? 14 : "999px",
+                          width: 62,
+                          height: 62,
+                          borderRadius: isOrganization ? 16 : 999,
                           overflow: "hidden",
                           flexShrink: 0,
                           border: "1px solid rgba(148,163,184,0.4)",
@@ -740,8 +723,8 @@ function CommunityMiddle() {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: 18,
-                          fontWeight: 700,
+                          fontSize: 20,
+                          fontWeight: 800,
                           color: isOrganization ? "#0f172a" : "#e5e7eb",
                         }}
                       >
@@ -749,50 +732,54 @@ function CommunityMiddle() {
                           <img
                             src={item.avatar_url}
                             alt={item.name}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
                           />
                         ) : (
                           <span>{initial}</span>
                         )}
                       </div>
 
-                      <div style={{ flex: 1, minWidth: 0, paddingRight: 86 /* room for pill */ }}>
-                        {/* ✅ Name below (title-like) */}
-                        <div
-                          style={{
-                            fontWeight: 800,
-                            fontSize: 14,
-                            lineHeight: 1.2,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                          title={item.name}
-                        >
-                          {item.name}
-                        </div>
+                      {/* Name */}
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          fontSize: 14,
+                          lineHeight: 1.2,
+                          maxWidth: "100%",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={item.name}
+                      >
+                        {item.name}
+                      </div>
 
-                        {/* ✅ current_title(or role) + affiliation */}
-                        <div
-                          style={{
-                            marginTop: 4,
-                            fontSize: 12,
-                            color: "rgba(226,232,240,0.86)",
-                            lineHeight: 1.35,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                          title={metaLine}
-                        >
-                          {metaLine}
-                        </div>
+                      {/* title/role + affiliation */}
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(226,232,240,0.86)",
+                          lineHeight: 1.35,
+                          maxWidth: "100%",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={metaLine}
+                      >
+                        {metaLine}
                       </div>
                     </div>
                   </div>
 
-                  {/* ✅ Footer actions */}
-                  <div style={{ marginTop: 12 }}>
+                  {/* FOOTER ACTIONS */}
+                  <div style={{ marginTop: 14 }}>
                     {isOrganization ? (
                       (() => {
                         const following = isFollowingOrg(item.id);
@@ -876,7 +863,7 @@ function CommunityMiddle() {
                                   background: "linear-gradient(90deg,#22c55e,#16a34a)",
                                   color: "#0f172a",
                                   fontSize: 12,
-                                  fontWeight: 700,
+                                  fontWeight: 800,
                                   cursor: loading ? "default" : "pointer",
                                   opacity: loading ? 0.7 : 1,
                                 }}
