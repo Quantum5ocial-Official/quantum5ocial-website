@@ -1,5 +1,5 @@
 // pages/profile.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -56,6 +56,14 @@ type CompletenessItem = {
   ok: boolean;
 };
 
+type PostRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  created_at: string | null;
+  image_url: string | null;
+};
+
 function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const has = (v: any) => {
     if (v == null) return false;
@@ -94,6 +102,314 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
 
   const missing = items.filter((x) => !x.ok).sort((a, b) => b.w - a.w);
   return { pct, missing };
+}
+
+// hover effect without touching global CSS
+function ClaimPill({
+  onClick,
+  base,
+  hover,
+  label,
+  title,
+}: {
+  onClick: () => void;
+  base: React.CSSProperties;
+  hover: React.CSSProperties;
+  label: string;
+  title: string;
+}) {
+  const [h, setH] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setH(true)}
+      onMouseLeave={() => setH(false)}
+      style={{ ...base, ...(h ? hover : {}) }}
+      title={title}
+    >
+      {label}
+    </button>
+  );
+}
+
+function LinkifyText({ text }: { text: string }) {
+  const parts = (text || "").split(/(https?:\/\/[^\s]+)/g);
+
+  return (
+    <>
+      {parts.map((part, idx) => {
+        const isUrl = /^https?:\/\/[^\s]+$/.test(part);
+        if (!isUrl) return <span key={idx}>{part}</span>;
+
+        return (
+          <a
+            key={idx}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              color: "rgba(34,211,238,0.95)",
+              textDecoration: "underline",
+              wordBreak: "break-word",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {part}
+          </a>
+        );
+      })}
+    </>
+  );
+}
+
+function formatRelativeTime(created_at: string | null) {
+  if (!created_at) return "";
+  const t = Date.parse(created_at);
+  if (Number.isNaN(t)) return "";
+  const diffMs = Date.now() - t;
+  const diffSec = Math.floor(diffMs / 1000);
+
+  if (diffSec < 5) return "just now";
+  if (diffSec < 60) return `${diffSec} seconds ago`;
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+
+  const diffWk = Math.floor(diffDay / 7);
+  if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+
+  const diffMo = Math.floor(diffDay / 30);
+  return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
+}
+
+function PostPreviewCard({ post }: { post: PostRow }) {
+  const mediaH = 220;
+  const hasImage = !!post.image_url;
+  const hasText = !!(post.body || "").trim();
+
+  const openPost = () => {
+    // Same pattern as homepage + copy-link
+    window.location.href = `/?post=${post.id}`;
+  };
+
+  return (
+    <div
+      className="card"
+      onClick={openPost}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") openPost();
+      }}
+      style={{
+        padding: 14,
+        borderRadius: 14,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(15,23,42,0.92)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 360,
+        cursor: "pointer",
+      }}
+    >
+      {/* Frame: image (contain) OR text centered inside */}
+      <div
+        style={{
+          height: mediaH,
+          borderRadius: 14,
+          border: "1px solid rgba(148,163,184,0.14)",
+          background: "rgba(2,6,23,0.24)",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: hasImage ? 0 : 14,
+        }}
+      >
+        {hasImage ? (
+          <img
+            src={post.image_url as string}
+            alt="Post image"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+            }}
+            loading="lazy"
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "left",
+              color: "rgba(226,232,240,0.92)",
+              fontSize: 13,
+              lineHeight: 1.5,
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                display: "-webkit-box",
+                WebkitLineClamp: 8,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+                wordBreak: "break-word",
+              }}
+            >
+              {hasText ? <LinkifyText text={post.body || ""} /> : <span style={{ opacity: 0.7 }}>—</span>}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 11, opacity: 0.72 }}>
+        {formatRelativeTime(post.created_at)}
+      </div>
+
+      {/* body below only when image exists */}
+      {hasImage && (
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 13,
+            lineHeight: 1.45,
+            color: "rgba(226,232,240,0.92)",
+            flex: 1,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 6,
+            WebkitBoxOrient: "vertical",
+            wordBreak: "break-word",
+          }}
+        >
+          <LinkifyText text={post.body || ""} />
+        </div>
+      )}
+
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigator.clipboard?.writeText(`${window.location.origin}/?post=${post.id}`).catch(() => {});
+          }}
+          style={{
+            fontSize: 12,
+            padding: "6px 10px",
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.24)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+          title="Copy a link that opens this post expanded"
+        >
+          Copy link
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function HorizontalPostsRow({
+  userId,
+  limit = 50,
+}: {
+  userId: string;
+  limit?: number;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [items, setItems] = useState<PostRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const { data, error: postErr } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+
+        if (postErr) throw postErr;
+
+        if (cancelled) return;
+        setItems((data as PostRow[]) || []);
+      } catch (e: any) {
+        if (cancelled) return;
+        setError(e?.message || "Could not load posts.");
+        setItems([]);
+      } finally {
+        if (cancelled) return;
+        setLoading(false);
+      }
+    };
+
+    if (userId) load();
+
+    // realtime updates on create/delete/update
+    const channel = supabase
+      .channel(`profile-posts:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts", filter: `user_id=eq.${userId}` },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [userId, limit]);
+
+  if (loading) return <div className="products-status">Loading posts…</div>;
+  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
+  if (!items.length) return <div className="products-empty">No posts yet.</div>;
+
+  // single row, 2 columns visible (scroll horizontally)
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridAutoFlow: "column",
+        gridAutoColumns: "minmax(260px, 1fr)",
+        gap: 12,
+        overflowX: "auto",
+        paddingBottom: 6,
+        scrollSnapType: "x mandatory",
+      }}
+    >
+      {items.map((p) => (
+        <div key={p.id} style={{ scrollSnapAlign: "start" }}>
+          <PostPreviewCard post={p} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function ProfileViewPage() {
@@ -696,7 +1012,7 @@ export default function ProfileViewPage() {
           )}
         </div>
 
-        {/* ✅ POSTS SECTION — horizontal: 2 columns per page, scroll left/right */}
+        {/* ✅ POSTS SECTION — horizontal 2-column row, click opens expanded */}
         <div style={{ marginTop: 14 }}>
           <div
             className="card"
@@ -723,7 +1039,7 @@ export default function ProfileViewPage() {
                   Posts
                 </div>
                 <div className="section-sub" style={{ maxWidth: 620 }}>
-                  Your public posts — now in a sideways carousel (2 at a time).
+                  Your public posts. Click a card to open it expanded.
                 </div>
               </div>
 
@@ -735,7 +1051,7 @@ export default function ProfileViewPage() {
             </div>
           </div>
 
-          <ProfilePostsCarousel userId={user?.id || ""} limit={50} />
+          {!!user?.id && <HorizontalPostsRow userId={user.id} limit={50} />}
         </div>
       </div>
 
@@ -761,350 +1077,6 @@ export default function ProfileViewPage() {
         />
       )}
     </section>
-  );
-}
-
-// hover effect without touching global CSS
-function ClaimPill({
-  onClick,
-  base,
-  hover,
-  label,
-  title,
-}: {
-  onClick: () => void;
-  base: React.CSSProperties;
-  hover: React.CSSProperties;
-  label: string;
-  title: string;
-}) {
-  const [h, setH] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      onMouseEnter={() => setH(true)}
-      onMouseLeave={() => setH(false)}
-      style={{ ...base, ...(h ? hover : {}) }}
-      title={title}
-    >
-      {label}
-    </button>
-  );
-}
-
-/* =========================
-   Profile posts carousel
-   - ONE ROW, scroll x
-   - Each “page” shows 2 columns
-   - Image shows FULL (contain), consistent media height
-   ========================= */
-
-type PostRow = {
-  id: string;
-  user_id: string;
-  body: string;
-  created_at: string | null;
-  image_url: string | null;
-};
-
-function formatRelativeTime(created_at: string | null) {
-  if (!created_at) return "";
-  const t = Date.parse(created_at);
-  if (Number.isNaN(t)) return "";
-  const diffMs = Date.now() - t;
-  const diffSec = Math.floor(diffMs / 1000);
-
-  if (diffSec < 5) return "just now";
-  if (diffSec < 60) return `${diffSec} seconds ago`;
-
-  const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
-
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
-
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
-
-  const diffWk = Math.floor(diffDay / 7);
-  if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
-
-  const diffMo = Math.floor(diffDay / 30);
-  return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
-}
-
-function LinkifyText({ text }: { text: string }) {
-  const parts = (text || "").split(/(https?:\/\/[^\s]+)/g);
-  return (
-    <>
-      {parts.map((part, idx) => {
-        const isUrl = /^https?:\/\/[^\s]+$/.test(part);
-        if (!isUrl) return <span key={idx}>{part}</span>;
-        return (
-          <a
-            key={idx}
-            href={part}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "rgba(34,211,238,0.95)", textDecoration: "underline", wordBreak: "break-word" }}
-          >
-            {part}
-          </a>
-        );
-      })}
-    </>
-  );
-}
-
-function ProfilePostsCarousel({ userId, limit = 50 }: { userId: string; limit?: number }) {
-  const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<PostRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  const pages = useMemo(() => {
-    const out: PostRow[][] = [];
-    for (let i = 0; i < rows.length; i += 2) out.push(rows.slice(i, i + 2));
-    return out;
-  }, [rows]);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const { data, error } = await supabase
-          .from("posts")
-          .select("id, user_id, body, created_at, image_url")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(limit);
-
-        if (error) throw error;
-        if (cancelled) return;
-
-        setRows((data as PostRow[]) || []);
-      } catch (e: any) {
-        if (cancelled) return;
-        console.error("ProfilePostsCarousel load error:", e);
-        setRows([]);
-        setError(e?.message || "Could not load posts.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, limit]);
-
-  const scrollByPage = (dir: -1 | 1) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const amount = el.clientWidth; // one “page” width
-    el.scrollBy({ left: dir * amount, behavior: "smooth" });
-  };
-
-  if (loading) return <div className="products-status">Loading posts…</div>;
-  if (error) return <div className="products-status" style={{ color: "#f87171" }}>{error}</div>;
-  if (!rows.length) return <div className="products-empty">No posts yet.</div>;
-
-  return (
-    <div style={{ position: "relative" }}>
-      {/* arrows */}
-      <button
-        type="button"
-        onClick={() => scrollByPage(-1)}
-        aria-label="Scroll left"
-        style={arrowBtnStyle("left")}
-      >
-        ❮
-      </button>
-
-      <button
-        type="button"
-        onClick={() => scrollByPage(1)}
-        aria-label="Scroll right"
-        style={arrowBtnStyle("right")}
-      >
-        ❯
-      </button>
-
-      <div
-        ref={scrollerRef}
-        style={{
-          display: "flex",
-          gap: 14,
-          overflowX: "auto",
-          paddingBottom: 8,
-          scrollSnapType: "x mandatory",
-          WebkitOverflowScrolling: "touch",
-          scrollbarWidth: "thin",
-        }}
-      >
-        {pages.map((pair, i) => (
-          <div
-            key={`page-${i}`}
-            style={{
-              flex: "0 0 100%",
-              scrollSnapAlign: "start",
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 12,
-            }}
-          >
-            {pair.map((p) => (
-              <PostPreviewCard key={p.id} post={p} />
-            ))}
-
-            {/* if odd count, keep grid balance */}
-            {pair.length === 1 && <div aria-hidden="true" />}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function arrowBtnStyle(side: "left" | "right"): React.CSSProperties {
-  return {
-    position: "absolute",
-    top: "50%",
-    transform: "translateY(-50%)",
-    zIndex: 5,
-    ...(side === "left" ? { left: -6 } : { right: -6 }),
-    width: 34,
-    height: 34,
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.24)",
-    background: "rgba(2,6,23,0.55)",
-    color: "rgba(226,232,240,0.95)",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 12px 30px rgba(0,0,0,0.35)",
-    backdropFilter: "blur(8px)",
-    WebkitBackdropFilter: "blur(8px)",
-  };
-}
-
-function PostPreviewCard({ post }: { post: PostRow }) {
-  const mediaH = 220;
-
-  return (
-    <div
-      className="card"
-      style={{
-        padding: 14,
-        borderRadius: 14,
-        border: "1px solid rgba(148,163,184,0.18)",
-        background: "rgba(15,23,42,0.92)",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 360,
-      }}
-    >
-      {/* media area */}
-      <div
-        style={{
-          height: mediaH,
-          borderRadius: 14,
-          border: "1px solid rgba(148,163,184,0.14)",
-          background: "rgba(2,6,23,0.24)",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {post.image_url ? (
-          <img
-            src={post.image_url}
-            alt="Post image"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain", // ✅ full image visible
-              display: "block",
-            }}
-            loading="lazy"
-          />
-        ) : (
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              background:
-                "radial-gradient(circle at 20% 10%, rgba(34,211,238,0.18), rgba(2,6,23,0.0) 60%), radial-gradient(circle at 80% 40%, rgba(99,102,241,0.16), rgba(2,6,23,0.0) 55%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "rgba(148,163,184,0.85)",
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-          >
-            Text post
-          </div>
-        )}
-      </div>
-
-      {/* meta */}
-      <div style={{ marginTop: 10, fontSize: 11, opacity: 0.72 }}>
-        {formatRelativeTime(post.created_at)}
-      </div>
-
-      {/* body */}
-      <div
-        style={{
-          marginTop: 8,
-          fontSize: 13,
-          lineHeight: 1.45,
-          color: "rgba(226,232,240,0.92)",
-          flex: 1,
-          overflow: "hidden",
-          display: "-webkit-box",
-          WebkitLineClamp: 6,
-          WebkitBoxOrient: "vertical",
-        }}
-      >
-        <LinkifyText text={post.body || ""} />
-      </div>
-
-      {/* actions */}
-      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end", gap: 10 }}>
-        <button
-          type="button"
-          onClick={() => {
-            navigator.clipboard
-              ?.writeText(`${window.location.origin}/?post=${post.id}`)
-              .catch(() => {});
-          }}
-          style={{
-            fontSize: 12,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: "1px solid rgba(148,163,184,0.24)",
-            background: "rgba(2,6,23,0.22)",
-            color: "rgba(226,232,240,0.92)",
-            cursor: "pointer",
-            fontWeight: 800,
-          }}
-        >
-          Copy link
-        </button>
-      </div>
-    </div>
   );
 }
 
