@@ -51,7 +51,7 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
-  // 🔆 watch global theme class on <html>
+  // watch global theme class on <html>
   const [isLightTheme, setIsLightTheme] = useState(false);
 
   useEffect(() => {
@@ -71,25 +71,29 @@ export default function LeftSidebar() {
   // theme tokens
   const textPrimary = isLightTheme ? "#0f172a" : "#e5e7eb";
   const textSecondary = isLightTheme
-    ? "rgba(55,65,81,0.9)" // slate-700
+    ? "rgba(55,65,81,0.9)"
     : "rgba(226,232,240,0.88)";
   const textMuted = isLightTheme
-    ? "rgba(107,114,128,0.95)" // gray-600
+    ? "rgba(107,114,128,0.95)"
     : "rgba(148,163,184,0.95)";
   const subtleLabelColor = "rgba(148,163,184,0.9)";
   const dividerColor = isLightTheme
     ? "rgba(148,163,184,0.35)"
     : "rgba(148,163,184,0.18)";
-  const orgAnalyticsColor = isLightTheme ? "#0369a1" : "#7dd3fc";
+  const accent = isLightTheme ? "#0284c7" : "#7dd3fc";
+  const orgAnalyticsColor = accent;
 
   const premiumBackground = isLightTheme
-    ? "linear-gradient(135deg, rgba(251,191,36,0.18), rgba(244,114,182,0.26))"
+    ? "linear-gradient(135deg, rgba(251,191,36,0.16), rgba(244,114,182,0.22))"
     : "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))";
+  const premiumBorder = isLightTheme
+    ? "1px solid rgba(251,191,36,0.35)"
+    : "1px solid rgba(251,191,36,0.5)";
   const premiumPillBg = isLightTheme
-    ? "rgba(248,250,252,0.9)"
+    ? "rgba(248,250,252,0.96)"
     : "rgba(15,23,42,0.75)";
   const premiumPillBorder = isLightTheme
-    ? "1px solid rgba(217,119,6,0.6)"
+    ? "1px solid rgba(217,119,6,0.55)"
     : "1px solid rgba(251,191,36,0.6)";
   const premiumPillText = isLightTheme
     ? "rgba(161,98,7,0.9)"
@@ -357,9 +361,14 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* DASHBOARD CARD – structure same as before */}
+      {/* DASHBOARD CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
-        <div className="dashboard-sidebar-title">Dashboard</div>
+        <div
+          className="dashboard-sidebar-title"
+          style={{ color: textPrimary }}
+        >
+          Dashboard
+        </div>
 
         <div
           className="dashboard-sidebar-links"
@@ -389,7 +398,7 @@ export default function LeftSidebar() {
                 fontSize: 10.5,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                color: subtleLabelColor,
+                color: accent,
               }}
             >
               Open →
@@ -411,7 +420,9 @@ export default function LeftSidebar() {
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               🧬 <span>Entanglements</span>
             </span>
-            <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
+            <span style={{ color: textPrimary }}>
+              {data.entangledCount ?? "…"}
+            </span>
           </Link>
 
           <Link
@@ -428,7 +439,9 @@ export default function LeftSidebar() {
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               📝 <span>My posts</span>
             </span>
-            <span style={{ opacity: 0.9 }}>{data.postsCount ?? "…"}</span>
+            <span style={{ color: textPrimary }}>
+              {data.postsCount ?? "…"}
+            </span>
           </Link>
 
           <Link
@@ -445,7 +458,9 @@ export default function LeftSidebar() {
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               💼 <span>Saved jobs</span>
             </span>
-            <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
+            <span style={{ color: textPrimary }}>
+              {data.savedJobsCount ?? "…"}
+            </span>
           </Link>
 
           <Link
@@ -462,7 +477,7 @@ export default function LeftSidebar() {
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               🛒 <span>Saved products</span>
             </span>
-            <span style={{ opacity: 0.9 }}>
+            <span style={{ color: textPrimary }}>
               {data.savedProductsCount ?? "…"}
             </span>
           </Link>
@@ -476,7 +491,12 @@ export default function LeftSidebar() {
           className="sidebar-card dashboard-sidebar-card"
           style={{ textDecoration: "none", color: "inherit" }}
         >
-          <div className="dashboard-sidebar-title">My organization</div>
+          <div
+            className="dashboard-sidebar-title"
+            style={{ color: textPrimary }}
+          >
+            My organization
+          </div>
 
           <div
             style={{
@@ -573,7 +593,7 @@ export default function LeftSidebar() {
           padding: "14px 16px",
           borderRadius: 20,
           background: premiumBackground,
-          border: "1px solid rgba(251,191,36,0.5)",
+          border: premiumBorder,
           boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
           textDecoration: "none",
           color: "inherit",
