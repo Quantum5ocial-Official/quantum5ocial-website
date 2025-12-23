@@ -118,6 +118,7 @@ export default function CreateCompanyPage() {
     try {
       const effectiveSlug = (slug || slugify(name)).toLowerCase();
 
+      // ⬇️ 1) Create organization and get id + slug
       const { data, error } = await supabase
         .from("organizations")
         .insert({
@@ -132,17 +133,30 @@ export default function CreateCompanyPage() {
           tagline: tagline || null,
           // logo_url will be set later when we add Storage upload
         })
-        .select("slug")
+        .select("id, slug")
         .single();
 
-      if (error) {
-        throw error;
+      if (error || !data) {
+        throw error || new Error("No organization data returned");
+      }
+
+      // ⬇️ 2) Create membership row for creator as owner + affiliated
+      const { error: memberError } = await supabase.from("org_members").insert({
+        org_id: data.id,
+        user_id: user.id,
+        role: "owner",
+        is_affiliated: true,
+      });
+
+      if (memberError) {
+        console.error("Error creating org_members owner row", memberError);
+        // We don't block navigation, but log so it can be backfilled if needed
       }
 
       setSubmitMessage("Company page created successfully.");
       setSubmitError(null);
 
-      if (data?.slug) {
+      if (data.slug) {
         router.push(`/orgs/${data.slug}`);
       }
     } catch (err: any) {
