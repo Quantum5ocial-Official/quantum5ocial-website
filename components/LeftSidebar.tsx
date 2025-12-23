@@ -284,7 +284,8 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(226,232,240,0.88)",
+                // darker neutral so it works on bright + dark
+                color: "rgba(51,65,85,0.9)", // slate-700-ish
                 lineHeight: 1.2,
               }}
             >
@@ -297,7 +298,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(148,163,184,0.95)",
+                color: "rgba(100,116,139,0.95)", // slightly darker than before
                 lineHeight: 1.2,
               }}
             >
@@ -351,7 +352,7 @@ export default function LeftSidebar() {
             <span
               style={{
                 fontSize: 11,
-                color: "rgba(148,163,184,0.95)",
+                color: "rgba(100,116,139,0.95)",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
               }}
@@ -387,7 +388,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
+                  color: "rgba(51,65,85,0.95)", // text more visible on light card
                 }}
               >
                 🧬 <span>Entanglements</span>
@@ -413,7 +414,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
+                  color: "rgba(51,65,85,0.95)",
                 }}
               >
                 📝 <span>My posts</span>
@@ -439,7 +440,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
+                  color: "rgba(51,65,85,0.95)",
                 }}
               >
                 💼 <span>Saved jobs</span>
@@ -465,7 +466,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
+                  color: "rgba(51,65,85,0.95)",
                 }}
               >
                 🛒 <span>Saved products</span>
@@ -542,7 +543,7 @@ export default function LeftSidebar() {
               <div
                 style={{
                   fontSize: 13,
-                  color: "rgba(148,163,184,0.95)",
+                  color: "rgba(100,116,139,0.95)",
                   marginTop: 4,
                   display: "flex",
                   flexDirection: "column",
@@ -551,12 +552,13 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>
+                  <span style={{ color: "rgba(15,23,42,0.9)" }}>
                     {data.myOrgFollowersCount ?? "…"}
                   </span>
                 </div>
                 <div>
-                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
+                  Views:{" "}
+                  <span style={{ color: "rgba(15,23,42,0.9)" }}>0</span>
                 </div>
                 <div style={{ marginTop: 4, color: "#7dd3fc" }}>
                   Analytics →
@@ -577,7 +579,7 @@ export default function LeftSidebar() {
           background:
             "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
-          boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
+          boxShadow: "0 12px 30px rgba(15,23,42,0.55)", // slightly softer for bright theme
           textDecoration: "none",
           color: "inherit",
           cursor: "pointer",
@@ -601,9 +603,10 @@ export default function LeftSidebar() {
               fontSize: 11,
               padding: "4px 10px",
               borderRadius: 999,
-              background: "rgba(15,23,42,0.75)",
-              border: "1px solid rgba(251,191,36,0.6)",
-              color: "rgba(251,191,36,0.9)",
+              // lighter pill so it doesn't become a black slug on white
+              background: "rgba(15,23,42,0.12)",
+              border: "1px solid rgba(251,191,36,0.7)",
+              color: "rgba(146,64,14,0.95)",
               whiteSpace: "nowrap",
             }}
           >
