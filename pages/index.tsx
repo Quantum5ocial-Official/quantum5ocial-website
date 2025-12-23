@@ -615,7 +615,7 @@ function HomeGlobalFeed() {
         .from("post_comments")
         .select("id, post_id, user_id, body, created_at")
         .eq("post_id", postId)
-        .order("created_at", { ascending: true });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
