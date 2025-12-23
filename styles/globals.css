@@ -102,13 +102,23 @@ a:focus {
   display: flex;
   flex-direction: column;
 }
-.page {
-  height: 100vh;
-  overflow: hidden;
+html,
+body {
+  height: 100%;
+  overflow: hidden; /* stop whole-document scrolling */
 }
 
-.page > * {
-  min-height: 0; /* critical for flex children */
+.page {
+  height: 100vh;
+  overflow: hidden; /* keep scroll inside internal containers */
+}
+
+/* your main 3-col wrapper */
+.layout-3col {
+  /* you have paddingTop=120px and paddingBottom=40px on .page */
+  height: calc(100vh - 120px - 40px);
+  overflow-y: auto;
+  min-height: 0;
 }
 /* Generic full-width section inside main content */
 .section {
