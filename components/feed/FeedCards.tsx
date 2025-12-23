@@ -225,16 +225,106 @@ export default function FeedCards({
 
             {/* Comments unchanged */}
             {isOpen && (
-              <div
-                style={{
-                  marginTop: 12,
-                  paddingTop: 12,
-                  borderTop: "1px solid rgba(148,163,184,0.14)",
-                }}
-              >
-                {/* (rest unchanged) */}
+  <div
+    style={{
+      marginTop: 12,
+      paddingTop: 12,
+      borderTop: "1px solid rgba(148,163,184,0.14)",
+    }}
+  >
+    {/* Comment input */}
+    <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+      <div style={avatarStyle(32)}>
+        {user ? "🙂" : "?"}
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <textarea
+          value={commentDraft[p.id] || ""}
+          onChange={(e) =>
+            setCommentDraft((prev) => ({ ...prev, [p.id]: e.target.value }))
+          }
+          placeholder={user ? "Write a comment…" : "Login to comment…"}
+          disabled={!user || !!commentSaving[p.id]}
+          style={{
+            width: "100%",
+            minHeight: 46,
+            borderRadius: 14,
+            border: "1px solid rgba(148,163,184,0.2)",
+            background: "rgba(2,6,23,0.22)",
+            color: "rgba(226,232,240,0.92)",
+            padding: "10px 12px",
+            fontSize: 13,
+            outline: "none",
+            resize: "vertical",
+          }}
+        />
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={() => onSubmitComment(p.id)}
+            disabled={!user || !!commentSaving[p.id] || !(commentDraft[p.id] || "").trim()}
+            style={{
+              fontSize: 13,
+              padding: "7px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.28)",
+              background: "rgba(2,6,23,0.22)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              opacity:
+                !user || !!commentSaving[p.id] || !(commentDraft[p.id] || "").trim()
+                  ? 0.5
+                  : 1,
+            }}
+          >
+            {commentSaving[p.id] ? "Posting…" : "Comment"}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Comments list */}
+    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+      {comments.length === 0 ? (
+        <div style={{ opacity: 0.7, fontSize: 12 }}>No comments yet.</div>
+      ) : (
+        comments.map((c) => {
+          const cp = commenterProfiles[c.user_id];
+          const name = cp?.full_name || "Member";
+          return (
+            <div key={c.id} style={{ display: "flex", gap: 10 }}>
+              <div style={avatarStyle(30)}>
+                {cp?.avatar_url ? (
+                  <img
+                    src={cp.avatar_url}
+                    alt={name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                ) : (
+                  initialsOf(name)
+                )}
               </div>
-            )}
+
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <div style={{ fontWeight: 800, fontSize: 13 }}>{name}</div>
+                  <div style={{ opacity: 0.7, fontSize: 12 }}>
+                    {formatRelativeTime(c.created_at)}
+                  </div>
+                </div>
+                <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.4, opacity: 0.92 }}>
+                  <LinkifyText text={c.body || ""} />
+                </div>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  </div>
+)}
           </div>
         );
       })}
