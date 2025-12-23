@@ -11,7 +11,7 @@ type ProfileSummary = {
 
   highest_education?: string | null;
 
-  role?: string | null; // primary role
+  role?: string | null;
   current_title?: string | null;
   affiliation?: string | null;
 
@@ -410,57 +410,6 @@ export default function LeftSidebar() {
         </div>
       </div>
 
-      {/* MY ACTIVITY – now linked into ecosystem */}
-      <div className="sidebar-card dashboard-sidebar-card">
-        <div className="dashboard-sidebar-title">My activity</div>
-        <div
-          className="dashboard-sidebar-links"
-          style={{ marginTop: 8 }}
-        >
-          <Link
-            href="/ecosystem/my-posts"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span>Posts</span>
-            <span style={{ opacity: 0.9 }}>0</span>
-          </Link>
-
-          <Link
-            href="/ecosystem/questions-asked"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span>Questions</span>
-            <span style={{ opacity: 0.9 }}>0</span>
-          </Link>
-
-          <Link
-            href="/ecosystem/questions-answered"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span>Answers</span>
-            <span style={{ opacity: 0.9 }}>0</span>
-          </Link>
-        </div>
-      </div>
-
       {/* MY ORGANIZATION */}
       {data.myOrg && (
         <Link
@@ -550,7 +499,7 @@ export default function LeftSidebar() {
         </Link>
       )}
 
-      {/* PREMIUM CARD */}
+      {/* PREMIUM CARD – title + pill + link, no body text */}
       <div
         className="sidebar-card premium-sidebar-card"
         style={{
@@ -562,7 +511,7 @@ export default function LeftSidebar() {
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
           display: "flex",
           flexDirection: "column",
-          gap: 6,
+          gap: 8,
         }}
       >
         <div
@@ -593,21 +542,9 @@ export default function LeftSidebar() {
           </div>
         </div>
 
-        <div
-          style={{
-            fontSize: 12,
-            color: "rgba(248,250,252,0.9)",
-            lineHeight: 1.5,
-          }}
-        >
-          Unlock advanced analytics, reduced ads, and premium perks for your
-          profile and organization.
-        </div>
-
         <Link
           href="/premium"
           style={{
-            marginTop: 4,
             fontSize: 12,
             color: "rgba(251,191,36,0.95)",
             textDecoration: "none",
