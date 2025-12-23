@@ -47,7 +47,6 @@ type OrgMemberRow = {
   is_affiliated: boolean;
 };
 
-// member + attached profile for the team list
 type OrgMemberWithProfile = {
   user_id: string;
   role: OrgMemberRole;
@@ -55,7 +54,18 @@ type OrgMemberWithProfile = {
   profile: FollowerProfile | null;
 };
 
-export default function OrganizationDetailPage() {
+// search results for invite panel (subset of profiles)
+type SearchProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+  affiliation: string | null;
+  country: string | null;
+  city: string | null;
+};
+
+const OrganizationDetailPage = () => {
   const router = useRouter();
   const { user } = useSupabaseUser();
   const { slug } = router.query;
@@ -82,6 +92,17 @@ export default function OrganizationDetailPage() {
   const [members, setMembers] = useState<OrgMemberWithProfile[]>([]);
   const [membersLoading, setMembersLoading] = useState<boolean>(true);
   const [membersError, setMembersError] = useState<string | null>(null);
+
+  // Invite / add-member panel state
+  const [showAddMember, setShowAddMember] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<SearchProfile[]>([]);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<OrgMemberRole>("member");
+  const [selectedAffiliated, setSelectedAffiliated] =
+    useState<boolean>(true);
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -213,7 +234,7 @@ export default function OrganizationDetailPage() {
     loadFollowers();
   }, [org, user]);
 
-  // === LOAD MEMBERSHIP FOR CURRENT USER (org_members) ===
+  // === LOAD MEMBERSHIP FOR CURRENT USER ===
   useEffect(() => {
     const loadMembership = async () => {
       if (!user || !org) {
@@ -247,6 +268,14 @@ export default function OrganizationDetailPage() {
 
     loadMembership();
   }, [user, org]);
+
+  // === PERMISSIONS ===
+  const canEdit = useMemo(() => {
+    if (!user || !org) return false;
+    if (memberRole === "owner" || memberRole === "admin") return true;
+    // Fallback for legacy orgs without org_members rows
+    return org.created_by === user.id;
+  }, [user, org, memberRole]);
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
@@ -308,6 +337,21 @@ export default function OrganizationDetailPage() {
           profile: profileMap.get(m.user_id) || null,
         }));
 
+        // sort: owner/admin/member, then name
+        merged.sort((a, b) => {
+          const order: Record<OrgMemberRole, number> = {
+            owner: 0,
+            admin: 1,
+            member: 2,
+          };
+          const da = order[a.role] - order[b.role];
+          if (da !== 0) return da;
+
+          const nameA = a.profile?.full_name || "";
+          const nameB = b.profile?.full_name || "";
+          return nameA.localeCompare(nameB);
+        });
+
         setMembers(merged);
       } catch (err) {
         console.error("Unexpected error loading org members", err);
@@ -320,16 +364,6 @@ export default function OrganizationDetailPage() {
 
     loadMembers();
   }, [org]);
-
-  // === EDIT PERMISSION: owners/admins OR legacy created_by ===
-  const canEdit = useMemo(() => {
-    if (!user || !org) return false;
-
-    if (memberRole === "owner" || memberRole === "admin") return true;
-
-    // Fallback for legacy orgs without org_members rows
-    return org.created_by === user.id;
-  }, [user, org, memberRole]);
 
   const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -389,7 +423,96 @@ export default function OrganizationDetailPage() {
     return "Member";
   };
 
-  // ✅ ONLY MAIN CONTENT (AppLayout provides left sidebar + overall page shell)
+  // === INVITE / ADD MEMBER LOGIC ===
+  const handleSearchProfiles = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchTerm.trim()) return;
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const term = searchTerm.trim();
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, avatar_url, role, affiliation, country, city"
+        )
+        .ilike("full_name", `%${term}%`)
+        .limit(10);
+
+      if (error) {
+        console.error("Error searching profiles for members", error);
+        setSearchError("Could not search profiles.");
+        setSearchResults([]);
+        return;
+      }
+
+      setSearchResults((data || []) as SearchProfile[]);
+    } catch (err) {
+      console.error("Unexpected error searching profiles", err);
+      setSearchError("Could not search profiles.");
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleAddMember = async (profileId: string) => {
+    if (!org || !canEdit) return;
+
+    setSavingMemberId(profileId);
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .upsert(
+          {
+            org_id: org.id,
+            user_id: profileId,
+            role: selectedRole,
+            is_affiliated: selectedAffiliated,
+          },
+          { onConflict: "org_id,user_id" }
+        );
+
+      if (error) {
+        console.error("Error adding org member", error);
+        return;
+      }
+
+      // Find profile in search results
+      const profile =
+        (searchResults.find((p) => p.id === profileId) as FollowerProfile) ||
+        null;
+
+      setMembers((prev) => {
+        const existingIndex = prev.findIndex(
+          (m) => m.user_id === profileId
+        );
+        const updatedEntry: OrgMemberWithProfile = {
+          user_id: profileId,
+          role: selectedRole,
+          is_affiliated: selectedAffiliated,
+          profile: profile,
+        };
+
+        if (existingIndex >= 0) {
+          const copy = [...prev];
+          copy[existingIndex] = updatedEntry;
+          return copy;
+        }
+        return [...prev, updatedEntry];
+      });
+    } catch (err) {
+      console.error("Unexpected error adding org member", err);
+    } finally {
+      setSavingMemberId(null);
+    }
+  };
+
+  // === RENDER ===
   return (
     <section className="section" style={{ paddingTop: 24, paddingBottom: 48 }}>
       {loading ? (
@@ -690,15 +813,416 @@ export default function OrganizationDetailPage() {
             <div style={{ marginTop: 24 }}>
               <div
                 style={{
-                  fontSize: 13,
-                  textTransform: "uppercase",
-                  letterSpacing: 0.08,
-                  color: "rgba(148,163,184,0.9)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
                   marginBottom: 10,
                 }}
               >
-                Team &amp; members
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.08,
+                    color: "rgba(148,163,184,0.9)",
+                  }}
+                >
+                  Team &amp; members
+                </div>
+
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMember((prev) => !prev)}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      border: "1px solid rgba(148,163,184,0.6)",
+                      background: showAddMember
+                        ? "rgba(15,23,42,0.9)"
+                        : "rgba(15,23,42,0.6)",
+                      color: "rgba(226,232,240,0.95)",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        width: 14,
+                        height: 14,
+                        borderRadius: 999,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid rgba(148,163,184,0.8)",
+                        fontSize: 10,
+                      }}
+                    >
+                      {showAddMember ? "−" : "+"}
+                    </span>
+                    {showAddMember ? "Close" : "Add member"}
+                  </button>
+                )}
               </div>
+
+              {showAddMember && canEdit && (
+                <div
+                  style={{
+                    borderRadius: 16,
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    padding: 12,
+                    marginBottom: 12,
+                    background: "rgba(15,23,42,0.85)",
+                  }}
+                >
+                  <form
+                    onSubmit={handleSearchProfiles}
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      alignItems: "center",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search people by name…"
+                      style={{
+                        flex: "1 1 220px",
+                        minWidth: 0,
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(51,65,85,0.9)",
+                        background: "rgba(15,23,42,0.95)",
+                        color: "#e5e7eb",
+                        fontSize: 13,
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={searchLoading || !searchTerm.trim()}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(59,130,246,0.7)",
+                        background: "rgba(37,99,235,0.2)",
+                        color: "#bfdbfe",
+                        fontSize: 12,
+                        cursor:
+                          searchLoading || !searchTerm.trim()
+                            ? "default"
+                            : "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {searchLoading ? "Searching…" : "Search"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSearchResults([]);
+                        setSearchError(null);
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.6)",
+                        background: "transparent",
+                        color: "rgba(148,163,184,0.95)",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </form>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 12,
+                      alignItems: "center",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        color: "rgba(209,213,219,0.95)",
+                      }}
+                    >
+                      Member role:
+                      <select
+                        value={selectedRole}
+                        onChange={(e) =>
+                          setSelectedRole(e.target.value as OrgMemberRole)
+                        }
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: 999,
+                          border:
+                            "1px solid rgba(148,163,184,0.7)",
+                          background: "rgba(15,23,42,0.9)",
+                          color: "#e5e7eb",
+                          fontSize: 12,
+                          outline: "none",
+                        }}
+                      >
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                        <option value="owner">Owner</option>
+                      </select>
+                    </label>
+
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        color: "rgba(209,213,219,0.95)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedAffiliated}
+                        onChange={(e) =>
+                          setSelectedAffiliated(e.target.checked)
+                        }
+                        style={{ margin: 0 }}
+                      />
+                      Mark as affiliated
+                    </label>
+                  </div>
+
+                  {searchError && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#f97373",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {searchError}
+                    </div>
+                  )}
+
+                  {searchResults.length > 0 ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(2, minmax(0, 1fr))",
+                        gap: 10,
+                        maxHeight: 260,
+                        overflowY: "auto",
+                        paddingRight: 4,
+                      }}
+                    >
+                      {searchResults.map((p) => {
+                        const name =
+                          p.full_name || "Quantum5ocial member";
+                        const initials = name
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase();
+
+                        const location = [p.city, p.country]
+                          .filter(Boolean)
+                          .join(", ");
+                        const subtitle =
+                          [p.role, p.affiliation, location]
+                            .filter(Boolean)
+                            .join(" · ") ||
+                          "Quantum5ocial member";
+
+                        const alreadyMember = members.some(
+                          (m) => m.user_id === p.id
+                        );
+
+                        const isMe = user && user.id === p.id;
+
+                        return (
+                          <div
+                            key={p.id}
+                            className="card"
+                            style={{
+                              borderRadius: 14,
+                              padding: 10,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                              background: "rgba(2,6,23,0.7)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 999,
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  background:
+                                    "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  border:
+                                    "1px solid rgba(148,163,184,0.6)",
+                                  color: "#e5e7eb",
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                }}
+                              >
+                                {p.avatar_url ? (
+                                  <img
+                                    src={p.avatar_url}
+                                    alt={name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block",
+                                    }}
+                                  />
+                                ) : (
+                                  initials
+                                )}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color:
+                                      "rgba(226,232,240,0.98)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {name}
+                                  {isMe && (
+                                    <span
+                                      style={{
+                                        marginLeft: 6,
+                                        fontSize: 11,
+                                        color:
+                                          "rgba(148,163,184,0.95)",
+                                      }}
+                                    >
+                                      (you)
+                                    </span>
+                                  )}
+                                </div>
+                                <div
+                                  style={{
+                                    marginTop: 2,
+                                    fontSize: 11,
+                                    color:
+                                      "rgba(148,163,184,0.95)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {subtitle}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: 4,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.9)",
+                                }}
+                              >
+                                {alreadyMember
+                                  ? "Already in team"
+                                  : "Add to team"}
+                              </div>
+                              <button
+                                type="button"
+                                disabled={alreadyMember || savingMemberId === p.id}
+                                onClick={() => handleAddMember(p.id)}
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  border: alreadyMember
+                                    ? "1px solid rgba(148,163,184,0.6)"
+                                    : "1px solid rgba(34,197,94,0.7)",
+                                  background: alreadyMember
+                                    ? "transparent"
+                                    : "rgba(22,163,74,0.18)",
+                                  color: alreadyMember
+                                    ? "rgba(148,163,184,0.9)"
+                                    : "rgba(187,247,208,0.96)",
+                                  fontSize: 11,
+                                  cursor:
+                                    alreadyMember || savingMemberId === p.id
+                                      ? "default"
+                                      : "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {alreadyMember
+                                  ? "In team"
+                                  : savingMemberId === p.id
+                                  ? "Adding…"
+                                  : "Add"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    !searchLoading &&
+                    !searchError &&
+                    searchTerm.trim() && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(148,163,184,0.9)",
+                        }}
+                      >
+                        No matching profiles found yet. Try another name.
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
 
               {membersLoading && (
                 <p className="profile-muted">Loading team members…</p>
@@ -744,11 +1268,7 @@ export default function OrganizationDetailPage() {
                       .join(", ");
 
                     const subtitle =
-                      [
-                        profile?.role,
-                        profile?.affiliation,
-                        location,
-                      ]
+                      [profile?.role, profile?.affiliation, location]
                         .filter(Boolean)
                         .join(" · ") || "Quantum5ocial member";
 
@@ -964,11 +1484,7 @@ export default function OrganizationDetailPage() {
                         .filter(Boolean)
                         .join(", ");
                       const subtitle =
-                        [
-                          f.role,
-                          f.affiliation,
-                          location,
-                        ]
+                        [f.role, f.affiliation, location]
                           .filter(Boolean)
                           .join(" · ") ||
                         "Quantum5ocial member";
@@ -1081,31 +1597,18 @@ export default function OrganizationDetailPage() {
                     })}
                   </div>
                 )}
-
-              {/* small responsive fallback so it doesn't break on narrow widths */}
-              {!loadingFollowers &&
-                !followersError &&
-                followers.length > 0 && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 12,
-                      color: "rgba(148,163,184,0.85)",
-                    }}
-                  >
-                    {/* For true responsive behavior, this could move into CSS. */}
-                  </div>
-                )}
             </div>
           </section>
         </>
       )}
     </section>
   );
-}
+};
 
-// ✅ tell AppLayout: left-only global sidebar, no right sidebar
+// ✅ AppLayout: left-only global sidebar, no right sidebar
 (OrganizationDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
 };
+
+export default OrganizationDetailPage;
