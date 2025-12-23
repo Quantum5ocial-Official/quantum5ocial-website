@@ -38,6 +38,13 @@ type FollowerProfile = {
   city: string | null;
 };
 
+type OrgMemberRole = "owner" | "admin" | "member";
+
+type OrgMemberRow = {
+  role: OrgMemberRole;
+  is_affiliated: boolean;
+};
+
 export default function OrganizationDetailPage() {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -56,6 +63,10 @@ export default function OrganizationDetailPage() {
   // Follow state (current user ↔ this org)
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
+
+  // Membership / role state
+  const [memberRole, setMemberRole] = useState<OrgMemberRole | null>(null);
+  const [isAffiliated, setIsAffiliated] = useState<boolean>(false);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -85,9 +96,39 @@ export default function OrganizationDetailPage() {
     loadOrg();
   }, [slug]);
 
-  const isOwner = useMemo(() => {
-    if (!user || !org) return false;
-    return org.created_by === user.id;
+  // === LOAD MEMBERSHIP FOR CURRENT USER (owner/admin/member) ===
+  useEffect(() => {
+    const loadMembership = async () => {
+      if (!user || !org) {
+        setMemberRole(null);
+        setIsAffiliated(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("org_members")
+        .select("role, is_affiliated")
+        .eq("org_id", org.id)
+        .eq("user_id", user.id)
+        .maybeSingle<OrgMemberRow>();
+
+      if (error) {
+        console.error("Error loading org membership", error);
+        setMemberRole(null);
+        setIsAffiliated(false);
+        return;
+      }
+
+      if (data) {
+        setMemberRole(data.role);
+        setIsAffiliated(!!data.is_affiliated);
+      } else {
+        setMemberRole(null);
+        setIsAffiliated(false);
+      }
+    };
+
+    loadMembership();
   }, [user, org]);
 
   const kindLabel = org?.kind === "company" ? "Company" : "Research group";
@@ -120,6 +161,17 @@ export default function OrganizationDetailPage() {
       ? `/orgs/edit/company/${org.slug}`
       : `/orgs/edit/research-group/${org.slug}`;
   }, [org]);
+
+  // Can the current user edit this org?
+  const canEdit = useMemo(() => {
+    if (!user || !org) return false;
+
+    // New: membership roles
+    if (memberRole === "owner" || memberRole === "admin") return true;
+
+    // Fallback for legacy orgs that might not have org_members yet
+    return org.created_by === user.id;
+  }, [user, org, memberRole]);
 
   // === LOAD FOLLOWERS FOR THIS ORG ===
   useEffect(() => {
@@ -165,7 +217,9 @@ export default function OrganizationDetailPage() {
 
         const { data: profileRows, error: profErr } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar_url, role, highest_education, affiliation, country, city")
+          .select(
+            "id, full_name, avatar_url, role, highest_education, affiliation, country, city"
+          )
           .in("id", userIds);
 
         if (profErr) {
@@ -215,7 +269,9 @@ export default function OrganizationDetailPage() {
           console.error("Error unfollowing organization", error);
         } else {
           setIsFollowing(false);
-          setFollowersCount((prev) => (prev === null ? prev : Math.max(prev - 1, 0)));
+          setFollowersCount((prev) =>
+            prev === null ? prev : Math.max(prev - 1, 0)
+          );
         }
       } else {
         const { error } = await supabase.from("org_follows").insert({
@@ -266,7 +322,8 @@ export default function OrganizationDetailPage() {
               borderRadius: 24,
               padding: 24,
               border: "1px solid rgba(148,163,184,0.35)",
-              background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
               boxShadow: "0 22px 50px rgba(15,23,42,0.75)",
               marginBottom: 24,
               display: "flex",
@@ -295,7 +352,12 @@ export default function OrganizationDetailPage() {
                 <img
                   src={org.logo_url}
                   alt={org.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
                 />
               ) : (
                 firstLetter
@@ -327,7 +389,14 @@ export default function OrganizationDetailPage() {
                     {org.name}
                   </h1>
 
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: 12,
@@ -368,11 +437,33 @@ export default function OrganizationDetailPage() {
                         Followers: {followersCount}
                       </span>
                     )}
+
+                    {isAffiliated && (
+                      <span
+                        style={{
+                          fontSize: 12,
+                          borderRadius: 999,
+                          padding: "3px 9px",
+                          border: "1px solid rgba(34,197,94,0.7)",
+                          color: "rgba(187,247,208,0.95)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        You&apos;re affiliated
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "row", gap: 8, flexShrink: 0 }}>
-                  {isOwner ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 8,
+                    flexShrink: 0,
+                  }}
+                >
+                  {canEdit ? (
                     <Link
                       href={editHref}
                       style={{
@@ -400,8 +491,12 @@ export default function OrganizationDetailPage() {
                         border: isFollowing
                           ? "1px solid rgba(148,163,184,0.7)"
                           : "1px solid rgba(59,130,246,0.6)",
-                        background: isFollowing ? "transparent" : "rgba(59,130,246,0.16)",
-                        color: isFollowing ? "rgba(148,163,184,0.95)" : "#bfdbfe",
+                        background: isFollowing
+                          ? "transparent"
+                          : "rgba(59,130,246,0.16)",
+                        color: isFollowing
+                          ? "rgba(148,163,184,0.95)"
+                          : "#bfdbfe",
                         cursor: followLoading ? "default" : "pointer",
                         whiteSpace: "nowrap",
                       }}
@@ -413,7 +508,13 @@ export default function OrganizationDetailPage() {
               </div>
 
               {metaLine && (
-                <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginBottom: 6 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(148,163,184,0.95)",
+                    marginBottom: 6,
+                  }}
+                >
                   {metaLine}
                 </div>
               )}
@@ -471,7 +572,12 @@ export default function OrganizationDetailPage() {
                 >
                   Focus areas
                 </div>
-                <div style={{ fontSize: 14, color: "rgba(226,232,240,0.95)" }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "rgba(226,232,240,0.95)",
+                  }}
+                >
                   {org.focus_areas}
                 </div>
               </div>
@@ -491,152 +597,182 @@ export default function OrganizationDetailPage() {
                 Followers
               </div>
 
-              {loadingFollowers && <p className="profile-muted">Loading followers…</p>}
+              {loadingFollowers && (
+                <p className="profile-muted">Loading followers…</p>
+              )}
 
               {followersError && !loadingFollowers && (
-                <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>
+                <p
+                  className="profile-muted"
+                  style={{ color: "#f97373", marginTop: 4 }}
+                >
                   {followersError}
                 </p>
               )}
 
-              {!loadingFollowers && !followersError && followersCount === 0 && (
-                <div className="products-empty">
-                  No followers yet. Once people follow this organization, they will appear here.
-                </div>
-              )}
+              {!loadingFollowers &&
+                !followersError &&
+                followersCount === 0 && (
+                  <div className="products-empty">
+                    No followers yet. Once people follow this organization,
+                    they will appear here.
+                  </div>
+                )}
 
-              {!loadingFollowers && !followersError && followers.length > 0 && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: 12,
-                    marginTop: 6,
-                  }}
-                >
-                  {followers.map((f) => {
-                    const name = f.full_name || "Quantum5ocial member";
-                    const initials = name
-                      .split(" ")
-                      .map((p) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase();
+              {!loadingFollowers &&
+                !followersError &&
+                followers.length > 0 && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gap: 12,
+                      marginTop: 6,
+                    }}
+                  >
+                    {followers.map((f) => {
+                      const name = f.full_name || "Quantum5ocial member";
+                      const initials = name
+                        .split(" ")
+                        .map((p) => p[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase();
 
-                    const location = [f.city, f.country].filter(Boolean).join(", ");
-                    const subtitle = (
-                      [f.role, f.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member"
-                    );
+                      const location = [f.city, f.country]
+                        .filter(Boolean)
+                        .join(", ");
+                      const subtitle =
+                        [
+                          f.role,
+                          f.affiliation,
+                          location,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "Quantum5ocial member";
 
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => goToProfile(f.id)}
-                        className="card"
-                        style={{
-                          textAlign: "left",
-                          padding: 12,
-                          borderRadius: 14,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 10,
-                          cursor: "pointer",
-                          background: "rgba(2,6,23,0.35)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              color: "#e5e7eb",
-                              fontWeight: 700,
-                              fontSize: 13,
-                            }}
-                          >
-                            {f.avatar_url ? (
-                              <img
-                                src={f.avatar_url}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              initials
-                            )}
-                          </div>
-
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: "rgba(226,232,240,0.98)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {name}
-                            </div>
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color: "rgba(148,163,184,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {subtitle}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => goToProfile(f.id)}
+                          className="card"
                           style={{
-                            marginTop: "auto",
-                            fontSize: 12,
-                            color: "#7dd3fc",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
+                            textAlign: "left",
+                            padding: 12,
+                            borderRadius: 14,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 10,
+                            cursor: "pointer",
+                            background: "rgba(2,6,23,0.35)",
                           }}
                         >
-                          View profile <span style={{ opacity: 0.9 }}>›</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
+                                overflow: "hidden",
+                                flexShrink: 0,
+                                background:
+                                  "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border:
+                                  "1px solid rgba(148,163,184,0.6)",
+                                color: "#e5e7eb",
+                                fontWeight: 700,
+                                fontSize: 13,
+                              }}
+                            >
+                              {f.avatar_url ? (
+                                <img
+                                  src={f.avatar_url}
+                                  alt={name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                />
+                              ) : (
+                                initials
+                              )}
+                            </div>
+
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color:
+                                    "rgba(226,232,240,0.98)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {name}
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 2,
+                                  fontSize: 11,
+                                  color:
+                                    "rgba(148,163,184,0.95)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {subtitle}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              marginTop: "auto",
+                              fontSize: 12,
+                              color: "#7dd3fc",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            View profile{" "}
+                            <span style={{ opacity: 0.9 }}>›</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
               {/* small responsive fallback so it doesn't break on narrow widths */}
-              {!loadingFollowers && !followersError && followers.length > 0 && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    fontSize: 12,
-                    color: "rgba(148,163,184,0.85)",
-                  }}
-                >
-                  {/* If you want true responsiveness, move this to CSS; keeping inline-only per your request. */}
-                </div>
-              )}
+              {!loadingFollowers &&
+                !followersError &&
+                followers.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 12,
+                      color: "rgba(148,163,184,0.85)",
+                    }}
+                  >
+                    {/* If you want true responsiveness, move this to CSS; keeping inline-only per your request. */}
+                  </div>
+                )}
             </div>
           </section>
         </>
@@ -646,4 +782,7 @@ export default function OrganizationDetailPage() {
 }
 
 // ✅ tell AppLayout: left-only global sidebar, no right sidebar
-(OrganizationDetailPage as any).layoutProps = { variant: "two-left", right: null };
+(OrganizationDetailPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
