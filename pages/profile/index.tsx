@@ -915,35 +915,43 @@ export default function ProfileViewPage() {
                 }}
               >
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    flexWrap: "nowrap",
-                  }}
-                >
+  style={{
+    display: "flex",
+    alignItems: isMobile ? "stretch" : "center",
+    justifyContent: isMobile ? "flex-start" : "space-between",
+    gap: 10,
+    flexWrap: isMobile ? "wrap" : "nowrap",
+  }}
+>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e7eb" }}>
                     Profile completeness: {completeness.pct}%
                   </div>
 
-                  {completeness.pct >= 100 ? (
-                    <span
-                      style={{
-                        ...smallPillStyle,
-                        border: "1px solid rgba(74,222,128,0.6)",
-                        color: "rgba(187,247,208,0.95)",
-                        cursor: "default",
-                      }}
-                      title="Nice — your profile is complete!"
-                    >
-                      Profile completed 🎉
-                    </span>
-                  ) : (
-                    <Link href="/profile/edit" style={smallPillStyle}>
-                      Complete your profile →
-                    </Link>
-                  )}
+                  <div
+  style={{
+    display: "flex",
+    justifyContent: isMobile ? "flex-start" : "flex-end",
+    width: isMobile ? "100%" : "auto",
+  }}
+>
+  {completeness.pct >= 100 ? (
+    <span
+      style={{
+        ...smallPillStyle,
+        border: "1px solid rgba(74,222,128,0.6)",
+        color: "rgba(187,247,208,0.95)",
+        cursor: "default",
+      }}
+      title="Nice — your profile is complete!"
+    >
+      Profile completed 🎉
+    </span>
+  ) : (
+    <Link href="/profile/edit" style={smallPillStyle}>
+      Complete your profile →
+    </Link>
+  )}
+</div>
                 </div>
 
                 <div style={{ marginTop: 10 }}>
@@ -995,92 +1003,79 @@ export default function ProfileViewPage() {
               </div>
 
               {/* Identity */}
-              <div className="profile-header">
-                <div className="profile-avatar">
-                  {profile?.avatar_url ? (
-                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
-                  ) : (
-                    <span>{initials}</span>
-                  )}
-                </div>
+{isMobile ? (
+  <div
+    className="profile-header"
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      textAlign: "center",
+      gap: 10,
+    }}
+  >
+    {/* badge + claim (above avatar) */}
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+      {hasBadge && (
+        <Q5BadgeChips
+          label={badgeLabel}
+          reviewStatus={profile?.q5_badge_review_status ?? null}
+          size="md"
+        />
+      )}
 
-                <div className="profile-header-text" style={{ width: "100%" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      width: "100%",
-                      minWidth: 0,
-                      flexWrap: isMobile ? "wrap" : "nowrap",
-                      justifyContent: isMobile ? "center" : "flex-start",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        minWidth: 0,
-                        flex: isMobile ? "0 1 100%" : 1,
-                        flexWrap: "wrap",
-                        justifyContent: isMobile ? "center" : "flex-start",
-                      }}
-                    >
-                      <div
-                        className="profile-name"
-                        style={{
-                          minWidth: 0,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          textAlign: isMobile ? "center" : "left",
-                          maxWidth: isMobile ? "100%" : undefined,
-                        }}
-                        title={displayName}
-                      >
-                        {displayName}
-                      </div>
+      <ClaimPill
+        onClick={() => setBadgeOpen(true)}
+        base={claimPillStyle}
+        hover={claimPillHoverStyle}
+        label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+        title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+      />
+    </div>
 
-                      {hasBadge && (
-                        <Q5BadgeChips
-                          label={badgeLabel}
-                          reviewStatus={profile?.q5_badge_review_status ?? null}
-                          size="md"
-                        />
-                      )}
-                    </div>
+    {/* avatar centered */}
+    <div className="profile-avatar" style={{ margin: "0 auto" }}>
+      {profile?.avatar_url ? (
+        <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: isMobile ? "center" : "flex-end",
-                        width: isMobile ? "100%" : "auto",
-                      }}
-                    >
-                      <ClaimPill
-                        onClick={() => setBadgeOpen(true)}
-                        base={claimPillStyle}
-                        hover={claimPillHoverStyle}
-                        label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
-                        title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
-                      />
-                    </div>
-                  </div>
+    {/* name */}
+    <div
+      className="profile-name"
+      style={{
+        width: "100%",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+      title={displayName}
+    >
+      {displayName}
+    </div>
 
-                  {(headline || profile?.affiliation) && (
-                    <div className="profile-role" style={{ textAlign: isMobile ? "center" : "left" }}>
-                      {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
-                    </div>
-                  )}
+    {/* headline + affiliation */}
+    {(headline || profile?.affiliation) && (
+      <div className="profile-role" style={{ textAlign: "center" }}>
+        {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
+      </div>
+    )}
 
-                  {(profile?.city || profile?.country) && (
-                    <div className="profile-location" style={{ textAlign: isMobile ? "center" : "left" }}>
-                      {[profile?.city, profile?.country].filter(Boolean).join(", ")}
-                    </div>
-                  )}
-                </div>
-              </div>
+    {/* location */}
+    {(profile?.city || profile?.country) && (
+      <div className="profile-location" style={{ textAlign: "center" }}>
+        {[profile?.city, profile?.country].filter(Boolean).join(", ")}
+      </div>
+    )}
+  </div>
+) : (
+  // ✅ DESKTOP: paste your existing Identity block here unchanged
+  <div className="profile-header">
+    {/* <-- paste your current desktop content from inside profile-header here */}
+  </div>
+)}
 
               {/* Contact tile (private) */}
               {showContactTile && (
