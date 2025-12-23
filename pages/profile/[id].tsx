@@ -106,6 +106,14 @@ export default function MemberProfilePage() {
     [user, profileId]
   );
 
+  // ✅ If user opens their own member URL, send them to the canonical My Profile page.
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (isSelf) {
+      router.replace("/profile");
+    }
+  }, [router.isReady, isSelf, router]);
+
   const {
     getConnectionStatus,
     isEntangleLoading,
@@ -354,6 +362,7 @@ export default function MemberProfilePage() {
       width: "fit-content",
     };
 
+    // NOTE: self is redirected to /profile, but keep this safe anyway.
     if (isSelf) {
       return (
         <Link
@@ -518,6 +527,25 @@ export default function MemberProfilePage() {
     whiteSpace: "nowrap",
   };
 
+  // Match /profile/index.tsx identity look
+  const smallPillStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.55)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    textDecoration: "none",
+    whiteSpace: "nowrap",
+    width: "fit-content",
+    lineHeight: "16px",
+  };
+
+  // If self redirect is happening, avoid flashing content.
+  if (router.isReady && isSelf) return null;
+
   return (
     <section className="section">
       {/* Header card */}
@@ -576,20 +604,20 @@ export default function MemberProfilePage() {
           </div>
         ) : (
           <>
-            {/* Top identity */}
-            <div className="profile-header">
-              <div className="profile-avatar">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
-                ) : (
-                  <span>{initials}</span>
-                )}
-              </div>
-
-              <div className="profile-header-text">
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <div className="profile-name">{displayName}</div>
-
+            {/* ✅ Identity (same structure as /profile/index.tsx) */}
+            {isMobile ? (
+              <div
+                className="profile-header"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  gap: 10,
+                }}
+              >
+                {/* badge (above avatar) */}
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                   {hasBadge && (
                     <Q5BadgeChips
                       label={badgeLabel}
@@ -597,29 +625,149 @@ export default function MemberProfilePage() {
                       size="md"
                     />
                   )}
+
+                  {/* self should redirect, but keep safe */}
+                  {isSelf && (
+                    <Link href="/profile/edit" style={smallPillStyle}>
+                      Edit →
+                    </Link>
+                  )}
                 </div>
 
+                {/* avatar centered */}
+                <div className="profile-avatar" style={{ margin: "0 auto" }}>
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
+
+                {/* name */}
+                <div
+                  className="profile-name"
+                  style={{
+                    width: "100%",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={displayName}
+                >
+                  {displayName}
+                </div>
+
+                {/* headline + affiliation */}
                 {(headline || profile?.affiliation) && (
-                  <div className="profile-role">
+                  <div className="profile-role" style={{ textAlign: "center" }}>
                     {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
                   </div>
                 )}
 
+                {/* location */}
                 {(profile?.city || profile?.country) && (
-                  <div className="profile-location">
+                  <div className="profile-location" style={{ textAlign: "center" }}>
                     {[profile?.city, profile?.country].filter(Boolean).join(", ")}
                   </div>
                 )}
 
+                {/* optional self edit CTA */}
                 {isSelf && (
-                  <div style={{ marginTop: 12 }}>
+                  <div style={{ marginTop: 10 }}>
                     <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
                       Edit / complete your profile
                     </Link>
                   </div>
                 )}
               </div>
-            </div>
+            ) : (
+              <div className="profile-header">
+                <div className="profile-avatar">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
+
+                <div className="profile-header-text" style={{ width: "100%" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      width: "100%",
+                      minWidth: 0,
+                      flexWrap: "nowrap",
+                      justifyContent: "flex-start",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                        flex: 1,
+                        flexWrap: "wrap",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      <div
+                        className="profile-name"
+                        style={{
+                          minWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          textAlign: "left",
+                        }}
+                        title={displayName}
+                      >
+                        {displayName}
+                      </div>
+
+                      {hasBadge && (
+                        <Q5BadgeChips
+                          label={badgeLabel}
+                          reviewStatus={profile?.q5_badge_review_status ?? null}
+                          size="md"
+                        />
+                      )}
+                    </div>
+
+                    {/* self should redirect, but keep safe */}
+                    {isSelf && (
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Link href="/profile/edit" style={smallPillStyle}>
+                          Edit →
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  {(headline || profile?.affiliation) && (
+                    <div className="profile-role" style={{ textAlign: "left" }}>
+                      {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+
+                  {(profile?.city || profile?.country) && (
+                    <div className="profile-location" style={{ textAlign: "left" }}>
+                      {[profile?.city, profile?.country].filter(Boolean).join(", ")}
+                    </div>
+                  )}
+
+                  {isSelf && (
+                    <div style={{ marginTop: 12 }}>
+                      <Link href="/profile/edit" className="nav-ghost-btn" style={editLinkStyle}>
+                        Edit / complete your profile
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {profile?.short_bio && <p className="profile-bio">{profile.short_bio}</p>}
 
@@ -699,7 +847,7 @@ export default function MemberProfilePage() {
         )}
       </div>
 
-      {/* POSTS STRIP */}
+      {/* POSTS STRIP (unchanged) */}
       {profileId && (
         <div style={{ marginTop: 14 }}>
           <div
@@ -733,7 +881,7 @@ export default function MemberProfilePage() {
 }
 
 /* =========================
-   POSTS STRIP
+   POSTS STRIP (unchanged)
    ========================= */
 
 function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
@@ -1068,8 +1216,6 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                       {formatRelativeTime(p.created_at)}
                     </div>
                   </div>
-
-            
                 </div>
 
                 {/* content */}
@@ -1082,7 +1228,6 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                     background: "rgba(15,23,42,0.55)",
                     minHeight: 210,
                     display: "grid",
-                    // ✅ ONLY CHANGE: stack when image exists
                     gridTemplateColumns: "1fr",
                     gridTemplateRows: hasImage ? "190px auto" : "1fr",
                     gap: 10,
@@ -1135,7 +1280,6 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                         whiteSpace: "pre-wrap",
                         overflow: "hidden",
                         display: "-webkit-box",
-                        // a bit shorter when image exists, so cards stay visually balanced
                         WebkitLineClamp: hasImage ? 4 : 9,
                         WebkitBoxOrient: "vertical",
                         wordBreak: "break-word",
@@ -1147,17 +1291,11 @@ function ProfilePostsStrip({ filterUserId }: { filterUserId: string }) {
                   </div>
                 </div>
 
-                <div
-  style={{
-    marginTop: 10,
-    display: "flex",
-    justifyContent: "flex-start",
-  }}
->
-  <span style={chipStyle} title="Likes / comments">
-    ❤ {it.likeCount} · 💬 {it.commentCount}
-  </span>
-</div>
+                <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-start" }}>
+                  <span style={chipStyle} title="Likes / comments">
+                    ❤ {it.likeCount} · 💬 {it.commentCount}
+                  </span>
+                </div>
               </div>
             </div>
           );
