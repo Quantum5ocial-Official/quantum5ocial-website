@@ -1364,6 +1364,7 @@ function QnAMiddle() {
           }}
         >
           {questions.map((q) => {
+           const isMobile = typeof window !== "undefined" && window.innerWidth <= 520;
             const p = pickProfile(q.profiles);
             const author = p?.full_name || "Quantum5ocial member";
             const votes = q.qna_votes?.[0]?.count ?? 0;
@@ -1441,8 +1442,12 @@ function QnAMiddle() {
                     </div>
 
                     <div
-                      style={{ display: "flex", gap: 8, alignItems: "center" }}
-                    >
+  style={{
+    display: "flex",
+    gap: isMobile ? 6 : 8,
+    alignItems: "center",
+  }}
+>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1450,23 +1455,23 @@ function QnAMiddle() {
                           toggleVote(q.id);
                         }}
                         disabled={isVoteLoading(q.id)}
-                        style={{
-                          borderRadius: 12,
-                          padding: "7px 10px",
-                          border: mine
-                            ? "1px solid rgba(34,211,238,0.8)"
-                            : "1px solid rgba(148,163,184,0.45)",
-                          background: mine
-                            ? "rgba(34,211,238,0.12)"
-                            : "rgba(15,23,42,0.6)",
-                          color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
-                          cursor: isVoteLoading(q.id) ? "default" : "pointer",
-                          fontSize: 12,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                          opacity: isVoteLoading(q.id) ? 0.7 : 1,
-                        }}
+                        style=style={{
+  borderRadius: 12,
+  padding: isMobile ? "4px 7px" : "7px 10px",
+  border: mine
+    ? "1px solid rgba(34,211,238,0.8)"
+    : "1px solid rgba(148,163,184,0.45)",
+  background: mine
+    ? "rgba(34,211,238,0.12)"
+    : "rgba(15,23,42,0.6)",
+  color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
+  cursor: isVoteLoading(q.id) ? "default" : "pointer",
+  fontSize: isMobile ? 10 : 12,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: isMobile ? 4 : 6,
+  opacity: isVoteLoading(q.id) ? 0.7 : 1,
+}}
                         title={mine ? "Remove upvote" : "Upvote"}
                       >
                         ▲ {votes}
@@ -1474,16 +1479,16 @@ function QnAMiddle() {
 
                       <div
                         style={{
-                          borderRadius: 12,
-                          padding: "7px 10px",
-                          border: "1px solid rgba(148,163,184,0.45)",
-                          background: "rgba(15,23,42,0.6)",
-                          color: "rgba(226,232,240,0.9)",
-                          fontSize: 12,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
+  borderRadius: 12,
+  padding: isMobile ? "4px 7px" : "7px 10px",
+  border: "1px solid rgba(148,163,184,0.45)",
+  background: "rgba(15,23,42,0.6)",
+  color: "rgba(226,232,240,0.9)",
+  fontSize: isMobile ? 10 : 12,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: isMobile ? 4 : 6,
+}}
                         title="Answers"
                       >
                         💬 {ansCount}
