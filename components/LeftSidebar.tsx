@@ -80,7 +80,11 @@ export default function LeftSidebar() {
     const loadAll = async () => {
       setLoading(true);
       try {
-        const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+        const profileQ = supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", uid)
+          .maybeSingle();
 
         const connectionsQ = supabase
           .from("connections")
@@ -88,7 +92,10 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
+        const savedJobsQ = supabase
+          .from("saved_jobs")
+          .select("job_id")
+          .eq("user_id", uid);
 
         const savedProductsQ = supabase
           .from("saved_products")
@@ -192,7 +199,10 @@ export default function LeftSidebar() {
   const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
   return (
-    <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <aside
+      className="layout-left sticky-col"
+      style={{ display: "flex", flexDirection: "column", gap: 6 }}
+    >
       {/* PROFILE CARD */}
       <Link
         href={user ? "/profile" : "/auth"}
@@ -210,20 +220,28 @@ export default function LeftSidebar() {
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
-            gap: 6, // ✅ compact spacing, no extra margins
+            gap: 6,
           }}
         >
           {/* ✅ 1) Badge pill */}
           {!loading && badgeLabel && (
             <div>
-              <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
+              <Q5BadgeChips
+                label={badgeLabel}
+                reviewStatus={badgeStatus}
+                size="sm"
+              />
             </div>
           )}
 
           {/* ✅ 2) Avatar */}
           <div className="profile-sidebar-avatar-wrapper">
             {avatarUrl ? (
-              <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
+              <img
+                src={avatarUrl}
+                alt={fullName}
+                className="profile-sidebar-avatar"
+              />
             ) : (
               <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
                 {(fullName || "Q").charAt(0).toUpperCase()}
@@ -238,14 +256,26 @@ export default function LeftSidebar() {
 
           {/* ✅ 4) Highest education */}
           {!loading && highestEducation && (
-            <div style={{ fontSize: 13, color: "rgba(226,232,240,0.88)", lineHeight: 1.2 }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: "rgba(226,232,240,0.88)",
+                lineHeight: 1.2,
+              }}
+            >
               {highestEducation}
             </div>
           )}
 
           {/* ✅ 5) Current title(or role) + affiliation */}
           {!loading && titleLine && (
-            <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", lineHeight: 1.2 }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: "rgba(148,163,184,0.95)",
+                lineHeight: 1.2,
+              }}
+            >
               {titleLine}
             </div>
           )}
@@ -254,71 +284,184 @@ export default function LeftSidebar() {
         {/* Skeleton (compact) */}
         {loading && (
           <div style={{ marginTop: 10, opacity: 0.7 }}>
-            <div className="profile-sidebar-info-value" style={{ height: 12 }} />
-            <div className="profile-sidebar-info-value" style={{ height: 12, marginTop: 6 }} />
+            <div
+              className="profile-sidebar-info-value"
+              style={{ height: 12 }}
+            />
+            <div
+              className="profile-sidebar-info-value"
+              style={{ height: 12, marginTop: 6 }}
+            />
           </div>
         )}
       </Link>
 
-      {/* QUICK DASHBOARD */}
+      {/* DASHBOARD (was Quick dashboard) */}
       <div className="sidebar-card dashboard-sidebar-card">
-        <div className="dashboard-sidebar-title">Quick dashboard</div>
+        <div className="dashboard-sidebar-title">Dashboard</div>
 
-        <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <Link
-            href="/dashboard/entangled-states"
-            className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
-          >
-            <span>Entanglements</span>
-            <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
-          </Link>
-
-          <Link
-            href="/dashboard/saved-jobs"
-            className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
-          >
-            <span>Saved jobs</span>
-            <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
-          </Link>
-
-          <Link
-            href="/dashboard/saved-products"
-            className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
-          >
-            <span>Saved products</span>
-            <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
-          </Link>
-
+        <div
+          className="dashboard-sidebar-links"
+          style={{
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          {/* Main Ecosystem entry */}
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
           >
-            <span>My Ecosystem</span>
+            <span>My ecosystem</span>
+            <span
+              style={{
+                fontSize: 11,
+                color: "#7dd3fc",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Open →
+            </span>
           </Link>
+
+          {/* Sub-menu under ecosystem */}
+          <div
+            style={{
+              marginTop: 4,
+              paddingLeft: 10,
+              borderLeft: "1px dashed rgba(148,163,184,0.5)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <Link
+              href="/dashboard/entangled-states"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span>Entanglements</span>
+              <span style={{ opacity: 0.9 }}>
+                {data.entangledCount ?? "…"}
+              </span>
+            </Link>
+
+            <Link
+              href="/ecosystem?tab=posts"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span>Posts</span>
+              {/* optional count later */}
+            </Link>
+
+            <Link
+              href="/dashboard/saved-jobs"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span>Saved jobs</span>
+              <span style={{ opacity: 0.9 }}>
+                {data.savedJobsCount ?? "…"}
+              </span>
+            </Link>
+
+            <Link
+              href="/dashboard/saved-products"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span>Saved products</span>
+              <span style={{ opacity: 0.9 }}>
+                {data.savedProductsCount ?? "…"}
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* MY ACTIVITY */}
+      {/* MY ACTIVITY (unchanged) */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
-        <div className="dashboard-sidebar-links" style={{ marginTop: 8 }}>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Posts</span><span style={{ opacity: 0.9 }}>0</span>
+        <div
+          className="dashboard-sidebar-links"
+          style={{ marginTop: 8 }}
+        >
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Posts</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Questions</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Questions</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
-          <div className="dashboard-sidebar-link" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, cursor: "default" }}>
-            <span>Answers</span><span style={{ opacity: 0.9 }}>0</span>
+          <div
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              cursor: "default",
+            }}
+          >
+            <span>Answers</span>
+            <span style={{ opacity: 0.9 }}>0</span>
           </div>
         </div>
       </div>
 
-      {/* MY ORGANIZATION */}
+      {/* MY ORGANIZATION (unchanged) */}
       {data.myOrg && (
         <Link
           href={`/orgs/${data.myOrg.slug}`}
@@ -327,7 +470,14 @@ export default function LeftSidebar() {
         >
           <div className="dashboard-sidebar-title">My organization</div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+            }}
+          >
             <div
               style={{
                 width: 48,
@@ -345,25 +495,55 @@ export default function LeftSidebar() {
               }}
             >
               {data.myOrg.logo_url ? (
-                <img src={data.myOrg.logo_url} alt={data.myOrg.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img
+                  src={data.myOrg.logo_url}
+                  alt={data.myOrg.name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
               ) : (
                 data.myOrg.name.charAt(0).toUpperCase()
               )}
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 15, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {data.myOrg.name}
               </div>
 
-              <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(148,163,184,0.95)",
+                  marginTop: 4,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                }}
+              >
                 <div>
-                  Followers: <span style={{ color: "#e5e7eb" }}>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers:{" "}
+                  <span style={{ color: "#e5e7eb" }}>
+                    {data.myOrgFollowersCount ?? "…"}
+                  </span>
                 </div>
                 <div>
                   Views: <span style={{ color: "#e5e7eb" }}>0</span>
                 </div>
-                <div style={{ marginTop: 4, color: "#7dd3fc" }}>Analytics →</div>
+                <div style={{ marginTop: 4, color: "#7dd3fc" }}>
+                  Analytics →
+                </div>
               </div>
             </div>
           </div>
@@ -376,12 +556,23 @@ export default function LeftSidebar() {
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+          background:
+            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -402,23 +593,81 @@ export default function LeftSidebar() {
           </div>
         </div>
 
-        <div style={{ fontSize: 12, color: "rgba(248,250,252,0.9)", lineHeight: 1.5 }}>
-          Unlock advanced analytics, reduced ads, and premium perks for your profile and organization.
+        <div
+          style={{
+            fontSize: 12,
+            color: "rgba(248,250,252,0.9)",
+            lineHeight: 1.5,
+          }}
+        >
+          Unlock advanced analytics, reduced ads, and premium perks for your
+          profile and organization.
         </div>
+
+        <Link
+          href="/premium"
+          style={{
+            marginTop: 4,
+            fontSize: 12,
+            color: "rgba(251,191,36,0.95)",
+            textDecoration: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <span>Learn more</span>
+          <span style={{ fontSize: 13 }}>›</span>
+        </Link>
       </div>
 
-      <div style={{ width: "100%", height: 1, background: "rgba(148,163,184,0.18)", marginTop: 6, marginBottom: 6 }} />
+      <div
+        style={{
+          width: "100%",
+          height: 1,
+          background: "rgba(148,163,184,0.18)",
+          marginTop: 6,
+          marginBottom: 6,
+        }}
+      />
 
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "rgba(148,163,184,0.9)" }}>✉️</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>𝕏</a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}>in</a>
+          <a
+            href="mailto:info@quantum5ocial.com"
+            style={{ color: "rgba(148,163,184,0.9)" }}
+          >
+            ✉️
+          </a>
+          <a
+            href="#"
+            style={{ color: "rgba(148,163,184,0.9)" }}
+          >
+            𝕏
+          </a>
+          <a
+            href="#"
+            style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}
+          >
+            in
+          </a>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-          <img src="/Q5_white_bg.png" alt="Quantum5ocial logo" style={{ width: 24, height: 24, borderRadius: 4 }} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
+            color: "rgba(148,163,184,0.9)",
+          }}
+        >
+          <img
+            src="/Q5_white_bg.png"
+            alt="Quantum5ocial logo"
+            style={{ width: 24, height: 24, borderRadius: 4 }}
+          />
           <span>© 2025 Quantum5ocial</span>
         </div>
       </div>
