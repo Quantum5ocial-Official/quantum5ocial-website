@@ -11,8 +11,8 @@ type ProfileSummary = {
 
   highest_education?: string | null;
 
-  role?: string | null;
-  current_title?: string | null;
+  role?: string | null; // primary role
+  current_title?: string | null; // optional override
   affiliation?: string | null;
 
   q5_badge_level?: number | null;
@@ -32,7 +32,7 @@ type SidebarData = {
   entangledCount: number | null;
   savedJobsCount: number | null;
   savedProductsCount: number | null;
-  myPostsCount: number | null;
+  postsCount: number | null;
   myOrg: MyOrgSummary | null;
   myOrgFollowersCount: number | null;
 };
@@ -46,7 +46,7 @@ export default function LeftSidebar() {
     entangledCount: null,
     savedJobsCount: null,
     savedProductsCount: null,
-    myPostsCount: null,
+    postsCount: null,
     myOrg: null,
     myOrgFollowersCount: null,
   });
@@ -71,7 +71,7 @@ export default function LeftSidebar() {
         entangledCount: null,
         savedJobsCount: null,
         savedProductsCount: null,
-        myPostsCount: null,
+        postsCount: null,
         myOrg: null,
         myOrgFollowersCount: null,
       });
@@ -105,6 +105,11 @@ export default function LeftSidebar() {
           .select("product_id")
           .eq("user_id", uid);
 
+        const postsQ = supabase
+          .from("posts")
+          .select("id")
+          .eq("user_id", uid);
+
         const orgQ = supabase
           .from("organizations")
           .select("id, name, slug, logo_url")
@@ -114,18 +119,13 @@ export default function LeftSidebar() {
           .limit(1)
           .maybeSingle();
 
-        const postsQ = supabase
-          .from("posts")
-          .select("id")
-          .eq("user_id", uid);
-
-        const [pRes, cRes, sjRes, spRes, orgRes, postsRes] = await Promise.all([
+        const [pRes, cRes, sjRes, spRes, postsRes, orgRes] = await Promise.all([
           profileQ,
           connectionsQ,
           savedJobsQ,
           savedProductsQ,
-          orgQ,
           postsQ,
+          orgQ,
         ]);
 
         const profile = (pRes.data as ProfileSummary) || null;
@@ -144,7 +144,7 @@ export default function LeftSidebar() {
 
         const savedJobsCount = (sjRes.data || []).length;
         const savedProductsCount = (spRes.data || []).length;
-        const myPostsCount = (postsRes.data || []).length;
+        const postsCount = (postsRes.data || []).length;
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
@@ -165,7 +165,7 @@ export default function LeftSidebar() {
           entangledCount,
           savedJobsCount,
           savedProductsCount,
-          myPostsCount,
+          postsCount,
           myOrg,
           myOrgFollowersCount,
         });
@@ -177,7 +177,7 @@ export default function LeftSidebar() {
           entangledCount: 0,
           savedJobsCount: 0,
           savedProductsCount: 0,
-          myPostsCount: 0,
+          postsCount: 0,
           myOrg: null,
           myOrgFollowersCount: null,
         });
@@ -307,20 +307,14 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* DASHBOARD */}
+      {/* DASHBOARD CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Dashboard</div>
 
         <div
           className="dashboard-sidebar-links"
-          style={{
-            marginTop: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-          }}
+          style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}
         >
-          {/* Main ecosystem entry */}
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
@@ -332,96 +326,71 @@ export default function LeftSidebar() {
             }}
           >
             <span>My ecosystem</span>
-            <span
-              style={{
-                fontSize: 11,
-                color: "#7dd3fc",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Open →
+          </Link>
+
+          <Link
+            href="/ecosystem/entangled"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span>Entanglements</span>
+            <span style={{ opacity: 0.9 }}>
+              {data.entangledCount ?? "…"}
             </span>
           </Link>
 
-          {/* Sub-menu under ecosystem */}
-          <div
+          <Link
+            href="/ecosystem/my-posts"
+            className="dashboard-sidebar-link"
             style={{
-              marginTop: 4,
-              paddingLeft: 10,
-              borderLeft: "1px dashed rgba(148,163,184,0.5)",
               display: "flex",
-              flexDirection: "column",
-              gap: 2,
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            <Link
-              href="/ecosystem/entangled"
-              className="dashboard-sidebar-link"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
-              <span>Entanglements</span>
-              <span style={{ opacity: 0.9 }}>
-                {data.entangledCount ?? "…"}
-              </span>
-            </Link>
+            <span>My posts</span>
+            <span style={{ opacity: 0.9 }}>
+              {data.postsCount ?? "…"}
+            </span>
+          </Link>
 
-            <Link
-              href="/ecosystem/my-posts"
-              className="dashboard-sidebar-link"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
-              <span>Posts</span>
-              <span style={{ opacity: 0.9 }}>
-                {data.myPostsCount ?? "…"}
-              </span>
-            </Link>
+          <Link
+            href="/ecosystem/saved-jobs"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span>Saved jobs</span>
+            <span style={{ opacity: 0.9 }}>
+              {data.savedJobsCount ?? "…"}
+            </span>
+          </Link>
 
-            <Link
-              href="/ecosystem/saved-jobs"
-              className="dashboard-sidebar-link"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
-              <span>Saved jobs</span>
-              <span style={{ opacity: 0.9 }}>
-                {data.savedJobsCount ?? "…"}
-              </span>
-            </Link>
-
-            <Link
-              href="/ecosystem/saved-products"
-              className="dashboard-sidebar-link"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
-              <span>Saved products</span>
-              <span style={{ opacity: 0.9 }}>
-                {data.savedProductsCount ?? "…"}
-              </span>
-            </Link>
-          </div>
+          <Link
+            href="/ecosystem/saved-products"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span>Saved products</span>
+            <span style={{ opacity: 0.9 }}>
+              {data.savedProductsCount ?? "…"}
+            </span>
+          </Link>
         </div>
       </div>
 
@@ -503,7 +472,8 @@ export default function LeftSidebar() {
                   </span>
                 </div>
                 <div>
-                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
+                  Views:{" "}
+                  <span style={{ color: "#e5e7eb" }}>0</span>
                 </div>
                 <div style={{ marginTop: 4, color: "#7dd3fc" }}>
                   Analytics →
@@ -514,8 +484,9 @@ export default function LeftSidebar() {
         </Link>
       )}
 
-      {/* PREMIUM CARD – title + pill + link, no body text */}
-      <div
+      {/* PREMIUM CARD – entire card clickable */}
+      <Link
+        href="/premium"
         className="sidebar-card premium-sidebar-card"
         style={{
           padding: "14px 16px",
@@ -524,9 +495,9 @@ export default function LeftSidebar() {
             "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
+          textDecoration: "none",
+          color: "inherit",
+          cursor: "pointer",
         }}
       >
         <div
@@ -556,22 +527,7 @@ export default function LeftSidebar() {
             Coming soon
           </div>
         </div>
-
-        <Link
-          href="/premium"
-          style={{
-            fontSize: 12,
-            color: "rgba(251,191,36,0.95)",
-            textDecoration: "none",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <span>Learn more</span>
-          <span style={{ fontSize: 13 }}>›</span>
-        </Link>
-      </div>
+      </Link>
 
       <div
         style={{
@@ -592,7 +548,10 @@ export default function LeftSidebar() {
           >
             ✉️
           </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
+          <a
+            href="#"
+            style={{ color: "rgba(148,163,184,0.9)" }}
+          >
             𝕏
           </a>
           <a
