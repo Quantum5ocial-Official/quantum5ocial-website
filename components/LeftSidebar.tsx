@@ -234,28 +234,42 @@ export default function LeftSidebar() {
             gap: 6,
           }}
         >
-          {/* Badge pill */}
-          {!loading && badgeLabel && (
-            <div>
-              <Q5BadgeChips
-                label={badgeLabel}
-                reviewStatus={badgeStatus}
-                size="sm"
-              />
+          {/* Avatar row + badge in top-right */}
+          <div
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 8,
+            }}
+          >
+            <div className="profile-sidebar-avatar-wrapper">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={fullName}
+                  className="profile-sidebar-avatar"
+                />
+              ) : (
+                <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
+                  {(fullName || "Q").charAt(0).toUpperCase()}
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Avatar */}
-          <div className="profile-sidebar-avatar-wrapper">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={fullName}
-                className="profile-sidebar-avatar"
-              />
-            ) : (
-              <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
-                {(fullName || "Q").charAt(0).toUpperCase()}
+            {!loading && badgeLabel && (
+              <div
+                className="profile-sidebar-badge-pill"
+                style={{
+                  flexShrink: 0,
+                }}
+              >
+                <Q5BadgeChips
+                  label={badgeLabel}
+                  reviewStatus={badgeStatus}
+                  size="sm"
+                />
               </div>
             )}
           </div>
