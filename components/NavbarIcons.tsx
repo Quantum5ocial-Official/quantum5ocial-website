@@ -4,7 +4,6 @@ import {
   useEffect,
   useRef,
   useCallback,
-  KeyboardEvent,
   FormEvent,
 } from "react";
 import Link from "next/link";
@@ -26,22 +25,19 @@ export default function NavbarIcons() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<Theme>("dark");
-  const [hasOrganizations, setHasOrganizations] = useState(false);
 
   // mobile drawer
-const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // isMobile – used to hide desktop icon bar on small screens
   const [isMobile, setIsMobile] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.innerWidth <= 900;
   });
 
-  const dashboardRef = useRef<HTMLDivElement | null>(null);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
 
@@ -183,40 +179,6 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     };
   }, [user]);
 
-  // ----- HAS ORGANIZATIONS? -----
-  useEffect(() => {
-    let cancelled = false;
-
-    const checkOrganizations = async () => {
-      if (!user) {
-        setHasOrganizations(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("id")
-        .eq("created_by", user.id)
-        .eq("is_active", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      if (!error && data) {
-        setHasOrganizations(true);
-      } else {
-        setHasOrganizations(false);
-      }
-    };
-
-    checkOrganizations();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user, router.pathname]);
-
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -225,13 +187,6 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
         !userMenuRef.current.contains(e.target as Node)
       ) {
         setIsUserMenuOpen(false);
-        setIsDashboardOpen(false);
-      }
-      if (
-        dashboardRef.current &&
-        !dashboardRef.current.contains(e.target as Node)
-      ) {
-        setIsDashboardOpen(false);
       }
     }
 
@@ -241,28 +196,30 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Lock scroll when mobile drawer is open
   useEffect(() => {
-  if (typeof document === "undefined") return;
-  document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
-  return () => {
-    document.body.style.overflow = "";
-  };
-}, [isMobileMenuOpen]);
+    if (typeof document === "undefined") return;
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
 
+  // Close drawer on outside pointer down
   useEffect(() => {
-  if (!isMobileMenuOpen) return;
-  if (typeof document === "undefined") return;
+    if (!isMobileMenuOpen) return;
+    if (typeof document === "undefined") return;
 
-  const onPointerDown = (e: PointerEvent) => {
-    const drawerEl = mobileDrawerRef.current;
-    if (!drawerEl) return;
-    if (!drawerEl.contains(e.target as Node)) {
-      setIsMobileMenuOpen(false);
-    }
-  };
+    const onPointerDown = (e: PointerEvent) => {
+      const drawerEl = mobileDrawerRef.current;
+      if (!drawerEl) return;
+      if (!drawerEl.contains(e.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
 
-  document.addEventListener("pointerdown", onPointerDown, true);
-  return () => document.removeEventListener("pointerdown", onPointerDown, true);
-}, [isMobileMenuOpen]);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -289,13 +246,6 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     fullName && typeof fullName === "string"
       ? fullName.split(" ")[0] || fullName
       : "User";
-
-  const toggleDashboardFromKey = (e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setIsDashboardOpen((o) => !o);
-    }
-  };
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
@@ -572,7 +522,6 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
                     }`}
                     onClick={() => {
                       setIsUserMenuOpen((o) => !o);
-                      setIsDashboardOpen(false);
                     }}
                     style={{
                       padding: 0,
@@ -633,7 +582,6 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
                         className="nav-dropdown-item"
                         onClick={() => {
                           setIsUserMenuOpen(false);
-                          setIsDashboardOpen(false);
                         }}
                       >
                         My profile
@@ -644,95 +592,16 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
                         className="nav-dropdown-item"
                         onClick={() => {
                           setIsUserMenuOpen(false);
-                          setIsDashboardOpen(false);
                         }}
                       >
                         My ecosystem
                       </Link>
-
-                      <div ref={dashboardRef} style={{ marginTop: 4, marginBottom: 4 }}>
-                        <button
-                          type="button"
-                          className="nav-dropdown-item"
-                          onClick={() => setIsDashboardOpen((o) => !o)}
-                          onKeyDown={toggleDashboardFromKey}
-                        >
-                          <span>Dashboard</span>
-                          <span
-                            style={{
-                              marginLeft: "auto",
-                              fontSize: 10,
-                              opacity: 0.8,
-                            }}
-                          >
-                            {isDashboardOpen ? "▲" : "▼"}
-                          </span>
-                        </button>
-
-                        {isDashboardOpen && (
-                          <>
-                            <Link
-                              href="/dashboard"
-                              className="nav-dropdown-item nav-dropdown-subitem"
-                              onClick={() => {
-                                setIsUserMenuOpen(false);
-                                setIsDashboardOpen(false);
-                              }}
-                            >
-                              Overview
-                            </Link>
-                            <Link
-                              href="/dashboard/entangled-states"
-                              className="nav-dropdown-item nav-dropdown-subitem"
-                              onClick={() => {
-                                setIsUserMenuOpen(false);
-                                setIsDashboardOpen(false);
-                              }}
-                            >
-                              Entangled states
-                            </Link>
-                            <Link
-                              href="/dashboard/saved-jobs"
-                              className="nav-dropdown-item nav-dropdown-subitem"
-                              onClick={() => {
-                                setIsUserMenuOpen(false);
-                                setIsDashboardOpen(false);
-                              }}
-                            >
-                              Saved jobs
-                            </Link>
-                            <Link
-                              href="/dashboard/saved-products"
-                              className="nav-dropdown-item nav-dropdown-subitem"
-                              onClick={() => {
-                                setIsUserMenuOpen(false);
-                                setIsDashboardOpen(false);
-                              }}
-                            >
-                              Saved products
-                            </Link>
-                            {hasOrganizations && (
-                              <Link
-                                href="/dashboard/my-organizations"
-                                className="nav-dropdown-item nav-dropdown-subitem"
-                                onClick={() => {
-                                  setIsUserMenuOpen(false);
-                                  setIsDashboardOpen(false);
-                                }}
-                              >
-                                My organizations
-                              </Link>
-                            )}
-                          </>
-                        )}
-                      </div>
 
                       <Link
                         href="/orgs/create"
                         className="nav-dropdown-item"
                         onClick={() => {
                           setIsUserMenuOpen(false);
-                          setIsDashboardOpen(false);
                         }}
                       >
                         Create my organization page
@@ -744,7 +613,6 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
                         onClick={async () => {
                           await handleLogout();
                           setIsUserMenuOpen(false);
-                          setIsDashboardOpen(false);
                         }}
                       >
                         Logout
@@ -776,22 +644,22 @@ const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
           )}
         </div>
       </div>
-      
+
       {/* ✅ MOBILE OVERLAY — click outside closes drawer */}
-{isMobile && isMobileMenuOpen && (
-  <div
-    className="nav-drawer-backdrop"
-    aria-hidden="true"
-    onPointerDown={closeMobileMenu}
-  />
-)}
+      {isMobile && isMobileMenuOpen && (
+        <div
+          className="nav-drawer-backdrop"
+          aria-hidden="true"
+          onPointerDown={closeMobileMenu}
+        />
+      )}
 
       {/* MOBILE DRAWER */}
-            <div
-  ref={mobileDrawerRef}
-  className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
-  style={{ zIndex: 999 }}
->
+      <div
+        ref={mobileDrawerRef}
+        className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
+        style={{ zIndex: 999 }}
+      >
         <nav className="nav-links nav-links-mobile">
           {/* PROFILE ROW (mobile) */}
           {!loading && user && (
