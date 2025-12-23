@@ -100,9 +100,13 @@ const OrganizationDetailPage = () => {
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<OrgMemberRole>("member");
-  const [selectedAffiliated, setSelectedAffiliated] =
-    useState<boolean>(true);
+  const [selectedAffiliated, setSelectedAffiliated] = useState<boolean>(true);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+
+  // Member management (role changes / remove / self-affiliation)
+  const [memberMenuOpenId, setMemberMenuOpenId] = useState<string | null>(null);
+  const [memberActionLoadingId, setMemberActionLoadingId] = useState<string | null>(null);
+  const [selfAffLoadingId, setSelfAffLoadingId] = useState<string | null>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -488,9 +492,7 @@ const OrganizationDetailPage = () => {
         null;
 
       setMembers((prev) => {
-        const existingIndex = prev.findIndex(
-          (m) => m.user_id === profileId
-        );
+        const existingIndex = prev.findIndex((m) => m.user_id === profileId);
         const updatedEntry: OrgMemberWithProfile = {
           user_id: profileId,
           role: selectedRole,
@@ -505,10 +507,126 @@ const OrganizationDetailPage = () => {
         }
         return [...prev, updatedEntry];
       });
+
+      // If this is the current user being added/updated, sync membership state
+      if (user && user.id === profileId) {
+        setMemberRole(selectedRole);
+        setIsAffiliated(selectedAffiliated);
+      }
     } catch (err) {
       console.error("Unexpected error adding org member", err);
     } finally {
       setSavingMemberId(null);
+    }
+  };
+
+  // === SELF AFFILIATION TOGGLE ===
+  const handleToggleSelfAffiliation = async (member: OrgMemberWithProfile, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!org || !user) return;
+    if (member.user_id !== user.id) return;
+
+    const newValue = !member.is_affiliated;
+    setSelfAffLoadingId(member.user_id);
+
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .update({ is_affiliated: newValue })
+        .eq("org_id", org.id)
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Error updating self affiliation", error);
+        return;
+      }
+
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m
+        )
+      );
+
+      setIsAffiliated(newValue);
+    } catch (err) {
+      console.error("Unexpected error updating self affiliation", err);
+    } finally {
+      setSelfAffLoadingId(null);
+    }
+  };
+
+  // === OWNER / ADMIN: CHANGE ROLE ===
+  const handleChangeMemberRole = async (
+    memberUserId: string,
+    newRole: OrgMemberRole,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    if (!org || !canEdit) return;
+
+    setMemberActionLoadingId(memberUserId);
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .update({ role: newRole })
+        .eq("org_id", org.id)
+        .eq("user_id", memberUserId);
+
+      if (error) {
+        console.error("Error changing member role", error);
+        return;
+      }
+
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.user_id === memberUserId ? { ...m, role: newRole } : m
+        )
+      );
+
+      // If we changed our own role, sync state
+      if (user && user.id === memberUserId) {
+        setMemberRole(newRole);
+      }
+
+      setMemberMenuOpenId(null);
+    } catch (err) {
+      console.error("Unexpected error changing member role", err);
+    } finally {
+      setMemberActionLoadingId(null);
+    }
+  };
+
+  // === OWNER / ADMIN: REMOVE MEMBER ===
+  const handleRemoveMember = async (memberUserId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!org || !canEdit) return;
+
+    setMemberActionLoadingId(memberUserId);
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .delete()
+        .eq("org_id", org.id)
+        .eq("user_id", memberUserId);
+
+      if (error) {
+        console.error("Error removing member from org", error);
+        return;
+      }
+
+      setMembers((prev) => prev.filter((m) => m.user_id !== memberUserId));
+
+      // If we removed ourselves, clear membership state
+      if (user && user.id === memberUserId) {
+        setMemberRole(null);
+        setIsAffiliated(false);
+      }
+
+      setMemberMenuOpenId(null);
+    } catch (err) {
+      console.error("Unexpected error removing member", err);
+    } finally {
+      setMemberActionLoadingId(null);
     }
   };
 
@@ -687,8 +805,7 @@ const OrganizationDetailPage = () => {
                         fontSize: 13,
                         fontWeight: 500,
                         textDecoration: "none",
-                        background:
-                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                         color: "#0f172a",
                         whiteSpace: "nowrap",
                       }}
@@ -973,8 +1090,7 @@ const OrganizationDetailPage = () => {
                         style={{
                           padding: "4px 8px",
                           borderRadius: 999,
-                          border:
-                            "1px solid rgba(148,163,184,0.7)",
+                          border: "1px solid rgba(148,163,184,0.7)",
                           background: "rgba(15,23,42,0.9)",
                           color: "#e5e7eb",
                           fontSize: 12,
@@ -1024,8 +1140,7 @@ const OrganizationDetailPage = () => {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns:
-                          "repeat(2, minmax(0, 1fr))",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
                         gap: 10,
                         maxHeight: 260,
                         overflowY: "auto",
@@ -1033,8 +1148,7 @@ const OrganizationDetailPage = () => {
                       }}
                     >
                       {searchResults.map((p) => {
-                        const name =
-                          p.full_name || "Quantum5ocial member";
+                        const name = p.full_name || "Quantum5ocial member";
                         const initials = name
                           .split(" ")
                           .map((part) => part[0])
@@ -1048,8 +1162,7 @@ const OrganizationDetailPage = () => {
                         const subtitle =
                           [p.role, p.affiliation, location]
                             .filter(Boolean)
-                            .join(" · ") ||
-                          "Quantum5ocial member";
+                            .join(" · ") || "Quantum5ocial member";
 
                         const alreadyMember = members.some(
                           (m) => m.user_id === p.id
@@ -1089,8 +1202,7 @@ const OrganizationDetailPage = () => {
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
-                                  border:
-                                    "1px solid rgba(148,163,184,0.6)",
+                                  border: "1px solid rgba(148,163,184,0.6)",
                                   color: "#e5e7eb",
                                   fontWeight: 700,
                                   fontSize: 12,
@@ -1116,8 +1228,7 @@ const OrganizationDetailPage = () => {
                                   style={{
                                     fontSize: 13,
                                     fontWeight: 600,
-                                    color:
-                                      "rgba(226,232,240,0.98)",
+                                    color: "rgba(226,232,240,0.98)",
                                     whiteSpace: "nowrap",
                                     overflow: "hidden",
                                     textOverflow: "ellipsis",
@@ -1129,8 +1240,7 @@ const OrganizationDetailPage = () => {
                                       style={{
                                         marginLeft: 6,
                                         fontSize: 11,
-                                        color:
-                                          "rgba(148,163,184,0.95)",
+                                        color: "rgba(148,163,184,0.95)",
                                       }}
                                     >
                                       (you)
@@ -1141,8 +1251,7 @@ const OrganizationDetailPage = () => {
                                   style={{
                                     marginTop: 2,
                                     fontSize: 11,
-                                    color:
-                                      "rgba(148,163,184,0.95)",
+                                    color: "rgba(148,163,184,0.95)",
                                     whiteSpace: "nowrap",
                                     overflow: "hidden",
                                     textOverflow: "ellipsis",
@@ -1168,9 +1277,7 @@ const OrganizationDetailPage = () => {
                                   color: "rgba(148,163,184,0.9)",
                                 }}
                               >
-                                {alreadyMember
-                                  ? "Already in team"
-                                  : "Add to team"}
+                                {alreadyMember ? "Already in team" : "Add to team"}
                               </div>
                               <button
                                 type="button"
@@ -1254,8 +1361,7 @@ const OrganizationDetailPage = () => {
                 >
                   {members.map((m) => {
                     const profile = m.profile;
-                    const name =
-                      profile?.full_name || "Quantum5ocial member";
+                    const name = profile?.full_name || "Quantum5ocial member";
                     const initials = name
                       .split(" ")
                       .map((p) => p[0])
@@ -1272,16 +1378,16 @@ const OrganizationDetailPage = () => {
                         .filter(Boolean)
                         .join(" · ") || "Quantum5ocial member";
 
-                    const isCurrentUser =
-                      user && profile && profile.id === user.id;
+                    const isCurrentUser = user && profile && profile.id === user.id;
+                    const isMenuOpen = memberMenuOpenId === m.user_id;
+                    const isMemberActionLoading = memberActionLoadingId === m.user_id;
+                    const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
                     return (
                       <button
                         key={m.user_id}
                         type="button"
-                        onClick={() =>
-                          profile && goToProfile(profile.id)
-                        }
+                        onClick={() => profile && goToProfile(profile.id)}
                         className="card"
                         style={{
                           textAlign: "left",
@@ -1292,90 +1398,238 @@ const OrganizationDetailPage = () => {
                           gap: 10,
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
+                          position: "relative",
                         }}
                       >
                         <div
                           style={{
                             display: "flex",
-                            alignItems: "center",
-                            gap: 10,
+                            alignItems: "flex-start",
+                            gap: 8,
                           }}
                         >
                           <div
                             style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              background:
-                                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "center",
-                              border:
-                                "1px solid rgba(148,163,184,0.6)",
-                              color: "#e5e7eb",
-                              fontWeight: 700,
-                              fontSize: 13,
+                              gap: 10,
+                              flex: 1,
+                              minWidth: 0,
                             }}
                           >
-                            {profile?.avatar_url ? (
-                              <img
-                                src={profile.avatar_url}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              initials
-                            )}
-                          </div>
-
-                          <div style={{ minWidth: 0 }}>
                             <div
                               style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color:
-                                  "rgba(226,232,240,0.98)",
-                                whiteSpace: "nowrap",
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
                                 overflow: "hidden",
-                                textOverflow: "ellipsis",
+                                flexShrink: 0,
+                                background:
+                                  "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "1px solid rgba(148,163,184,0.6)",
+                                color: "#e5e7eb",
+                                fontWeight: 700,
+                                fontSize: 13,
                               }}
                             >
-                              {name}
-                              {isCurrentUser && (
-                                <span
+                              {profile?.avatar_url ? (
+                                <img
+                                  src={profile.avatar_url}
+                                  alt={name}
                                   style={{
-                                    marginLeft: 6,
-                                    fontSize: 11,
-                                    color:
-                                      "rgba(148,163,184,0.95)",
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
                                   }}
-                                >
-                                  (you)
-                                </span>
+                                />
+                              ) : (
+                                initials
                               )}
                             </div>
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color:
-                                  "rgba(148,163,184,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {subtitle}
+
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: "rgba(226,232,240,0.98)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {name}
+                                {isCurrentUser && (
+                                  <span
+                                    style={{
+                                      marginLeft: 6,
+                                      fontSize: 11,
+                                      color: "rgba(148,163,184,0.95)",
+                                    }}
+                                  >
+                                    (you)
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 2,
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.95)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {subtitle}
+                              </div>
                             </div>
                           </div>
+
+                          {canEdit && (
+                            <div
+                              style={{
+                                marginLeft: "auto",
+                                flexShrink: 0,
+                                position: "relative",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMemberMenuOpenId((prev) =>
+                                    prev === m.user_id ? null : m.user_id
+                                  );
+                                }}
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 999,
+                                  border: "1px solid rgba(71,85,105,0.9)",
+                                  background: "rgba(15,23,42,0.95)",
+                                  color: "rgba(148,163,184,0.95)",
+                                  fontSize: 14,
+                                  lineHeight: 1,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                }}
+                              >
+                                ⋯
+                              </button>
+
+                              {isMenuOpen && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 26,
+                                    right: 0,
+                                    zIndex: 20,
+                                    borderRadius: 10,
+                                    border: "1px solid rgba(30,64,175,0.9)",
+                                    background:
+                                      "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
+                                    boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
+                                    minWidth: 150,
+                                    padding: 4,
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div
+                                    style={{
+                                      padding: "4px 8px",
+                                      fontSize: 11,
+                                      color: "rgba(148,163,184,0.95)",
+                                      borderBottom: "1px solid rgba(30,64,175,0.6)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Manage member
+                                  </div>
+                                  {(["owner", "admin", "member"] as OrgMemberRole[]).map(
+                                    (roleOption) => (
+                                      <button
+                                        key={roleOption}
+                                        type="button"
+                                        disabled={isMemberActionLoading}
+                                        onClick={(e) =>
+                                          handleChangeMemberRole(
+                                            m.user_id,
+                                            roleOption,
+                                            e
+                                          )
+                                        }
+                                        style={{
+                                          width: "100%",
+                                          textAlign: "left",
+                                          padding: "6px 8px",
+                                          borderRadius: 6,
+                                          border: "none",
+                                          background:
+                                            roleOption === m.role
+                                              ? "rgba(37,99,235,0.2)"
+                                              : "transparent",
+                                          color:
+                                            roleOption === m.role
+                                              ? "#bfdbfe"
+                                              : "rgba(226,232,240,0.95)",
+                                          fontSize: 12,
+                                          cursor: isMemberActionLoading
+                                            ? "default"
+                                            : "pointer",
+                                        }}
+                                      >
+                                        {roleOption === "owner"
+                                          ? "Make owner"
+                                          : roleOption === "admin"
+                                          ? "Make admin"
+                                          : "Make member"}
+                                      </button>
+                                    )
+                                  )}
+                                  <div
+                                    style={{
+                                      borderTop: "1px solid rgba(30,64,175,0.6)",
+                                      marginTop: 4,
+                                      paddingTop: 4,
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      disabled={isMemberActionLoading}
+                                      onClick={(e) =>
+                                        handleRemoveMember(m.user_id, e)
+                                      }
+                                      style={{
+                                        width: "100%",
+                                        textAlign: "left",
+                                        padding: "6px 8px",
+                                        borderRadius: 6,
+                                        border: "none",
+                                        background: "transparent",
+                                        color: "#fecaca",
+                                        fontSize: 12,
+                                        cursor: isMemberActionLoading
+                                          ? "default"
+                                          : "pointer",
+                                      }}
+                                    >
+                                      {isMemberActionLoading
+                                        ? "Removing…"
+                                        : "Remove from team"}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div
@@ -1391,8 +1645,7 @@ const OrganizationDetailPage = () => {
                               fontSize: 11,
                               borderRadius: 999,
                               padding: "2px 7px",
-                              border:
-                                "1px solid rgba(129,140,248,0.8)",
+                              border: "1px solid rgba(129,140,248,0.8)",
                               color: "rgba(191,219,254,0.95)",
                             }}
                           >
@@ -1405,16 +1658,67 @@ const OrganizationDetailPage = () => {
                                 fontSize: 11,
                                 borderRadius: 999,
                                 padding: "2px 7px",
-                                border:
-                                  "1px solid rgba(34,197,94,0.7)",
-                                color:
-                                  "rgba(187,247,208,0.95)",
+                                border: "1px solid rgba(34,197,94,0.7)",
+                                color: "rgba(187,247,208,0.95)",
                               }}
                             >
                               Affiliated
                             </span>
                           )}
                         </div>
+
+                        {isCurrentUser && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              paddingTop: 6,
+                              borderTop: "1px dashed rgba(51,65,85,0.9)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: "rgba(148,163,184,0.95)",
+                              }}
+                            >
+                              Affiliated with this organization
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) =>
+                                handleToggleSelfAffiliation(m, e)
+                              }
+                              disabled={isSelfAffLoading}
+                              style={{
+                                fontSize: 11,
+                                borderRadius: 999,
+                                padding: "2px 8px",
+                                border: m.is_affiliated
+                                  ? "1px solid rgba(34,197,94,0.8)"
+                                  : "1px solid rgba(148,163,184,0.7)",
+                                background: m.is_affiliated
+                                  ? "rgba(22,163,74,0.2)"
+                                  : "transparent",
+                                color: m.is_affiliated
+                                  ? "rgba(187,247,208,0.96)"
+                                  : "rgba(226,232,240,0.9)",
+                                cursor: isSelfAffLoading ? "default" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {isSelfAffLoading
+                                ? "Updating…"
+                                : m.is_affiliated
+                                ? "Set as not affiliated"
+                                : "Set as affiliated"}
+                            </button>
+                          </div>
+                        )}
                       </button>
                     );
                   })}
@@ -1464,15 +1768,13 @@ const OrganizationDetailPage = () => {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns:
-                        "repeat(4, minmax(0, 1fr))",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                       gap: 12,
                       marginTop: 6,
                     }}
                   >
                     {followers.map((f) => {
-                      const name =
-                        f.full_name || "Quantum5ocial member";
+                      const name = f.full_name || "Quantum5ocial member";
                       const initials = name
                         .split(" ")
                         .map((p) => p[0])
@@ -1486,8 +1788,7 @@ const OrganizationDetailPage = () => {
                       const subtitle =
                         [f.role, f.affiliation, location]
                           .filter(Boolean)
-                          .join(" · ") ||
-                        "Quantum5ocial member";
+                          .join(" · ") || "Quantum5ocial member";
 
                       return (
                         <button
@@ -1503,8 +1804,7 @@ const OrganizationDetailPage = () => {
                             flexDirection: "column",
                             gap: 10,
                             cursor: "pointer",
-                            background:
-                              "rgba(2,6,23,0.35)",
+                            background: "rgba(2,6,23,0.35)",
                           }}
                         >
                           <div
@@ -1526,8 +1826,7 @@ const OrganizationDetailPage = () => {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                border:
-                                  "1px solid rgba(148,163,184,0.6)",
+                                border: "1px solid rgba(148,163,184,0.6)",
                                 color: "#e5e7eb",
                                 fontWeight: 700,
                                 fontSize: 13,
@@ -1554,8 +1853,7 @@ const OrganizationDetailPage = () => {
                                 style={{
                                   fontSize: 13,
                                   fontWeight: 600,
-                                  color:
-                                    "rgba(226,232,240,0.98)",
+                                  color: "rgba(226,232,240,0.98)",
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -1567,8 +1865,7 @@ const OrganizationDetailPage = () => {
                                 style={{
                                   marginTop: 2,
                                   fontSize: 11,
-                                  color:
-                                    "rgba(148,163,184,0.95)",
+                                  color: "rgba(148,163,184,0.95)",
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
