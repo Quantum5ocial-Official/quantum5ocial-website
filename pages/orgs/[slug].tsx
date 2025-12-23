@@ -39,7 +39,7 @@ type FollowerProfile = {
 };
 
 // membership roles for org_members
-type OrgMemberRole = "owner" | "admin" | "member";
+type OrgMemberRole = "owner" | "co_owner" | "admin" | "member";
 
 type OrgMemberRow = {
   user_id: string;
@@ -54,7 +54,7 @@ type OrgMemberWithProfile = {
   profile: FollowerProfile | null;
 };
 
-// search results for invite panel (subset of profiles)
+// search results for invite panel – now only from followers
 type SearchProfile = {
   id: string;
   full_name: string | null;
@@ -97,7 +97,6 @@ const OrganizationDetailPage = () => {
   const [showAddMember, setShowAddMember] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [searchResults, setSearchResults] = useState<SearchProfile[]>([]);
-  const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<OrgMemberRole>("member");
   const [selectedAffiliated, setSelectedAffiliated] = useState<boolean>(true);
@@ -276,10 +275,16 @@ const OrganizationDetailPage = () => {
   // === PERMISSIONS ===
   const canEdit = useMemo(() => {
     if (!user || !org) return false;
-    if (memberRole === "owner" || memberRole === "admin") return true;
+    if (memberRole === "owner" || memberRole === "co_owner" || memberRole === "admin")
+      return true;
     // Fallback for legacy orgs without org_members rows
     return org.created_by === user.id;
   }, [user, org, memberRole]);
+
+  const canRemoveOthers = useMemo(
+    () => memberRole === "owner" || memberRole === "co_owner",
+    [memberRole]
+  );
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
@@ -341,12 +346,13 @@ const OrganizationDetailPage = () => {
           profile: profileMap.get(m.user_id) || null,
         }));
 
-        // sort: owner/admin/member, then name
+        // sort: owner → co-owner → admin → member, then name
         merged.sort((a, b) => {
           const order: Record<OrgMemberRole, number> = {
             owner: 0,
-            admin: 1,
-            member: 2,
+            co_owner: 1,
+            admin: 2,
+            member: 3,
           };
           const da = order[a.role] - order[b.role];
           if (da !== 0) return da;
@@ -423,46 +429,41 @@ const OrganizationDetailPage = () => {
 
   const roleLabel = (role: OrgMemberRole) => {
     if (role === "owner") return "Owner";
+    if (role === "co_owner") return "Co-owner";
     if (role === "admin") return "Admin";
     return "Member";
   };
 
-  // === INVITE / ADD MEMBER LOGIC ===
-  const handleSearchProfiles = async (e: React.FormEvent) => {
+  // === INVITE / ADD MEMBER – NOW ONLY FROM FOLLOWERS, LIVE SEARCH ===
+
+  // Just prevent submit refresh; results are driven by typing.
+  const handleSearchProfiles = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
-
-    setSearchLoading(true);
-    setSearchError(null);
-    setSearchResults([]);
-
-    try {
-      const term = searchTerm.trim();
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select(
-          "id, full_name, avatar_url, role, affiliation, country, city"
-        )
-        .ilike("full_name", `%${term}%`)
-        .limit(10);
-
-      if (error) {
-        console.error("Error searching profiles for members", error);
-        setSearchError("Could not search profiles.");
-        setSearchResults([]);
-        return;
-      }
-
-      setSearchResults((data || []) as SearchProfile[]);
-    } catch (err) {
-      console.error("Unexpected error searching profiles", err);
-      setSearchError("Could not search profiles.");
-      setSearchResults([]);
-    } finally {
-      setSearchLoading(false);
-    }
   };
+
+  useEffect(() => {
+    if (!showAddMember) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    const lower = searchTerm.trim().toLowerCase();
+
+    // filter only among followers
+    const filtered = followers.filter((f) =>
+      (f.full_name || "").toLowerCase().includes(lower)
+    );
+
+    setSearchResults(filtered.slice(0, 20));
+    setSearchError(null);
+  }, [searchTerm, followers, showAddMember]);
 
   const handleAddMember = async (profileId: string) => {
     if (!org || !canEdit) return;
@@ -486,7 +487,7 @@ const OrganizationDetailPage = () => {
         return;
       }
 
-      // Find profile in search results
+      // Find profile in *followers* based search results
       const profile =
         (searchResults.find((p) => p.id === profileId) as FollowerProfile) ||
         null;
@@ -521,41 +522,48 @@ const OrganizationDetailPage = () => {
   };
 
   // === SELF AFFILIATION TOGGLE ===
-  const handleToggleSelfAffiliation = async (member: OrgMemberWithProfile, e: React.MouseEvent) => {
+  const handleToggleSelfAffiliation = (
+    member: OrgMemberWithProfile,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
     if (!org || !user) return;
     if (member.user_id !== user.id) return;
 
-    const newValue = !member.is_affiliated;
-    setSelfAffLoadingId(member.user_id);
+    const update = async () => {
+      const newValue = !member.is_affiliated;
+      setSelfAffLoadingId(member.user_id);
 
-    try {
-      const { error } = await supabase
-        .from("org_members")
-        .update({ is_affiliated: newValue })
-        .eq("org_id", org.id)
-        .eq("user_id", user.id);
+      try {
+        const { error } = await supabase
+          .from("org_members")
+          .update({ is_affiliated: newValue })
+          .eq("org_id", org.id)
+          .eq("user_id", user.id);
 
-      if (error) {
-        console.error("Error updating self affiliation", error);
-        return;
+        if (error) {
+          console.error("Error updating self affiliation", error);
+          return;
+        }
+
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m
+          )
+        );
+
+        setIsAffiliated(newValue);
+      } catch (err) {
+        console.error("Unexpected error updating self affiliation", err);
+      } finally {
+        setSelfAffLoadingId(null);
       }
+    };
 
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m
-        )
-      );
-
-      setIsAffiliated(newValue);
-    } catch (err) {
-      console.error("Unexpected error updating self affiliation", err);
-    } finally {
-      setSelfAffLoadingId(null);
-    }
+    void update();
   };
 
-  // === OWNER / ADMIN: CHANGE ROLE ===
+  // === OWNER / CO-OWNER / ADMIN: CHANGE ROLE ===
   const handleChangeMemberRole = async (
     memberUserId: string,
     newRole: OrgMemberRole,
@@ -596,10 +604,13 @@ const OrganizationDetailPage = () => {
     }
   };
 
-  // === OWNER / ADMIN: REMOVE MEMBER ===
-  const handleRemoveMember = async (memberUserId: string, e: React.MouseEvent) => {
+  // === OWNER / CO-OWNER: REMOVE MEMBER ===
+  const handleRemoveMember = async (
+    memberUserId: string,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
-    if (!org || !canEdit) return;
+    if (!org || !canRemoveOthers) return;
 
     setMemberActionLoadingId(memberUserId);
     try {
@@ -951,7 +962,12 @@ const OrganizationDetailPage = () => {
                 {canEdit && (
                   <button
                     type="button"
-                    onClick={() => setShowAddMember((prev) => !prev)}
+                    onClick={() => {
+                      setShowAddMember((prev) => !prev);
+                      setSearchTerm("");
+                      setSearchResults([]);
+                      setSearchError(null);
+                    }}
                     style={{
                       padding: "6px 12px",
                       borderRadius: 999,
@@ -1010,7 +1026,7 @@ const OrganizationDetailPage = () => {
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search people by name…"
+                      placeholder="Search followers by name…"
                       style={{
                         flex: "1 1 220px",
                         minWidth: 0,
@@ -1022,25 +1038,6 @@ const OrganizationDetailPage = () => {
                         fontSize: 13,
                       }}
                     />
-                    <button
-                      type="submit"
-                      disabled={searchLoading || !searchTerm.trim()}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(59,130,246,0.7)",
-                        background: "rgba(37,99,235,0.2)",
-                        color: "#bfdbfe",
-                        fontSize: 12,
-                        cursor:
-                          searchLoading || !searchTerm.trim()
-                            ? "default"
-                            : "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {searchLoading ? "Searching…" : "Search"}
-                    </button>
                     <button
                       type="button"
                       onClick={() => {
@@ -1099,7 +1096,7 @@ const OrganizationDetailPage = () => {
                       >
                         <option value="member">Member</option>
                         <option value="admin">Admin</option>
-                        <option value="owner">Owner</option>
+                        <option value="co_owner">Co-owner</option>
                       </select>
                     </label>
 
@@ -1315,18 +1312,31 @@ const OrganizationDetailPage = () => {
                       })}
                     </div>
                   ) : (
-                    !searchLoading &&
-                    !searchError &&
-                    searchTerm.trim() && (
+                    searchTerm.trim() &&
+                    !searchError && (
                       <div
                         style={{
                           fontSize: 12,
                           color: "rgba(148,163,184,0.9)",
                         }}
                       >
-                        No matching profiles found yet. Try another name.
+                        No matching followers found. Only followers can be added to
+                        the team.
                       </div>
                     )
+                  )}
+
+                  {!searchTerm.trim() && followers.length === 0 && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(148,163,184,0.85)",
+                        marginTop: 6,
+                      }}
+                    >
+                      This organization has no followers yet. Once people follow,
+                      you can add them here as team members.
+                    </div>
                   )}
                 </div>
               )}
@@ -1537,7 +1547,7 @@ const OrganizationDetailPage = () => {
                                     background:
                                       "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
                                     boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
-                                    minWidth: 150,
+                                    minWidth: 160,
                                     padding: 4,
                                   }}
                                   onClick={(e) => e.stopPropagation()}
@@ -1553,7 +1563,7 @@ const OrganizationDetailPage = () => {
                                   >
                                     Manage member
                                   </div>
-                                  {(["owner", "admin", "member"] as OrgMemberRole[]).map(
+                                  {(["co_owner", "admin", "member"] as OrgMemberRole[]).map(
                                     (roleOption) => (
                                       <button
                                         key={roleOption}
@@ -1586,46 +1596,48 @@ const OrganizationDetailPage = () => {
                                             : "pointer",
                                         }}
                                       >
-                                        {roleOption === "owner"
-                                          ? "Make owner"
+                                        {roleOption === "co_owner"
+                                          ? "Make co-owner"
                                           : roleOption === "admin"
                                           ? "Make admin"
                                           : "Make member"}
                                       </button>
                                     )
                                   )}
-                                  <div
-                                    style={{
-                                      borderTop: "1px solid rgba(30,64,175,0.6)",
-                                      marginTop: 4,
-                                      paddingTop: 4,
-                                    }}
-                                  >
-                                    <button
-                                      type="button"
-                                      disabled={isMemberActionLoading}
-                                      onClick={(e) =>
-                                        handleRemoveMember(m.user_id, e)
-                                      }
+                                  {canRemoveOthers && (
+                                    <div
                                       style={{
-                                        width: "100%",
-                                        textAlign: "left",
-                                        padding: "6px 8px",
-                                        borderRadius: 6,
-                                        border: "none",
-                                        background: "transparent",
-                                        color: "#fecaca",
-                                        fontSize: 12,
-                                        cursor: isMemberActionLoading
-                                          ? "default"
-                                          : "pointer",
+                                        borderTop: "1px solid rgba(30,64,175,0.6)",
+                                        marginTop: 4,
+                                        paddingTop: 4,
                                       }}
                                     >
-                                      {isMemberActionLoading
-                                        ? "Removing…"
-                                        : "Remove from team"}
-                                    </button>
-                                  </div>
+                                      <button
+                                        type="button"
+                                        disabled={isMemberActionLoading}
+                                        onClick={(e) =>
+                                          handleRemoveMember(m.user_id, e)
+                                        }
+                                        style={{
+                                          width: "100%",
+                                          textAlign: "left",
+                                          padding: "6px 8px",
+                                          borderRadius: 6,
+                                          border: "none",
+                                          background: "transparent",
+                                          color: "#fecaca",
+                                          fontSize: 12,
+                                          cursor: isMemberActionLoading
+                                            ? "default"
+                                            : "pointer",
+                                        }}
+                                      >
+                                        {isMemberActionLoading
+                                          ? "Removing…"
+                                          : "Remove from team"}
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
