@@ -51,6 +51,50 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
+  // 🔆 watch global theme class on <html>
+  const [isLightTheme, setIsLightTheme] = useState(false);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+
+    const update = () => {
+      setIsLightTheme(root.classList.contains("theme-light"));
+    };
+
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // theme tokens
+  const textPrimary = isLightTheme ? "#0f172a" : "#e5e7eb";
+  const textSecondary = isLightTheme
+    ? "rgba(55,65,81,0.9)" // slate-700
+    : "rgba(226,232,240,0.88)";
+  const textMuted = isLightTheme
+    ? "rgba(107,114,128,0.95)" // gray-600
+    : "rgba(148,163,184,0.95)";
+  const subtleLabelColor = "rgba(148,163,184,0.9)";
+  const dividerColor = isLightTheme
+    ? "rgba(148,163,184,0.35)"
+    : "rgba(148,163,184,0.18)";
+  const orgAnalyticsColor = isLightTheme ? "#0369a1" : "#7dd3fc";
+
+  const premiumBackground = isLightTheme
+    ? "linear-gradient(135deg, rgba(251,191,36,0.18), rgba(244,114,182,0.26))"
+    : "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))";
+  const premiumPillBg = isLightTheme
+    ? "rgba(248,250,252,0.9)"
+    : "rgba(15,23,42,0.75)";
+  const premiumPillBorder = isLightTheme
+    ? "1px solid rgba(217,119,6,0.6)"
+    : "1px solid rgba(251,191,36,0.6)";
+  const premiumPillText = isLightTheme
+    ? "rgba(161,98,7,0.9)"
+    : "rgba(251,191,36,0.9)";
+
   const fallbackName = useMemo(() => {
     return (
       user?.user_metadata?.full_name ||
@@ -227,16 +271,16 @@ export default function LeftSidebar() {
           style={{
             display: "flex",
             flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 6,
+            gap: 8,
           }}
         >
-          {/* Avatar + badge in same row */}
+          {/* top row: avatar + badge on right */}
           <div
-            className="profile-sidebar-avatar-row"
             style={{
-              position: "relative",
-              width: "fit-content",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
             }}
           >
             <div className="profile-sidebar-avatar-wrapper">
@@ -254,14 +298,7 @@ export default function LeftSidebar() {
             </div>
 
             {!loading && badgeLabel && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: -6,
-                  right: -6,
-                  zIndex: 2,
-                }}
-              >
+              <div style={{ marginLeft: "auto", flexShrink: 0 }}>
                 <Q5BadgeChips
                   label={badgeLabel}
                   reviewStatus={badgeStatus}
@@ -272,7 +309,10 @@ export default function LeftSidebar() {
           </div>
 
           {/* Name */}
-          <div className="profile-sidebar-name">
+          <div
+            className="profile-sidebar-name"
+            style={{ color: textPrimary }}
+          >
             {loading ? "Loading…" : fullName}
           </div>
 
@@ -281,7 +321,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(226,232,240,0.88)",
+                color: textSecondary,
                 lineHeight: 1.2,
               }}
             >
@@ -294,7 +334,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(148,163,184,0.95)",
+                color: textMuted,
                 lineHeight: 1.2,
               }}
             >
@@ -303,7 +343,6 @@ export default function LeftSidebar() {
           )}
         </div>
 
-        {/* Skeleton */}
         {loading && (
           <div style={{ marginTop: 10, opacity: 0.7 }}>
             <div
@@ -318,7 +357,7 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* DASHBOARD CARD */}
+      {/* DASHBOARD CARD – structure same as before */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Dashboard</div>
 
@@ -331,7 +370,7 @@ export default function LeftSidebar() {
             gap: 4,
           }}
         >
-          {/* My ecosystem main row */}
+          {/* My ecosystem + small OPEN */}
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
@@ -348,20 +387,16 @@ export default function LeftSidebar() {
             <span
               style={{
                 fontSize: 10.5,
-                letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                color: "rgba(148,163,184,0.95)",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 4,
+                letterSpacing: "0.08em",
+                color: subtleLabelColor,
               }}
             >
-              <span>Open</span>
-              <span style={{ fontSize: 11 }}>→</span>
+              Open →
             </span>
           </Link>
 
-          {/* Sub-menu rows – slightly indented */}
+          {/* indented submenu */}
           <Link
             href="/ecosystem/entangled"
             className="dashboard-sidebar-link"
@@ -457,7 +492,7 @@ export default function LeftSidebar() {
                 height: 48,
                 borderRadius: 14,
                 overflow: "hidden",
-                border: "1px solid rgba(148,163,184,0.32)",
+                border: "1px solid rgba(148,163,184,0.45)",
                 background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                 display: "flex",
                 alignItems: "center",
@@ -490,6 +525,7 @@ export default function LeftSidebar() {
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  color: textPrimary,
                 }}
               >
                 {data.myOrg.name}
@@ -498,7 +534,7 @@ export default function LeftSidebar() {
               <div
                 style={{
                   fontSize: 13,
-                  color: "rgba(148,163,184,0.95)",
+                  color: textMuted,
                   marginTop: 4,
                   display: "flex",
                   flexDirection: "column",
@@ -507,17 +543,20 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: "var(--text-strong, #0f172a)" }}>
+                  <span style={{ color: textPrimary }}>
                     {data.myOrgFollowersCount ?? "…"}
                   </span>
                 </div>
                 <div>
-                  Views:{" "}
-                  <span style={{ color: "var(--text-strong, #0f172a)" }}>
-                    0
-                  </span>
+                  Views: <span style={{ color: textPrimary }}>0</span>
                 </div>
-                <div style={{ marginTop: 4, color: "#7dd3fc" }}>
+                <div
+                  style={{
+                    marginTop: 4,
+                    color: orgAnalyticsColor,
+                    fontWeight: 500,
+                  }}
+                >
                   Analytics →
                 </div>
               </div>
@@ -526,19 +565,16 @@ export default function LeftSidebar() {
         </Link>
       )}
 
-      {/* PREMIUM CARD – entire card clickable */}
+      {/* PREMIUM CARD */}
       <Link
         href="/premium"
         className="sidebar-card premium-sidebar-card"
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background:
-            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.16))",
-          border:
-            "1px solid rgba(251,191,36, var(--premium-border-alpha, 0.55))",
-          boxShadow:
-            "0 10px 26px rgba(15,23,42,var(--premium-shadow-alpha,0.40))",
+          background: premiumBackground,
+          border: "1px solid rgba(251,191,36,0.5)",
+          boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
           textDecoration: "none",
           color: "inherit",
           cursor: "pointer",
@@ -562,9 +598,9 @@ export default function LeftSidebar() {
               fontSize: 11,
               padding: "4px 10px",
               borderRadius: 999,
-              background: "rgba(15,23,42,0.06)",
-              border: "1px solid rgba(251,191,36,0.7)",
-              color: "rgba(217,119,6,0.95)",
+              background: premiumPillBg,
+              border: premiumPillBorder,
+              color: premiumPillText,
               whiteSpace: "nowrap",
             }}
           >
@@ -577,7 +613,7 @@ export default function LeftSidebar() {
         style={{
           width: "100%",
           height: 1,
-          background: "rgba(148,163,184,0.18)",
+          background: dividerColor,
           marginTop: 6,
           marginBottom: 6,
         }}
@@ -588,17 +624,17 @@ export default function LeftSidebar() {
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
           <a
             href="mailto:info@quantum5ocial.com"
-            style={{ color: "rgba(148,163,184,0.9)" }}
+            style={{ color: subtleLabelColor }}
           >
             ✉️
           </a>
-          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
+          <a href="#" style={{ color: subtleLabelColor }}>
             𝕏
           </a>
           <a
             href="#"
             style={{
-              color: "rgba(148,163,184,0.9)",
+              color: subtleLabelColor,
               fontWeight: 600,
             }}
           >
@@ -612,7 +648,7 @@ export default function LeftSidebar() {
             alignItems: "center",
             gap: 8,
             fontSize: 12,
-            color: "rgba(148,163,184,0.9)",
+            color: subtleLabelColor,
           }}
         >
           <img
