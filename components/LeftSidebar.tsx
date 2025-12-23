@@ -358,7 +358,6 @@ export default function LeftSidebar() {
             <span
               style={{
                 fontSize: 11,
-                textTransform: "uppercase",
                 letterSpacing: "0.08em",
                 color: "#38bdf8", // bluish "Open" that works in both themes
               }}
