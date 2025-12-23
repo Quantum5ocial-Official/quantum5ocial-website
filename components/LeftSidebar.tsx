@@ -51,55 +51,6 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
-  // 🔆 track whether we are in light theme (html.theme-light)
-  const [isLightTheme, setIsLightTheme] = useState(false);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const root = document.documentElement;
-
-    const update = () => {
-      setIsLightTheme(root.classList.contains("theme-light"));
-    };
-
-    update();
-
-    const observer = new MutationObserver(update);
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-
-    return () => observer.disconnect();
-  }, []);
-
-  // theme-aware tokens for inline styles
-  const textPrimary = isLightTheme ? "#0f172a" : "#e5e7eb"; // slate-900 / slate-200
-  const textSecondary = isLightTheme
-    ? "rgba(55,65,81,0.9)" // slate-700
-    : "rgba(226,232,240,0.88)"; // slate-200-ish
-  const textMuted = isLightTheme
-    ? "rgba(107,114,128,0.95)" // gray-600
-    : "rgba(148,163,184,0.95)"; // slate-400
-  const dividerColor = isLightTheme
-    ? "rgba(148,163,184,0.35)"
-    : "rgba(148,163,184,0.18)";
-  const subtleLabelColor = isLightTheme
-    ? "rgba(148,163,184,0.9)"
-    : "rgba(148,163,184,0.9)";
-  const orgAnalyticsColor = isLightTheme ? "#0369a1" : "#7dd3fc";
-
-  const premiumBackground = isLightTheme
-    ? "linear-gradient(135deg, rgba(251,191,36,0.18), rgba(244,114,182,0.26))"
-    : "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))";
-
-  const premiumPillBg = isLightTheme
-    ? "rgba(248,250,252,0.9)"
-    : "rgba(15,23,42,0.75)";
-  const premiumPillBorder = isLightTheme
-    ? "1px solid rgba(217,119,6,0.6)"
-    : "1px solid rgba(251,191,36,0.6)";
-  const premiumPillText = isLightTheme
-    ? "rgba(161,98,7,0.9)"
-    : "rgba(251,191,36,0.9)";
-
   const fallbackName = useMemo(() => {
     return (
       user?.user_metadata?.full_name ||
@@ -154,7 +105,10 @@ export default function LeftSidebar() {
           .select("product_id")
           .eq("user_id", uid);
 
-        const postsQ = supabase.from("posts").select("id").eq("user_id", uid);
+        const postsQ = supabase
+          .from("posts")
+          .select("id")
+          .eq("user_id", uid);
 
         const orgQ = supabase
           .from("organizations")
@@ -276,14 +230,16 @@ export default function LeftSidebar() {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            alignItems: "flex-start",
+            gap: 6,
           }}
         >
-          {/* top row: avatar + badge on the right */}
+          {/* Avatar row + badge in top-right */}
           <div
             style={{
+              width: "100%",
               display: "flex",
-              alignItems: "center",
+              alignItems: "flex-start",
               justifyContent: "space-between",
               gap: 8,
             }}
@@ -304,8 +260,8 @@ export default function LeftSidebar() {
 
             {!loading && badgeLabel && (
               <div
+                className="profile-sidebar-badge-pill"
                 style={{
-                  marginLeft: "auto",
                   flexShrink: 0,
                 }}
               >
@@ -319,10 +275,7 @@ export default function LeftSidebar() {
           </div>
 
           {/* Name */}
-          <div
-            className="profile-sidebar-name"
-            style={{ color: textPrimary }}
-          >
+          <div className="profile-sidebar-name">
             {loading ? "Loading…" : fullName}
           </div>
 
@@ -331,7 +284,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: textSecondary,
+                color: "rgba(226,232,240,0.88)",
                 lineHeight: 1.2,
               }}
             >
@@ -344,7 +297,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: textMuted,
+                color: "rgba(148,163,184,0.95)",
                 lineHeight: 1.2,
               }}
             >
@@ -381,7 +334,7 @@ export default function LeftSidebar() {
             gap: 4,
           }}
         >
-          {/* My ecosystem row with small "open" */}
+          {/* Top-level: My ecosystem */}
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
@@ -397,86 +350,131 @@ export default function LeftSidebar() {
             </span>
             <span
               style={{
-                fontSize: 10.5,
+                fontSize: 11,
+                color: "rgba(148,163,184,0.95)",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
-                color: subtleLabelColor,
               }}
             >
               Open →
             </span>
           </Link>
 
-          {/* Sub-menu items (indented) */}
-          <Link
-            href="/ecosystem/entangled"
-            className="dashboard-sidebar-link"
+          {/* Sub-menu group */}
+          <div
             style={{
+              marginTop: 4,
+              paddingLeft: 16,
+              borderLeft: "1px solid rgba(148,163,184,0.35)",
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              paddingLeft: 18,
+              flexDirection: "column",
+              gap: 2,
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              🧬 <span>Entanglements</span>
-            </span>
-            <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
-          </Link>
+            <Link
+              href="/ecosystem/entangled"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                🧬 <span>Entanglements</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.entangledCount ?? "…"}
+              </span>
+            </Link>
 
-          <Link
-            href="/ecosystem/my-posts"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              paddingLeft: 18,
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              📝 <span>My posts</span>
-            </span>
-            <span style={{ opacity: 0.9 }}>{data.postsCount ?? "…"}</span>
-          </Link>
+            <Link
+              href="/ecosystem/my-posts"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                📝 <span>My posts</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.postsCount ?? "…"}
+              </span>
+            </Link>
 
-          <Link
-            href="/ecosystem/saved-jobs"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              paddingLeft: 18,
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              💼 <span>Saved jobs</span>
-            </span>
-            <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
-          </Link>
+            <Link
+              href="/ecosystem/saved-jobs"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                💼 <span>Saved jobs</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.savedJobsCount ?? "…"}
+              </span>
+            </Link>
 
-          <Link
-            href="/ecosystem/saved-products"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              paddingLeft: 18,
-            }}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              🛒 <span>Saved products</span>
-            </span>
-            <span style={{ opacity: 0.9 }}>
-              {data.savedProductsCount ?? "…"}
-            </span>
-          </Link>
+            <Link
+              href="/ecosystem/saved-products"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                🛒 <span>Saved products</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.savedProductsCount ?? "…"}
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -536,7 +534,6 @@ export default function LeftSidebar() {
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  color: textPrimary,
                 }}
               >
                 {data.myOrg.name}
@@ -545,7 +542,7 @@ export default function LeftSidebar() {
               <div
                 style={{
                   fontSize: 13,
-                  color: textMuted,
+                  color: "rgba(148,163,184,0.95)",
                   marginTop: 4,
                   display: "flex",
                   flexDirection: "column",
@@ -554,20 +551,14 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: textPrimary }}>
+                  <span style={{ color: "#e5e7eb" }}>
                     {data.myOrgFollowersCount ?? "…"}
                   </span>
                 </div>
                 <div>
-                  Views: <span style={{ color: textPrimary }}>0</span>
+                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
                 </div>
-                <div
-                  style={{
-                    marginTop: 4,
-                    color: orgAnalyticsColor,
-                    fontWeight: 500,
-                  }}
-                >
+                <div style={{ marginTop: 4, color: "#7dd3fc" }}>
                   Analytics →
                 </div>
               </div>
@@ -583,9 +574,10 @@ export default function LeftSidebar() {
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background: premiumBackground,
+          background:
+            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
-          boxShadow: "0 12px 30px rgba(15,23,42,0.18)",
+          boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
           textDecoration: "none",
           color: "inherit",
           cursor: "pointer",
@@ -609,9 +601,9 @@ export default function LeftSidebar() {
               fontSize: 11,
               padding: "4px 10px",
               borderRadius: 999,
-              background: premiumPillBg,
-              border: premiumPillBorder,
-              color: premiumPillText,
+              background: "rgba(15,23,42,0.75)",
+              border: "1px solid rgba(251,191,36,0.6)",
+              color: "rgba(251,191,36,0.9)",
               whiteSpace: "nowrap",
             }}
           >
@@ -624,7 +616,7 @@ export default function LeftSidebar() {
         style={{
           width: "100%",
           height: 1,
-          background: dividerColor,
+          background: "rgba(148,163,184,0.18)",
           marginTop: 6,
           marginBottom: 6,
         }}
@@ -635,17 +627,20 @@ export default function LeftSidebar() {
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
           <a
             href="mailto:info@quantum5ocial.com"
-            style={{ color: subtleLabelColor }}
+            style={{ color: "rgba(148,163,184,0.9)" }}
           >
             ✉️
           </a>
-          <a href="#" style={{ color: subtleLabelColor }}>
+          <a
+            href="#"
+            style={{ color: "rgba(148,163,184,0.9)" }}
+          >
             𝕏
           </a>
           <a
             href="#"
             style={{
-              color: subtleLabelColor,
+              color: "rgba(148,163,184,0.9)",
               fontWeight: 600,
             }}
           >
@@ -659,7 +654,7 @@ export default function LeftSidebar() {
             alignItems: "center",
             gap: 8,
             fontSize: 12,
-            color: subtleLabelColor,
+            color: "rgba(148,163,184,0.9)",
           }}
         >
           <img
