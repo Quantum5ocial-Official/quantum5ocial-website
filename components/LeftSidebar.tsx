@@ -51,7 +51,7 @@ export default function LeftSidebar() {
     myOrgFollowersCount: null,
   });
 
-  // 🔆 watch global theme class on <html>
+  // 🔆 track whether we are in light theme (html.theme-light)
   const [isLightTheme, setIsLightTheme] = useState(false);
 
   useEffect(() => {
@@ -63,28 +63,33 @@ export default function LeftSidebar() {
     };
 
     update();
+
     const observer = new MutationObserver(update);
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
     return () => observer.disconnect();
   }, []);
 
-  // theme tokens
-  const textPrimary = isLightTheme ? "#0f172a" : "#e5e7eb";
+  // theme-aware tokens for inline styles
+  const textPrimary = isLightTheme ? "#0f172a" : "#e5e7eb"; // slate-900 / slate-200
   const textSecondary = isLightTheme
     ? "rgba(55,65,81,0.9)" // slate-700
-    : "rgba(226,232,240,0.88)";
+    : "rgba(226,232,240,0.88)"; // slate-200-ish
   const textMuted = isLightTheme
     ? "rgba(107,114,128,0.95)" // gray-600
-    : "rgba(148,163,184,0.95)";
-  const subtleLabelColor = "rgba(148,163,184,0.9)";
+    : "rgba(148,163,184,0.95)"; // slate-400
   const dividerColor = isLightTheme
     ? "rgba(148,163,184,0.35)"
     : "rgba(148,163,184,0.18)";
+  const subtleLabelColor = isLightTheme
+    ? "rgba(148,163,184,0.9)"
+    : "rgba(148,163,184,0.9)";
   const orgAnalyticsColor = isLightTheme ? "#0369a1" : "#7dd3fc";
 
   const premiumBackground = isLightTheme
     ? "linear-gradient(135deg, rgba(251,191,36,0.18), rgba(244,114,182,0.26))"
     : "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))";
+
   const premiumPillBg = isLightTheme
     ? "rgba(248,250,252,0.9)"
     : "rgba(15,23,42,0.75)";
@@ -274,7 +279,7 @@ export default function LeftSidebar() {
             gap: 8,
           }}
         >
-          {/* top row: avatar + badge on right */}
+          {/* top row: avatar + badge on the right */}
           <div
             style={{
               display: "flex",
@@ -298,7 +303,12 @@ export default function LeftSidebar() {
             </div>
 
             {!loading && badgeLabel && (
-              <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+              <div
+                style={{
+                  marginLeft: "auto",
+                  flexShrink: 0,
+                }}
+              >
                 <Q5BadgeChips
                   label={badgeLabel}
                   reviewStatus={badgeStatus}
@@ -343,6 +353,7 @@ export default function LeftSidebar() {
           )}
         </div>
 
+        {/* Skeleton */}
         {loading && (
           <div style={{ marginTop: 10, opacity: 0.7 }}>
             <div
@@ -357,7 +368,7 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* DASHBOARD CARD – structure same as before */}
+      {/* DASHBOARD CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Dashboard</div>
 
@@ -370,7 +381,7 @@ export default function LeftSidebar() {
             gap: 4,
           }}
         >
-          {/* My ecosystem + small OPEN */}
+          {/* My ecosystem row with small "open" */}
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
@@ -396,7 +407,7 @@ export default function LeftSidebar() {
             </span>
           </Link>
 
-          {/* indented submenu */}
+          {/* Sub-menu items (indented) */}
           <Link
             href="/ecosystem/entangled"
             className="dashboard-sidebar-link"
@@ -565,7 +576,7 @@ export default function LeftSidebar() {
         </Link>
       )}
 
-      {/* PREMIUM CARD */}
+      {/* PREMIUM CARD – entire card clickable */}
       <Link
         href="/premium"
         className="sidebar-card premium-sidebar-card"
