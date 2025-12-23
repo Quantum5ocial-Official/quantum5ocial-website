@@ -102,31 +102,20 @@ a:focus {
   display: flex;
   flex-direction: column;
 }
-html,
-body {
-  height: 100%;
-  overflow: hidden; /* stop whole-document scrolling */
-}
-
-.page {
-  height: 100vh;
-  overflow: hidden; /* keep scroll inside internal containers */
-}
-
-/* your main 3-col wrapper */
+/* keep wrapper locked */
 .layout-3col {
-  /* you have paddingTop=120px and paddingBottom=40px on .page */
   height: calc(100vh - 120px - 40px);
-  overflow-y: auto;
   min-height: 0;
 }
-/* Generic full-width section inside main content */
-.section {
-  flex: 1;
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 32px 0 40px;
+
+/* IMPORTANT: whichever element is your middle column wrapper */
+.layout-3col > .middle,
+.layout-3col > main,
+.layout-3col .feed,
+.layout-3col .jobs-middle {
+  overflow-y: auto;
+  min-height: 0;
+  height: 100%;
 }
 
 /* ========== NAVBAR ========== */
