@@ -32,6 +32,7 @@ type SidebarData = {
   entangledCount: number | null;
   savedJobsCount: number | null;
   savedProductsCount: number | null;
+  myPostsCount: number | null;
   myOrg: MyOrgSummary | null;
   myOrgFollowersCount: number | null;
 };
@@ -45,6 +46,7 @@ export default function LeftSidebar() {
     entangledCount: null,
     savedJobsCount: null,
     savedProductsCount: null,
+    myPostsCount: null,
     myOrg: null,
     myOrgFollowersCount: null,
   });
@@ -69,6 +71,7 @@ export default function LeftSidebar() {
         entangledCount: null,
         savedJobsCount: null,
         savedProductsCount: null,
+        myPostsCount: null,
         myOrg: null,
         myOrgFollowersCount: null,
       });
@@ -111,12 +114,18 @@ export default function LeftSidebar() {
           .limit(1)
           .maybeSingle();
 
-        const [pRes, cRes, sjRes, spRes, orgRes] = await Promise.all([
+        const postsQ = supabase
+          .from("posts")
+          .select("id")
+          .eq("user_id", uid);
+
+        const [pRes, cRes, sjRes, spRes, orgRes, postsRes] = await Promise.all([
           profileQ,
           connectionsQ,
           savedJobsQ,
           savedProductsQ,
           orgQ,
+          postsQ,
         ]);
 
         const profile = (pRes.data as ProfileSummary) || null;
@@ -135,6 +144,7 @@ export default function LeftSidebar() {
 
         const savedJobsCount = (sjRes.data || []).length;
         const savedProductsCount = (spRes.data || []).length;
+        const myPostsCount = (postsRes.data || []).length;
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
@@ -155,6 +165,7 @@ export default function LeftSidebar() {
           entangledCount,
           savedJobsCount,
           savedProductsCount,
+          myPostsCount,
           myOrg,
           myOrgFollowersCount,
         });
@@ -166,6 +177,7 @@ export default function LeftSidebar() {
           entangledCount: 0,
           savedJobsCount: 0,
           savedProductsCount: 0,
+          myPostsCount: 0,
           myOrg: null,
           myOrgFollowersCount: null,
         });
@@ -371,6 +383,9 @@ export default function LeftSidebar() {
               }}
             >
               <span>Posts</span>
+              <span style={{ opacity: 0.9 }}>
+                {data.myPostsCount ?? "…"}
+              </span>
             </Link>
 
             <Link
