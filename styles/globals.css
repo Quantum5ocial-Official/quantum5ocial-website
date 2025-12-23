@@ -102,21 +102,6 @@ a:focus {
   display: flex;
   flex-direction: column;
 }
-/* keep wrapper locked */
-.layout-3col {
-  height: calc(100vh - 120px - 40px);
-  min-height: 0;
-}
-
-/* IMPORTANT: whichever element is your middle column wrapper */
-.layout-3col > .middle,
-.layout-3col > main,
-.layout-3col .feed,
-.layout-3col .jobs-middle {
-  overflow-y: auto;
-  min-height: 0;
-  height: 100%;
-}
 
 /* ========== NAVBAR ========== */
 
