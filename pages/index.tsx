@@ -2007,6 +2007,4 @@ function HomeRightSidebar() {
   variant: "three",
   right: <HomeRightSidebar />,
   // ✅ Mobile: hide desktop right column and use drawer only
-  mobileMain: <Home />,
-  // Note: mobileMain here is harmless because variant "three" already uses page children as main.
 };
