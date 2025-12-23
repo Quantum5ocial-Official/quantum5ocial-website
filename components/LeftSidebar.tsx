@@ -308,98 +308,161 @@ export default function LeftSidebar() {
       </Link>
 
       {/* DASHBOARD CARD */}
-<div className="sidebar-card dashboard-sidebar-card">
-  <div className="dashboard-sidebar-title">Dashboard</div>
+      <div className="sidebar-card dashboard-sidebar-card">
+        <div className="dashboard-sidebar-title">Dashboard</div>
 
-  <div
-    className="dashboard-sidebar-links"
-    style={{
-      marginTop: 8,
-      display: "flex",
-      flexDirection: "column",
-      gap: 4,
-    }}
-  >
-    <Link
-      href="/ecosystem"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        🌐 <span>My ecosystem</span>
-      </span>
-    </Link>
+        <div
+          className="dashboard-sidebar-links"
+          style={{
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 4,
+          }}
+        >
+          {/* Top-level: My ecosystem */}
+          <Link
+            href="/ecosystem"
+            className="dashboard-sidebar-link"
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              🌐 <span>My ecosystem</span>
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                color: "rgba(148,163,184,0.95)",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+              }}
+            >
+              Open →
+            </span>
+          </Link>
 
-    <Link
-      href="/ecosystem/entangled"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        🧬 <span>Entanglements</span>
-      </span>
-      <span style={{ opacity: 0.9 }}>{data.entangledCount ?? "…"}</span>
-    </Link>
+          {/* Sub-menu group */}
+          <div
+            style={{
+              marginTop: 4,
+              paddingLeft: 16,
+              borderLeft: "1px solid rgba(148,163,184,0.35)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <Link
+              href="/ecosystem/entangled"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                🧬 <span>Entanglements</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.entangledCount ?? "…"}
+              </span>
+            </Link>
 
-    <Link
-      href="/ecosystem/my-posts"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        📝 <span>My posts</span>
-      </span>
-      <span style={{ opacity: 0.9 }}>{data.postsCount ?? "…"}</span>
-    </Link>
+            <Link
+              href="/ecosystem/my-posts"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                📝 <span>My posts</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.postsCount ?? "…"}
+              </span>
+            </Link>
 
-    <Link
-      href="/ecosystem/saved-jobs"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        💼 <span>Saved jobs</span>
-      </span>
-      <span style={{ opacity: 0.9 }}>{data.savedJobsCount ?? "…"}</span>
-    </Link>
+            <Link
+              href="/ecosystem/saved-jobs"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                💼 <span>Saved jobs</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.savedJobsCount ?? "…"}
+              </span>
+            </Link>
 
-    <Link
-      href="/ecosystem/saved-products"
-      className="dashboard-sidebar-link"
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 8,
-      }}
-    >
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        🛒 <span>Saved products</span>
-      </span>
-      <span style={{ opacity: 0.9 }}>{data.savedProductsCount ?? "…"}</span>
-    </Link>
-  </div>
-</div>
+            <Link
+              href="/ecosystem/saved-products"
+              className="dashboard-sidebar-link"
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  color: "rgba(226,232,240,0.9)",
+                }}
+              >
+                🛒 <span>Saved products</span>
+              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>
+                {data.savedProductsCount ?? "…"}
+              </span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
       {/* MY ORGANIZATION */}
       {data.myOrg && (
@@ -479,8 +542,7 @@ export default function LeftSidebar() {
                   </span>
                 </div>
                 <div>
-                  Views:{" "}
-                  <span style={{ color: "#e5e7eb" }}>0</span>
+                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
                 </div>
                 <div style={{ marginTop: 4, color: "#7dd3fc" }}>
                   Analytics →
