@@ -105,10 +105,7 @@ export default function LeftSidebar() {
           .select("product_id")
           .eq("user_id", uid);
 
-        const postsQ = supabase
-          .from("posts")
-          .select("id")
-          .eq("user_id", uid);
+        const postsQ = supabase.from("posts").select("id").eq("user_id", uid);
 
         const orgQ = supabase
           .from("organizations")
@@ -284,7 +281,6 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                // back to light neutral so it pops on dark but still soft on bright
                 color: "rgba(226,232,240,0.88)",
                 lineHeight: 1.2,
               }}
@@ -352,9 +348,9 @@ export default function LeftSidebar() {
             <span
               style={{
                 fontSize: 11,
-                color: "rgba(148,163,184,0.95)",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
+                color: "#38bdf8", // bluish "Open" that works in both themes
               }}
             >
               Open →
@@ -388,8 +384,6 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  // brighter for dark, still OK on light
-                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 🧬 <span>Entanglements</span>
@@ -415,7 +409,6 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 📝 <span>My posts</span>
@@ -441,7 +434,6 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 💼 <span>Saved jobs</span>
@@ -467,7 +459,6 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 🛒 <span>Saved products</span>
@@ -544,7 +535,6 @@ export default function LeftSidebar() {
               <div
                 style={{
                   fontSize: 13,
-                  color: "rgba(148,163,184,0.95)",
                   marginTop: 4,
                   display: "flex",
                   flexDirection: "column",
@@ -553,14 +543,17 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: "#e5e7eb" }}>
-                    {data.myOrgFollowersCount ?? "…"}
-                  </span>
+                  <span>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
-                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
+                  Views: <span>0</span>
                 </div>
-                <div style={{ marginTop: 4, color: "#7dd3fc" }}>
+                <div
+                  style={{
+                    marginTop: 4,
+                    color: "#38bdf8", // bluish Analytics link
+                  }}
+                >
                   Analytics →
                 </div>
               </div>
@@ -579,7 +572,7 @@ export default function LeftSidebar() {
           background:
             "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
-          boxShadow: "0 12px 30px rgba(15,23,42,0.55)",
+          boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
           textDecoration: "none",
           color: "inherit",
           cursor: "pointer",
@@ -603,9 +596,9 @@ export default function LeftSidebar() {
               fontSize: 11,
               padding: "4px 10px",
               borderRadius: 999,
-              background: "rgba(15,23,42,0.12)",
-              border: "1px solid rgba(251,191,36,0.7)",
-              color: "rgba(146,64,14,0.95)",
+              background: "rgba(15,23,42,0.75)",
+              border: "1px solid rgba(251,191,36,0.6)",
+              color: "rgba(251,191,36,0.9)",
               whiteSpace: "nowrap",
             }}
           >
@@ -629,20 +622,17 @@ export default function LeftSidebar() {
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
           <a
             href="mailto:info@quantum5ocial.com"
-            style={{ color: "rgba(148,163,184,0.9)" }}
+            style={{ color: "var(--text-muted)" }}
           >
             ✉️
           </a>
-          <a
-            href="#"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
+          <a href="#" style={{ color: "var(--text-muted)" }}>
             𝕏
           </a>
           <a
             href="#"
             style={{
-              color: "rgba(148,163,184,0.9)",
+              color: "var(--text-muted)",
               fontWeight: 600,
             }}
           >
@@ -656,7 +646,7 @@ export default function LeftSidebar() {
             alignItems: "center",
             gap: 8,
             fontSize: 12,
-            color: "rgba(148,163,184,0.9)",
+            color: "var(--text-muted)",
           }}
         >
           <img
