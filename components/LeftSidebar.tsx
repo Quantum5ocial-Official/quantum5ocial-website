@@ -284,8 +284,8 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                // darker neutral so it works on bright + dark
-                color: "rgba(51,65,85,0.9)", // slate-700-ish
+                // back to light neutral so it pops on dark but still soft on bright
+                color: "rgba(226,232,240,0.88)",
                 lineHeight: 1.2,
               }}
             >
@@ -298,7 +298,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(100,116,139,0.95)", // slightly darker than before
+                color: "rgba(148,163,184,0.95)",
                 lineHeight: 1.2,
               }}
             >
@@ -352,7 +352,7 @@ export default function LeftSidebar() {
             <span
               style={{
                 fontSize: 11,
-                color: "rgba(100,116,139,0.95)",
+                color: "rgba(148,163,184,0.95)",
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
               }}
@@ -388,7 +388,8 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(51,65,85,0.95)", // text more visible on light card
+                  // brighter for dark, still OK on light
+                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 🧬 <span>Entanglements</span>
@@ -414,7 +415,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(51,65,85,0.95)",
+                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 📝 <span>My posts</span>
@@ -440,7 +441,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(51,65,85,0.95)",
+                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 💼 <span>Saved jobs</span>
@@ -466,7 +467,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "rgba(51,65,85,0.95)",
+                  color: "rgba(226,232,240,0.9)",
                 }}
               >
                 🛒 <span>Saved products</span>
@@ -543,7 +544,7 @@ export default function LeftSidebar() {
               <div
                 style={{
                   fontSize: 13,
-                  color: "rgba(100,116,139,0.95)",
+                  color: "rgba(148,163,184,0.95)",
                   marginTop: 4,
                   display: "flex",
                   flexDirection: "column",
@@ -552,13 +553,12 @@ export default function LeftSidebar() {
               >
                 <div>
                   Followers:{" "}
-                  <span style={{ color: "rgba(15,23,42,0.9)" }}>
+                  <span style={{ color: "#e5e7eb" }}>
                     {data.myOrgFollowersCount ?? "…"}
                   </span>
                 </div>
                 <div>
-                  Views:{" "}
-                  <span style={{ color: "rgba(15,23,42,0.9)" }}>0</span>
+                  Views: <span style={{ color: "#e5e7eb" }}>0</span>
                 </div>
                 <div style={{ marginTop: 4, color: "#7dd3fc" }}>
                   Analytics →
@@ -579,7 +579,7 @@ export default function LeftSidebar() {
           background:
             "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
-          boxShadow: "0 12px 30px rgba(15,23,42,0.55)", // slightly softer for bright theme
+          boxShadow: "0 12px 30px rgba(15,23,42,0.55)",
           textDecoration: "none",
           color: "inherit",
           cursor: "pointer",
@@ -603,7 +603,6 @@ export default function LeftSidebar() {
               fontSize: 11,
               padding: "4px 10px",
               borderRadius: 999,
-              // lighter pill so it doesn't become a black slug on white
               background: "rgba(15,23,42,0.12)",
               border: "1px solid rgba(251,191,36,0.7)",
               color: "rgba(146,64,14,0.95)",
