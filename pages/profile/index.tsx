@@ -1,4 +1,4 @@
-// pages/profile.tsx
+// pages/profile/index.tsx
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
