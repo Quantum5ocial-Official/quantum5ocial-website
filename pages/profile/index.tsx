@@ -1071,9 +1071,85 @@ export default function ProfileViewPage() {
     )}
   </div>
 ) : (
-  // ✅ DESKTOP: paste your existing Identity block here unchanged
+  /* ✅ DESKTOP — original Identity block restored */
   <div className="profile-header">
-    {/* <-- paste your current desktop content from inside profile-header here */}
+    <div className="profile-avatar">
+      {profile?.avatar_url ? (
+        <img src={profile.avatar_url} alt={displayName} className="profile-avatar-img" />
+      ) : (
+        <span>{initials}</span>
+      )}
+    </div>
+
+    <div className="profile-header-text" style={{ width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          width: "100%",
+          minWidth: 0,
+          flexWrap: "nowrap",
+          justifyContent: "flex-start",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            minWidth: 0,
+            flex: 1,
+            flexWrap: "wrap",
+            justifyContent: "flex-start",
+          }}
+        >
+          <div
+            className="profile-name"
+            style={{
+              minWidth: 0,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              textAlign: "left",
+            }}
+            title={displayName}
+          >
+            {displayName}
+          </div>
+
+          {hasBadge && (
+            <Q5BadgeChips
+              label={badgeLabel}
+              reviewStatus={profile?.q5_badge_review_status ?? null}
+              size="md"
+            />
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <ClaimPill
+            onClick={() => setBadgeOpen(true)}
+            base={claimPillStyle}
+            hover={claimPillHoverStyle}
+            label={hasBadge ? "Update your badge ✦" : "Claim your Q5 badge ✦"}
+            title={hasBadge ? "Update your Q5 badge" : "Claim your Q5 badge"}
+          />
+        </div>
+      </div>
+
+      {(headline || profile?.affiliation) && (
+        <div className="profile-role" style={{ textAlign: "left" }}>
+          {[headline, profile?.affiliation].filter(Boolean).join(" · ")}
+        </div>
+      )}
+
+      {(profile?.city || profile?.country) && (
+        <div className="profile-location" style={{ textAlign: "left" }}>
+          {[profile?.city, profile?.country].filter(Boolean).join(", ")}
+        </div>
+      )}
+    </div>
   </div>
 )}
 
