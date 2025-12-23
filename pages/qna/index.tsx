@@ -1455,7 +1455,7 @@ function QnAMiddle() {
                           toggleVote(q.id);
                         }}
                         disabled={isVoteLoading(q.id)}
-                        style=style={{
+                        style={{
   borderRadius: 12,
   padding: isMobile ? "4px 7px" : "7px 10px",
   border: mine
