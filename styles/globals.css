@@ -102,7 +102,14 @@ a:focus {
   display: flex;
   flex-direction: column;
 }
+.page {
+  height: 100vh;
+  overflow: hidden;
+}
 
+.page > * {
+  min-height: 0; /* critical for flex children */
+}
 /* Generic full-width section inside main content */
 .section {
   flex: 1;
