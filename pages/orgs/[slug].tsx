@@ -38,11 +38,21 @@ type FollowerProfile = {
   city: string | null;
 };
 
+// membership roles for org_members
 type OrgMemberRole = "owner" | "admin" | "member";
 
 type OrgMemberRow = {
+  user_id: string;
   role: OrgMemberRole;
   is_affiliated: boolean;
+};
+
+// member + attached profile for the team list
+type OrgMemberWithProfile = {
+  user_id: string;
+  role: OrgMemberRole;
+  is_affiliated: boolean;
+  profile: FollowerProfile | null;
 };
 
 export default function OrganizationDetailPage() {
@@ -64,9 +74,14 @@ export default function OrganizationDetailPage() {
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
 
-  // Membership / role state
+  // Membership state for current user
   const [memberRole, setMemberRole] = useState<OrgMemberRole | null>(null);
   const [isAffiliated, setIsAffiliated] = useState<boolean>(false);
+
+  // Team / members list state
+  const [members, setMembers] = useState<OrgMemberWithProfile[]>([]);
+  const [membersLoading, setMembersLoading] = useState<boolean>(true);
+  const [membersError, setMembersError] = useState<string | null>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -95,41 +110,6 @@ export default function OrganizationDetailPage() {
 
     loadOrg();
   }, [slug]);
-
-  // === LOAD MEMBERSHIP FOR CURRENT USER (owner/admin/member) ===
-  useEffect(() => {
-    const loadMembership = async () => {
-      if (!user || !org) {
-        setMemberRole(null);
-        setIsAffiliated(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("org_members")
-        .select("role, is_affiliated")
-        .eq("org_id", org.id)
-        .eq("user_id", user.id)
-        .maybeSingle<OrgMemberRow>();
-
-      if (error) {
-        console.error("Error loading org membership", error);
-        setMemberRole(null);
-        setIsAffiliated(false);
-        return;
-      }
-
-      if (data) {
-        setMemberRole(data.role);
-        setIsAffiliated(!!data.is_affiliated);
-      } else {
-        setMemberRole(null);
-        setIsAffiliated(false);
-      }
-    };
-
-    loadMembership();
-  }, [user, org]);
 
   const kindLabel = org?.kind === "company" ? "Company" : "Research group";
 
@@ -161,17 +141,6 @@ export default function OrganizationDetailPage() {
       ? `/orgs/edit/company/${org.slug}`
       : `/orgs/edit/research-group/${org.slug}`;
   }, [org]);
-
-  // Can the current user edit this org?
-  const canEdit = useMemo(() => {
-    if (!user || !org) return false;
-
-    // New: membership roles
-    if (memberRole === "owner" || memberRole === "admin") return true;
-
-    // Fallback for legacy orgs that might not have org_members yet
-    return org.created_by === user.id;
-  }, [user, org, memberRole]);
 
   // === LOAD FOLLOWERS FOR THIS ORG ===
   useEffect(() => {
@@ -244,7 +213,124 @@ export default function OrganizationDetailPage() {
     loadFollowers();
   }, [org, user]);
 
-  // === Follow / unfollow handler ===
+  // === LOAD MEMBERSHIP FOR CURRENT USER (org_members) ===
+  useEffect(() => {
+    const loadMembership = async () => {
+      if (!user || !org) {
+        setMemberRole(null);
+        setIsAffiliated(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("org_members")
+        .select("role, is_affiliated")
+        .eq("org_id", org.id)
+        .eq("user_id", user.id)
+        .maybeSingle<OrgMemberRow>();
+
+      if (error) {
+        console.error("Error loading org membership", error);
+        setMemberRole(null);
+        setIsAffiliated(false);
+        return;
+      }
+
+      if (data) {
+        setMemberRole(data.role);
+        setIsAffiliated(!!data.is_affiliated);
+      } else {
+        setMemberRole(null);
+        setIsAffiliated(false);
+      }
+    };
+
+    loadMembership();
+  }, [user, org]);
+
+  // === LOAD FULL TEAM / MEMBERS LIST ===
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!org) {
+        setMembers([]);
+        setMembersError(null);
+        setMembersLoading(false);
+        return;
+      }
+
+      setMembersLoading(true);
+      setMembersError(null);
+
+      try {
+        const { data: memberRows, error: membersErr } = await supabase
+          .from("org_members")
+          .select("user_id, role, is_affiliated")
+          .eq("org_id", org.id);
+
+        if (membersErr) {
+          console.error("Error loading org members", membersErr);
+          setMembers([]);
+          setMembersError("Could not load team members.");
+          return;
+        }
+
+        const rows = (memberRows || []) as OrgMemberRow[];
+
+        if (rows.length === 0) {
+          setMembers([]);
+          return;
+        }
+
+        const userIds = rows.map((m) => m.user_id);
+
+        const { data: profileRows, error: profErr } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, avatar_url, role, highest_education, affiliation, country, city"
+          )
+          .in("id", userIds);
+
+        if (profErr) {
+          console.error("Error loading member profiles", profErr);
+          setMembersError("Could not load member profiles.");
+          setMembers([]);
+          return;
+        }
+
+        const profileMap = new Map(
+          (profileRows || []).map((p: any) => [p.id, p as FollowerProfile])
+        );
+
+        const merged: OrgMemberWithProfile[] = rows.map((m) => ({
+          user_id: m.user_id,
+          role: m.role,
+          is_affiliated: !!m.is_affiliated,
+          profile: profileMap.get(m.user_id) || null,
+        }));
+
+        setMembers(merged);
+      } catch (err) {
+        console.error("Unexpected error loading org members", err);
+        setMembers([]);
+        setMembersError("Could not load team members.");
+      } finally {
+        setMembersLoading(false);
+      }
+    };
+
+    loadMembers();
+  }, [org]);
+
+  // === EDIT PERMISSION: owners/admins OR legacy created_by ===
+  const canEdit = useMemo(() => {
+    if (!user || !org) return false;
+
+    if (memberRole === "owner" || memberRole === "admin") return true;
+
+    // Fallback for legacy orgs without org_members rows
+    return org.created_by === user.id;
+  }, [user, org, memberRole]);
+
   const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (!org) return;
@@ -295,6 +381,12 @@ export default function OrganizationDetailPage() {
 
   const goToProfile = (profileId: string) => {
     router.push(`/profile/${profileId}`);
+  };
+
+  const roleLabel = (role: OrgMemberRole) => {
+    if (role === "owner") return "Owner";
+    if (role === "admin") return "Admin";
+    return "Member";
   };
 
   // ✅ ONLY MAIN CONTENT (AppLayout provides left sidebar + overall page shell)
@@ -472,7 +564,8 @@ export default function OrganizationDetailPage() {
                         fontSize: 13,
                         fontWeight: 500,
                         textDecoration: "none",
-                        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        background:
+                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
                         color: "#0f172a",
                         whiteSpace: "nowrap",
                       }}
@@ -520,7 +613,12 @@ export default function OrganizationDetailPage() {
               )}
 
               {org.tagline && (
-                <div style={{ fontSize: 14, color: "rgba(209,213,219,0.95)" }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "rgba(209,213,219,0.95)",
+                  }}
+                >
                   {org.tagline}
                 </div>
               )}
@@ -554,7 +652,12 @@ export default function OrganizationDetailPage() {
                 {org.description}
               </div>
             ) : (
-              <div style={{ fontSize: 14, color: "rgba(156,163,175,0.95)" }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: "rgba(156,163,175,0.95)",
+                }}
+              >
                 No detailed description added yet.
               </div>
             )}
@@ -582,6 +685,222 @@ export default function OrganizationDetailPage() {
                 </div>
               </div>
             )}
+
+            {/* Team / Members */}
+            <div style={{ marginTop: 24 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.08,
+                  color: "rgba(148,163,184,0.9)",
+                  marginBottom: 10,
+                }}
+              >
+                Team &amp; members
+              </div>
+
+              {membersLoading && (
+                <p className="profile-muted">Loading team members…</p>
+              )}
+
+              {membersError && !membersLoading && (
+                <p
+                  className="profile-muted"
+                  style={{ color: "#f97373", marginTop: 4 }}
+                >
+                  {membersError}
+                </p>
+              )}
+
+              {!membersLoading && !membersError && members.length === 0 && (
+                <div className="products-empty">
+                  No team members added yet.
+                </div>
+              )}
+
+              {!membersLoading && !membersError && members.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 12,
+                    marginTop: 6,
+                  }}
+                >
+                  {members.map((m) => {
+                    const profile = m.profile;
+                    const name =
+                      profile?.full_name || "Quantum5ocial member";
+                    const initials = name
+                      .split(" ")
+                      .map((p) => p[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
+
+                    const location = [profile?.city, profile?.country]
+                      .filter(Boolean)
+                      .join(", ");
+
+                    const subtitle =
+                      [
+                        profile?.role,
+                        profile?.affiliation,
+                        location,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "Quantum5ocial member";
+
+                    const isCurrentUser =
+                      user && profile && profile.id === user.id;
+
+                    return (
+                      <button
+                        key={m.user_id}
+                        type="button"
+                        onClick={() =>
+                          profile && goToProfile(profile.id)
+                        }
+                        className="card"
+                        style={{
+                          textAlign: "left",
+                          padding: 12,
+                          borderRadius: 14,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                          cursor: profile ? "pointer" : "default",
+                          background: "rgba(2,6,23,0.35)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: 999,
+                              overflow: "hidden",
+                              flexShrink: 0,
+                              background:
+                                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border:
+                                "1px solid rgba(148,163,184,0.6)",
+                              color: "#e5e7eb",
+                              fontWeight: 700,
+                              fontSize: 13,
+                            }}
+                          >
+                            {profile?.avatar_url ? (
+                              <img
+                                src={profile.avatar_url}
+                                alt={name}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                            ) : (
+                              initials
+                            )}
+                          </div>
+
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color:
+                                  "rgba(226,232,240,0.98)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {name}
+                              {isCurrentUser && (
+                                <span
+                                  style={{
+                                    marginLeft: 6,
+                                    fontSize: 11,
+                                    color:
+                                      "rgba(148,163,184,0.95)",
+                                  }}
+                                >
+                                  (you)
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 2,
+                                fontSize: 11,
+                                color:
+                                  "rgba(148,163,184,0.95)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {subtitle}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            marginTop: 4,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              borderRadius: 999,
+                              padding: "2px 7px",
+                              border:
+                                "1px solid rgba(129,140,248,0.8)",
+                              color: "rgba(191,219,254,0.95)",
+                            }}
+                          >
+                            {roleLabel(m.role)}
+                          </span>
+
+                          {m.is_affiliated && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                borderRadius: 999,
+                                padding: "2px 7px",
+                                border:
+                                  "1px solid rgba(34,197,94,0.7)",
+                                color:
+                                  "rgba(187,247,208,0.95)",
+                              }}
+                            >
+                              Affiliated
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Followers */}
             <div style={{ marginTop: 24 }}>
@@ -625,13 +944,15 @@ export default function OrganizationDetailPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gridTemplateColumns:
+                        "repeat(4, minmax(0, 1fr))",
                       gap: 12,
                       marginTop: 6,
                     }}
                   >
                     {followers.map((f) => {
-                      const name = f.full_name || "Quantum5ocial member";
+                      const name =
+                        f.full_name || "Quantum5ocial member";
                       const initials = name
                         .split(" ")
                         .map((p) => p[0])
@@ -649,7 +970,8 @@ export default function OrganizationDetailPage() {
                           location,
                         ]
                           .filter(Boolean)
-                          .join(" · ") || "Quantum5ocial member";
+                          .join(" · ") ||
+                        "Quantum5ocial member";
 
                       return (
                         <button
@@ -665,7 +987,8 @@ export default function OrganizationDetailPage() {
                             flexDirection: "column",
                             gap: 10,
                             cursor: "pointer",
-                            background: "rgba(2,6,23,0.35)",
+                            background:
+                              "rgba(2,6,23,0.35)",
                           }}
                         >
                           <div
@@ -770,7 +1093,7 @@ export default function OrganizationDetailPage() {
                       color: "rgba(148,163,184,0.85)",
                     }}
                   >
-                    {/* If you want true responsiveness, move this to CSS; keeping inline-only per your request. */}
+                    {/* For true responsive behavior, this could move into CSS. */}
                   </div>
                 )}
             </div>
