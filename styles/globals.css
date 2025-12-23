@@ -3731,3 +3731,31 @@ html.theme-light footer {
     display: block;
   }
 }
+html,
+body {
+  height: 100%;
+  overflow: hidden; /* prevents whole-page scrolling */
+}
+
+.page {
+  height: 100vh;
+  overflow: hidden; /* the page itself never scrolls */
+}
+
+/* your 3-col grid wrapper */
+.layout-3col {
+  height: calc(100vh - 120px - 40px); /* match your .page paddingTop/paddingBottom */
+  min-height: 0;                      /* CRITICAL so children can scroll */
+  overflow: hidden;                   /* prevent grid itself from scrolling */
+  display: grid;                      /* already true in your inline style */
+}
+
+/* each column scrolls independently */
+.layout-3col > aside,
+.layout-3col > main,
+.layout-3col > section,
+.layout-3col > div {
+  min-height: 0;      /* CRITICAL */
+  overflow-y: auto;   /* independent scroll */
+  overscroll-behavior: contain; /* stops the "rubber band / keep dragging" feel */
+}
