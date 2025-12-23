@@ -272,7 +272,10 @@ export default function LeftSidebar() {
           </div>
 
           {/* Name */}
-          <div className="profile-sidebar-name">
+          <div
+            className="profile-sidebar-name"
+            style={{ color: "var(--text-primary)" }}
+          >
             {loading ? "Loading…" : fullName}
           </div>
 
@@ -281,7 +284,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(226,232,240,0.88)",
+                color: "var(--text-primary)",
                 lineHeight: 1.2,
               }}
             >
@@ -294,7 +297,7 @@ export default function LeftSidebar() {
             <div
               style={{
                 fontSize: 13,
-                color: "rgba(148,163,184,0.95)",
+                color: "var(--text-primary)",
                 lineHeight: 1.2,
               }}
             >
@@ -342,7 +345,14 @@ export default function LeftSidebar() {
               gap: 8,
             }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                color: "var(--text-primary)",
+              }}
+            >
               🌐 <span>My ecosystem</span>
             </span>
             <span
@@ -384,6 +394,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
+                  color: "var(--text-primary)",
                 }}
               >
                 🧬 <span>Entanglements</span>
@@ -409,6 +420,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
+                  color: "var(--text-primary)",
                 }}
               >
                 📝 <span>My posts</span>
@@ -434,6 +446,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
+                  color: "var(--text-primary)",
                 }}
               >
                 💼 <span>Saved jobs</span>
@@ -459,6 +472,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
+                  color: "var(--text-primary)",
                 }}
               >
                 🛒 <span>Saved products</span>
@@ -527,6 +541,7 @@ export default function LeftSidebar() {
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  color: "var(--text-primary)",
                 }}
               >
                 {data.myOrg.name}
@@ -539,6 +554,7 @@ export default function LeftSidebar() {
                   display: "flex",
                   flexDirection: "column",
                   gap: 2,
+                  color: "var(--text-primary)",
                 }}
               >
                 <div>
