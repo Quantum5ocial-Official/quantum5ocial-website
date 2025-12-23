@@ -11,8 +11,8 @@ type ProfileSummary = {
 
   highest_education?: string | null;
 
-  role?: string | null; // ✅ primary role is "role"
-  current_title?: string | null; // ✅ optional override
+  role?: string | null; // primary role
+  current_title?: string | null;
   affiliation?: string | null;
 
   q5_badge_level?: number | null;
@@ -191,7 +191,6 @@ export default function LeftSidebar() {
 
   const highestEducation = (profile?.highest_education || "").trim();
 
-  // ✅ FIX: "primary role" is `role` in your schema
   const currentTitle =
     (profile?.current_title || "").trim() || (profile?.role || "").trim();
   const affiliation = (profile?.affiliation || "").trim();
@@ -223,7 +222,7 @@ export default function LeftSidebar() {
             gap: 6,
           }}
         >
-          {/* ✅ 1) Badge pill */}
+          {/* Badge pill */}
           {!loading && badgeLabel && (
             <div>
               <Q5BadgeChips
@@ -234,7 +233,7 @@ export default function LeftSidebar() {
             </div>
           )}
 
-          {/* ✅ 2) Avatar */}
+          {/* Avatar */}
           <div className="profile-sidebar-avatar-wrapper">
             {avatarUrl ? (
               <img
@@ -249,12 +248,12 @@ export default function LeftSidebar() {
             )}
           </div>
 
-          {/* ✅ 3) Full name */}
+          {/* Name */}
           <div className="profile-sidebar-name">
             {loading ? "Loading…" : fullName}
           </div>
 
-          {/* ✅ 4) Highest education */}
+          {/* Highest education */}
           {!loading && highestEducation && (
             <div
               style={{
@@ -267,7 +266,7 @@ export default function LeftSidebar() {
             </div>
           )}
 
-          {/* ✅ 5) Current title(or role) + affiliation */}
+          {/* Title + affiliation */}
           {!loading && titleLine && (
             <div
               style={{
@@ -281,7 +280,7 @@ export default function LeftSidebar() {
           )}
         </div>
 
-        {/* Skeleton (compact) */}
+        {/* Skeleton */}
         {loading && (
           <div style={{ marginTop: 10, opacity: 0.7 }}>
             <div
@@ -296,7 +295,7 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* DASHBOARD (was Quick dashboard) */}
+      {/* DASHBOARD */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Dashboard</div>
 
@@ -309,7 +308,7 @@ export default function LeftSidebar() {
             gap: 4,
           }}
         >
-          {/* Main Ecosystem entry */}
+          {/* Main ecosystem entry */}
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
@@ -344,7 +343,7 @@ export default function LeftSidebar() {
             }}
           >
             <Link
-              href="/dashboard/entangled-states"
+              href="/ecosystem/entangled"
               className="dashboard-sidebar-link"
               style={{
                 display: "flex",
@@ -361,7 +360,7 @@ export default function LeftSidebar() {
             </Link>
 
             <Link
-              href="/ecosystem?tab=posts"
+              href="/ecosystem/my-posts"
               className="dashboard-sidebar-link"
               style={{
                 display: "flex",
@@ -372,11 +371,10 @@ export default function LeftSidebar() {
               }}
             >
               <span>Posts</span>
-              {/* optional count later */}
             </Link>
 
             <Link
-              href="/dashboard/saved-jobs"
+              href="/ecosystem/saved-jobs"
               className="dashboard-sidebar-link"
               style={{
                 display: "flex",
@@ -393,7 +391,7 @@ export default function LeftSidebar() {
             </Link>
 
             <Link
-              href="/dashboard/saved-products"
+              href="/ecosystem/saved-products"
               className="dashboard-sidebar-link"
               style={{
                 display: "flex",
@@ -412,56 +410,58 @@ export default function LeftSidebar() {
         </div>
       </div>
 
-      {/* MY ACTIVITY (unchanged) */}
+      {/* MY ACTIVITY – now linked into ecosystem */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">My activity</div>
         <div
           className="dashboard-sidebar-links"
           style={{ marginTop: 8 }}
         >
-          <div
+          <Link
+            href="/ecosystem/my-posts"
             className="dashboard-sidebar-link"
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               gap: 8,
-              cursor: "default",
             }}
           >
             <span>Posts</span>
             <span style={{ opacity: 0.9 }}>0</span>
-          </div>
-          <div
+          </Link>
+
+          <Link
+            href="/ecosystem/questions-asked"
             className="dashboard-sidebar-link"
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               gap: 8,
-              cursor: "default",
             }}
           >
             <span>Questions</span>
             <span style={{ opacity: 0.9 }}>0</span>
-          </div>
-          <div
+          </Link>
+
+          <Link
+            href="/ecosystem/questions-answered"
             className="dashboard-sidebar-link"
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               gap: 8,
-              cursor: "default",
             }}
           >
             <span>Answers</span>
             <span style={{ opacity: 0.9 }}>0</span>
-          </div>
+          </Link>
         </div>
       </div>
 
-      {/* MY ORGANIZATION (unchanged) */}
+      {/* MY ORGANIZATION */}
       {data.myOrg && (
         <Link
           href={`/orgs/${data.myOrg.slug}`}
@@ -640,15 +640,15 @@ export default function LeftSidebar() {
           >
             ✉️
           </a>
-          <a
-            href="#"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
+          <a href="#" style={{ color: "rgba(148,163,184,0.9)" }}>
             𝕏
           </a>
           <a
             href="#"
-            style={{ color: "rgba(148,163,184,0.9)", fontWeight: 600 }}
+            style={{
+              color: "rgba(148,163,184,0.9)",
+              fontWeight: 600,
+            }}
           >
             in
           </a>
