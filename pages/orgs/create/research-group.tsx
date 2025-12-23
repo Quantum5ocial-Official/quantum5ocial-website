@@ -113,6 +113,7 @@ export default function CreateResearchGroupPage() {
     try {
       const effectiveSlug = (slug || slugify(groupName)).toLowerCase();
 
+      // ⬇️ 1) Create organization (research group) and get id + slug
       const { data, error } = await supabase
         .from("organizations")
         .insert({
@@ -129,17 +130,30 @@ export default function CreateResearchGroupPage() {
           tagline: tagline || null,
           // logo_url will be wired later when we add Storage upload
         })
-        .select("slug")
+        .select("id, slug")
         .single();
 
-      if (error) {
-        throw error;
+      if (error || !data) {
+        throw error || new Error("No organization data returned");
+      }
+
+      // ⬇️ 2) Create membership row for creator as owner + affiliated
+      const { error: memberError } = await supabase.from("org_members").insert({
+        org_id: data.id,
+        user_id: user.id,
+        role: "owner",
+        is_affiliated: true,
+      });
+
+      if (memberError) {
+        console.error("Error creating org_members owner row", memberError);
+        // Non-blocking; can be backfilled later if needed
       }
 
       setSubmitMessage("Research group page created successfully.");
       setSubmitError(null);
 
-      if (data?.slug) {
+      if (data.slug) {
         router.push(`/orgs/${data.slug}`);
       }
     } catch (err: any) {
@@ -495,9 +509,7 @@ export default function CreateResearchGroupPage() {
               >
                 <div>
                   <div>Upload a square logo (300×300px recommended).</div>
-                  <div style={{ marginTop: 2, fontSize: 12 }}>
-                    JPG, JPEG or PNG.
-                  </div>
+                  <div style={{ marginTop: 2, fontSize: 12 }}>JPG, JPEG or PNG.</div>
                 </div>
                 <input
                   id="group-logo"
