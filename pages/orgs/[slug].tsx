@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import { createPortal } from "react-dom";
 
 type Org = {
   id: string;
@@ -65,6 +66,8 @@ type SearchProfile = {
   city: string | null;
 };
 
+type MenuPosition = { top: number; left: number } | null;
+
 const OrganizationDetailPage = () => {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -106,6 +109,7 @@ const OrganizationDetailPage = () => {
   const [memberMenuOpenId, setMemberMenuOpenId] = useState<string | null>(null);
   const [memberActionLoadingId, setMemberActionLoadingId] = useState<string | null>(null);
   const [selfAffLoadingId, setSelfAffLoadingId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -601,6 +605,7 @@ const OrganizationDetailPage = () => {
       }
 
       setMemberMenuOpenId(null);
+      setMenuPosition(null);
     } catch (err) {
       console.error("Unexpected error changing member role", err);
     } finally {
@@ -638,12 +643,20 @@ const OrganizationDetailPage = () => {
       }
 
       setMemberMenuOpenId(null);
+      setMenuPosition(null);
     } catch (err) {
       console.error("Unexpected error removing member", err);
     } finally {
       setMemberActionLoadingId(null);
     }
   };
+
+  const openMember = useMemo(
+    () => members.find((m) => m.user_id === memberMenuOpenId) || null,
+    [members, memberMenuOpenId]
+  );
+
+  const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
   // === RENDER ===
   return (
@@ -1393,9 +1406,8 @@ const OrganizationDetailPage = () => {
                         .join(" · ") || "Quantum5ocial member";
 
                     const isCurrentUser = user && profile && profile.id === user.id;
-                    const isMenuOpen = memberMenuOpenId === m.user_id;
-                    const isMemberActionLoading = memberActionLoadingId === m.user_id;
-                    const isSelfAffLoading = selfAffLoadingId === m.user_id;
+                    const isMemberActionLoading =
+                      memberActionLoadingId === m.user_id;
 
                     // show Remove for any non-owner when viewer has permission
                     const canShowRemove =
@@ -1417,7 +1429,6 @@ const OrganizationDetailPage = () => {
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
-                          overflow: "visible", // let dropdown escape tile
                         }}
                       >
                         <div
@@ -1514,16 +1525,34 @@ const OrganizationDetailPage = () => {
                               style={{
                                 marginLeft: "auto",
                                 flexShrink: 0,
-                                position: "relative",
                               }}
                             >
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setMemberMenuOpenId((prev) =>
-                                    prev === m.user_id ? null : m.user_id
-                                  );
+                                  if (!isBrowser) return;
+
+                                  if (memberMenuOpenId === m.user_id) {
+                                    setMemberMenuOpenId(null);
+                                    setMenuPosition(null);
+                                    return;
+                                  }
+
+                                  const rect =
+                                    (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                  const scrollX =
+                                    window.scrollX ?? window.pageXOffset ?? 0;
+                                  const scrollY =
+                                    window.scrollY ?? window.pageYOffset ?? 0;
+
+                                  const dropdownWidth = 190;
+                                  const top = rect.bottom + scrollY + 6;
+                                  const left =
+                                    rect.right + scrollX - dropdownWidth;
+
+                                  setMemberMenuOpenId(m.user_id);
+                                  setMenuPosition({ top, left });
                                 }}
                                 style={{
                                   width: 24,
@@ -1543,112 +1572,6 @@ const OrganizationDetailPage = () => {
                               >
                                 ⋯
                               </button>
-
-                              {isMenuOpen && (
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: 26,
-                                    right: 0,
-                                    zIndex: 50,
-                                    borderRadius: 10,
-                                    border: "1px solid rgba(30,64,175,0.9)",
-                                    background:
-                                      "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
-                                    boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
-                                    minWidth: 170,
-                                    padding: 4,
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <div
-                                    style={{
-                                      padding: "4px 8px",
-                                      fontSize: 11,
-                                      color: "rgba(148,163,184,0.95)",
-                                      borderBottom: "1px solid rgba(30,64,175,0.6)",
-                                      marginBottom: 4,
-                                    }}
-                                  >
-                                    Manage member
-                                  </div>
-                                  {(["co_owner", "admin", "member"] as OrgMemberRole[]).map(
-                                    (roleOption) => (
-                                      <button
-                                        key={roleOption}
-                                        type="button"
-                                        disabled={isMemberActionLoading}
-                                        onClick={(e) =>
-                                          handleChangeMemberRole(
-                                            m.user_id,
-                                            roleOption,
-                                            e
-                                          )
-                                        }
-                                        style={{
-                                          width: "100%",
-                                          textAlign: "left",
-                                          padding: "6px 8px",
-                                          borderRadius: 6,
-                                          border: "none",
-                                          background:
-                                            roleOption === m.role
-                                              ? "rgba(37,99,235,0.2)"
-                                              : "transparent",
-                                          color:
-                                            roleOption === m.role
-                                              ? "#bfdbfe"
-                                              : "rgba(226,232,240,0.95)",
-                                          fontSize: 12,
-                                          cursor: isMemberActionLoading
-                                            ? "default"
-                                            : "pointer",
-                                        }}
-                                      >
-                                        {roleOption === "co_owner"
-                                          ? "Make co-owner"
-                                          : roleOption === "admin"
-                                          ? "Make admin"
-                                          : "Make member"}
-                                      </button>
-                                    )
-                                  )}
-                                  {canShowRemove && (
-                                    <div
-                                      style={{
-                                        borderTop: "1px solid rgba(30,64,175,0.6)",
-                                        marginTop: 4,
-                                        paddingTop: 4,
-                                      }}
-                                    >
-                                      <button
-                                        type="button"
-                                        disabled={isMemberActionLoading}
-                                        onClick={(e) =>
-                                          handleRemoveMember(m.user_id, e)
-                                        }
-                                        style={{
-                                          width: "100%",
-                                          textAlign: "left",
-                                          padding: "6px 8px",
-                                          borderRadius: 6,
-                                          border: "none",
-                                          background: "transparent",
-                                          color: "#fecaca",
-                                          fontSize: 12,
-                                          cursor: isMemberActionLoading
-                                            ? "default"
-                                            : "pointer",
-                                        }}
-                                      >
-                                        {isMemberActionLoading
-                                          ? "Removing…"
-                                          : "Remove from team"}
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
                             </div>
                           )}
                         </div>
@@ -1714,7 +1637,7 @@ const OrganizationDetailPage = () => {
                               onClick={(e) =>
                                 handleToggleSelfAffiliation(m, e)
                               }
-                              disabled={isSelfAffLoading}
+                              disabled={isSelfAffLoadingId === m.user_id}
                               style={{
                                 fontSize: 11,
                                 borderRadius: 999,
@@ -1728,11 +1651,14 @@ const OrganizationDetailPage = () => {
                                 color: m.is_affiliated
                                   ? "rgba(187,247,208,0.96)"
                                   : "rgba(226,232,240,0.9)",
-                                cursor: isSelfAffLoading ? "default" : "pointer",
+                                cursor:
+                                  isSelfAffLoadingId === m.user_id
+                                    ? "default"
+                                    : "pointer",
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              {isSelfAffLoading
+                              {isSelfAffLoadingId === m.user_id
                                 ? "Updating…"
                                 : m.is_affiliated
                                 ? "Set as not affiliated"
@@ -1919,6 +1845,114 @@ const OrganizationDetailPage = () => {
           </section>
         </>
       )}
+
+      {/* Global floating member dropdown via portal */}
+      {isBrowser &&
+        memberMenuOpenId &&
+        openMember &&
+        menuPosition &&
+        createPortal(
+          <div
+            style={{
+              position: "absolute",
+              top: menuPosition.top,
+              left: menuPosition.left,
+              zIndex: 9999,
+              borderRadius: 10,
+              border: "1px solid rgba(30,64,175,0.9)",
+              background:
+                "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
+              boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
+              minWidth: 190,
+              padding: 4,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: "4px 8px",
+                fontSize: 11,
+                color: "rgba(148,163,184,0.95)",
+                borderBottom: "1px solid rgba(30,64,175,0.6)",
+                marginBottom: 4,
+              }}
+            >
+              Manage member
+            </div>
+            {(["co_owner", "admin", "member"] as OrgMemberRole[]).map(
+              (roleOption) => (
+                <button
+                  key={roleOption}
+                  type="button"
+                  disabled={memberActionLoadingId === openMember.user_id}
+                  onClick={(e) =>
+                    handleChangeMemberRole(openMember.user_id, roleOption, e)
+                  }
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "none",
+                    background:
+                      roleOption === openMember.role
+                        ? "rgba(37,99,235,0.2)"
+                        : "transparent",
+                    color:
+                      roleOption === openMember.role
+                        ? "#bfdbfe"
+                        : "rgba(226,232,240,0.95)",
+                    fontSize: 12,
+                    cursor:
+                      memberActionLoadingId === openMember.user_id
+                        ? "default"
+                        : "pointer",
+                  }}
+                >
+                  {roleOption === "co_owner"
+                    ? "Make co-owner"
+                    : roleOption === "admin"
+                    ? "Make admin"
+                    : "Make member"}
+                </button>
+              )
+            )}
+            {canRemoveOthers && openMember.role !== "owner" && (
+              <div
+                style={{
+                  borderTop: "1px solid rgba(30,64,175,0.6)",
+                  marginTop: 4,
+                  paddingTop: 4,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={memberActionLoadingId === openMember.user_id}
+                  onClick={(e) => handleRemoveMember(openMember.user_id, e)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: "transparent",
+                    color: "#fecaca",
+                    fontSize: 12,
+                    cursor:
+                      memberActionLoadingId === openMember.user_id
+                        ? "default"
+                        : "pointer",
+                  }}
+                >
+                  {memberActionLoadingId === openMember.user_id
+                    ? "Removing…"
+                    : "Remove from team"}
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
     </section>
   );
 };
