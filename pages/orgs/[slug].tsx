@@ -245,9 +245,6 @@ function OrgComposerStrip({
   const { user } = useSupabaseUser();
   const isMobile = useIsMobile(520);
 
-  // Only render for people allowed to act as org
-  if (!canPostAsOrg) return null;
-
   const [mode, setMode] = useState<"post" | "ask">("post");
   const [open, setOpen] = useState(false);
 
@@ -673,7 +670,11 @@ function OrgComposerStrip({
       setAskSaving(false);
     }
   };
-
+// Only render for people allowed to act as org
+  if (!canPostAsOrg) {
+    return null;
+  }
+  
   return (
     <>
       <div style={shellStyle}>
