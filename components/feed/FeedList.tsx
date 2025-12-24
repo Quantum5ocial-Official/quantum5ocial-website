@@ -1,3 +1,4 @@
+// components/feed/FeedList.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
@@ -69,17 +70,14 @@ export default function FeedList({
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] =
-    useState<Record<string, CommentRow[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] =
-    useState<Record<string, boolean>>();
-  const [commenterProfiles, setCommenterProfiles] =
-    useState<Record<string, FeedProfile>>({});
+  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
+  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Keep deep-link open behavior (/?post=...)
+  // Deep-link (?post=...)
   const postParam = useMemo(() => {
     const raw = router.query?.post;
     if (!raw) return null;
@@ -98,20 +96,16 @@ export default function FeedList({
     if (diffSec < 60) return `${diffSec} seconds ago`;
 
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60)
-      return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
 
     const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24)
-      return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
 
     const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 7)
-      return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
 
     const diffWk = Math.floor(diffDay / 7);
-    if (diffWk < 5)
-      return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
 
     const diffMo = Math.floor(diffDay / 30);
     return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
@@ -194,8 +188,8 @@ export default function FeedList({
         new Set(posts.map((p) => p.org_id).filter(Boolean) as string[])
       );
 
-      // Profiles
-      let profileMap = new Map<string, FeedProfile>();
+      // profiles
+      const profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
           .from("profiles")
@@ -203,14 +197,12 @@ export default function FeedList({
           .in("id", userIds);
 
         if (!profErr && profRows) {
-          (profRows as FeedProfile[]).forEach((p) =>
-            profileMap.set(p.id, p)
-          );
+          (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
         }
       }
 
-      // Orgs
-      let orgMap = new Map<string, FeedOrg>();
+      // organizations
+      const orgMap = new Map<string, FeedOrg>();
       if (orgIds.length > 0) {
         const { data: orgRows, error: orgErr } = await supabase
           .from("organizations")
@@ -222,7 +214,7 @@ export default function FeedList({
         }
       }
 
-      // Likes
+      // likes
       let likeRows: LikeRow[] = [];
       if (postIds.length > 0) {
         const { data: likes, error: likeErr } = await supabase
@@ -233,7 +225,7 @@ export default function FeedList({
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
-      // Comments (for counts)
+      // comments (for counts)
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -247,15 +239,13 @@ export default function FeedList({
       const likeCountByPost: Record<string, number> = {};
       const likedByMeSet = new Set<string>();
       likeRows.forEach((r) => {
-        likeCountByPost[r.post_id] =
-          (likeCountByPost[r.post_id] || 0) + 1;
+        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
         if (uid && r.user_id === uid) likedByMeSet.add(r.post_id);
       });
 
       const commentCountByPost: Record<string, number> = {};
       commentRows.forEach((r) => {
-        commentCountByPost[r.post_id] =
-          (commentCountByPost[r.post_id] || 0) + 1;
+        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
       });
 
       const vms: PostVM[] = posts.map((p) => ({
@@ -283,13 +273,11 @@ export default function FeedList({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, user?.id, filterUserId, filterOrgId, limit]);
 
-  // Optional refresh if composer dispatches event (homepage uses this)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onFeedChanged = () => loadFeed(user?.id ?? null);
     window.addEventListener("q5:feed-changed", onFeedChanged);
-    return () =>
-      window.removeEventListener("q5:feed-changed", onFeedChanged);
+    return () => window.removeEventListener("q5:feed-changed", onFeedChanged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, filterUserId, filterOrgId, limit]);
 
@@ -302,8 +290,7 @@ export default function FeedList({
     setOpenComments((prev) => ({ ...prev, [postParam]: true }));
 
     const node = postRefs.current[postParam];
-    if (node)
-      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
 
     if (!commentsByPost[postParam]) void loadComments(postParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,10 +332,7 @@ export default function FeedList({
       await loadProfilesForUserIds(list.map((c) => c.user_id));
     } catch (e) {
       console.warn("loadComments error", e);
-      setCommentsByPost((prev) => ({
-        ...prev,
-        [postId]: prev[postId] || [],
-      }));
+      setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
     }
   };
 
@@ -371,10 +355,7 @@ export default function FeedList({
           : {
               ...x,
               likedByMe: nextLiked,
-              likeCount: Math.max(
-                0,
-                x.likeCount + (nextLiked ? 1 : -1)
-              ),
+              likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
             }
       )
     );
@@ -396,9 +377,7 @@ export default function FeedList({
       }
 
       if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("q5:notifications-changed")
-        );
+        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
       }
     } catch (e) {
       console.warn("toggleLike error", e);
@@ -415,7 +394,7 @@ export default function FeedList({
     const body = (commentDraft[postId] || "").trim();
     if (!body) return;
 
-    setCommentSaving((p) => ({ ...(p || {}), [postId]: true }));
+    setCommentSaving((p) => ({ ...p, [postId]: true }));
 
     try {
       const { data, error } = await supabase
@@ -443,21 +422,17 @@ export default function FeedList({
 
       setItems((prev) =>
         prev.map((x) =>
-          x.post.id === postId
-            ? { ...x, commentCount: x.commentCount + 1 }
-            : x
+          x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
         )
       );
 
       if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("q5:notifications-changed")
-        );
+        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
       }
     } catch (e) {
       console.warn("submitComment error", e);
     } finally {
-      setCommentSaving((p) => ({ ...(p || {}), [postId]: false }));
+      setCommentSaving((p) => ({ ...p, [postId]: false }));
     }
   };
 
@@ -486,31 +461,29 @@ export default function FeedList({
       {items.map((it) => {
         const p = it.post;
         const a = it.author;
-        const org = it.org;
+        const o = it.org;
 
-        const actorName = org?.name || a?.full_name || "Quantum member";
-        const avatarSrc = org?.logo_url || a?.avatar_url || null;
-        const initials = initialsOf(actorName);
-
-        const primaryHref = org
-          ? `/orgs/${org.slug}`
+        const actorName = o?.name || a?.full_name || "Quantum member";
+        const actorAvatar = o?.logo_url || a?.avatar_url || null;
+        const actorHref = o
+          ? `/orgs/${o.slug}`
           : a?.id
           ? `/profile/${a.id}`
           : undefined;
 
-        const subtitle = org
+        const isOpen = !!openComments[p.id];
+        const comments = commentsByPost[p.id] || [];
+
+        const headerSubtitle = o
           ? [
-              a?.full_name
-                ? `Posted by ${a.full_name}`
-                : "Posted by member",
+              a?.full_name ? `Posted by ${a.full_name}` : null,
               formatSubtitle(a),
             ]
               .filter(Boolean)
-              .join(" · ")
+              .join(" · ") || "Organization post"
           : formatSubtitle(a) || "Quantum5ocial member";
 
-        const isOpen = !!openComments[p.id];
-        const comments = commentsByPost[p.id] || [];
+        const actorInitials = initialsOf(actorName);
 
         return (
           <div key={p.id}>
@@ -526,53 +499,39 @@ export default function FeedList({
                 background: "rgba(15,23,42,0.92)",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  alignItems: "flex-start",
-                }}
-              >
-                {primaryHref ? (
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                {actorHref ? (
                   <Link
-                    href={primaryHref}
+                    href={actorHref}
                     style={{
                       textDecoration: "none",
                       display: "inline-flex",
                       cursor: "pointer",
                     }}
-                    aria-label={`Open: ${actorName}`}
+                    aria-label={`Open profile: ${actorName}`}
                   >
                     <div style={avatarStyle(40)}>
-                      {avatarSrc ? (
+                      {actorAvatar ? (
                         <img
-                          src={avatarSrc}
+                          src={actorAvatar}
                           alt={actorName}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       ) : (
-                        initials
+                        actorInitials
                       )}
                     </div>
                   </Link>
                 ) : (
                   <div style={avatarStyle(40)}>
-                    {avatarSrc ? (
+                    {actorAvatar ? (
                       <img
-                        src={avatarSrc}
+                        src={actorAvatar}
                         alt={actorName}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />
                     ) : (
-                      initials
+                      actorInitials
                     )}
                   </div>
                 )}
@@ -588,15 +547,11 @@ export default function FeedList({
                   >
                     <div style={{ minWidth: 0 }}>
                       <div
-                        style={{
-                          fontWeight: 900,
-                          fontSize: 13,
-                          lineHeight: 1.2,
-                        }}
+                        style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}
                       >
-                        {primaryHref ? (
+                        {actorHref ? (
                           <Link
-                            href={primaryHref}
+                            href={actorHref}
                             style={{
                               color: "rgba(226,232,240,0.95)",
                               textDecoration: "none",
@@ -616,7 +571,7 @@ export default function FeedList({
                           marginTop: 3,
                         }}
                       >
-                        {subtitle}
+                        {headerSubtitle}
                       </div>
 
                       <div
@@ -633,16 +588,10 @@ export default function FeedList({
                     {!hideCopyLink && (
                       <button
                         type="button"
-                        style={{
-                          ...pillBtnStyle,
-                          padding: "5px 10px",
-                          fontSize: 12,
-                        }}
+                        style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
                         onClick={() => {
                           navigator.clipboard
-                            ?.writeText(
-                              `${window.location.origin}/?post=${p.id}`
-                            )
+                            ?.writeText(`${window.location.origin}/?post=${p.id}`)
                             .catch(() => {});
                         }}
                       >
@@ -651,13 +600,7 @@ export default function FeedList({
                     )}
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 14,
-                      lineHeight: 1.5,
-                    }}
-                  >
+                  <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
                     <LinkifyText text={p.body} />
                   </div>
 
@@ -711,20 +654,10 @@ export default function FeedList({
                         fontWeight: 800,
                       }}
                     >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                        }}
-                      >
+                      <span style={{ display: "inline-flex", alignItems: "center" }}>
                         <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
                       </span>
-                      <span
-                        style={{
-                          opacity: 0.85,
-                          fontWeight: 700,
-                        }}
-                      >
+                      <span style={{ opacity: 0.85, fontWeight: 700 }}>
                         {it.likeCount}
                       </span>
                     </button>
@@ -746,8 +679,7 @@ export default function FeedList({
                         gap: 8,
                         padding: "7px 10px",
                         borderRadius: 999,
-                        border:
-                          "1px solid rgba(148,163,184,0.35)",
+                        border: "1px solid rgba(148,163,184,0.35)",
                         background: "rgba(2,6,23,0.2)",
                         color: "rgba(226,232,240,0.92)",
                         cursor: "pointer",
@@ -755,20 +687,10 @@ export default function FeedList({
                         fontWeight: 800,
                       }}
                     >
-                      <span
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                        }}
-                      >
+                      <span style={{ display: "inline-flex", alignItems: "center" }}>
                         <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
                       </span>
-                      <span
-                        style={{
-                          opacity: 0.85,
-                          fontWeight: 700,
-                        }}
-                      >
+                      <span style={{ opacity: 0.85, fontWeight: 700 }}>
                         {it.commentCount}
                       </span>
                     </button>
@@ -784,9 +706,7 @@ export default function FeedList({
                         }}
                       >
                         <div style={avatarStyle(30)}>
-                          {user
-                            ? user.email?.[0]?.toUpperCase() || "U"
-                            : "U"}
+                          {user ? user.email?.[0]?.toUpperCase() || "U" : "U"}
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -799,17 +719,14 @@ export default function FeedList({
                               }))
                             }
                             placeholder={
-                              user
-                                ? "Write a comment…"
-                                : "Login to comment…"
+                              user ? "Write a comment…" : "Login to comment…"
                             }
                             disabled={!user}
                             style={{
                               width: "100%",
                               minHeight: 54,
                               borderRadius: 12,
-                              border:
-                                "1px solid rgba(148,163,184,0.2)",
+                              border: "1px solid rgba(148,163,184,0.2)",
                               background: "rgba(2,6,23,0.26)",
                               color: "rgba(226,232,240,0.94)",
                               padding: 10,
@@ -832,7 +749,7 @@ export default function FeedList({
                               onClick={() => submitComment(p.id)}
                               disabled={
                                 !user ||
-                                commentSaving?.[p.id] ||
+                                commentSaving[p.id] ||
                                 !(commentDraft[p.id] || "").trim()
                               }
                               style={{
@@ -842,21 +759,17 @@ export default function FeedList({
                                 fontSize: 13,
                                 fontWeight: 900,
                                 cursor:
-                                  !user || commentSaving?.[p.id]
+                                  !user || commentSaving[p.id]
                                     ? "default"
                                     : "pointer",
                                 opacity:
-                                  !user || commentSaving?.[p.id]
-                                    ? 0.6
-                                    : 1,
+                                  !user || commentSaving[p.id] ? 0.6 : 1,
                                 background:
                                   "linear-gradient(135deg,#3bc7f3,#8468ff)",
                                 color: "#0f172a",
                               }}
                             >
-                              {commentSaving?.[p.id]
-                                ? "Posting…"
-                                : "Post comment"}
+                              {commentSaving[p.id] ? "Posting…" : "Post comment"}
                             </button>
                           </div>
                         </div>
@@ -871,18 +784,14 @@ export default function FeedList({
                         }}
                       >
                         {comments.length === 0 ? (
-                          <div
-                            style={{ fontSize: 12, opacity: 0.75 }}
-                          >
+                          <div style={{ fontSize: 12, opacity: 0.75 }}>
                             No comments yet.
                           </div>
                         ) : (
                           comments.map((c) => {
                             const cp = commenterProfiles[c.user_id];
-                            const cName =
-                              cp?.full_name || "Quantum member";
-                            const cInitials =
-                              initialsOf(cp?.full_name);
+                            const cName = cp?.full_name || "Quantum member";
+                            const cInitials = initialsOf(cp?.full_name);
 
                             return (
                               <div
@@ -890,10 +799,8 @@ export default function FeedList({
                                 style={{
                                   padding: 10,
                                   borderRadius: 12,
-                                  border:
-                                    "1px solid rgba(148,163,184,0.14)",
-                                  background:
-                                    "rgba(2,6,23,0.18)",
+                                  border: "1px solid rgba(148,163,184,0.14)",
+                                  background: "rgba(2,6,23,0.18)",
                                 }}
                               >
                                 <div
@@ -919,27 +826,16 @@ export default function FeedList({
                                     )}
                                   </div>
 
-                                  <div
-                                    style={{
-                                      flex: 1,
-                                      minWidth: 0,
-                                    }}
-                                  >
+                                  <div style={{ flex: 1, minWidth: 0 }}>
                                     <div
                                       style={{
                                         display: "flex",
-                                        justifyContent:
-                                          "space-between",
+                                        justifyContent: "space-between",
                                         gap: 10,
-                                        alignItems:
-                                          "flex-start",
+                                        alignItems: "flex-start",
                                       }}
                                     >
-                                      <div
-                                        style={{
-                                          minWidth: 0,
-                                        }}
-                                      >
+                                      <div style={{ minWidth: 0 }}>
                                         <div
                                           style={{
                                             fontSize: 12,
@@ -953,8 +849,7 @@ export default function FeedList({
                                               style={{
                                                 color:
                                                   "rgba(226,232,240,0.95)",
-                                                textDecoration:
-                                                  "none",
+                                                textDecoration: "none",
                                               }}
                                             >
                                               {cName}
@@ -981,9 +876,7 @@ export default function FeedList({
                                           opacity: 0.68,
                                         }}
                                       >
-                                        {formatRelativeTime(
-                                          c.created_at
-                                        )}
+                                        {formatRelativeTime(c.created_at)}
                                       </div>
                                     </div>
 
