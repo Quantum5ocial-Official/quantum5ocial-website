@@ -1408,6 +1408,12 @@ const hiringBadge = useMemo(() => {
         setIsAffiliated(false);
         return;
       }
+          // ✅ CREATOR FALLBACK: if you're the org creator, you're always affiliated/owner
+    if (org.created_by === user.id) {
+      setMemberRole("owner");
+      setIsAffiliated(true);
+      return;
+    }
 
       const { data, error } = await supabase
         .from("org_members")
@@ -1737,10 +1743,16 @@ const hiringBadge = useMemo(() => {
 
       try {
         const { error } = await supabase
-          .from("org_members")
-          .update({ is_affiliated: newValue })
-          .eq("org_id", org.id)
-          .eq("user_id", user.id);
+  .from("org_members")
+  .upsert(
+    {
+      org_id: org.id,
+      user_id: user.id,
+      role: memberRole ?? "member",
+      is_affiliated: newValue,
+    },
+    { onConflict: "org_id,user_id" }
+  );
 
         if (error) {
           console.error("Error updating self affiliation", error);
