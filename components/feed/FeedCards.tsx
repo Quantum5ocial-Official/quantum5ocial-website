@@ -2,7 +2,7 @@
 import React from "react";
 import Link from "next/link";
 
-type FeedProfile = {
+export type FeedProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
@@ -10,14 +10,14 @@ type FeedProfile = {
   affiliation?: string | null;
 };
 
-type FeedOrg = {
+export type FeedOrg = {
   id: string;
   name: string;
   slug: string;
   logo_url: string | null;
 };
 
-type PostRow = {
+export type PostRow = {
   id: string;
   user_id: string;
   body: string;
@@ -25,7 +25,7 @@ type PostRow = {
   image_url: string | null;
 };
 
-type CommentRow = {
+export type CommentRow = {
   id: string;
   post_id: string;
   user_id: string;
@@ -33,10 +33,10 @@ type CommentRow = {
   created_at: string | null;
 };
 
-type PostVM = {
+export type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
-  // optional so old callers (no org) still work
+  // when present, card will show org as the main actor
   org?: FeedOrg | null;
   likeCount: number;
   commentCount: number;
@@ -50,13 +50,17 @@ type Props = {
   user: SupaUser;
 
   openComments: Record<string, boolean>;
-  setOpenComments: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  setOpenComments: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
 
   commentsByPost: Record<string, CommentRow[]>;
   commenterProfiles: Record<string, FeedProfile>;
 
   commentDraft: Record<string, string>;
-  setCommentDraft: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  setCommentDraft: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
 
   commentSaving: Record<string, boolean>;
 
@@ -126,7 +130,7 @@ export default function FeedCards({
         const isOpen = !!openComments[p.id];
         const comments = commentsByPost[p.id] || [];
 
-        // figure out who the "actor" is: org if present, else person
+        // Who is the main actor? org if present, else profile
         const actorName = org?.name || author?.full_name || "Quantum member";
         const actorHref = org
           ? `/orgs/${org.slug}`
@@ -449,9 +453,7 @@ export default function FeedCards({
                               >
                                 {name}
                               </div>
-                              <div
-                                style={{ opacity: 0.7, fontSize: 12 }}
-                              >
+                              <div style={{ opacity: 0.7, fontSize: 12 }}>
                                 {formatRelativeTime(c.created_at)}
                               </div>
                             </div>
