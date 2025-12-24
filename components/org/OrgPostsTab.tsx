@@ -208,6 +208,16 @@ function OrgComposerStrip({
 
   const isAuthed = !!user;
 
+  const safeRedirect = () => {
+    if (typeof window === "undefined") return "/";
+    return `${window.location.pathname}${window.location.search}${window.location.hash || ""}`;
+  };
+
+  const goAuth = () => {
+    const r = safeRedirect();
+    router.push(`/auth?redirect=${encodeURIComponent(r)}`);
+  };
+
   const orgName = org.name || "Organization";
   const orgShortName = (orgName.split(" ")[0] || orgName).trim();
   const initials =
@@ -348,8 +358,9 @@ function OrgComposerStrip({
   });
 
   const openComposer = () => {
+    if (!router.isReady) return;
     if (!isAuthed) {
-      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      goAuth();
       return;
     }
     setPostError(null);
@@ -365,8 +376,9 @@ function OrgComposerStrip({
   const canSubmit = !!postText.trim() && !postSaving;
 
   const pickPhoto = () => {
+    if (!router.isReady) return;
     if (!isAuthed) {
-      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      goAuth();
       return;
     }
     fileInputRef.current?.click();
@@ -428,8 +440,10 @@ function OrgComposerStrip({
   };
 
   const submitPost = async () => {
+    if (!router.isReady) return;
+
     if (!user) {
-      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      goAuth();
       return;
     }
 
@@ -493,7 +507,7 @@ function OrgComposerStrip({
                 whiteSpace: "nowrap",
               }}
             >
-              {useIsMobile(520) ? `Share an update as ${orgShortName}…` : `Share an update as ${orgName}…`}
+              {isMobile ? `Share an update as ${orgShortName}…` : `Share an update as ${orgName}…`}
             </span>
             <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12, flexShrink: 0 }}>
               ✨
@@ -511,9 +525,9 @@ function OrgComposerStrip({
             backdropFilter: "blur(8px)",
             zIndex: 1000,
             display: "flex",
-            alignItems: useIsMobile(520) ? "flex-end" : "center",
+            alignItems: isMobile ? "flex-end" : "center",
             justifyContent: "center",
-            padding: useIsMobile(520) ? 10 : 18,
+            padding: isMobile ? 10 : 18,
           }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeComposer();
@@ -547,7 +561,9 @@ function OrgComposerStrip({
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>Photo attached</div>
+                    <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>
+                      Photo attached
+                    </div>
                     <button
                       type="button"
                       onClick={clearPhoto}
@@ -693,13 +709,19 @@ function OrgPostsStrip({
 
       let likeRows: { post_id: string; user_id: string }[] = [];
       if (postIds.length > 0) {
-        const { data: likes } = await supabase.from("post_likes").select("post_id, user_id").in("post_id", postIds);
+        const { data: likes } = await supabase
+          .from("post_likes")
+          .select("post_id, user_id")
+          .in("post_id", postIds);
         if (likes) likeRows = likes as any;
       }
 
       let commentRows: { post_id: string }[] = [];
       if (postIds.length > 0) {
-        const { data: comments } = await supabase.from("post_comments").select("post_id").in("post_id", postIds);
+        const { data: comments } = await supabase
+          .from("post_comments")
+          .select("post_id")
+          .in("post_id", postIds);
         if (comments) commentRows = comments as any;
       }
 
@@ -744,9 +766,13 @@ function OrgPostsStrip({
 
     const channel = supabase
       .channel(`org-posts:${orgId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "posts", filter: `org_id=eq.${orgId}` }, () => {
-        load();
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts", filter: `org_id=eq.${orgId}` },
+        () => {
+          load();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -818,11 +844,51 @@ function OrgPostsStrip({
         overflow: "hidden",
       }}
     >
-      <div aria-hidden style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 44, background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))", pointerEvents: "none", zIndex: 2 }} />
-      <div aria-hidden style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 44, background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))", pointerEvents: "none", zIndex: 2 }} />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 44,
+          background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: 44,
+          background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
 
-      <button type="button" onClick={() => scrollByCard(-1)} style={{ ...edgeBtn, left: 10 }} aria-label="Scroll left" title="Scroll left">‹</button>
-      <button type="button" onClick={() => scrollByCard(1)} style={{ ...edgeBtn, right: 10 }} aria-label="Scroll right" title="Scroll right">›</button>
+      <button
+        type="button"
+        onClick={() => scrollByCard(-1)}
+        style={{ ...edgeBtn, left: 10 }}
+        aria-label="Scroll left"
+        title="Scroll left"
+      >
+        ‹
+      </button>
+      <button
+        type="button"
+        onClick={() => scrollByCard(1)}
+        style={{ ...edgeBtn, right: 10 }}
+        aria-label="Scroll right"
+        title="Scroll right"
+      >
+        ›
+      </button>
 
       <div
         ref={scrollerRef}
@@ -846,7 +912,9 @@ function OrgPostsStrip({
               onClick={() => openPost(p.id)}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === "Enter") openPost(p.id); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") openPost(p.id);
+              }}
               style={{
                 scrollSnapAlign: "start",
                 flex: "0 0 auto",
@@ -882,14 +950,27 @@ function OrgPostsStrip({
                     }}
                   >
                     {logoUrl ? (
-                      <img src={logoUrl} alt={orgName} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <img
+                        src={logoUrl}
+                        alt={orgName}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
                     ) : (
                       initials
                     )}
                   </div>
 
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={orgName}>
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        fontSize: 13,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={orgName}
+                    >
                       {orgName || "Organization"}
                     </div>
                     <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
@@ -913,12 +994,31 @@ function OrgPostsStrip({
                   }}
                 >
                   {hasImage && (
-                    <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(148,163,184,0.14)", height: 190 }}>
-                      <img src={p.image_url as string} alt="Post image" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
+                    <div
+                      style={{
+                        borderRadius: 12,
+                        overflow: "hidden",
+                        border: "1px solid rgba(148,163,184,0.14)",
+                        height: 190,
+                      }}
+                    >
+                      <img
+                        src={p.image_url as string}
+                        alt="Post image"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        loading="lazy"
+                      />
                     </div>
                   )}
 
-                  <div style={{ borderRadius: 12, border: "1px solid rgba(148,163,184,0.14)", background: "rgba(2,6,23,0.18)", padding: 10 }}>
+                  <div
+                    style={{
+                      borderRadius: 12,
+                      border: "1px solid rgba(148,163,184,0.14)",
+                      background: "rgba(2,6,23,0.18)",
+                      padding: 10,
+                    }}
+                  >
                     <div
                       style={{
                         width: "100%",
@@ -987,7 +1087,8 @@ export default function OrgPostsTab({
         style={{
           padding: 16,
           marginBottom: 12,
-          background: "radial-gradient(circle at 0% 0%, rgba(59,130,246,0.16), rgba(15,23,42,0.98))",
+          background:
+            "radial-gradient(circle at 0% 0%, rgba(59,130,246,0.16), rgba(15,23,42,0.98))",
           border: "1px solid rgba(148,163,184,0.35)",
           boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
           borderRadius: 16,
