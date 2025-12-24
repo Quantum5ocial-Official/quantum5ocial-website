@@ -7,7 +7,7 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 
-// ✅ Option 2: homepage keeps header + loading/error/empty,
+// ✅ homepage keeps header + loading/error/empty,
 // and ONLY the feed cards list is extracted into a reusable component.
 import FeedCards from "../components/feed/FeedCards";
 
@@ -59,12 +59,20 @@ type FeedProfile = {
   affiliation?: string | null;
 };
 
+type FeedOrg = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+};
+
 type PostRow = {
   id: string;
   user_id: string;
   body: string;
   created_at: string | null;
-  image_url: string | null; // ✅ NEW
+  image_url: string | null;
+  org_id: string | null; // 👈 post can belong to an org
 };
 
 type LikeRow = { post_id: string; user_id: string };
@@ -80,6 +88,7 @@ type CommentRow = {
 type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
+  org?: FeedOrg | null; // 👈 matches FeedCards
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
@@ -232,12 +241,13 @@ export default function Home() {
 
   return (
     <>
-      {/* ✅ NO "Explore" button on desktop.
-          ✅ Mobile-only floating right-edge tab to open drawer. */}
+      {/* ✅ Mobile-only floating right-edge tab to open drawer. */}
       {isMobile && (
         <button
           type="button"
-          aria-label={rightOpen ? "Close explore drawer" : "Open explore drawer"}
+          aria-label={
+            rightOpen ? "Close explore drawer" : "Open explore drawer"
+          }
           onClick={() => setRightOpen((v) => !v)}
           style={{
             position: "fixed",
@@ -305,14 +315,16 @@ export default function Home() {
               Earn Quantum Points (QP) &amp; unlock quantum-themed badges
             </div>
             <p className="gamify-text">
-              Quantum5ocial stays professional but adds a light gamified layer – rewarding meaningful
-              activity like completing your profile, posting jobs/products, and exploring the ecosystem.
+              Quantum5ocial stays professional but adds a light gamified layer
+              – rewarding meaningful activity like completing your profile,
+              posting jobs/products, and exploring the ecosystem.
             </p>
             <ul className="gamify-list">
               <li>Complete your profile → gain QP and visibility</li>
               <li>Post roles or products → earn vendor &amp; mentor badges</li>
               <li>
-                Explore and engage → unlock levels like Superposition, Entangled, Resonant
+                Explore and engage → unlock levels like Superposition,
+                Entangled, Resonant
               </li>
             </ul>
           </div>
@@ -343,7 +355,9 @@ export default function Home() {
       <section className="section">
         <div className="section-header">
           <div>
-            <div className="section-title">Built for the entire quantum community</div>
+            <div className="section-title">
+              Built for the entire quantum community
+            </div>
             <div className="section-sub">Different paths, one shared platform.</div>
           </div>
         </div>
@@ -355,8 +369,8 @@ export default function Home() {
               <span className="who-title">Students &amp; early-career</span>
             </div>
             <p className="who-text">
-              Explore internships, MSc/PhD projects, and your first postdoc or industry role. Build your
-              profile as you grow into the field.
+              Explore internships, MSc/PhD projects, and your first postdoc or
+              industry role. Build your profile as you grow into the field.
             </p>
           </div>
 
@@ -366,8 +380,8 @@ export default function Home() {
               <span className="who-title">Researchers &amp; labs</span>
             </div>
             <p className="who-text">
-              Showcase your group, attract collaborators, and make it easier to find the right candidates
-              for your quantum projects.
+              Showcase your group, attract collaborators, and make it easier to
+              find the right candidates for your quantum projects.
             </p>
           </div>
 
@@ -377,8 +391,8 @@ export default function Home() {
               <span className="who-title">Companies &amp; startups</span>
             </div>
             <p className="who-text">
-              Post jobs, list your hero products, and reach a focused audience that already cares about
-              quantum technologies.
+              Post jobs, list your hero products, and reach a focused audience
+              that already cares about quantum technologies.
             </p>
           </div>
         </div>
@@ -386,7 +400,11 @@ export default function Home() {
 
       {/* ✅ MOBILE RIGHT DRAWER ONLY */}
       {isMobile && (
-        <RightDrawer open={rightOpen} onClose={() => setRightOpen(false)} title="Explore">
+        <RightDrawer
+          open={rightOpen}
+          onClose={() => setRightOpen(false)}
+          title="Explore"
+        >
           <HomeRightSidebar />
         </RightDrawer>
       )}
@@ -435,12 +453,20 @@ function HomeGlobalFeed() {
   const [error, setError] = useState<string | null>(null);
 
   const [items, setItems] = useState<PostVM[]>([]);
-  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentRow[]>
+  >({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
+  const [commentSaving, setCommentSaving] = useState<
+    Record<string, boolean>
+  >({});
 
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commenterProfiles, setCommenterProfiles] = useState<
+    Record<string, FeedProfile>
+  >({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -489,7 +515,7 @@ function HomeGlobalFeed() {
     try {
       const { data: postRows, error: postErr } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at, image_url")
+        .select("id, user_id, body, created_at, image_url, org_id") // 👈 include org_id
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -499,11 +525,14 @@ function HomeGlobalFeed() {
       const postIds = posts.map((p) => p.id);
       const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
 
-      let profileMap = new Map<string, FeedProfile>();
+      // --- load author profiles ---
+      const profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar_url, highest_education, affiliation")
+          .select(
+            "id, full_name, avatar_url, highest_education, affiliation"
+          )
           .in("id", userIds);
 
         if (!profErr && profRows) {
@@ -511,6 +540,24 @@ function HomeGlobalFeed() {
         }
       }
 
+      // --- load orgs for posts that have org_id ---
+      const orgIds = Array.from(
+        new Set(posts.map((p) => p.org_id).filter(Boolean) as string[])
+      );
+
+      const orgMap = new Map<string, FeedOrg>();
+      if (orgIds.length > 0) {
+        const { data: orgRows, error: orgErr } = await supabase
+          .from("organizations")
+          .select("id, name, slug, logo_url")
+          .in("id", orgIds);
+
+        if (!orgErr && orgRows) {
+          (orgRows as FeedOrg[]).forEach((o) => orgMap.set(o.id, o));
+        }
+      }
+
+      // --- likes ---
       let likeRows: LikeRow[] = [];
       if (postIds.length > 0) {
         const { data: likes, error: likeErr } = await supabase
@@ -521,6 +568,7 @@ function HomeGlobalFeed() {
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
+      // --- comments (for counts only) ---
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -540,12 +588,14 @@ function HomeGlobalFeed() {
 
       const commentCountByPost: Record<string, number> = {};
       commentRows.forEach((r) => {
-        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
+        commentCountByPost[r.post_id] =
+          (commentCountByPost[r.post_id] || 0) + 1;
       });
 
       const vms: PostVM[] = posts.map((p) => ({
         post: p,
         author: profileMap.get(p.user_id) || null,
+        org: p.org_id ? orgMap.get(p.org_id) || null : null,
         likeCount: likeCountByPost[p.id] || 0,
         commentCount: commentCountByPost[p.id] || 0,
         likedByMe: likedByMeSet.has(p.id),
@@ -794,7 +844,6 @@ function HomeGlobalFeed() {
         </div>
       )}
 
-      {/* ✅ Option 2 boundary: Only the feed cards list is rendered by <FeedList/> */}
       {!loading && !error && items.length > 0 && (
         <FeedCards
           items={items}
@@ -855,7 +904,9 @@ function ActionButton({
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
     >
-      <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        {icon}
+      </span>
       <span style={{ opacity: 0.95 }}>{label}</span>
     </button>
   );
@@ -889,11 +940,14 @@ function HomeComposerStrip() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
-  const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(null);
+  const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(
+    null
+  );
 
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
-  const [askType, setAskType] = useState<"concept" | "experiment" | "career">("concept");
+  const [askType, setAskType] =
+    useState<"concept" | "experiment" | "career">("concept");
 
   const [askSaving, setAskSaving] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
@@ -930,13 +984,15 @@ function HomeComposerStrip() {
 
   useEffect(() => {
     return () => {
-      if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
+      if (postPhotoPreview?.startsWith("blob:"))
+        URL.revokeObjectURL(postPhotoPreview);
     };
   }, [postPhotoPreview]);
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
-  const firstName = (displayName.split(" ")[0] || displayName).trim() || "Member";
+  const firstName =
+    (displayName.split(" ")[0] || displayName).trim() || "Member";
 
   const initials =
     (me?.full_name || "")
@@ -970,7 +1026,12 @@ function HomeComposerStrip() {
         <img
           src={me.avatar_url}
           alt={displayName}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
         />
       ) : (
         initials
@@ -981,7 +1042,8 @@ function HomeComposerStrip() {
   const shellStyle: CSSProperties = {
     borderRadius: 18,
     border: "1px solid rgba(148,163,184,0.18)",
-    background: "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
     boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
     padding: isMobile ? 12 : 14,
   };
@@ -1008,7 +1070,9 @@ function HomeComposerStrip() {
     fontSize: 13,
     fontWeight: 700,
     cursor: "pointer",
-    background: active ? "linear-gradient(135deg,#3bc7f3,#8468ff)" : "transparent",
+    background: active
+      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+      : "transparent",
     color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
     whiteSpace: "nowrap",
   });
@@ -1017,7 +1081,8 @@ function HomeComposerStrip() {
     width: "min(740px, 100%)",
     borderRadius: isMobile ? "18px 18px 0 0" : 18,
     border: "1px solid rgba(148,163,184,0.22)",
-    background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
     boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
     overflow: "hidden",
     maxHeight: isMobile ? "86vh" : undefined,
@@ -1160,7 +1225,8 @@ function HomeComposerStrip() {
   const onPhotoSelected = (file: File | null) => {
     setMediaError(null);
 
-    if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
+    if (postPhotoPreview?.startsWith("blob:"))
+      URL.revokeObjectURL(postPhotoPreview);
 
     if (!file) {
       setPostPhotoFile(null);
@@ -1204,13 +1270,17 @@ function HomeComposerStrip() {
     }
 
     const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `posts/${user.id}/${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+    const path = `posts/${user.id}/${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.${ext}`;
 
-    const { error: upErr } = await supabase.storage.from(POSTS_BUCKET).upload(path, postPhotoFile, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: postPhotoFile.type,
-    });
+    const { error: upErr } = await supabase.storage
+      .from(POSTS_BUCKET)
+      .upload(path, postPhotoFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: postPhotoFile.type,
+      });
 
     if (upErr) throw upErr;
 
@@ -1297,7 +1367,10 @@ function HomeComposerStrip() {
           .maybeSingle();
 
         if (attempt2.error) {
-          const msg = attempt2.error.message || attempt2.error.details || "Failed to post question";
+          const msg =
+            attempt2.error.message ||
+            attempt2.error.details ||
+            "Failed to post question";
           throw new Error(msg);
         }
 
@@ -1317,7 +1390,8 @@ function HomeComposerStrip() {
     } catch (e: any) {
       console.error("submitAskToQnA error:", e);
       setAskError(
-        e?.message || "Could not post your question. Check Supabase RLS/policies for qna_questions."
+        e?.message ||
+          "Could not post your question. Check Supabase RLS/policies for qna_questions."
       );
     } finally {
       setAskSaving(false);
@@ -1327,7 +1401,14 @@ function HomeComposerStrip() {
   return (
     <>
       <div style={shellStyle}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
           {avatarNode}
 
           <div
@@ -1350,7 +1431,14 @@ function HomeComposerStrip() {
             >
               {collapsedPlaceholder}
             </span>
-            <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12, flexShrink: 0 }}>
+            <span
+              style={{
+                marginLeft: "auto",
+                opacity: 0.7,
+                fontSize: 12,
+                flexShrink: 0,
+              }}
+            >
               {mode === "post" ? "✨" : "❓"}
             </span>
           </div>
@@ -1369,10 +1457,18 @@ function HomeComposerStrip() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
+            <button
+              type="button"
+              style={toggleBtn(mode === "post")}
+              onClick={() => setMode("post")}
+            >
               Post
             </button>
-            <button type="button" style={toggleBtn(mode === "ask")} onClick={() => setMode("ask")}>
+            <button
+              type="button"
+              style={toggleBtn(mode === "ask")}
+              onClick={() => setMode("ask")}
+            >
               Ask
             </button>
           </div>
@@ -1413,26 +1509,58 @@ function HomeComposerStrip() {
                   background: "rgba(2,6,23,0.22)",
                 }}
               >
-                <button type="button" style={toggleBtn(mode === "post")} onClick={() => setMode("post")}>
+                <button
+                  type="button"
+                  style={toggleBtn(mode === "post")}
+                  onClick={() => setMode("post")}
+                >
                   Post
                 </button>
-                <button type="button" style={toggleBtn(mode === "ask")} onClick={() => setMode("ask")}>
+                <button
+                  type="button"
+                  style={toggleBtn(mode === "ask")}
+                  onClick={() => setMode("ask")}
+                >
                   Ask
                 </button>
               </div>
 
-              <button type="button" style={closeBtn} onClick={closeComposer} aria-label="Close">
+              <button
+                type="button"
+                style={closeBtn}
+                onClick={closeComposer}
+                aria-label="Close"
+              >
                 ✕
               </button>
             </div>
 
             <div style={modalBody}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 12,
+                }}
+              >
                 {avatarNode}
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>{displayName}</div>
-                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                    {mode === "post" ? "Public · Quantum5ocial" : "Public · Q&A"}
+                  <div
+                    style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}
+                  >
+                    {displayName}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.75,
+                      marginTop: 2,
+                    }}
+                  >
+                    {mode === "post"
+                      ? "Public · Quantum5ocial"
+                      : "Public · Q&A"}
                   </div>
                 </div>
               </div>
@@ -1442,7 +1570,11 @@ function HomeComposerStrip() {
                   <textarea
                     value={postText}
                     onChange={(e) => setPostText(e.target.value)}
-                    placeholder={isMobile ? "What’s on your mind?" : `What’s on your mind, ${firstName}?`}
+                    placeholder={
+                      isMobile
+                        ? "What’s on your mind?"
+                        : `What’s on your mind, ${firstName}?`
+                    }
                     style={bigTextarea}
                   />
 
@@ -1456,8 +1588,23 @@ function HomeComposerStrip() {
                         padding: 10,
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>Photo attached</div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 12,
+                            opacity: 0.85,
+                            fontWeight: 800,
+                          }}
+                        >
+                          Photo attached
+                        </div>
                         <button
                           type="button"
                           onClick={clearPhoto}
@@ -1527,16 +1674,38 @@ function HomeComposerStrip() {
                 </>
               ) : (
                 <>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                    <div style={typeChip(askType === "concept")} onClick={() => setAskType("concept")} role="button" tabIndex={0}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div
+                      style={typeChip(askType === "concept")}
+                      onClick={() => setAskType("concept")}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
                       Concept
                     </div>
-                    <div style={typeChip(askType === "experiment")} onClick={() => setAskType("experiment")} role="button" tabIndex={0}>
+                    <div
+                      style={typeChip(askType === "experiment")}
+                      onClick={() => setAskType("experiment")}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
                       Experiment
                     </div>
-                    <div style={typeChip(askType === "career")} onClick={() => setAskType("career")} role="button" tabIndex={0}>
+                    <div
+                      style={typeChip(askType === "career")}
+                      onClick={() => setAskType("career")}
+                      role="button"
+                      tabIndex={0}
+                    >
                       <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
                       Career
                     </div>
@@ -1579,7 +1748,14 @@ function HomeComposerStrip() {
             </div>
 
             <div style={footerBar}>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
                 {mode === "post" ? (
                   <ActionButton
                     icon={
@@ -1590,9 +1766,21 @@ function HomeComposerStrip() {
                   />
                 ) : (
                   <>
-                    <ActionButton icon="❓" label="Add details" title="Add more context" />
-                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
-                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
+                    <ActionButton
+                      icon="❓"
+                      label="Add details"
+                      title="Add more context"
+                    />
+                    <ActionButton
+                      icon="🔗"
+                      label="Add link"
+                      title="Link to paper/code"
+                    />
+                    <ActionButton
+                      icon="🧪"
+                      label="Add tags"
+                      title="Tag it for discovery"
+                    />
                   </>
                 )}
               </div>
@@ -1606,7 +1794,13 @@ function HomeComposerStrip() {
                   else submitAskToQnA();
                 }}
               >
-                {mode === "post" ? (postSaving ? "Posting…" : "Post") : askSaving ? "Asking…" : "Ask"}
+                {mode === "post"
+                  ? postSaving
+                    ? "Posting…"
+                    : "Post"
+                  : askSaving
+                  ? "Asking…"
+                  : "Ask"}
               </button>
             </div>
 
@@ -1638,18 +1832,31 @@ function HomeHeroTile() {
       <div className="hero-tile-inner">
         <div className="tile-label">Quantum5ocial</div>
 
-        <div style={{ marginTop: 6, fontWeight: 900, fontSize: 16, lineHeight: 1.2 }}>
-          Discover <span style={{ color: "#22d3ee" }}>jobs, products &amp; services</span> shaping
-          the future of quantum technology.
+        <div
+          style={{
+            marginTop: 6,
+            fontWeight: 900,
+            fontSize: 16,
+            lineHeight: 1.2,
+          }}
+        >
+          Discover{" "}
+          <span style={{ color: "#22d3ee" }}>
+            jobs, products &amp; services
+          </span>{" "}
+          shaping the future of quantum technology.
         </div>
 
         <p className="tile-text" style={{ marginTop: 10 }}>
-          Quantum5ocial connects students, researchers, and companies with curated opportunities,
-          services and products across the global quantum ecosystem.
+          Quantum5ocial connects students, researchers, and companies with
+          curated opportunities, services and products across the global quantum
+          ecosystem.
         </p>
 
         <div className="tile-pill-row" style={{ marginTop: 12 }}>
-          <span className="tile-pill">Intern, PhD, Postdoc, and Industry roles</span>
+          <span className="tile-pill">
+            Intern, PhD, Postdoc, and Industry roles
+          </span>
           <span className="tile-pill">Startups, Vendors, and Labs</span>
           <span className="tile-pill">Hardware · Software · Services</span>
         </div>
@@ -1665,7 +1872,9 @@ function HomeHeroTile() {
 function HomeRightSidebar() {
   const [latestJob, setLatestJob] = useState<Job | null>(null);
   const [latestProduct, setLatestProduct] = useState<Product | null>(null);
-  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(null);
+  const [latestMember, setLatestMember] = useState<CommunityProfile | null>(
+    null
+  );
 
   const [loadingJob, setLoadingJob] = useState(true);
   const [loadingProduct, setLoadingProduct] = useState(true);
@@ -1694,7 +1903,8 @@ function HomeRightSidebar() {
         .order("created_at", { ascending: false })
         .limit(1);
 
-      if (!featErr && featured && featured.length > 0) return featured[0] as T;
+      if (!featErr && featured && featured.length > 0)
+        return featured[0] as T;
 
       const { data: latest, error: latErr } = await supabase
         .from(table)
@@ -1758,7 +1968,9 @@ function HomeRightSidebar() {
   }, []);
 
   const formatJobMeta = (job: Job) =>
-    [job.company_name, job.location, job.remote_type].filter(Boolean).join(" · ");
+    [job.company_name, job.location, job.remote_type]
+      .filter(Boolean)
+      .join(" · ");
 
   const formatPrice = (p: Product) => {
     if (p.price_type === "fixed" && p.price_value) return p.price_value;
@@ -1768,9 +1980,13 @@ function HomeRightSidebar() {
 
   const memberName = latestMember?.full_name || "Quantum member";
   const memberFirstName =
-    typeof memberName === "string" ? memberName.split(" ")[0] || memberName : "Member";
+    typeof memberName === "string"
+      ? memberName.split(" ")[0] || memberName
+      : "Member";
 
-  const memberProfileHref = latestMember ? `/profile/${latestMember.id}` : "/community";
+  const memberProfileHref = latestMember
+    ? `/profile/${latestMember.id}`
+    : "/community";
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
@@ -1783,7 +1999,11 @@ function HomeRightSidebar() {
           <div className="tile-title-row">
             <div
               className="tile-title"
-              style={{ color: ACCENT.jobs, fontWeight: 700, letterSpacing: 0.3 }}
+              style={{
+                color: ACCENT.jobs,
+                fontWeight: 700,
+                letterSpacing: 0.3,
+              }}
             >
               Hot opening
             </div>
@@ -1793,20 +2013,45 @@ function HomeRightSidebar() {
           {loadingJob ? (
             <p className="tile-text">Loading the newest job…</p>
           ) : !latestJob ? (
-            <p className="tile-text">No jobs posted yet — be the first to add one.</p>
+            <p className="tile-text">
+              No jobs posted yet — be the first to add one.
+            </p>
           ) : (
             <div style={{ marginTop: 8 }}>
-              <Link href={`/jobs/${latestJob.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+              <Link
+                href={`/jobs/${latestJob.id}`}
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 14,
+                    lineHeight: 1.25,
+                  }}
+                >
                   {latestJob.title || "Untitled role"}
                 </div>
 
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
                   {formatJobMeta(latestJob) || "Quantum role"}
                 </div>
 
                 {latestJob.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestJob.short_description.length > 90
                       ? latestJob.short_description.slice(0, 87) + "..."
                       : latestJob.short_description}
@@ -1835,7 +2080,11 @@ function HomeRightSidebar() {
           <div className="tile-title-row">
             <div
               className="tile-title"
-              style={{ color: ACCENT.products, fontWeight: 700, letterSpacing: 0.3 }}
+              style={{
+                color: ACCENT.products,
+                fontWeight: 700,
+                letterSpacing: 0.3,
+              }}
             >
               Product of the week
             </div>
@@ -1845,9 +2094,18 @@ function HomeRightSidebar() {
           {loadingProduct ? (
             <p className="tile-text">Loading the newest product…</p>
           ) : !latestProduct ? (
-            <p className="tile-text">No products listed yet — add your first product.</p>
+            <p className="tile-text">
+              No products listed yet — add your first product.
+            </p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -1863,7 +2121,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestProduct.image1_url}
                     alt={latestProduct.name}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   <div
@@ -1884,20 +2147,49 @@ function HomeRightSidebar() {
 
               <Link
                 href={`/products/${latestProduct.id}`}
-                style={{ textDecoration: "none", color: "inherit", flex: 1, minWidth: 0 }}
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  flex: 1,
+                  minWidth: 0,
+                }}
               >
-                <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 14,
+                    lineHeight: 1.25,
+                  }}
+                >
                   {latestProduct.name}
                 </div>
 
-                <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                  {[latestProduct.company_name, latestProduct.category, formatPrice(latestProduct)]
+                <div
+                  style={{
+                    fontSize: 12,
+                    opacity: 0.85,
+                    marginTop: 4,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {[
+                    latestProduct.company_name,
+                    latestProduct.category,
+                    formatPrice(latestProduct),
+                  ]
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
 
                 {latestProduct.short_description && (
-                  <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.9,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
                     {latestProduct.short_description.length > 90
                       ? latestProduct.short_description.slice(0, 87) + "..."
                       : latestProduct.short_description}
@@ -1926,7 +2218,11 @@ function HomeRightSidebar() {
           <div className="tile-title-row">
             <div
               className="tile-title"
-              style={{ color: ACCENT.members, fontWeight: 700, letterSpacing: 0.3 }}
+              style={{
+                color: ACCENT.members,
+                fontWeight: 700,
+                letterSpacing: 0.3,
+              }}
             >
               Spotlight
             </div>
@@ -1938,7 +2234,14 @@ function HomeRightSidebar() {
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
-            <div style={{ marginTop: 8, display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
               <div
                 style={{
                   width: 46,
@@ -1959,7 +2262,12 @@ function HomeRightSidebar() {
                   <img
                     src={latestMember.avatar_url}
                     alt={memberFirstName}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
                   />
                 ) : (
                   memberFirstName.charAt(0).toUpperCase()
@@ -1967,17 +2275,47 @@ function HomeRightSidebar() {
               </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <Link href={memberProfileHref} style={{ textDecoration: "none", color: "inherit" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{memberName}</div>
+                <Link
+                  href={memberProfileHref}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 14,
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {memberName}
+                  </div>
 
-                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4, lineHeight: 1.35 }}>
-                    {[latestMember.highest_education, latestMember.role, latestMember.affiliation]
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.85,
+                      marginTop: 4,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {[
+                      latestMember.highest_education,
+                      latestMember.role,
+                      latestMember.affiliation,
+                    ]
                       .filter(Boolean)
-                      .join(" · ") || "Quantum5ocial community member"}
+                      .join(" · ") ||
+                      "Quantum5ocial community member"}
                   </div>
 
                   {latestMember.short_bio && (
-                    <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6, lineHeight: 1.35 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        opacity: 0.9,
+                        marginTop: 6,
+                        lineHeight: 1.35,
+                      }}
+                    >
                       {latestMember.short_bio.length > 90
                         ? latestMember.short_bio.slice(0, 87) + "..."
                         : latestMember.short_bio}
@@ -2006,5 +2344,4 @@ function HomeRightSidebar() {
 (Home as any).layoutProps = {
   variant: "three",
   right: <HomeRightSidebar />,
-  // ✅ Mobile: hide desktop right column and use drawer only
 };
