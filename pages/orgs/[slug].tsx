@@ -278,22 +278,39 @@ const OrganizationDetailPage = () => {
   }, [user, org]);
 
   // === PERMISSIONS ===
-  const canEdit = useMemo(() => {
-    if (!user || !org) return false;
-    if (memberRole === "owner" || memberRole === "co_owner" || memberRole === "admin")
-      return true;
-    // Fallback for legacy orgs without org_members rows
-    return org.created_by === user.id;
-  }, [user, org, memberRole]);
+  const { canEditOrg, canManageMembers, canRemoveOthers } = useMemo(() => {
+    if (!user || !org) {
+      return {
+        canEditOrg: false,
+        canManageMembers: false,
+        canRemoveOthers: false,
+      };
+    }
 
-  // allow owner, co-owner, and admin to remove members
-  const canRemoveOthers = useMemo(
-    () =>
+    const isCreator = org.created_by === user.id;
+    const isOwnerLike =
+      memberRole === "owner" || memberRole === "co_owner";
+    const isAdmin = memberRole === "admin";
+
+    // Org-page editing: only owner / co-owner / creator (fallback)
+    const canEditOrgPage = isOwnerLike || isCreator;
+
+    // Team management: owner / co-owner / admin / creator (fallback)
+    const canManage = isOwnerLike || isAdmin || isCreator;
+
+    // Removing others: owner / co-owner / admin / creator (fallback)
+    const canRemove =
       memberRole === "owner" ||
       memberRole === "co_owner" ||
-      memberRole === "admin",
-    [memberRole]
-  );
+      memberRole === "admin" ||
+      isCreator;
+
+    return {
+      canEditOrg: canEditOrgPage,
+      canManageMembers: canManage,
+      canRemoveOthers: canRemove,
+    };
+  }, [user, org, memberRole]);
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
@@ -323,7 +340,7 @@ const OrganizationDetailPage = () => {
 
         let rows = (memberRows || []) as OrgMemberRow[];
 
-        // ✅ Ensure creator (real owner) always appears as Owner in the team list
+        // Ensure creator is always present as Owner
         if (org.created_by) {
           const hasCreator = rows.some(
             (r) => r.user_id === org.created_by
@@ -460,9 +477,8 @@ const OrganizationDetailPage = () => {
     return "Member";
   };
 
-  // === INVITE / ADD MEMBER – NOW ONLY FROM FOLLOWERS, LIVE SEARCH ===
+  // === INVITE / ADD MEMBER – ONLY FROM FOLLOWERS, LIVE SEARCH ===
 
-  // Just prevent submit refresh; results are driven by typing.
   const handleSearchProfiles = (e: React.FormEvent) => {
     e.preventDefault();
   };
@@ -492,7 +508,7 @@ const OrganizationDetailPage = () => {
   }, [searchTerm, followers, showAddMember]);
 
   const handleAddMember = async (profileId: string) => {
-    if (!org || !canEdit) return;
+    if (!org || !canManageMembers) return;
 
     setSavingMemberId(profileId);
     try {
@@ -513,7 +529,6 @@ const OrganizationDetailPage = () => {
         return;
       }
 
-      // Find profile in *followers* based search results
       const profile =
         (searchResults.find((p) => p.id === profileId) as FollowerProfile) ||
         null;
@@ -535,7 +550,6 @@ const OrganizationDetailPage = () => {
         return [...prev, updatedEntry];
       });
 
-      // If this is the current user being added/updated, sync membership state
       if (user && user.id === profileId) {
         setMemberRole(selectedRole);
         setIsAffiliated(selectedAffiliated);
@@ -589,14 +603,14 @@ const OrganizationDetailPage = () => {
     void update();
   };
 
-  // === OWNER / CO-OWNER / ADMIN: CHANGE ROLE ===
+  // === OWNER / CO-OWNER / ADMIN: CHANGE ROLE (team management) ===
   const handleChangeMemberRole = async (
     memberUserId: string,
     newRole: OrgMemberRole,
     e: React.MouseEvent
   ) => {
     e.stopPropagation();
-    if (!org || !canEdit) return;
+    if (!org || !canManageMembers) return;
 
     setMemberActionLoadingId(memberUserId);
     try {
@@ -617,7 +631,6 @@ const OrganizationDetailPage = () => {
         )
       );
 
-      // If we changed our own role, sync state
       if (user && user.id === memberUserId) {
         setMemberRole(newRole);
       }
@@ -654,7 +667,6 @@ const OrganizationDetailPage = () => {
 
       setMembers((prev) => prev.filter((m) => m.user_id !== memberUserId));
 
-      // If we removed ourselves, clear membership state
       if (user && user.id === memberUserId) {
         setMemberRole(null);
         setIsAffiliated(false);
@@ -843,7 +855,7 @@ const OrganizationDetailPage = () => {
                     flexShrink: 0,
                   }}
                 >
-                  {canEdit ? (
+                  {canEditOrg ? (
                     <Link
                       href={editHref}
                       style={{
@@ -995,7 +1007,7 @@ const OrganizationDetailPage = () => {
                   Team &amp; members
                 </div>
 
-                {canEdit && (
+                {canManageMembers && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1038,7 +1050,7 @@ const OrganizationDetailPage = () => {
                 )}
               </div>
 
-              {showAddMember && canEdit && (
+              {showAddMember && canManageMembers && (
                 <div
                   style={{
                     borderRadius: 16,
@@ -1429,11 +1441,9 @@ const OrganizationDetailPage = () => {
                     const isMemberActionLoading =
                       memberActionLoadingId === m.user_id;
 
-                    // real creator/owner
                     const isRealOwner =
                       org && m.user_id === org.created_by && m.role === "owner";
 
-                    // show Remove for any non-owner when viewer has permission
                     const canShowRemove =
                       canRemoveOthers && m.role !== "owner";
 
@@ -1544,7 +1554,7 @@ const OrganizationDetailPage = () => {
                             </div>
                           </div>
 
-                          {canEdit && !isRealOwner && (
+                          {canManageMembers && !isRealOwner && (
                             <div
                               style={{
                                 marginLeft: "auto",
@@ -1870,6 +1880,7 @@ const OrganizationDetailPage = () => {
 
       {/* Global floating member dropdown via portal */}
       {isBrowser &&
+        canManageMembers &&
         memberMenuOpenId &&
         openMember &&
         menuPosition &&
@@ -1939,7 +1950,7 @@ const OrganizationDetailPage = () => {
                 </button>
               )
             )}
-            {canRemoveOthers && openMember.role !== "owner" && (
+            {canShowRemove(openMember, canRemoveOthers) && (
               <div
                 style={{
                   borderTop: "1px solid rgba(30,64,175,0.6)",
@@ -1978,6 +1989,14 @@ const OrganizationDetailPage = () => {
     </section>
   );
 };
+
+// Small helper for portal remove visibility
+function canShowRemove(
+  openMember: OrgMemberWithProfile,
+  canRemoveOthers: boolean
+) {
+  return canRemoveOthers && openMember.role !== "owner";
+}
 
 // AppLayout: left-only global sidebar, no right sidebar
 (OrganizationDetailPage as any).layoutProps = {
