@@ -336,6 +336,14 @@ const OrganizationDetailPage = () => {
     }
   };
 
+  const aboutCard: React.CSSProperties = {
+    borderRadius: 16,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(15,23,42,0.62)",
+    padding: 14,
+    marginBottom: 12,
+  };
+
   const tabWrapStyle: React.CSSProperties = {
     marginTop: 16,
     marginBottom: 12,
@@ -598,6 +606,43 @@ const OrganizationDetailPage = () => {
             </div>
           </section>
 
+          {/* ✅ About (description + focus areas) moved ABOVE the tabs */}
+          {(org.description || org.focus_areas) && (
+            <div className="card" style={aboutCard}>
+              {org.description ? (
+                <div
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 1.55,
+                    color: "rgba(226,232,240,0.92)",
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {org.description}
+                </div>
+              ) : null}
+
+              {org.focus_areas ? (
+                <div style={{ marginTop: org.description ? 12 : 0 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.08,
+                      color: "rgba(148,163,184,0.9)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Focus areas
+                  </div>
+                  <div style={{ fontSize: 14, color: "rgba(226,232,240,0.92)" }}>
+                    {org.focus_areas}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Tabs (compact segmented control) */}
           <div style={tabWrapStyle} role="tablist" aria-label="Organization sections">
             <button
@@ -642,57 +687,7 @@ const OrganizationDetailPage = () => {
           </div>
 
           {/* Panels */}
-          {activeTab === "posts" && (
-            <>
-              {/* Optional compact “About” blurb above posts (short + keeps page useful) */}
-              {(org.description || org.focus_areas) && (
-                <div
-                  className="card"
-                  style={{
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.18)",
-                    background: "rgba(15,23,42,0.62)",
-                    padding: 14,
-                    marginBottom: 12,
-                  }}
-                >
-                  {org.description ? (
-                    <div
-                      style={{
-                        fontSize: 14,
-                        lineHeight: 1.55,
-                        color: "rgba(226,232,240,0.92)",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {org.description}
-                    </div>
-                  ) : null}
-
-                  {org.focus_areas ? (
-                    <div style={{ marginTop: org.description ? 12 : 0 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          textTransform: "uppercase",
-                          letterSpacing: 0.08,
-                          color: "rgba(148,163,184,0.9)",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Focus areas
-                      </div>
-                      <div style={{ fontSize: 14, color: "rgba(226,232,240,0.92)" }}>
-                        {org.focus_areas}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              <OrgPostsTab org={org} canPostAsOrg={canPostAsOrg} />
-            </>
-          )}
+          {activeTab === "posts" && <OrgPostsTab org={org} canPostAsOrg={canPostAsOrg} />}
 
           {activeTab === "team" && (
             <OrgTeamTab
