@@ -23,9 +23,11 @@ type OrgType =
   | "nonprofit"
   | "other";
 
+type HiringStatus = "" | "actively_hiring" | "hiring_soon" | "not_hiring" | "unspecified";
+
 type OrgRow = {
   id: string;
-  created_by: string;
+  created_by: string | null;
   kind: "company" | "research_group";
   name: string;
   slug: string;
@@ -35,6 +37,17 @@ type OrgRow = {
   company_type: OrgType | null;
   tagline: string | null;
   logo_url: string | null;
+
+  // extended fields
+  country: string | null;
+  city: string | null;
+  description: string | null;
+  focus_areas: string | null;
+  careers_url: string | null;
+  public_contact_email: string | null;
+  technology_type: string | null;
+  target_customers: string | null;
+  hiring_status: HiringStatus | null;
 };
 
 type OrgMemberRow = {
@@ -49,6 +62,7 @@ export default function EditCompanyPage() {
   const slugFromUrl = typeof rawSlug === "string" ? rawSlug : "";
   const [orgId, setOrgId] = useState<string | null>(null);
 
+  // form fields (mirrors create page)
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
@@ -58,6 +72,16 @@ export default function EditCompanyPage() {
   const [orgType, setOrgType] = useState<OrgType>("");
   const [tagline, setTagline] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [about, setAbout] = useState("");
+  const [focusAreas, setFocusAreas] = useState("");
+  const [technologyType, setTechnologyType] = useState("");
+  const [targetCustomers, setTargetCustomers] = useState("");
+  const [careersUrl, setCareersUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [hiringStatus, setHiringStatus] = useState<HiringStatus>("");
 
   const [authorizedCheckbox, setAuthorizedCheckbox] = useState(false);
 
@@ -82,7 +106,7 @@ export default function EditCompanyPage() {
     }
   }, [loading, user, router]);
 
-  // Load existing organization + check permissions (creator OR owner/co-owner)
+  // Load existing organization + check permissions (creator OR owner/co_owner)
   useEffect(() => {
     if (!user || !slugFromUrl) return;
 
@@ -94,7 +118,28 @@ export default function EditCompanyPage() {
       const { data, error } = await supabase
         .from("organizations")
         .select(
-          "id, created_by, kind, name, slug, website, industry, size_label, company_type, tagline, logo_url"
+          `
+          id,
+          created_by,
+          kind,
+          name,
+          slug,
+          website,
+          industry,
+          size_label,
+          company_type,
+          tagline,
+          logo_url,
+          country,
+          city,
+          description,
+          focus_areas,
+          careers_url,
+          public_contact_email,
+          technology_type,
+          target_customers,
+          hiring_status
+        `
         )
         .eq("slug", slugFromUrl)
         .eq("kind", "company")
@@ -125,8 +170,7 @@ export default function EditCompanyPage() {
         role = memberRow?.role ?? null;
       }
 
-      const isOwnerLike =
-        isCreator || role === "owner" || role === "co_owner";
+      const isOwnerLike = isCreator || role === "owner" || role === "co_owner";
 
       if (!isOwnerLike) {
         setSubmitError("You are not allowed to edit this organization.");
@@ -145,7 +189,19 @@ export default function EditCompanyPage() {
       setSize((data.size_label as OrgSize) || "");
       setOrgType((data.company_type as OrgType) || "");
       setTagline(data.tagline ?? "");
-      setSlugManuallyEdited(true); // don't auto-change slug when editing
+      setCity(data.city ?? "");
+      setCountry(data.country ?? "");
+      setAbout(data.description ?? "");
+      setFocusAreas(data.focus_areas ?? "");
+      setCareersUrl(data.careers_url ?? "");
+      setContactEmail(data.public_contact_email ?? "");
+      setTechnologyType(data.technology_type ?? "");
+      setTargetCustomers(data.target_customers ?? "");
+      setHiringStatus((data.hiring_status as HiringStatus) || "");
+
+      // Don't auto change slug when editing
+      setSlugManuallyEdited(true);
+
       setLoadingOrg(false);
     };
 
@@ -204,9 +260,7 @@ export default function EditCompanyPage() {
       return;
     }
     if (!authorizedCheckbox) {
-      setSubmitError(
-        "Please confirm that you are authorized to update this page."
-      );
+      setSubmitError("Please confirm that you are authorized to update this page.");
       return;
     }
 
@@ -225,6 +279,17 @@ export default function EditCompanyPage() {
           size_label: size || null,
           company_type: orgType || null,
           tagline: tagline || null,
+
+          // Extended fields
+          country: country || null,
+          city: city || null,
+          description: about || null,
+          focus_areas: focusAreas || null,
+          careers_url: careersUrl || null,
+          public_contact_email: contactEmail || null,
+          technology_type: technologyType || null,
+          target_customers: targetCustomers || null,
+          hiring_status: hiringStatus || null,
           // logo_url will be wired later when upload is implemented
         })
         .eq("id", orgId)
@@ -236,7 +301,7 @@ export default function EditCompanyPage() {
 
       setSubmitMessage("Company page updated successfully.");
 
-      // If slug changed, navigate to the new public URL (and stop here).
+      // If slug changed, navigate to the new public URL.
       if (data?.slug && data.slug !== slugFromUrl) {
         router.push(`/orgs/${data.slug}`);
         return;
@@ -373,29 +438,85 @@ export default function EditCompanyPage() {
               </p>
             </div>
 
-            {/* Website */}
-            <div>
-              <label
-                htmlFor="org-website"
-                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
-              >
-                Website
-              </label>
-              <input
-                id="org-website"
-                type="url"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(148,163,184,0.6)",
-                  backgroundColor: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 14,
-                }}
-              />
+            {/* Website + Careers + contact email */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1.2fr)",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="org-website"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Website
+                </label>
+                <input
+                  id="org-website"
+                  type="url"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-careers-url"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Careers page
+                </label>
+                <input
+                  id="org-careers-url"
+                  type="url"
+                  value={careersUrl}
+                  onChange={(e) => setCareersUrl(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-contact-email"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Contact email
+                </label>
+                <input
+                  id="org-contact-email"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
             </div>
 
             {/* Industry + size + type */}
@@ -497,6 +618,92 @@ export default function EditCompanyPage() {
               </div>
             </div>
 
+            {/* Location + hiring status */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr)",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="org-city"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  City
+                </label>
+                <input
+                  id="org-city"
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-country"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Country
+                </label>
+                <input
+                  id="org-country"
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-hiring-status"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Hiring status
+                </label>
+                <select
+                  id="org-hiring-status"
+                  value={hiringStatus}
+                  onChange={(e) => setHiringStatus(e.target.value as HiringStatus)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="">Select status</option>
+                  <option value="actively_hiring">Actively hiring</option>
+                  <option value="hiring_soon">Hiring soon</option>
+                  <option value="not_hiring">Not currently hiring</option>
+                  <option value="unspecified">Prefer not to say</option>
+                </select>
+              </div>
+            </div>
+
             {/* Logo upload (UI only) */}
             <div>
               <label
@@ -521,9 +728,7 @@ export default function EditCompanyPage() {
               >
                 <div>
                   <div>Upload a square logo (300×300px recommended).</div>
-                  <div style={{ marginTop: 2, fontSize: 12 }}>
-                    JPG, JPEG or PNG.
-                  </div>
+                  <div style={{ marginTop: 2, fontSize: 12 }}>JPG, JPEG or PNG.</div>
                 </div>
                 <input
                   id="org-logo"
@@ -541,8 +746,7 @@ export default function EditCompanyPage() {
                     color: "rgba(148,163,184,0.95)",
                   }}
                 >
-                  Selected: {logoFile.name} (logo upload wiring will come
-                  later)
+                  Selected: {logoFile.name} (logo upload wiring will come later)
                 </div>
               )}
             </div>
@@ -573,6 +777,116 @@ export default function EditCompanyPage() {
               />
             </div>
 
+            {/* About */}
+            <div>
+              <label
+                htmlFor="org-about"
+                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+              >
+                About
+              </label>
+              <textarea
+                id="org-about"
+                value={about}
+                onChange={(e) => setAbout(e.target.value)}
+                rows={4}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(148,163,184,0.6)",
+                  backgroundColor: "rgba(15,23,42,0.9)",
+                  color: "#e5e7eb",
+                  fontSize: 14,
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            {/* Focus / tech / customers */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.1fr)",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="org-focus-areas"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Focus areas
+                </label>
+                <textarea
+                  id="org-focus-areas"
+                  value={focusAreas}
+                  onChange={(e) => setFocusAreas(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-technology-type"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Technology type
+                </label>
+                <textarea
+                  id="org-technology-type"
+                  value={technologyType}
+                  onChange={(e) => setTechnologyType(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-target-customers"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Target customers
+                </label>
+                <textarea
+                  id="org-target-customers"
+                  value={targetCustomers}
+                  onChange={(e) => setTargetCustomers(e.target.value)}
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Authorization checkbox */}
             <div
               style={{
@@ -593,23 +907,18 @@ export default function EditCompanyPage() {
                 htmlFor="org-authorized"
                 style={{ fontSize: 13, lineHeight: 1.4 }}
               >
-                I confirm that I am still authorized to manage this
-                organization page.
+                I confirm that I am still authorized to manage this organization page.
               </label>
             </div>
 
             {/* Messages */}
             {submitError && (
-              <div
-                style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}
-              >
+              <div style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}>
                 {submitError}
               </div>
             )}
             {submitMessage && (
-              <div
-                style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}
-              >
+              <div style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}>
                 {submitMessage}
               </div>
             )}
