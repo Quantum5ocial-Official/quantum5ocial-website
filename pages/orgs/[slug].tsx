@@ -231,7 +231,7 @@ function formatRelativeTime(created_at: string | null) {
 }
 
 /* =========================
-   ORG COMPOSER (POST + ASK)
+   ORG COMPOSER (POST ONLY)
    ========================= */
 
 function OrgComposerStrip({
@@ -245,7 +245,6 @@ function OrgComposerStrip({
   const { user } = useSupabaseUser();
   const isMobile = useIsMobile(520);
 
-  const [mode, setMode] = useState<"post" | "ask">("post");
   const [open, setOpen] = useState(false);
 
   const [postText, setPostText] = useState("");
@@ -255,12 +254,6 @@ function OrgComposerStrip({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
   const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(null);
-
-  const [askTitle, setAskTitle] = useState("");
-  const [askBody, setAskBody] = useState("");
-  const [askType, setAskType] = useState<"concept" | "experiment" | "career">("concept");
-  const [askSaving, setAskSaving] = useState(false);
-  const [askError, setAskError] = useState<string | null>(null);
 
   const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5 MB
   const [mediaError, setMediaError] = useState<string | null>(null);
@@ -338,18 +331,6 @@ function OrgComposerStrip({
     minWidth: 0,
   };
 
-  const toggleBtn = (active: boolean): CSSProperties => ({
-    padding: isMobile ? "7px 10px" : "7px 11px",
-    borderRadius: 999,
-    border: "none",
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: "pointer",
-    background: active ? "linear-gradient(135deg,#3bc7f3,#8468ff)" : "transparent",
-    color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
-    whiteSpace: "nowrap",
-  });
-
   const modalCard: CSSProperties = {
     width: "min(740px, 100%)",
     borderRadius: isMobile ? "18px 18px 0 0" : 18,
@@ -402,18 +383,6 @@ function OrgComposerStrip({
     resize: "vertical",
   };
 
-  const smallInput: CSSProperties = {
-    width: "100%",
-    height: 42,
-    borderRadius: 12,
-    border: "1px solid rgba(148,163,184,0.2)",
-    background: "rgba(2,6,23,0.26)",
-    color: "rgba(226,232,240,0.94)",
-    padding: "0 12px",
-    fontSize: 14,
-    outline: "none",
-  };
-
   const footerBar: CSSProperties = {
     padding: "12px 16px",
     borderTop: "1px solid rgba(148,163,184,0.14)",
@@ -432,28 +401,8 @@ function OrgComposerStrip({
     fontWeight: 800,
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.55 : 1,
-    background:
-      mode === "ask"
-        ? "linear-gradient(135deg,#a78bfa,#3bc7f3)"
-        : "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
     color: "#0f172a",
-  });
-
-  const typeChip = (active: boolean): CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "8px 10px",
-    borderRadius: 999,
-    border: active
-      ? "1px solid rgba(59,199,243,0.55)"
-      : "1px solid rgba(148,163,184,0.18)",
-    background: active ? "rgba(59,199,243,0.12)" : "rgba(2,6,23,0.2)",
-    color: "rgba(226,232,240,0.92)",
-    fontSize: 13,
-    cursor: "pointer",
-    userSelect: "none",
-    whiteSpace: "nowrap",
   });
 
   const openComposer = () => {
@@ -461,7 +410,6 @@ function OrgComposerStrip({
       window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
       return;
     }
-    setAskError(null);
     setPostError(null);
     setMediaError(null);
     setOpen(true);
@@ -472,19 +420,11 @@ function OrgComposerStrip({
     setOpen(false);
   };
 
-  const collapsedPlaceholder =
-    mode === "post"
-      ? isMobile
-        ? `Share an update as ${orgShortName}…`
-        : `Share an update as ${orgName}…`
-      : isMobile
-      ? "Ask the community…"
-      : "Ask the quantum community…";
+  const collapsedPlaceholder = isMobile
+    ? `Share an update as ${orgShortName}…`
+    : `Share an update as ${orgName}…`;
 
-  const canSubmit =
-    mode === "post"
-      ? !!postText.trim() && !postSaving
-      : !!askTitle.trim() && !!askBody.trim() && !askSaving;
+  const canSubmit = !!postText.trim() && !postSaving;
 
   const pickPhoto = () => {
     if (!isAuthed) {
@@ -574,7 +514,6 @@ function OrgComposerStrip({
     try {
       const image_url = await uploadPostPhotoIfAny();
 
-      // ✅ Key difference from home: attach org_id
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
         org_id: org.id,
@@ -599,82 +538,11 @@ function OrgComposerStrip({
     }
   };
 
-  const submitAskToQnA = async () => {
-    if (!user) {
-      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
-      return;
-    }
-
-    const title = askTitle.trim();
-    const body = askBody.trim();
-    if (!title || !body) return;
-
-    setAskSaving(true);
-    setAskError(null);
-
-    try {
-      let insertedId: string | null = null;
-
-      const attempt1 = await supabase
-        .from("qna_questions")
-        .insert({
-          user_id: user.id,
-          title,
-          body,
-          tags: [askType],
-        })
-        .select("id")
-        .maybeSingle();
-
-      if (!attempt1.error) {
-        insertedId = (attempt1.data as any)?.id ?? null;
-      } else {
-        const attempt2 = await supabase
-          .from("qna_questions")
-          .insert({
-            user_id: user.id,
-            title,
-            body,
-          })
-          .select("id")
-          .maybeSingle();
-
-        if (attempt2.error) {
-          const msg =
-            attempt2.error.message ||
-            attempt2.error.details ||
-            "Failed to post question";
-          throw new Error(msg);
-        }
-
-        insertedId = (attempt2.data as any)?.id ?? null;
-      }
-
-      setAskTitle("");
-      setAskBody("");
-      setAskType("concept");
-      closeComposer();
-
-      if (insertedId) {
-        router.push(`/qna?open=${insertedId}`);
-      } else {
-        router.push(`/qna`);
-      }
-    } catch (e: any) {
-      console.error("submitAskToQnA (org) error:", e);
-      setAskError(
-        e?.message ||
-          "Could not post your question. Check Supabase RLS/policies for qna_questions."
-      );
-    } finally {
-      setAskSaving(false);
-    }
-  };
-// Only render for people allowed to act as org
+  // Only render for people allowed to act as org
   if (!canPostAsOrg) {
     return null;
   }
-  
+
   return (
     <>
       <div style={shellStyle}>
@@ -702,38 +570,8 @@ function OrgComposerStrip({
               {collapsedPlaceholder}
             </span>
             <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12, flexShrink: 0 }}>
-              {mode === "post" ? "✨" : "❓"}
+              ✨
             </span>
-          </div>
-
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: 4,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.18)",
-              background: "rgba(2,6,23,0.22)",
-              flex: "0 0 auto",
-              marginLeft: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              style={toggleBtn(mode === "post")}
-              onClick={() => setMode("post")}
-            >
-              Post
-            </button>
-            <button
-              type="button"
-              style={toggleBtn(mode === "ask")}
-              onClick={() => setMode("ask")}
-            >
-              Ask
-            </button>
           </div>
         </div>
       </div>
@@ -758,34 +596,7 @@ function OrgComposerStrip({
           <div style={modalCard}>
             <div style={modalHeader}>
               <div style={{ fontWeight: 800, fontSize: 15 }}>
-                {mode === "post" ? "Create post as organization" : "Ask a question"}
-              </div>
-
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: 4,
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.18)",
-                  background: "rgba(2,6,23,0.22)",
-                }}
-              >
-                <button
-                  type="button"
-                  style={toggleBtn(mode === "post")}
-                  onClick={() => setMode("post")}
-                >
-                  Post
-                </button>
-                <button
-                  type="button"
-                  style={toggleBtn(mode === "ask")}
-                  onClick={() => setMode("ask")}
-                >
-                  Ask
-                </button>
+                Create post as organization
               </div>
 
               <button
@@ -806,217 +617,129 @@ function OrgComposerStrip({
                     {orgName}
                   </div>
                   <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
-                    {mode === "post"
-                      ? "Public · Posting as organization"
-                      : "Public · Q&A"}
+                    Public · Posting as organization
                   </div>
                 </div>
               </div>
 
-              {mode === "post" ? (
-                <>
-                  <textarea
-                    value={postText}
-                    onChange={(e) => setPostText(e.target.value)}
-                    placeholder={
-                      isMobile
-                        ? `Share an update as ${orgShortName}…`
-                        : `Share an update as ${orgName}…`
-                    }
-                    style={bigTextarea}
-                  />
+              <textarea
+                value={postText}
+                onChange={(e) => setPostText(e.target.value)}
+                placeholder={
+                  isMobile
+                    ? `Share an update as ${orgShortName}…`
+                    : `Share an update as ${orgName}…`
+                }
+                style={bigTextarea}
+              />
 
-                  {postPhotoPreview && (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        borderRadius: 14,
-                        border: "1px solid rgba(148,163,184,0.18)",
-                        background: "rgba(2,6,23,0.22)",
-                        padding: 10,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
-                        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>
-                          Photo attached
-                        </div>
-                        <button
-                          type="button"
-                          onClick={clearPhoto}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(248,113,113,0.35)",
-                            background: "rgba(248,113,113,0.10)",
-                            color: "rgba(254,226,226,0.95)",
-                            fontSize: 12,
-                            cursor: "pointer",
-                            fontWeight: 800,
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <div style={{ marginTop: 8 }}>
-                        <img
-                          src={postPhotoPreview}
-                          alt="Preview"
-                          style={{
-                            width: "100%",
-                            maxHeight: 360,
-                            objectFit: "cover",
-                            borderRadius: 12,
-                            display: "block",
-                          }}
-                        />
-                      </div>
+              {postPhotoPreview && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    borderRadius: 14,
+                    border: "1px solid rgba(148,163,184,0.18)",
+                    background: "rgba(2,6,23,0.22)",
+                    padding: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>
+                      Photo attached
                     </div>
-                  )}
-
-                  {mediaError && (
-                    <div
+                    <button
+                      type="button"
+                      onClick={clearPhoto}
                       style={{
-                        marginTop: 10,
-                        padding: "10px 12px",
-                        borderRadius: 12,
+                        padding: "6px 10px",
+                        borderRadius: 999,
                         border: "1px solid rgba(248,113,113,0.35)",
                         background: "rgba(248,113,113,0.10)",
                         color: "rgba(254,226,226,0.95)",
-                        fontSize: 13,
-                        lineHeight: 1.35,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        fontWeight: 800,
                       }}
                     >
-                      {mediaError}
-                    </div>
-                  )}
-
-                  {postError && (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        padding: "10px 12px",
-                        borderRadius: 12,
-                        border: "1px solid rgba(248,113,113,0.35)",
-                        background: "rgba(248,113,113,0.10)",
-                        color: "rgba(254,226,226,0.95)",
-                        fontSize: 13,
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {postError}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-                    <div
-                      style={typeChip(askType === "concept")}
-                      onClick={() => setAskType("concept")}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
-                      Concept
-                    </div>
-                    <div
-                      style={typeChip(askType === "experiment")}
-                      onClick={() => setAskType("experiment")}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
-                      Experiment
-                    </div>
-                    <div
-                      style={typeChip(askType === "career")}
-                      onClick={() => setAskType("career")}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
-                      Career
-                    </div>
+                      Remove
+                    </button>
                   </div>
-
-                  <input
-                    value={askTitle}
-                    onChange={(e) => setAskTitle(e.target.value)}
-                    placeholder="Question title (be specific)"
-                    style={smallInput}
-                  />
-
-                  <div style={{ height: 10 }} />
-
-                  <textarea
-                    value={askBody}
-                    onChange={(e) => setAskBody(e.target.value)}
-                    placeholder="Add context, details, constraints, what you already tried…"
-                    style={{ ...bigTextarea, minHeight: isMobile ? 140 : 150 }}
-                  />
-
-                  {askError && (
-                    <div
+                  <div style={{ marginTop: 8 }}>
+                    <img
+                      src={postPhotoPreview}
+                      alt="Preview"
                       style={{
-                        marginTop: 10,
-                        padding: "10px 12px",
+                        width: "100%",
+                        maxHeight: 360,
+                        objectFit: "cover",
                         borderRadius: 12,
-                        border: "1px solid rgba(248,113,113,0.35)",
-                        background: "rgba(248,113,113,0.10)",
-                        color: "rgba(254,226,226,0.95)",
-                        fontSize: 13,
-                        lineHeight: 1.35,
+                        display: "block",
                       }}
-                    >
-                      {askError}
-                    </div>
-                  )}
-                </>
+                    />
+                  </div>
+                </div>
+              )}
+
+              {mediaError && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(248,113,113,0.35)",
+                    background: "rgba(248,113,113,0.10)",
+                    color: "rgba(254,226,226,0.95)",
+                    fontSize: 13,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {mediaError}
+                </div>
+              )}
+
+              {postError && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(248,113,113,0.35)",
+                    background: "rgba(248,113,113,0.10)",
+                    color: "rgba(254,226,226,0.95)",
+                    fontSize: 13,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {postError}
+                </div>
               )}
             </div>
 
             <div style={footerBar}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                {mode === "post" ? (
-                  <ActionButton
-                    icon={
-                      <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                    }
-                    label="Media"
-                    onClick={pickPhoto}
-                  />
-                ) : (
-                  <>
-                    <ActionButton icon="❓" label="Add details" title="Add more context" />
-                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
-                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
-                  </>
-                )}
+                <ActionButton
+                  icon={
+                    <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                  }
+                  label="Media"
+                  onClick={pickPhoto}
+                />
               </div>
 
               <button
                 type="button"
                 style={primaryBtn(!canSubmit)}
                 disabled={!canSubmit}
-                onClick={() => {
-                  if (mode === "post") submitPost();
-                  else submitAskToQnA();
-                }}
+                onClick={submitPost}
               >
-                {mode === "post"
-                  ? postSaving
-                    ? "Posting…"
-                    : "Post"
-                  : askSaving
-                  ? "Asking…"
-                  : "Ask"}
+                {postSaving ? "Posting…" : "Post"}
               </button>
             </div>
 
@@ -1710,7 +1433,7 @@ const OrganizationDetailPage = () => {
     };
   }, [user, org, memberRole]);
 
-    // Who is allowed to post as the org:
+  // Who is allowed to post as the org:
   // - creator
   // - owner / co-owner / admin (from org_members)
   const canPostAsOrg =
@@ -3113,13 +2836,11 @@ const OrganizationDetailPage = () => {
               )}
             </div>
 
-            
-             {/* ✅ ORG COMPOSER: after Team & before Posts */}
+            {/* ✅ ORG COMPOSER: after Team & before Posts */}
             <div style={{ marginTop: 24, marginBottom: 4 }}>
               <OrgComposerStrip org={org} canPostAsOrg={canPostAsOrg} />
             </div>
 
-            
             <div style={{ marginTop: 18 }}>
               <div
                 className="card"
@@ -3152,8 +2873,6 @@ const OrganizationDetailPage = () => {
                       Public posts from this organization. Click a card to open it expanded.
                     </div>
                   </div>
-
-                  
                 </div>
               </div>
 
@@ -3164,7 +2883,6 @@ const OrganizationDetailPage = () => {
                 initials={orgInitials}
               />
             </div>
-            
 
             {/* Followers */}
             <div style={{ marginTop: 24 }}>
@@ -3412,38 +3130,38 @@ const OrganizationDetailPage = () => {
               )
             )}
             {shouldShowRemoveMember(openMember, canRemoveOthers) && (
-  <div
-    style={{
-      borderTop: "1px solid rgba(30,64,175,0.6)",
-      marginTop: 4,
-      paddingTop: 4,
-    }}
-  >
-    <button
-      type="button"
-      disabled={memberActionLoadingId === openMember.user_id}
-      onClick={(e) => handleRemoveMember(openMember.user_id, e)}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        padding: "6px 8px",
-        borderRadius: 6,
-        border: "none",
-        background: "transparent",
-        color: "#fecaca",
-        fontSize: 12,
-        cursor:
-          memberActionLoadingId === openMember.user_id
-            ? "default"
-            : "pointer",
-      }}
-    >
-      {memberActionLoadingId === openMember.user_id
-        ? "Removing…"
-        : "Remove from team"}
-    </button>
-  </div>
-)}
+              <div
+                style={{
+                  borderTop: "1px solid rgba(30,64,175,0.6)",
+                  marginTop: 4,
+                  paddingTop: 4,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={memberActionLoadingId === openMember.user_id}
+                  onClick={(e) => handleRemoveMember(openMember.user_id, e)}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: "6px 8px",
+                    borderRadius: 6,
+                    border: "none",
+                    background: "transparent",
+                    color: "#fecaca",
+                    fontSize: 12,
+                    cursor:
+                      memberActionLoadingId === openMember.user_id
+                        ? "default"
+                        : "pointer",
+                  }}
+                >
+                  {memberActionLoadingId === openMember.user_id
+                    ? "Removing…"
+                    : "Remove from team"}
+                </button>
+              </div>
+            )}
           </div>,
           document.body
         )}
