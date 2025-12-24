@@ -226,12 +226,12 @@ function MyProfilePostsStrip({
 
     try {
       const { data: postRows, error: postErr } = await supabase
-        .from("posts")
-        .select("id, user_id, body, created_at, image_url")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-
+  .from("posts")
+  .select("id, user_id, body, created_at, image_url")
+  .eq("user_id", userId)
+  .is("org_id", null)              // 👈 exclude org posts
+  .order("created_at", { ascending: false })
+  .limit(50);
       if (postErr) throw postErr;
 
       const posts = (postRows || []) as PostRow[];
