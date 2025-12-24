@@ -662,7 +662,7 @@ const OrganizationDetailPage = () => {
               role="tab"
               aria-selected={activeTab === "products"}
             >
-              Products
+              Our Products
             </button>
 
             <button
@@ -672,7 +672,7 @@ const OrganizationDetailPage = () => {
               role="tab"
               aria-selected={activeTab === "jobs"}
             >
-              Jobs
+              Jobs available
             </button>
 
             <button
@@ -682,7 +682,7 @@ const OrganizationDetailPage = () => {
               role="tab"
               aria-selected={activeTab === "team"}
             >
-              Team
+              Our Team
             </button>
           </div>
 
