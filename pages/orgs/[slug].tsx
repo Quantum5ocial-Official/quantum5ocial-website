@@ -1712,14 +1712,9 @@ const OrganizationDetailPage = () => {
       // ✅ Who is allowed to post as the org
   // Allow: creator, owner, co-owner, admin
   const canPostAsOrg = useMemo(() => {
-    if (!user || !org) return false;
-
-    const isCreator = org.created_by === user.id;
-    const isOwnerLike = memberRole === "owner" || memberRole === "co_owner";
-    const isAdmin = memberRole === "admin";
-
-    return isCreator || isOwnerLike || isAdmin;
-  }, [user, org, memberRole]);
+  if (!user || !org) return false;
+  return org.created_by === user.id;
+}, [user, org]);
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
