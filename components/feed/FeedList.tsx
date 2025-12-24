@@ -464,7 +464,14 @@ export default function FeedList({
         const o = it.org;
 
         const actorName = o?.name || a?.full_name || "Quantum member";
-        const actorAvatar = o?.logo_url || a?.avatar_url || null;
+
+        // 👇 KEY CHANGE:
+        // If there's an org, avatar is the org (logo or initials),
+        // we do NOT fall back to the user avatar.
+        const actorAvatar = o
+          ? o.logo_url // may be null → will show org initials
+          : a?.avatar_url || null;
+
         const actorHref = o
           ? `/orgs/${o.slug}`
           : a?.id
