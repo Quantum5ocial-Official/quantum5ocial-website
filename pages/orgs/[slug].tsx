@@ -1709,12 +1709,25 @@ const OrganizationDetailPage = () => {
     };
   }, [user, org, memberRole]);
 
-      // ✅ Who is allowed to post as the org
-  // Allow: creator, owner, co-owner, admin
+  // Who is allowed to post as the org:
+  // - creator
+  // - owner / co-owner / admin (from org_members)
   const canPostAsOrg = useMemo(() => {
-  if (!user || !org) return false;
-  return org.created_by === user.id;
-}, [user, org]);
+    if (!user || !org) return false;
+
+    // Creator can always post
+    if (org.created_by === user.id) return true;
+
+    // If we don’t have a membership row, no posting
+    if (!memberRole) return false;
+
+    // Owner-like & admins can post
+    return (
+      memberRole === "owner" ||
+      memberRole === "co_owner" ||
+      memberRole === "admin"
+    );
+  }, [user, org, memberRole]);
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
