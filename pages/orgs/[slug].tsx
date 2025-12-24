@@ -3121,7 +3121,7 @@ const OrganizationDetailPage = () => {
               <OrgComposerStrip org={org} canPostAsOrg={canPostAsOrg} />
             </div>
 
-            {/* ✅ ORG POSTS SECTION — same strip UI as profile posts */}
+            
             <div style={{ marginTop: 18 }}>
               <div
                 className="card"
@@ -3155,7 +3155,7 @@ const OrganizationDetailPage = () => {
                     </div>
                   </div>
 
-                  {/* You can later link to a dedicated org posts page here if desired */}
+                  
                 </div>
               </div>
 
