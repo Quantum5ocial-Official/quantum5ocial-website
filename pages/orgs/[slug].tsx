@@ -3115,7 +3115,8 @@ const OrganizationDetailPage = () => {
               )}
             </div>
 
-            {/* ✅ ORG COMPOSER: after Team & before Posts */}
+            {/*
+             ✅ ORG COMPOSER: after Team & before Posts
             <div style={{ marginTop: 24, marginBottom: 4 }}>
               <OrgComposerStrip org={org} canPostAsOrg={canPostAsOrg} />
             </div>
@@ -3165,6 +3166,7 @@ const OrganizationDetailPage = () => {
                 initials={orgInitials}
               />
             </div>
+            */}
 
             {/* Followers */}
             <div style={{ marginTop: 24 }}>
