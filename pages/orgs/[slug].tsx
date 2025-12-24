@@ -1941,29 +1941,6 @@ const hiringBadge = useMemo(() => {
                       {kindLabel}
                     </span>
 
-                    {/* ✅ Hiring badge */}
-{hiringBadge && (
-  <span
-    title={hiringBadge.title}
-    style={{
-      fontSize: 12,
-      borderRadius: 999,
-      padding: "3px 10px",
-      border: hiringBadge.border,
-      background: hiringBadge.background,
-      color: hiringBadge.color,
-      fontWeight: 800,
-      whiteSpace: "nowrap",
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 6,
-    }}
-  >
-    <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
-    {hiringBadge.text}
-  </span>
-)}
-
                     {org.size_label && (
                       <span
                         style={{
@@ -2007,6 +1984,29 @@ const hiringBadge = useMemo(() => {
                         You&apos;re affiliated
                       </span>
                     )}
+
+                    {/* ✅ Hiring badge */}
+{hiringBadge && (
+  <span
+    title={hiringBadge.title}
+    style={{
+      fontSize: 12,
+      borderRadius: 999,
+      padding: "3px 10px",
+      border: hiringBadge.border,
+      background: hiringBadge.background,
+      color: hiringBadge.color,
+      fontWeight: 800,
+      whiteSpace: "nowrap",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+    }}
+  >
+    <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
+    {hiringBadge.text}
+  </span>
+)}
                   </div>
                 </div>
 
