@@ -1633,37 +1633,34 @@ const OrganizationDetailPage = () => {
                               Affiliated with this organization
                             </div>
                             <button
-                              type="button"
-                              onClick={(e) =>
-                                handleToggleSelfAffiliation(m, e)
-                              }
-                              disabled={isSelfAffLoadingId === m.user_id}
-                              style={{
-                                fontSize: 11,
-                                borderRadius: 999,
-                                padding: "2px 8px",
-                                border: m.is_affiliated
-                                  ? "1px solid rgba(34,197,94,0.8)"
-                                  : "1px solid rgba(148,163,184,0.7)",
-                                background: m.is_affiliated
-                                  ? "rgba(22,163,74,0.2)"
-                                  : "transparent",
-                                color: m.is_affiliated
-                                  ? "rgba(187,247,208,0.96)"
-                                  : "rgba(226,232,240,0.9)",
-                                cursor:
-                                  isSelfAffLoadingId === m.user_id
-                                    ? "default"
-                                    : "pointer",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {isSelfAffLoadingId === m.user_id
-                                ? "Updating…"
-                                : m.is_affiliated
-                                ? "Set as not affiliated"
-                                : "Set as affiliated"}
-                            </button>
+  type="button"
+  onClick={(e) => handleToggleSelfAffiliation(m, e)}
+  disabled={selfAffLoadingId === m.user_id}
+  style={{
+    fontSize: 11,
+    borderRadius: 999,
+    padding: "2px 8px",
+    border: m.is_affiliated
+      ? "1px solid rgba(34,197,94,0.8)"
+      : "1px solid rgba(148,163,184,0.7)",
+    background: m.is_affiliated
+      ? "rgba(22,163,74,0.2)"
+      : "transparent",
+    color: m.is_affiliated
+      ? "rgba(187,247,208,0.96)"
+      : "rgba(226,232,240,0.9)",
+    cursor:
+      selfAffLoadingId === m.user_id ? "default" : "pointer",
+    whiteSpace: "nowrap",
+  }}
+>
+  {selfAffLoadingId === m.user_id
+    ? "Updating…"
+    : m.is_affiliated
+    ? "Set as not affiliated"
+    : "Set as affiliated"}
+</button>
+                           
                           </div>
                         )}
                       </button>
