@@ -1916,28 +1916,45 @@ const OrganizationDetailPage = () => {
                       {kindLabel}
                     </span>
 
-                    {/* ✅ Hiring badge */}
-                    {isHiring && (
-                      <span
-                        title="This organization appears to be hiring"
-                        style={{
-                          fontSize: 12,
-                          borderRadius: 999,
-                          padding: "3px 10px",
-                          border: "1px solid rgba(34,197,94,0.85)",
-                          background: "rgba(22,163,74,0.18)",
-                          color: "rgba(187,247,208,0.98)",
-                          fontWeight: 700,
-                          whiteSpace: "nowrap",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <span style={{ fontSize: 12, lineHeight: 1 }}>⚡</span>
-                        Hiring
-                      </span>
-                    )}
+                    {/* ✅ Hiring badge (more standout, no logic changes) */}
+{isHiring && (
+  <span
+    title="This organization appears to be hiring"
+    style={{
+      fontSize: 12,
+      borderRadius: 999,
+      padding: "4px 12px",
+      border: "1px solid rgba(34,197,94,0.95)",
+      background:
+        "linear-gradient(135deg, rgba(34,197,94,0.26), rgba(16,185,129,0.14))",
+      color: "rgba(220,252,231,0.98)",
+      fontWeight: 900,
+      letterSpacing: 0.2,
+      textTransform: "uppercase",
+      whiteSpace: "nowrap",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 8,
+      boxShadow:
+        "0 0 0 1px rgba(34,197,94,0.25), 0 12px 26px rgba(34,197,94,0.18)",
+      backdropFilter: "blur(8px)",
+    }}
+  >
+    <span
+      aria-hidden
+      style={{
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        background: "rgba(34,197,94,0.95)",
+        boxShadow: "0 0 14px rgba(34,197,94,0.65)",
+        flexShrink: 0,
+      }}
+    />
+    Hiring
+    <span style={{ opacity: 0.9, fontWeight: 900 }}>Now</span>
+  </span>
+)}
 
                     {org.size_label && (
                       <span
