@@ -2854,9 +2854,6 @@ const OrganizationDetailPage = () => {
                     const isRealOwner =
                       org && m.user_id === org.created_by && m.role === "owner";
 
-                    const canShowRemove =
-                      canRemoveOthers && m.role !== "owner";
-
                     return (
                       <button
                         key={m.user_id}
@@ -3413,39 +3410,39 @@ const OrganizationDetailPage = () => {
                 </button>
               )
             )}
-            {canShowRemove(openMember, canRemoveOthers) && (
-              <div
-                style={{
-                  borderTop: "1px solid rgba(30,64,175,0.6)",
-                  marginTop: 4,
-                  paddingTop: 4,
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={memberActionLoadingId === openMember.user_id}
-                  onClick={(e) => handleRemoveMember(openMember.user_id, e)}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "transparent",
-                    color: "#fecaca",
-                    fontSize: 12,
-                    cursor:
-                      memberActionLoadingId === openMember.user_id
-                        ? "default"
-                        : "pointer",
-                  }}
-                >
-                  {memberActionLoadingId === openMember.user_id
-                    ? "Removing…"
-                    : "Remove from team"}
-                </button>
-              </div>
-            )}
+            {shouldShowRemoveMember(openMember, canRemoveOthers) && (
+  <div
+    style={{
+      borderTop: "1px solid rgba(30,64,175,0.6)",
+      marginTop: 4,
+      paddingTop: 4,
+    }}
+  >
+    <button
+      type="button"
+      disabled={memberActionLoadingId === openMember.user_id}
+      onClick={(e) => handleRemoveMember(openMember.user_id, e)}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        padding: "6px 8px",
+        borderRadius: 6,
+        border: "none",
+        background: "transparent",
+        color: "#fecaca",
+        fontSize: 12,
+        cursor:
+          memberActionLoadingId === openMember.user_id
+            ? "default"
+            : "pointer",
+      }}
+    >
+      {memberActionLoadingId === openMember.user_id
+        ? "Removing…"
+        : "Remove from team"}
+    </button>
+  </div>
+)}
           </div>,
           document.body
         )}
@@ -3454,10 +3451,12 @@ const OrganizationDetailPage = () => {
 };
 
 // Small helper for portal remove visibility
-function canShowRemove(
+function shouldShowRemoveMember(
   openMember: OrgMemberWithProfile,
   canRemoveOthers: boolean
 ) {
+  // extra safety guard
+  if (!openMember) return false;
   return canRemoveOthers && openMember.role !== "owner";
 }
 
