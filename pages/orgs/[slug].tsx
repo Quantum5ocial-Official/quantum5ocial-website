@@ -229,7 +229,6 @@ function formatRelativeTime(created_at: string | null) {
   const diffMo = Math.floor(diffDay / 30);
   return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
 }
-
 /* =========================
    ORG COMPOSER (POST ONLY)
    ========================= */
@@ -514,7 +513,6 @@ function OrgComposerStrip({
     try {
       const image_url = await uploadPostPhotoIfAny();
 
-      // ✅ attach org_id
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
         org_id: org.id,
@@ -596,7 +594,9 @@ function OrgComposerStrip({
         >
           <div style={modalCard}>
             <div style={modalHeader}>
-              <div style={{ fontWeight: 800, fontSize: 15 }}>Create post as organization</div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                Create post as organization
+              </div>
 
               <button
                 type="button"
@@ -625,7 +625,9 @@ function OrgComposerStrip({
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
                 placeholder={
-                  isMobile ? `Share an update as ${orgShortName}…` : `Share an update as ${orgName}…`
+                  isMobile
+                    ? `Share an update as ${orgShortName}…`
+                    : `Share an update as ${orgName}…`
                 }
                 style={bigTextarea}
               />
@@ -734,7 +736,7 @@ function OrgComposerStrip({
                 type="button"
                 style={primaryBtn(!canSubmit)}
                 disabled={!canSubmit}
-                onClick={() => submitPost()}
+                onClick={submitPost}
               >
                 {postSaving ? "Posting…" : "Post"}
               </button>
@@ -757,7 +759,6 @@ function OrgComposerStrip({
     </>
   );
 }
-
 /* =========================
    ORG POSTS STRIP
    ========================= */
@@ -1169,9 +1170,8 @@ function OrgPostsStrip({
     </div>
   );
 }
-
 /* =========================
-   MAIN ORG PAGE
+   PART 4 — Main page + Team + Followers + Portal dropdown + layoutProps
    ========================= */
 
 const OrganizationDetailPage = () => {
@@ -1213,16 +1213,11 @@ const OrganizationDetailPage = () => {
 
   // Member management (role changes / remove / self-affiliation)
   const [memberMenuOpenId, setMemberMenuOpenId] = useState<string | null>(null);
-  const [memberActionLoadingId, setMemberActionLoadingId] =
-    useState<string | null>(null);
+  const [memberActionLoadingId, setMemberActionLoadingId] = useState<string | null>(
+    null
+  );
   const [selfAffLoadingId, setSelfAffLoadingId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<MenuPosition>(null);
-
-  // Followers collapse/expand UI
-  const [followersExpanded, setFollowersExpanded] = useState<boolean>(false);
-
-  // Team scroller
-  const teamScrollerRef = useRef<HTMLDivElement | null>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -1293,15 +1288,6 @@ const OrganizationDetailPage = () => {
     return org.kind === "company"
       ? `/orgs/edit/company/${org.slug}`
       : `/orgs/edit/research-group/${org.slug}`;
-  }, [org]);
-
-  // ✅ Hiring badge heuristic (no schema change required)
-  const isHiring = useMemo(() => {
-    if (!org) return false;
-    if (org.kind !== "company") return false;
-
-    const hay = `${org.tagline || ""} ${org.description || ""} ${org.website || ""}`.toLowerCase();
-    return /hiring|careers|join\s+us|open\s+roles|we(?:'| a)re\s+hiring|vacanc/i.test(hay);
   }, [org]);
 
   // === LOAD FOLLOWERS FOR THIS ORG ===
@@ -1617,7 +1603,6 @@ const OrganizationDetailPage = () => {
   };
 
   // === INVITE / ADD MEMBER – ONLY FROM FOLLOWERS, LIVE SEARCH ===
-
   const handleSearchProfiles = (e: React.FormEvent) => {
     e.preventDefault();
   };
@@ -1638,7 +1623,9 @@ const OrganizationDetailPage = () => {
     const lower = searchTerm.trim().toLowerCase();
 
     // filter only among followers
-    const filtered = followers.filter((f) => (f.full_name || "").toLowerCase().includes(lower));
+    const filtered = followers.filter((f) =>
+      (f.full_name || "").toLowerCase().includes(lower)
+    );
 
     setSearchResults(filtered.slice(0, 20));
     setSearchError(null);
@@ -1698,10 +1685,7 @@ const OrganizationDetailPage = () => {
   };
 
   // === SELF AFFILIATION TOGGLE ===
-  const handleToggleSelfAffiliation = (
-    member: OrgMemberWithProfile,
-    e: React.MouseEvent
-  ) => {
+  const handleToggleSelfAffiliation = (member: OrgMemberWithProfile, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!org || !user) return;
     if (member.user_id !== user.id) return;
@@ -1723,7 +1707,9 @@ const OrganizationDetailPage = () => {
         }
 
         setMembers((prev) =>
-          prev.map((m) => (m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m))
+          prev.map((m) =>
+            m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m
+          )
         );
 
         setIsAffiliated(newValue);
@@ -1759,7 +1745,9 @@ const OrganizationDetailPage = () => {
         return;
       }
 
-      setMembers((prev) => prev.map((m) => (m.user_id === memberUserId ? { ...m, role: newRole } : m)));
+      setMembers((prev) =>
+        prev.map((m) => (m.user_id === memberUserId ? { ...m, role: newRole } : m))
+      );
 
       if (user && user.id === memberUserId) {
         setMemberRole(newRole);
@@ -1808,6 +1796,54 @@ const OrganizationDetailPage = () => {
     }
   };
 
+  // === DROPDOWN OPEN (CAPTURE POSITION), CLOSE ON OUTSIDE/ESC/SCROLL/RESIZE ===
+  const openMemberMenu = (memberUserId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const el = e.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+
+    const top = rect.bottom + window.scrollY + 8;
+    const left = rect.left + window.scrollX - 140; // slight shift left so menu aligns nicely
+    setMenuPosition({ top, left: Math.max(12, left) });
+    setMemberMenuOpenId(memberUserId);
+  };
+
+  const closeMemberMenu = () => {
+    setMemberMenuOpenId(null);
+    setMenuPosition(null);
+  };
+
+  useEffect(() => {
+    if (!memberMenuOpenId) return;
+
+    const onDocMouseDown = (ev: MouseEvent) => {
+      // clicking anywhere outside portal menu closes it
+      closeMemberMenu();
+    };
+
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") closeMemberMenu();
+    };
+
+    const onScroll = () => closeMemberMenu();
+    const onResize = () => closeMemberMenu();
+
+    document.addEventListener("mousedown", onDocMouseDown);
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberMenuOpenId]);
+
   const openMember = useMemo(
     () => members.find((m) => m.user_id === memberMenuOpenId) || null,
     [members, memberMenuOpenId]
@@ -1815,26 +1851,230 @@ const OrganizationDetailPage = () => {
 
   const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
-  // Team scroll helper
-  const scrollTeamByCard = (dir: -1 | 1) => {
-    const el = teamScrollerRef.current;
-    if (!el) return;
-    const amount = Math.max(260, Math.floor(el.clientWidth * 0.9));
-    el.scrollBy({ left: dir * amount, behavior: "smooth" });
+  const memberCard = (m: OrgMemberWithProfile) => {
+    const p = m.profile;
+
+    const name = p?.full_name || "Unnamed member";
+    const avatar = p?.avatar_url || null;
+    const edu = p?.highest_education || null;
+    const role = p?.role || null;
+    const aff = p?.affiliation || null;
+    const loc =
+      p?.city && p?.country ? `${p.city}, ${p.country}` : p?.country ? p.country : null;
+
+    const isMe = !!user && user.id === m.user_id;
+
+    return (
+      <div
+        key={m.user_id}
+        className="card"
+        onClick={() => goToProfile(m.user_id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") goToProfile(m.user_id);
+        }}
+        style={{
+          padding: 14,
+          borderRadius: 16,
+          border: "1px solid rgba(148,163,184,0.18)",
+          background: "rgba(2,6,23,0.42)",
+          cursor: "pointer",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(circle at 0% 0%, rgba(59,130,246,0.10), rgba(2,6,23,0) 55%)",
+            pointerEvents: "none",
+          }}
+        />
+
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, position: "relative" }}>
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 999,
+              overflow: "hidden",
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#0f172a",
+              fontWeight: 900,
+              flexShrink: 0,
+            }}
+          >
+            {avatar ? (
+              <img
+                src={avatar}
+                alt={name}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              (name[0] || "U").toUpperCase()
+            )}
+          </div>
+
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 14,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                  title={name}
+                >
+                  {name} {isMe ? <span style={{ opacity: 0.6 }}>(you)</span> : null}
+                </div>
+
+                <div style={{ marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      borderRadius: 999,
+                      padding: "3px 9px",
+                      border: "1px solid rgba(148,163,184,0.35)",
+                      color: "rgba(226,232,240,0.92)",
+                      whiteSpace: "nowrap",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {roleLabel(m.role)}
+                  </span>
+
+                  {m.is_affiliated && (
+                    <span
+                      style={{
+                        fontSize: 12,
+                        borderRadius: 999,
+                        padding: "3px 9px",
+                        border: "1px solid rgba(34,197,94,0.55)",
+                        color: "rgba(187,247,208,0.95)",
+                        whiteSpace: "nowrap",
+                        fontWeight: 700,
+                      }}
+                    >
+                      affiliated
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* right controls */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                {/* self affiliation toggle */}
+                {isMe && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleSelfAffiliation(m, e)}
+                    disabled={selfAffLoadingId === m.user_id}
+                    style={{
+                      padding: "7px 10px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      border: "1px solid rgba(148,163,184,0.25)",
+                      background: "rgba(2,6,23,0.18)",
+                      color: "rgba(226,232,240,0.9)",
+                      cursor: selfAffLoadingId === m.user_id ? "default" : "pointer",
+                      whiteSpace: "nowrap",
+                      fontWeight: 800,
+                    }}
+                    title="Toggle whether you’re affiliated to this org"
+                  >
+                    {selfAffLoadingId === m.user_id
+                      ? "…"
+                      : m.is_affiliated
+                      ? "Mark not affiliated"
+                      : "Mark affiliated"}
+                  </button>
+                )}
+
+                {/* manage dropdown trigger */}
+                {canManageMembers && (
+                  <button
+                    type="button"
+                    onClick={(e) => openMemberMenu(m.user_id, e)}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.25)",
+                      background: "rgba(2,6,23,0.18)",
+                      color: "rgba(226,232,240,0.92)",
+                      cursor: "pointer",
+                      fontWeight: 900,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    title="Manage member"
+                    aria-label="Manage member"
+                  >
+                    ⋯
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* meta */}
+            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.75, lineHeight: 1.35 }}>
+              {role ? <span>{role}</span> : null}
+              {role && (edu || aff || loc) ? <span> · </span> : null}
+              {edu ? <span>{edu}</span> : null}
+              {(edu && (aff || loc)) ? <span> · </span> : null}
+              {aff ? <span>{aff}</span> : null}
+              {(aff && loc) ? <span> · </span> : null}
+              {loc ? <span>{loc}</span> : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const handleRoleChangeSelect = (v: string) => {
+    if (v === "owner" || v === "co_owner" || v === "admin" || v === "member") {
+      setSelectedRole(v);
+    }
   };
 
   // === RENDER ===
   return (
     <section className="section" style={{ paddingTop: 24, paddingBottom: 48 }}>
       {loading ? (
-        <div style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}>Loading organization…</div>
+        <div style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}>
+          Loading organization…
+        </div>
       ) : notFound || !org ? (
         <div style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}>
           Organization not found or no longer active.
         </div>
       ) : (
         <>
-          {/* ✅ removed "Back to organizations" link */}
+          <div style={{ marginBottom: 16, fontSize: 13 }}>
+            <Link href="/orgs" style={{ color: "#7dd3fc", textDecoration: "none" }}>
+              ← Back to organizations
+            </Link>
+          </div>
 
           {/* Header */}
           <section
@@ -1842,7 +2082,8 @@ const OrganizationDetailPage = () => {
               borderRadius: 24,
               padding: 24,
               border: "1px solid rgba(148,163,184,0.35)",
-              background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
               boxShadow: "0 22px 50px rgba(15,23,42,0.75)",
               marginBottom: 24,
               display: "flex",
@@ -1871,7 +2112,12 @@ const OrganizationDetailPage = () => {
                 <img
                   src={org.logo_url}
                   alt={org.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
                 />
               ) : (
                 firstLetter
@@ -1903,7 +2149,14 @@ const OrganizationDetailPage = () => {
                     {org.name}
                   </h1>
 
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: 12,
@@ -1915,29 +2168,6 @@ const OrganizationDetailPage = () => {
                     >
                       {kindLabel}
                     </span>
-
-                    {/* ✅ Hiring badge */}
-                    {isHiring && (
-                      <span
-                        title="This organization appears to be hiring"
-                        style={{
-                          fontSize: 12,
-                          borderRadius: 999,
-                          padding: "3px 10px",
-                          border: "1px solid rgba(34,197,94,0.85)",
-                          background: "rgba(22,163,74,0.18)",
-                          color: "rgba(187,247,208,0.98)",
-                          fontWeight: 700,
-                          whiteSpace: "nowrap",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
-                        }}
-                      >
-                        <span style={{ fontSize: 12, lineHeight: 1 }}>⚡</span>
-                        Hiring
-                      </span>
-                    )}
 
                     {org.size_label && (
                       <span
@@ -1985,7 +2215,14 @@ const OrganizationDetailPage = () => {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "row", gap: 8, flexShrink: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 8,
+                    flexShrink: 0,
+                  }}
+                >
                   {canEditOrg ? (
                     <Link
                       href={editHref}
@@ -2027,13 +2264,24 @@ const OrganizationDetailPage = () => {
               </div>
 
               {metaLine && (
-                <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginBottom: 6 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(148,163,184,0.95)",
+                    marginBottom: 6,
+                  }}
+                >
                   {metaLine}
                 </div>
               )}
 
               {org.tagline && (
-                <div style={{ fontSize: 14, color: "rgba(209,213,219,0.95)" }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "rgba(209,213,219,0.95)",
+                  }}
+                >
                   {org.tagline}
                 </div>
               )}
@@ -2091,707 +2339,8 @@ const OrganizationDetailPage = () => {
               </div>
             )}
 
-            {/* Team / Members */}
+            {/* TEAM / MEMBERS */}
             <div style={{ marginTop: 24 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  marginBottom: 10,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.08,
-                    color: "rgba(148,163,184,0.9)",
-                  }}
-                >
-                  Team &amp; members
-                </div>
-
-                {canManageMembers && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAddMember((prev) => !prev);
-                      setSearchTerm("");
-                      setSearchResults([]);
-                      setSearchError(null);
-                    }}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 999,
-                      fontSize: 12,
-                      border: "1px solid rgba(148,163,184,0.6)",
-                      background: showAddMember ? "rgba(15,23,42,0.9)" : "rgba(15,23,42,0.6)",
-                      color: "rgba(226,232,240,0.95)",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        width: 14,
-                        height: 14,
-                        borderRadius: 999,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        border: "1px solid rgba(148,163,184,0.8)",
-                        fontSize: 10,
-                      }}
-                    >
-                      {showAddMember ? "−" : "+"}
-                    </span>
-                    {showAddMember ? "Close" : "Add member"}
-                  </button>
-                )}
-              </div>
-
-              {showAddMember && canManageMembers && (
-                <div
-                  style={{
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.4)",
-                    padding: 12,
-                    marginBottom: 12,
-                    background: "rgba(15,23,42,0.85)",
-                  }}
-                >
-                  <form
-                    onSubmit={handleSearchProfiles}
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      alignItems: "center",
-                      marginBottom: 12,
-                    }}
-                  >
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Search followers by name…"
-                      style={{
-                        flex: "1 1 220px",
-                        minWidth: 0,
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(51,65,85,0.9)",
-                        background: "rgba(15,23,42,0.95)",
-                        color: "#e5e7eb",
-                        fontSize: 13,
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchTerm("");
-                        setSearchResults([]);
-                        setSearchError(null);
-                      }}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(148,163,184,0.6)",
-                        background: "transparent",
-                        color: "rgba(148,163,184,0.95)",
-                        fontSize: 12,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      Clear
-                    </button>
-                  </form>
-
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 12,
-                      alignItems: "center",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        fontSize: 12,
-                        color: "rgba(209,213,219,0.95)",
-                      }}
-                    >
-                      Member role:
-                      <select
-                        value={selectedRole}
-                        onChange={(e) => setSelectedRole(e.target.value as OrgMemberRole)}
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: 999,
-                          border: "1px solid rgba(148,163,184,0.7)",
-                          background: "rgba(15,23,42,0.9)",
-                          color: "#e5e7eb",
-                          fontSize: 12,
-                          outline: "none",
-                        }}
-                      >
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
-                        <option value="co_owner">Co-owner</option>
-                      </select>
-                    </label>
-
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        fontSize: 12,
-                        color: "rgba(209,213,219,0.95)",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedAffiliated}
-                        onChange={(e) => setSelectedAffiliated(e.target.checked)}
-                        style={{ margin: 0 }}
-                      />
-                      Mark as affiliated
-                    </label>
-                  </div>
-
-                  {searchError && (
-                    <div style={{ fontSize: 12, color: "#f97373", marginBottom: 8 }}>
-                      {searchError}
-                    </div>
-                  )}
-
-                  {searchResults.length > 0 ? (
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-                        gap: 10,
-                        maxHeight: 260,
-                        overflowY: "auto",
-                        paddingRight: 4,
-                      }}
-                    >
-                      {searchResults.map((p) => {
-                        const name = p.full_name || "Quantum5ocial member";
-                        const initials = name
-                          .split(" ")
-                          .map((part) => part[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase();
-
-                        const location = [p.city, p.country].filter(Boolean).join(", ");
-                        const subtitle =
-                          [p.role, p.affiliation, location].filter(Boolean).join(" · ") ||
-                          "Quantum5ocial member";
-
-                        const alreadyMember = members.some((m) => m.user_id === p.id);
-                        const isMe = user && user.id === p.id;
-
-                        return (
-                          <div
-                            key={p.id}
-                            className="card"
-                            style={{
-                              borderRadius: 14,
-                              padding: 10,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 8,
-                              background: "rgba(2,6,23,0.7)",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <div
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: 999,
-                                  overflow: "hidden",
-                                  flexShrink: 0,
-                                  background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                  border: "1px solid rgba(148,163,184,0.6)",
-                                  color: "#e5e7eb",
-                                  fontWeight: 700,
-                                  fontSize: 12,
-                                }}
-                              >
-                                {p.avatar_url ? (
-                                  <img
-                                    src={p.avatar_url}
-                                    alt={name}
-                                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                                  />
-                                ) : (
-                                  initials
-                                )}
-                              </div>
-                              <div style={{ minWidth: 0 }}>
-                                <div
-                                  style={{
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    color: "rgba(226,232,240,0.98)",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                  }}
-                                >
-                                  {name}
-                                  {isMe && (
-                                    <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>
-                                      (you)
-                                    </span>
-                                  )}
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 2,
-                                    fontSize: 11,
-                                    color: "rgba(148,163,184,0.95)",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                  }}
-                                >
-                                  {subtitle}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                marginTop: 4,
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                                gap: 8,
-                              }}
-                            >
-                              <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)" }}>
-                                {alreadyMember ? "Already in team" : "Add to team"}
-                              </div>
-                              <button
-                                type="button"
-                                disabled={alreadyMember || savingMemberId === p.id}
-                                onClick={() => handleAddMember(p.id)}
-                                style={{
-                                  padding: "4px 10px",
-                                  borderRadius: 999,
-                                  border: alreadyMember
-                                    ? "1px solid rgba(148,163,184,0.6)"
-                                    : "1px solid rgba(34,197,94,0.7)",
-                                  background: alreadyMember ? "transparent" : "rgba(22,163,74,0.18)",
-                                  color: alreadyMember ? "rgba(148,163,184,0.9)" : "rgba(187,247,208,0.96)",
-                                  fontSize: 11,
-                                  cursor: alreadyMember || savingMemberId === p.id ? "default" : "pointer",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {alreadyMember ? "In team" : savingMemberId === p.id ? "Adding…" : "Add"}
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    searchTerm.trim() &&
-                    !searchError && (
-                      <div style={{ fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-                        No matching followers found. Only followers can be added to the team.
-                      </div>
-                    )
-                  )}
-
-                  {!searchTerm.trim() && followers.length === 0 && (
-                    <div style={{ fontSize: 12, color: "rgba(148,163,184,0.85)", marginTop: 6 }}>
-                      This organization has no followers yet. Once people follow, you can add them here as team members.
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {membersLoading && <p className="profile-muted">Loading team members…</p>}
-
-              {membersError && !membersLoading && (
-                <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>
-                  {membersError}
-                </p>
-              )}
-
-              {!membersLoading && !membersError && members.length === 0 && (
-                <div className="products-empty">No team members added yet.</div>
-              )}
-
-              {/* ✅ Team scroller (same vibe as posts strip) */}
-              {!membersLoading && !membersError && members.length > 0 && (
-                <div
-                  className="card"
-                  style={{
-                    position: "relative",
-                    padding: 14,
-                    borderRadius: 16,
-                    border: "1px solid rgba(148,163,184,0.22)",
-                    background: "rgba(15,23,42,0.72)",
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* edge fades */}
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 44,
-                      background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
-                      pointerEvents: "none",
-                      zIndex: 2,
-                    }}
-                  />
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 44,
-                      background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
-                      pointerEvents: "none",
-                      zIndex: 2,
-                    }}
-                  />
-
-                  {/* arrows */}
-                  <button
-                    type="button"
-                    onClick={() => scrollTeamByCard(-1)}
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      left: 10,
-                      width: 40,
-                      height: 40,
-                      borderRadius: 999,
-                      border: "1px solid rgba(148,163,184,0.28)",
-                      background: "rgba(2,6,23,0.65)",
-                      color: "rgba(226,232,240,0.95)",
-                      cursor: "pointer",
-                      fontWeight: 900,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-                      zIndex: 5,
-                      backdropFilter: "blur(8px)",
-                    }}
-                    aria-label="Scroll left"
-                    title="Scroll left"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => scrollTeamByCard(1)}
-                    style={{
-                      position: "absolute",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      right: 10,
-                      width: 40,
-                      height: 40,
-                      borderRadius: 999,
-                      border: "1px solid rgba(148,163,184,0.28)",
-                      background: "rgba(2,6,23,0.65)",
-                      color: "rgba(226,232,240,0.95)",
-                      cursor: "pointer",
-                      fontWeight: 900,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-                      zIndex: 5,
-                      backdropFilter: "blur(8px)",
-                    }}
-                    aria-label="Scroll right"
-                    title="Scroll right"
-                  >
-                    ›
-                  </button>
-
-                  <div
-                    ref={teamScrollerRef}
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      overflowX: "auto",
-                      padding: "4px 44px 10px 44px",
-                      scrollSnapType: "x mandatory",
-                      WebkitOverflowScrolling: "touch",
-                    }}
-                  >
-                    {members.map((m) => {
-                      const profile = m.profile;
-                      const name = profile?.full_name || "Quantum5ocial member";
-                      const initials = name
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase();
-
-                      const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-                      const subtitle =
-                        [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") ||
-                        "Quantum5ocial member";
-
-                      const isCurrentUser = user && profile && profile.id === user.id;
-                      const isRealOwner = org && m.user_id === org.created_by && m.role === "owner";
-
-                      return (
-                        <div
-                          key={m.user_id}
-                          style={{
-                            scrollSnapAlign: "start",
-                            flex: "0 0 auto",
-                            width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => profile && goToProfile(profile.id)}
-                            className="card"
-                            style={{
-                              width: "100%",
-                              textAlign: "left",
-                              padding: 12,
-                              borderRadius: 14,
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 10,
-                              cursor: profile ? "pointer" : "default",
-                              background: "rgba(2,6,23,0.35)",
-                              position: "relative",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                                <div
-                                  style={{
-                                    width: 38,
-                                    height: 38,
-                                    borderRadius: 999,
-                                    overflow: "hidden",
-                                    flexShrink: 0,
-                                    background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    border: "1px solid rgba(148,163,184,0.6)",
-                                    color: "#e5e7eb",
-                                    fontWeight: 700,
-                                    fontSize: 13,
-                                  }}
-                                >
-                                  {profile?.avatar_url ? (
-                                    <img
-                                      src={profile.avatar_url}
-                                      alt={name}
-                                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                                    />
-                                  ) : (
-                                    initials
-                                  )}
-                                </div>
-
-                                <div style={{ minWidth: 0 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: "rgba(226,232,240,0.98)",
-                                      whiteSpace: "nowrap",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                    }}
-                                  >
-                                    {name}
-                                    {isCurrentUser && (
-                                      <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>
-                                        (you)
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div
-                                    style={{
-                                      marginTop: 2,
-                                      fontSize: 11,
-                                      color: "rgba(148,163,184,0.95)",
-                                      whiteSpace: "nowrap",
-                                      overflow: "hidden",
-                                      textOverflow: "ellipsis",
-                                    }}
-                                  >
-                                    {subtitle}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {canManageMembers && !isRealOwner && (
-                                <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (!isBrowser) return;
-
-                                      if (memberMenuOpenId === m.user_id) {
-                                        setMemberMenuOpenId(null);
-                                        setMenuPosition(null);
-                                        return;
-                                      }
-
-                                      const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                                      const scrollX = window.scrollX ?? window.pageXOffset ?? 0;
-                                      const scrollY = window.scrollY ?? window.pageYOffset ?? 0;
-
-                                      const dropdownWidth = 190;
-                                      const top = rect.bottom + scrollY + 6;
-                                      const left = rect.right + scrollX - dropdownWidth;
-
-                                      setMemberMenuOpenId(m.user_id);
-                                      setMenuPosition({ top, left });
-                                    }}
-                                    style={{
-                                      width: 24,
-                                      height: 24,
-                                      borderRadius: 999,
-                                      border: "1px solid rgba(71,85,105,0.9)",
-                                      background: "rgba(15,23,42,0.95)",
-                                      color: "rgba(148,163,184,0.95)",
-                                      fontSize: 14,
-                                      lineHeight: 1,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      cursor: "pointer",
-                                      padding: 0,
-                                    }}
-                                  >
-                                    ⋯
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  borderRadius: 999,
-                                  padding: "2px 7px",
-                                  border: "1px solid rgba(129,140,248,0.8)",
-                                  color: "rgba(191,219,254,0.95)",
-                                }}
-                              >
-                                {roleLabel(m.role)}
-                              </span>
-
-                              {m.is_affiliated && (
-                                <span
-                                  style={{
-                                    fontSize: 11,
-                                    borderRadius: 999,
-                                    padding: "2px 7px",
-                                    border: "1px solid rgba(34,197,94,0.7)",
-                                    color: "rgba(187,247,208,0.95)",
-                                  }}
-                                >
-                                  Affiliated
-                                </span>
-                              )}
-                            </div>
-
-                            {isCurrentUser && (
-                              <div
-                                style={{
-                                  marginTop: 6,
-                                  paddingTop: 6,
-                                  borderTop: "1px dashed rgba(51,65,85,0.9)",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "space-between",
-                                  gap: 8,
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)" }}>
-                                  Affiliated with this organization
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleToggleSelfAffiliation(m, e)}
-                                  disabled={selfAffLoadingId === m.user_id}
-                                  style={{
-                                    fontSize: 11,
-                                    borderRadius: 999,
-                                    padding: "2px 8px",
-                                    border: m.is_affiliated
-                                      ? "1px solid rgba(34,197,94,0.8)"
-                                      : "1px solid rgba(148,163,184,0.7)",
-                                    background: m.is_affiliated ? "rgba(22,163,74,0.2)" : "transparent",
-                                    color: m.is_affiliated
-                                      ? "rgba(187,247,208,0.96)"
-                                      : "rgba(226,232,240,0.9)",
-                                    cursor: selfAffLoadingId === m.user_id ? "default" : "pointer",
-                                    whiteSpace: "nowrap",
-                                  }}
-                                >
-                                  {selfAffLoadingId === m.user_id
-                                    ? "Updating…"
-                                    : m.is_affiliated
-                                    ? "Set as not affiliated"
-                                    : "Set as affiliated"}
-                                </button>
-                              </div>
-                            )}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* ✅ ORG COMPOSER: after Team & before Posts */}
-            <div style={{ marginTop: 24, marginBottom: 4 }}>
-              <OrgComposerStrip org={org} canPostAsOrg={canPostAsOrg} />
-            </div>
-
-            <div style={{ marginTop: 18 }}>
               <div
                 className="card"
                 style={{
@@ -2813,200 +2362,431 @@ const OrganizationDetailPage = () => {
                   }}
                 >
                   <div>
-                    <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      Posts
+                    <div
+                      className="section-title"
+                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    >
+                      Team
                     </div>
-                    <div className="section-sub" style={{ maxWidth: 620 }}>
-                      Public posts from this organization. Click a card to open it expanded.
+                    <div className="section-sub" style={{ maxWidth: 700 }}>
+                      Members listed here are connected to this organization. Management actions
+                      are visible only to admins/owners (or creator fallback).
                     </div>
                   </div>
+
+                  {canManageMembers && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddMember((v) => !v)}
+                      style={{
+                        padding: "9px 14px",
+                        borderRadius: 999,
+                        fontSize: 13,
+                        border: "1px solid rgba(59,130,246,0.55)",
+                        background: "rgba(59,130,246,0.14)",
+                        color: "#bfdbfe",
+                        cursor: "pointer",
+                        fontWeight: 800,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {showAddMember ? "Close" : "Add member"}
+                    </button>
+                  )}
                 </div>
+
+                {/* ADD MEMBER PANEL (FOLLOWERS-ONLY) */}
+                {canManageMembers && showAddMember && (
+                  <div
+                    style={{
+                      marginTop: 14,
+                      borderRadius: 16,
+                      border: "1px solid rgba(148,163,184,0.18)",
+                      background: "rgba(2,6,23,0.28)",
+                      padding: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
+                      Only followers can be added to the team (simple, safe flow).
+                    </div>
+
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <form
+                        onSubmit={handleSearchProfiles}
+                        style={{ display: "flex", gap: 10, flex: "1 1 280px" }}
+                      >
+                        <input
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          placeholder="Search followers by name…"
+                          style={{
+                            width: "100%",
+                            minWidth: 220,
+                            padding: "10px 12px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(148,163,184,0.22)",
+                            background: "rgba(2,6,23,0.35)",
+                            color: "rgba(226,232,240,0.92)",
+                            outline: "none",
+                            fontSize: 13,
+                          }}
+                        />
+                      </form>
+
+                      <select
+                        value={selectedRole}
+                        onChange={(e) => handleRoleChangeSelect(e.target.value)}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(148,163,184,0.22)",
+                          background: "rgba(2,6,23,0.35)",
+                          color: "rgba(226,232,240,0.92)",
+                          outline: "none",
+                          fontSize: 13,
+                        }}
+                        title="Role"
+                      >
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                        <option value="co_owner">Co-owner</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAffiliated((v) => !v)}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 999,
+                          border: selectedAffiliated
+                            ? "1px solid rgba(34,197,94,0.55)"
+                            : "1px solid rgba(148,163,184,0.22)",
+                          background: selectedAffiliated
+                            ? "rgba(34,197,94,0.10)"
+                            : "rgba(2,6,23,0.35)",
+                          color: selectedAffiliated
+                            ? "rgba(187,247,208,0.95)"
+                            : "rgba(226,232,240,0.9)",
+                          cursor: "pointer",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          whiteSpace: "nowrap",
+                        }}
+                        title="Affiliation default"
+                      >
+                        {selectedAffiliated ? "Affiliated: Yes" : "Affiliated: No"}
+                      </button>
+                    </div>
+
+                    {searchError && (
+                      <div style={{ marginTop: 10, color: "#f87171", fontSize: 13 }}>
+                        {searchError}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 12 }}>
+                      {searchTerm.trim() && searchResults.length === 0 ? (
+                        <div style={{ fontSize: 13, opacity: 0.75 }}>
+                          No matching followers found.
+                        </div>
+                      ) : null}
+
+                      {searchResults.length > 0 && (
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                            gap: 10,
+                          }}
+                        >
+                          {searchResults.map((p) => {
+                            const name = p.full_name || "Unnamed";
+                            const isBusy = savingMemberId === p.id;
+                            return (
+                              <div
+                                key={p.id}
+                                className="card"
+                                style={{
+                                  padding: 12,
+                                  borderRadius: 14,
+                                  border: "1px solid rgba(148,163,184,0.18)",
+                                  background: "rgba(15,23,42,0.42)",
+                                  display: "flex",
+                                  gap: 10,
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                                  <div
+                                    style={{
+                                      width: 34,
+                                      height: 34,
+                                      borderRadius: 999,
+                                      overflow: "hidden",
+                                      border: "1px solid rgba(148,163,184,0.35)",
+                                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontWeight: 900,
+                                      color: "#0f172a",
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    {p.avatar_url ? (
+                                      <img
+                                        src={p.avatar_url}
+                                        alt={name}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                          display: "block",
+                                        }}
+                                      />
+                                    ) : (
+                                      (name[0] || "U").toUpperCase()
+                                    )}
+                                  </div>
+
+                                  <div style={{ minWidth: 0 }}>
+                                    <div
+                                      style={{
+                                        fontWeight: 800,
+                                        fontSize: 13,
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                      }}
+                                      title={name}
+                                    >
+                                      {name}
+                                    </div>
+                                    <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                                      {p.role || "—"}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddMember(p.id)}
+                                  disabled={isBusy}
+                                  style={{
+                                    padding: "8px 12px",
+                                    borderRadius: 999,
+                                    border: "none",
+                                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                    color: "#0f172a",
+                                    fontWeight: 900,
+                                    cursor: isBusy ? "default" : "pointer",
+                                    opacity: isBusy ? 0.6 : 1,
+                                    fontSize: 12,
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {isBusy ? "Adding…" : "Add"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <OrgPostsStrip orgId={org.id} orgName={org.name} logoUrl={org.logo_url} initials={orgInitials} />
-            </div>
-
-            {/* Followers (✅ collapsible) */}
-            <div style={{ marginTop: 24 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  marginBottom: 10,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 13,
-                    textTransform: "uppercase",
-                    letterSpacing: 0.08,
-                    color: "rgba(148,163,184,0.9)",
-                  }}
-                >
-                  Followers
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setFollowersExpanded((v) => !v)}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 999,
-                    fontSize: 12,
-                    border: "1px solid rgba(148,163,184,0.6)",
-                    background: followersExpanded ? "rgba(15,23,42,0.9)" : "rgba(15,23,42,0.6)",
-                    color: "rgba(226,232,240,0.95)",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {followersExpanded ? "Collapse" : "Expand"}
-                  <span style={{ opacity: 0.85 }}>{followersExpanded ? "▴" : "▾"}</span>
-                </button>
-              </div>
-
-              {loadingFollowers && <p className="profile-muted">Loading followers…</p>}
-
-              {followersError && !loadingFollowers && (
-                <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>
-                  {followersError}
-                </p>
-              )}
-
-              {!loadingFollowers && !followersError && followersCount === 0 && (
-                <div className="products-empty">
-                  No followers yet. Once people follow this organization, they will appear here.
-                </div>
-              )}
-
-              {/* Collapsed hint */}
-              {!loadingFollowers && !followersError && followers.length > 0 && !followersExpanded && (
-                <div style={{ fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-                  {followersCount !== null ? `${followersCount} follower${followersCount === 1 ? "" : "s"}.` : "Followers."}{" "}
-                  Click <span style={{ color: "#7dd3fc" }}>Expand</span> to view.
-                </div>
-              )}
-
-              {/* Expanded list */}
-              {!loadingFollowers && !followersError && followersExpanded && followers.length > 0 && (
+              {membersLoading ? (
+                <div style={{ fontSize: 14, opacity: 0.8 }}>Loading team…</div>
+              ) : membersError ? (
+                <div style={{ fontSize: 14, color: "#f87171" }}>{membersError}</div>
+              ) : members.length === 0 ? (
+                <div style={{ fontSize: 14, opacity: 0.8 }}>No team members added yet.</div>
+              ) : (
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                     gap: 12,
-                    marginTop: 6,
                   }}
                 >
-                  {followers.map((f) => {
-                    const name = f.full_name || "Quantum5ocial member";
-                    const initials = name
-                      .split(" ")
-                      .map((p) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase();
-
-                    const location = [f.city, f.country].filter(Boolean).join(", ");
-                    const subtitle =
-                      [f.role, f.affiliation, location].filter(Boolean).join(" · ") ||
-                      "Quantum5ocial member";
-
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => goToProfile(f.id)}
-                        className="card"
-                        style={{
-                          textAlign: "left",
-                          padding: 12,
-                          borderRadius: 14,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 10,
-                          cursor: "pointer",
-                          background: "rgba(2,6,23,0.35)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <div
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              color: "#e5e7eb",
-                              fontWeight: 700,
-                              fontSize: 13,
-                            }}
-                          >
-                            {f.avatar_url ? (
-                              <img
-                                src={f.avatar_url}
-                                alt={name}
-                                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                              />
-                            ) : (
-                              initials
-                            )}
-                          </div>
-
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: "rgba(226,232,240,0.98)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {name}
-                            </div>
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color: "rgba(148,163,184,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {subtitle}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: "auto",
-                            fontSize: 12,
-                            color: "#7dd3fc",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          View profile <span style={{ opacity: 0.9 }}>›</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+                  {members.map(memberCard)}
                 </div>
               )}
+
+              {/* ORG COMPOSER (post as org) */}
+              <div style={{ marginTop: 24, marginBottom: 4 }}>
+                <OrgComposerStrip org={org} canPostAsOrg={canPostAsOrg} />
+              </div>
+
+              {/* POSTS */}
+              <div style={{ marginTop: 18 }}>
+                <div
+                  className="card"
+                  style={{
+                    padding: 16,
+                    marginBottom: 12,
+                    background:
+                      "radial-gradient(circle at 0% 0%, rgba(59,130,246,0.16), rgba(15,23,42,0.98))",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div
+                        className="section-title"
+                        style={{ display: "flex", alignItems: "center", gap: 10 }}
+                      >
+                        Posts
+                      </div>
+                      <div className="section-sub" style={{ maxWidth: 620 }}>
+                        Public posts from this organization. Click a card to open it expanded.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <OrgPostsStrip
+                  orgId={org.id}
+                  orgName={org.name}
+                  logoUrl={org.logo_url}
+                  initials={orgInitials}
+                />
+              </div>
+
+              {/* FOLLOWERS */}
+              <div style={{ marginTop: 24 }}>
+                <div
+                  className="card"
+                  style={{
+                    padding: 16,
+                    marginBottom: 12,
+                    background:
+                      "radial-gradient(circle at 0% 0%, rgba(34,197,94,0.14), rgba(15,23,42,0.98))",
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
+                  }}
+                >
+                  <div className="section-title">Followers</div>
+                  <div className="section-sub" style={{ maxWidth: 760 }}>
+                    People who follow this organization. Followers can be promoted to team members
+                    by admins/owners.
+                  </div>
+                </div>
+
+                {loadingFollowers ? (
+                  <div style={{ fontSize: 14, opacity: 0.8 }}>Loading followers…</div>
+                ) : followersError ? (
+                  <div style={{ fontSize: 14, color: "#f87171" }}>{followersError}</div>
+                ) : followers.length === 0 ? (
+                  <div style={{ fontSize: 14, opacity: 0.8 }}>
+                    No followers yet. Be the first to follow.
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                      gap: 12,
+                    }}
+                  >
+                    {followers.map((f) => {
+                      const name = f.full_name || "Unnamed";
+                      const loc =
+                        f.city && f.country
+                          ? `${f.city}, ${f.country}`
+                          : f.country
+                          ? f.country
+                          : null;
+
+                      return (
+                        <div
+                          key={f.id}
+                          className="card"
+                          style={{
+                            padding: 14,
+                            borderRadius: 16,
+                            border: "1px solid rgba(148,163,184,0.18)",
+                            background: "rgba(2,6,23,0.42)",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => goToProfile(f.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") goToProfile(f.id);
+                          }}
+                        >
+                          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                            <div
+                              style={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 999,
+                                overflow: "hidden",
+                                border: "1px solid rgba(148,163,184,0.35)",
+                                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#0f172a",
+                                fontWeight: 900,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {f.avatar_url ? (
+                                <img
+                                  src={f.avatar_url}
+                                  alt={name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                />
+                              ) : (
+                                (name[0] || "U").toUpperCase()
+                              )}
+                            </div>
+
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontWeight: 900,
+                                  fontSize: 14,
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                                title={name}
+                              >
+                                {name}
+                              </div>
+
+                              <div style={{ fontSize: 12, opacity: 0.78, marginTop: 4 }}>
+                                {f.role || f.affiliation || "—"}
+                                {loc ? <span style={{ opacity: 0.7 }}> · {loc}</span> : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         </>
@@ -3027,10 +2807,15 @@ const OrganizationDetailPage = () => {
               zIndex: 9999,
               borderRadius: 10,
               border: "1px solid rgba(30,64,175,0.9)",
-              background: "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
+              background:
+                "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
               boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
               minWidth: 190,
               padding: 4,
+            }}
+            onMouseDown={(e) => {
+              // prevent the "document mousedown" closer from firing
+              e.stopPropagation();
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -3058,10 +2843,13 @@ const OrganizationDetailPage = () => {
                   padding: "6px 8px",
                   borderRadius: 6,
                   border: "none",
-                  background: roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
-                  color: roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
+                  background:
+                    roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
+                  color:
+                    roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
                   fontSize: 12,
-                  cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                  cursor:
+                    memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                 }}
               >
                 {roleOption === "co_owner"
@@ -3093,7 +2881,8 @@ const OrganizationDetailPage = () => {
                     background: "transparent",
                     color: "#fecaca",
                     fontSize: 12,
-                    cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                    cursor:
+                      memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                   }}
                 >
                   {memberActionLoadingId === openMember.user_id ? "Removing…" : "Remove from team"}
@@ -3109,7 +2898,6 @@ const OrganizationDetailPage = () => {
 
 // Small helper for portal remove visibility
 function shouldShowRemoveMember(openMember: OrgMemberWithProfile, canRemoveOthers: boolean) {
-  // extra safety guard
   if (!openMember) return false;
   return canRemoveOthers && openMember.role !== "owner";
 }
