@@ -228,7 +228,7 @@ export default function EditCompanyPage() {
     setLogoFile(files[0]);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitMessage(null);
     setSubmitError(null);
@@ -271,7 +271,8 @@ export default function EditCompanyPage() {
     try {
       const effectiveSlug = (slug || slugify(name)).toLowerCase();
 
-      const { data, error } = await supabase
+      // 🔧 IMPORTANT CHANGE: no .select().single() here
+      const { error } = await supabase
         .from("organizations")
         .update({
           name,
@@ -293,22 +294,34 @@ export default function EditCompanyPage() {
           // logo_url will be wired later when upload is implemented
         })
         .eq("id", orgId)
-        .eq("kind", "company")
-        .select("slug")
-        .single();
+        .eq("kind", "company");
 
       if (error) throw error;
 
-      const finalSlug = data?.slug || effectiveSlug;
+      // Decide which slug to use for redirect
+      const finalSlug =
+        effectiveSlug && effectiveSlug !== slugFromUrl
+          ? effectiveSlug
+          : slugFromUrl || effectiveSlug;
 
       // ✅ Always go back to the public org page after saving
-      router.push(`/orgs/${finalSlug}`);
-      return;
+      if (finalSlug) {
+        router.push(`/orgs/${finalSlug}`);
+      } else {
+        setSubmitMessage("Company page updated.");
+      }
     } catch (err: any) {
       console.error(err);
-      setSubmitError(
-        err?.message || "Something went wrong while updating the company."
-      );
+      const raw = err?.message as string | undefined;
+
+      // nicer message if something similar ever appears again
+      const friendly =
+        raw &&
+        raw.includes("Cannot coerce the result to a single JSON object")
+          ? "Update failed – no row was updated. Please check your permissions."
+          : raw || "Something went wrong while updating the company.";
+
+      setSubmitError(friendly);
     } finally {
       setSubmitting(false);
     }
