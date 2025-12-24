@@ -273,22 +273,21 @@ const OrganizationDetailPage = () => {
   }, [user, org]);
 
   // === PERMISSIONS ===
-  const canEdit = useMemo(() => {
+
+  // treat owner / co-owner / admin OR org creator as "privileged"
+  const isPrivileged = useMemo(() => {
     if (!user || !org) return false;
     if (memberRole === "owner" || memberRole === "co_owner" || memberRole === "admin")
       return true;
-    // Fallback for legacy orgs without org_members rows
-    return org.created_by === user.id;
+    // legacy orgs without org_members row: creator is privileged
+    if (!memberRole && org.created_by === user.id) return true;
+    return false;
   }, [user, org, memberRole]);
 
-  // 🔧 allow owner, co-owner, and admin to remove members
-  const canRemoveOthers = useMemo(
-    () =>
-      memberRole === "owner" ||
-      memberRole === "co_owner" ||
-      memberRole === "admin",
-    [memberRole]
-  );
+  const canEdit = isPrivileged;
+
+  // we want owner / co-owner / admin / creator to be able to remove members
+  const canRemoveOthers = isPrivileged;
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
@@ -608,7 +607,7 @@ const OrganizationDetailPage = () => {
     }
   };
 
-  // === OWNER / CO-OWNER / ADMIN: REMOVE MEMBER ===
+  // === OWNER / CO-OWNER / ADMIN / CREATOR: REMOVE MEMBER ===
   const handleRemoveMember = async (
     memberUserId: string,
     e: React.MouseEvent
@@ -1397,7 +1396,6 @@ const OrganizationDetailPage = () => {
                     const isMemberActionLoading = memberActionLoadingId === m.user_id;
                     const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
-                    // 🔧 show Remove for any non-owner when viewer has permission
                     const canShowRemove =
                       canRemoveOthers && m.role !== "owner";
 
@@ -1418,6 +1416,7 @@ const OrganizationDetailPage = () => {
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
                           zIndex: isMenuOpen ? 40 : 1,
+                          overflow: "visible", // so dropdown can extend outside
                         }}
                       >
                         <div
