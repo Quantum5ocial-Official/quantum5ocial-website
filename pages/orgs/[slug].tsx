@@ -1709,15 +1709,17 @@ const OrganizationDetailPage = () => {
     };
   }, [user, org, memberRole]);
 
-    // ✅ Who is allowed to post as the org
-  // For now, we only allow the org *creator* to post as the org.
-  // This avoids any privileged-UI edge cases for co-owners/admins causing
-  // "Application error" while still letting the primary owner use the feature.
+      // ✅ Who is allowed to post as the org
+  // Allow: creator, owner, co-owner, admin
   const canPostAsOrg = useMemo(() => {
     if (!user || !org) return false;
+
     const isCreator = org.created_by === user.id;
-    return !!isCreator;
-  }, [user, org]);
+    const isOwnerLike = memberRole === "owner" || memberRole === "co_owner";
+    const isAdmin = memberRole === "admin";
+
+    return isCreator || isOwnerLike || isAdmin;
+  }, [user, org, memberRole]);
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
