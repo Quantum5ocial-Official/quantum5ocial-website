@@ -107,7 +107,8 @@ const OrganizationDetailPage = () => {
 
   // Member management (role changes / remove / self-affiliation)
   const [memberMenuOpenId, setMemberMenuOpenId] = useState<string | null>(null);
-  const [memberActionLoadingId, setMemberActionLoadingId] = useState<string | null>(null);
+  const [memberActionLoadingId, setMemberActionLoadingId] =
+    useState<string | null>(null);
   const [selfAffLoadingId, setSelfAffLoadingId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<MenuPosition>(null);
 
@@ -320,7 +321,24 @@ const OrganizationDetailPage = () => {
           return;
         }
 
-        const rows = (memberRows || []) as OrgMemberRow[];
+        let rows = (memberRows || []) as OrgMemberRow[];
+
+        // ✅ Ensure creator (real owner) always appears as Owner in the team list
+        if (org.created_by) {
+          const hasCreator = rows.some(
+            (r) => r.user_id === org.created_by
+          );
+          if (!hasCreator) {
+            rows = [
+              ...rows,
+              {
+                user_id: org.created_by,
+                role: "owner",
+                is_affiliated: true,
+              },
+            ];
+          }
+        }
 
         if (rows.length === 0) {
           setMembers([]);
@@ -656,7 +674,8 @@ const OrganizationDetailPage = () => {
     [members, memberMenuOpenId]
   );
 
-  const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
+  const isBrowser =
+    typeof window !== "undefined" && typeof document !== "undefined";
 
   // === RENDER ===
   return (
@@ -1405,9 +1424,14 @@ const OrganizationDetailPage = () => {
                         .filter(Boolean)
                         .join(" · ") || "Quantum5ocial member";
 
-                    const isCurrentUser = user && profile && profile.id === user.id;
+                    const isCurrentUser =
+                      user && profile && profile.id === user.id;
                     const isMemberActionLoading =
                       memberActionLoadingId === m.user_id;
+
+                    // real creator/owner
+                    const isRealOwner =
+                      org && m.user_id === org.created_by && m.role === "owner";
 
                     // show Remove for any non-owner when viewer has permission
                     const canShowRemove =
@@ -1520,7 +1544,7 @@ const OrganizationDetailPage = () => {
                             </div>
                           </div>
 
-                          {canEdit && (
+                          {canEdit && !isRealOwner && (
                             <div
                               style={{
                                 marginLeft: "auto",
@@ -1633,34 +1657,35 @@ const OrganizationDetailPage = () => {
                               Affiliated with this organization
                             </div>
                             <button
-  type="button"
-  onClick={(e) => handleToggleSelfAffiliation(m, e)}
-  disabled={selfAffLoadingId === m.user_id}
-  style={{
-    fontSize: 11,
-    borderRadius: 999,
-    padding: "2px 8px",
-    border: m.is_affiliated
-      ? "1px solid rgba(34,197,94,0.8)"
-      : "1px solid rgba(148,163,184,0.7)",
-    background: m.is_affiliated
-      ? "rgba(22,163,74,0.2)"
-      : "transparent",
-    color: m.is_affiliated
-      ? "rgba(187,247,208,0.96)"
-      : "rgba(226,232,240,0.9)",
-    cursor:
-      selfAffLoadingId === m.user_id ? "default" : "pointer",
-    whiteSpace: "nowrap",
-  }}
->
-  {selfAffLoadingId === m.user_id
-    ? "Updating…"
-    : m.is_affiliated
-    ? "Set as not affiliated"
-    : "Set as affiliated"}
-</button>
-                           
+                              type="button"
+                              onClick={(e) => handleToggleSelfAffiliation(m, e)}
+                              disabled={selfAffLoadingId === m.user_id}
+                              style={{
+                                fontSize: 11,
+                                borderRadius: 999,
+                                padding: "2px 8px",
+                                border: m.is_affiliated
+                                  ? "1px solid rgba(34,197,94,0.8)"
+                                  : "1px solid rgba(148,163,184,0.7)",
+                                background: m.is_affiliated
+                                  ? "rgba(22,163,74,0.2)"
+                                  : "transparent",
+                                color: m.is_affiliated
+                                  ? "rgba(187,247,208,0.96)"
+                                  : "rgba(226,232,240,0.9)",
+                                cursor:
+                                  selfAffLoadingId === m.user_id
+                                    ? "default"
+                                    : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {selfAffLoadingId === m.user_id
+                                ? "Updating…"
+                                : m.is_affiliated
+                                ? "Set as not affiliated"
+                                : "Set as affiliated"}
+                            </button>
                           </div>
                         )}
                       </button>
