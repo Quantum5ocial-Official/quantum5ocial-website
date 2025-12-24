@@ -30,6 +30,10 @@ type GroupRow = {
   logo_url: string | null;
 };
 
+type OrgMemberRow = {
+  role: "owner" | "co_owner" | "admin" | "member";
+};
+
 export default function EditResearchGroupPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -58,6 +62,7 @@ export default function EditResearchGroupPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [canEditOrg, setCanEditOrg] = useState(false);
 
   const slugify = (value: string) =>
     value
@@ -73,13 +78,14 @@ export default function EditResearchGroupPage() {
     }
   }, [loading, user, router]);
 
-  // Load existing group
+  // Load existing group + permission check (creator OR owner/co-owner)
   useEffect(() => {
     if (!user || !slugFromUrl) return;
 
     const loadGroup = async () => {
       setLoadingOrg(true);
       setSubmitError(null);
+      setCanEditOrg(false);
 
       const { data, error } = await supabase
         .from("organizations")
@@ -97,11 +103,33 @@ export default function EditResearchGroupPage() {
         return;
       }
 
-      if (data.created_by !== user.id) {
+      const isCreator = data.created_by === user.id;
+      let role: OrgMemberRow["role"] | null = null;
+
+      if (!isCreator) {
+        const { data: memberRow, error: memberError } = await supabase
+          .from("org_members")
+          .select("role")
+          .eq("org_id", data.id)
+          .eq("user_id", user.id)
+          .maybeSingle<OrgMemberRow>();
+
+        if (memberError) {
+          console.error("Error loading org membership", memberError);
+        }
+        role = memberRow?.role ?? null;
+      }
+
+      const isOwnerLike =
+        isCreator || role === "owner" || role === "co_owner";
+
+      if (!isOwnerLike) {
         setSubmitError("You are not allowed to edit this group.");
         setLoadingOrg(false);
         return;
       }
+
+      setCanEditOrg(true);
 
       setOrgId(data.id);
       setGroupName(data.name ?? "");
@@ -148,6 +176,12 @@ export default function EditResearchGroupPage() {
       setSubmitError("Missing group information.");
       return;
     }
+
+    if (!canEditOrg) {
+      setSubmitError("You are not allowed to edit this group.");
+      return;
+    }
+
     if (!groupName.trim()) {
       setSubmitError("Please enter your group name.");
       return;
@@ -190,7 +224,6 @@ export default function EditResearchGroupPage() {
           tagline: tagline || null,
         })
         .eq("id", orgId)
-        .eq("created_by", user.id)
         .eq("kind", "research_group")
         .select("slug")
         .single();
@@ -231,7 +264,7 @@ export default function EditResearchGroupPage() {
           <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>
             Edit research group page
           </h1>
-          <p style={{ fontSize: 15, opacity: 0.8, maxWidth: 620 }}>
+        <p style={{ fontSize: 15, opacity: 0.8, maxWidth: 620 }}>
             Update how your group or institute appears on Quantum5ocial.
           </p>
         </header>
@@ -327,7 +360,13 @@ export default function EditResearchGroupPage() {
                   }}
                 />
               </div>
-              <p style={{ marginTop: 4, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
+              <p
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: "rgba(148,163,184,0.9)",
+                }}
+              >
                 This is the public URL of your group page.
               </p>
             </div>
@@ -346,7 +385,8 @@ export default function EditResearchGroupPage() {
                   htmlFor="group-institution"
                   style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
-                  Institution / University <span style={{ color: "#f97373" }}>*</span>
+                  Institution / University{" "}
+                  <span style={{ color: "#f97373" }}>*</span>
                 </label>
                 <input
                   id="group-institution"
@@ -502,7 +542,9 @@ export default function EditResearchGroupPage() {
                   <option value="university_group">University group</option>
                   <option value="institute">Institute</option>
                   <option value="center">Center</option>
-                  <option value="collaboration">Collaboration / network</option>
+                  <option value="collaboration">
+                    Collaboration / network
+                  </option>
                   <option value="other">Other</option>
                 </select>
               </div>
@@ -510,7 +552,10 @@ export default function EditResearchGroupPage() {
 
             {/* Logo upload */}
             <div>
-              <label htmlFor="group-logo" style={{ display: "block", fontSize: 14, marginBottom: 4 }}>
+              <label
+                htmlFor="group-logo"
+                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+              >
                 Logo
               </label>
               <div
@@ -529,7 +574,9 @@ export default function EditResearchGroupPage() {
               >
                 <div>
                   <div>Upload a square logo (300×300px recommended).</div>
-                  <div style={{ marginTop: 2, fontSize: 12 }}>JPG, JPEG or PNG.</div>
+                  <div style={{ marginTop: 2, fontSize: 12 }}>
+                    JPG, JPEG or PNG.
+                  </div>
                 </div>
                 <input
                   id="group-logo"
@@ -540,15 +587,25 @@ export default function EditResearchGroupPage() {
                 />
               </div>
               {logoFile && (
-                <div style={{ marginTop: 4, fontSize: 12, color: "rgba(148,163,184,0.95)" }}>
-                  Selected: {logoFile.name} (logo upload wiring will come later)
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 12,
+                    color: "rgba(148,163,184,0.95)",
+                  }}
+                >
+                  Selected: {logoFile.name} (logo upload wiring will come
+                  later)
                 </div>
               )}
             </div>
 
             {/* Tagline */}
             <div>
-              <label htmlFor="group-tagline" style={{ display: "block", fontSize: 14, marginBottom: 4 }}>
+              <label
+                htmlFor="group-tagline"
+                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+              >
                 Tagline
               </label>
               <textarea
@@ -570,7 +627,14 @@ export default function EditResearchGroupPage() {
             </div>
 
             {/* Authorization */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginTop: 4,
+              }}
+            >
               <input
                 id="group-authorized"
                 type="checkbox"
@@ -578,25 +642,39 @@ export default function EditResearchGroupPage() {
                 onChange={(e) => setAuthorizedCheckbox(e.target.checked)}
                 style={{ marginTop: 3 }}
               />
-              <label htmlFor="group-authorized" style={{ fontSize: 13, lineHeight: 1.4 }}>
-                I confirm that I am still authorized to manage this group page.
+              <label
+                htmlFor="group-authorized"
+                style={{ fontSize: 13, lineHeight: 1.4 }}
+              >
+                I confirm that I am still authorized to manage this group
+                page.
               </label>
             </div>
 
             {/* Messages */}
             {submitError && (
-              <div style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}>
+              <div
+                style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}
+              >
                 {submitError}
               </div>
             )}
             {submitMessage && (
-              <div style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}>
+              <div
+                style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}
+              >
                 {submitMessage}
               </div>
             )}
 
             {/* Submit */}
-            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
               <button
                 type="submit"
                 disabled={submitting}
