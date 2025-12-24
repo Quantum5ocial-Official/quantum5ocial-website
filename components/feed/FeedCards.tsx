@@ -127,31 +127,29 @@ export default function FeedCards({
   return (
     <div>
       {items.map((vm) => {
-        const p = vm.post;
-        const author = vm.author;
-        const org = vm.org;
-        const isOpen = !!openComments[p.id];
-        const comments = commentsByPost[p.id] || [];
+  const p = vm.post;
+  const author = vm.author;
+  const org = vm.org ?? null;          // <— safe even if undefined
+  const isOpen = !!openComments[p.id];
+  const comments = commentsByPost[p.id] || [];
 
-        const profileHref = author?.id ? `/profile/${author.id}` : undefined;
-        const orgHref = org ? `/orgs/${org.slug}` : undefined;
+  const profileHref = author?.id ? `/profile/${author.id}` : undefined;
+  const orgHref = org ? `/orgs/${org.slug}` : undefined;
 
-        const actorName = org?.name || author?.full_name || "Quantum member";
-        const avatarSrc = org?.logo_url || author?.avatar_url || null;
-        const actorHref = org ? orgHref : profileHref;
+  const actorName = org?.name || author?.full_name || "Quantum member";
+  const avatarSrc = org?.logo_url || author?.avatar_url || null;
+  const actorHref = org ? orgHref : profileHref;
 
-        const subtitle = org
-          ? [
-              author?.full_name
-                ? `Posted by ${author.full_name}`
-                : "Posted by member",
-              formatSubtitle(author),
-            ]
-              .filter(Boolean)
-              .join(" · ")
-          : formatSubtitle(author);
+  const subtitle = org
+    ? [
+        author?.full_name ? `Posted by ${author.full_name}` : "Posted by member",
+        formatSubtitle(author),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : formatSubtitle(author);
 
-        const initials = initialsOf(actorName);
+  const initials = initialsOf(actorName);
 
         return (
           <div
