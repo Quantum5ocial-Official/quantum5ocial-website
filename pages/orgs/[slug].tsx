@@ -1393,6 +1393,10 @@ const OrganizationDetailPage = () => {
                     const isMemberActionLoading = memberActionLoadingId === m.user_id;
                     const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
+                    // owner / co-owner can remove others, but never the owner row
+                    const canShowRemove =
+                      canRemoveOthers && m.role !== "owner" && (!isCurrentUser || memberRole === "owner");
+
                     return (
                       <button
                         key={m.user_id}
@@ -1409,6 +1413,9 @@ const OrganizationDetailPage = () => {
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
+                          // ⬇️ raise the card when its menu is open so the dropdown
+                          // draws above neighbouring tiles
+                          zIndex: isMenuOpen ? 40 : 1,
                         }}
                       >
                         <div
@@ -1541,13 +1548,14 @@ const OrganizationDetailPage = () => {
                                     position: "absolute",
                                     top: 26,
                                     right: 0,
-                                    zIndex: 20,
+                                    // ⬇️ ensure dropdown is above everything around it
+                                    zIndex: 50,
                                     borderRadius: 10,
                                     border: "1px solid rgba(30,64,175,0.9)",
                                     background:
                                       "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
                                     boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
-                                    minWidth: 160,
+                                    minWidth: 170,
                                     padding: 4,
                                   }}
                                   onClick={(e) => e.stopPropagation()}
@@ -1604,7 +1612,7 @@ const OrganizationDetailPage = () => {
                                       </button>
                                     )
                                   )}
-                                  {canRemoveOthers && (
+                                  {canShowRemove && (
                                     <div
                                       style={{
                                         borderTop: "1px solid rgba(30,64,175,0.6)",
