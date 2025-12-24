@@ -28,6 +28,8 @@ type OrgType =
   | "nonprofit"
   | "other";
 
+type HiringStatus = "" | "actively_hiring" | "hiring_soon" | "not_hiring" | "unspecified";
+
 export default function CreateCompanyPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -49,6 +51,17 @@ export default function CreateCompanyPage() {
   const [tagline, setTagline] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [authorized, setAuthorized] = useState(false);
+
+  // 🆕 New fields
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [about, setAbout] = useState("");
+  const [focusAreas, setFocusAreas] = useState("");
+  const [technologyType, setTechnologyType] = useState("");
+  const [targetCustomers, setTargetCustomers] = useState("");
+  const [careersUrl, setCareersUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [hiringStatus, setHiringStatus] = useState<HiringStatus>("");
 
   const [submitting, setSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -103,9 +116,7 @@ export default function CreateCompanyPage() {
       return;
     }
     if (!authorized) {
-      setSubmitError(
-        "Please confirm that you are authorized to create this page."
-      );
+      setSubmitError("Please confirm that you are authorized to create this page.");
       return;
     }
     if (!user) {
@@ -131,6 +142,17 @@ export default function CreateCompanyPage() {
           size_label: size || null,
           company_type: orgType || null,
           tagline: tagline || null,
+
+          // 🆕 New columns (will be nullable → old orgs remain valid)
+          city: city || null,
+          country: country || null,
+          about: about || null,
+          focus_areas: focusAreas || null,
+          technology_type: technologyType || null,
+          target_customers: targetCustomers || null,
+          careers_url: careersUrl || null,
+          public_contact_email: contactEmail || null,
+          hiring_status: hiringStatus || null,
           // logo_url will be set later when we add Storage upload
         })
         .select("id, slug")
@@ -161,10 +183,7 @@ export default function CreateCompanyPage() {
       }
     } catch (err: any) {
       console.error(err);
-      setSubmitError(
-        err?.message ||
-          "Something went wrong while creating the organization."
-      );
+      setSubmitError(err?.message || "Something went wrong while creating the organization.");
     } finally {
       setSubmitting(false);
     }
@@ -208,9 +227,8 @@ export default function CreateCompanyPage() {
                 maxWidth: 620,
               }}
             >
-              Set up a presence for your company, startup, or vendor on
-              Quantum5ocial. You&apos;ll be able to link jobs and products to
-              this page later.
+              Set up a presence for your company, startup, or vendor on Quantum5ocial.
+              You&apos;ll be able to link jobs, products, and posts to this page later.
             </p>
           </header>
 
@@ -220,8 +238,7 @@ export default function CreateCompanyPage() {
               borderRadius: 18,
               padding: 24,
               border: "1px solid rgba(148,163,184,0.28)",
-              background:
-                "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96))",
+              background: "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96))",
               boxShadow: "0 18px 40px rgba(15,23,42,0.55)",
               display: "flex",
               flexDirection: "column",
@@ -307,43 +324,99 @@ export default function CreateCompanyPage() {
                   color: "rgba(148,163,184,0.9)",
                 }}
               >
-                This is how your company page URL will look. You can customize
-                it now.
+                This is how your company page URL will look. You can customize it now.
               </p>
             </div>
 
-            {/* Website */}
-            <div>
-              <label
-                htmlFor="org-website"
-                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
-              >
-                Website
-              </label>
-              <input
-                id="org-website"
-                type="url"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://yourcompany.com"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(148,163,184,0.6)",
-                  backgroundColor: "rgba(15,23,42,0.9)",
-                  color: "#e5e7eb",
-                  fontSize: 14,
-                }}
-              />
+            {/* Website + Careers + contact email */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1.4fr) minmax(0, 1.2fr)",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="org-website"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Website
+                </label>
+                <input
+                  id="org-website"
+                  type="url"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://yourcompany.com"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-careers-url"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Careers page
+                </label>
+                <input
+                  id="org-careers-url"
+                  type="url"
+                  value={careersUrl}
+                  onChange={(e) => setCareersUrl(e.target.value)}
+                  placeholder="https://yourcompany.com/careers"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-contact-email"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Contact email
+                </label>
+                <input
+                  id="org-contact-email"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="e.g. info@yourcompany.com"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
             </div>
 
             {/* Industry + size + type */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
-                  "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)",
+                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr)",
                 gap: 16,
               }}
             >
@@ -385,8 +458,7 @@ export default function CreateCompanyPage() {
                     marginBottom: 4,
                   }}
                 >
-                  Organization size{" "}
-                  <span style={{ color: "#f97373" }}>*</span>
+                  Organization size <span style={{ color: "#f97373" }}>*</span>
                 </label>
                 <select
                   id="org-size"
@@ -421,8 +493,7 @@ export default function CreateCompanyPage() {
                     marginBottom: 4,
                   }}
                 >
-                  Organization type{" "}
-                  <span style={{ color: "#f97373" }}>*</span>
+                  Organization type <span style={{ color: "#f97373" }}>*</span>
                 </label>
                 <select
                   id="org-type"
@@ -446,6 +517,94 @@ export default function CreateCompanyPage() {
                   <option value="lab">Industrial research lab</option>
                   <option value="nonprofit">Non-profit</option>
                   <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 🆕 Location + hiring status */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1fr)",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="org-city"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  City
+                </label>
+                <input
+                  id="org-city"
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. Zurich"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-country"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Country
+                </label>
+                <input
+                  id="org-country"
+                  type="text"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  placeholder="e.g. Switzerland"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-hiring-status"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Hiring status
+                </label>
+                <select
+                  id="org-hiring-status"
+                  value={hiringStatus}
+                  onChange={(e) => setHiringStatus(e.target.value as HiringStatus)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="">Select status</option>
+                  <option value="actively_hiring">Actively hiring</option>
+                  <option value="hiring_soon">Hiring soon</option>
+                  <option value="not_hiring">Not currently hiring</option>
+                  <option value="unspecified">Prefer not to say</option>
                 </select>
               </div>
             </div>
@@ -474,9 +633,7 @@ export default function CreateCompanyPage() {
               >
                 <div>
                   <div>Upload a square logo (300×300px recommended).</div>
-                  <div style={{ marginTop: 2, fontSize: 12 }}>
-                    JPG, JPEG or PNG.
-                  </div>
+                  <div style={{ marginTop: 2, fontSize: 12 }}>JPG, JPEG or PNG.</div>
                 </div>
                 <input
                   id="org-logo"
@@ -526,6 +683,120 @@ export default function CreateCompanyPage() {
               />
             </div>
 
+            {/* 🆕 About */}
+            <div>
+              <label
+                htmlFor="org-about"
+                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+              >
+                About
+              </label>
+              <textarea
+                id="org-about"
+                value={about}
+                onChange={(e) => setAbout(e.target.value)}
+                placeholder="Briefly describe what your company does, your mission, and what makes you unique in the quantum ecosystem."
+                rows={4}
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(148,163,184,0.6)",
+                  backgroundColor: "rgba(15,23,42,0.9)",
+                  color: "#e5e7eb",
+                  fontSize: 14,
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            {/* 🆕 Quantum focus / tech / customers */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.1fr)",
+                gap: 16,
+              }}
+            >
+              <div>
+                <label
+                  htmlFor="org-focus-areas"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Focus areas
+                </label>
+                <textarea
+                  id="org-focus-areas"
+                  value={focusAreas}
+                  onChange={(e) => setFocusAreas(e.target.value)}
+                  placeholder="e.g. Superconducting qubits, high-impedance resonators, control electronics"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-technology-type"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Technology type
+                </label>
+                <textarea
+                  id="org-technology-type"
+                  value={technologyType}
+                  onChange={(e) => setTechnologyType(e.target.value)}
+                  placeholder="e.g. Ta thin films, JJ arrays, TWPAs, cryo-electronics, software stack"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="org-target-customers"
+                  style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+                >
+                  Target customers
+                </label>
+                <textarea
+                  id="org-target-customers"
+                  value={targetCustomers}
+                  onChange={(e) => setTargetCustomers(e.target.value)}
+                  placeholder="e.g. University labs, quantum hardware startups, cloud providers, national labs"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148,163,184,0.6)",
+                    backgroundColor: "rgba(15,23,42,0.9)",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Authorization checkbox */}
             <div
               style={{
@@ -546,9 +817,8 @@ export default function CreateCompanyPage() {
                 htmlFor="org-authorized"
                 style={{ fontSize: 13, lineHeight: 1.4 }}
               >
-                I verify that I am an authorized representative of this
-                organization and have the right to create and manage this page
-                on its behalf.
+                I verify that I am an authorized representative of this organization and
+                have the right to create and manage this page on its behalf.
               </label>
             </div>
 
