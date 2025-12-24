@@ -143,16 +143,19 @@ export default function CreateCompanyPage() {
           company_type: orgType || null,
           tagline: tagline || null,
 
-          // 🆕 New columns (will be nullable → old orgs remain valid)
-          city: city || null,
+          // Existing columns
           country: country || null,
-          about: about || null,
+          city: city || null,
           focus_areas: focusAreas || null,
-          technology_type: technologyType || null,
-          target_customers: targetCustomers || null,
+          description: about || null,
+
+          // 🆕 New columns
           careers_url: careersUrl || null,
           public_contact_email: contactEmail || null,
+          technology_type: technologyType || null,
+          target_customers: targetCustomers || null,
           hiring_status: hiringStatus || null,
+
           // logo_url will be set later when we add Storage upload
         })
         .select("id, slug")
@@ -238,7 +241,8 @@ export default function CreateCompanyPage() {
               borderRadius: 18,
               padding: 24,
               border: "1px solid rgba(148,163,184,0.28)",
-              background: "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96))",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96))",
               boxShadow: "0 18px 40px rgba(15,23,42,0.55)",
               display: "flex",
               flexDirection: "column",
@@ -683,7 +687,7 @@ export default function CreateCompanyPage() {
               />
             </div>
 
-            {/* 🆕 About */}
+            {/* About */}
             <div>
               <label
                 htmlFor="org-about"
@@ -710,7 +714,7 @@ export default function CreateCompanyPage() {
               />
             </div>
 
-            {/* 🆕 Quantum focus / tech / customers */}
+            {/* Quantum focus / tech / customers */}
             <div
               style={{
                 display: "grid",
@@ -817,8 +821,9 @@ export default function CreateCompanyPage() {
                 htmlFor="org-authorized"
                 style={{ fontSize: 13, lineHeight: 1.4 }}
               >
-                I verify that I am an authorized representative of this organization and
-                have the right to create and manage this page on its behalf.
+                I verify that I am an authorized representative of this
+                organization and have the right to create and manage this page
+                on its behalf.
               </label>
             </div>
 
