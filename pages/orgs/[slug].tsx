@@ -183,7 +183,6 @@ export default function OrganizationDetailPage() {
         const userIds = (followRows || []).map((r: any) => r.user_id);
         setFollowersCount(userIds.length);
 
-        // derive following state without extra roundtrip
         if (user) setIsFollowing(userIds.includes(user.id));
         else setIsFollowing(false);
 
@@ -267,7 +266,8 @@ export default function OrganizationDetailPage() {
           return;
         }
 
-        const rows = (data || []) as OrgMember[];
+        // 👇 Cast via unknown to satisfy TS
+        const rows = (data ?? []) as unknown as OrgMember[];
         setMembers(rows);
 
         if (user) {
@@ -301,15 +301,12 @@ export default function OrganizationDetailPage() {
 
   const canManageMembers = useMemo(() => {
     if (!user) return false;
-    return (
-      currentMemberRole === "owner" ||
-      currentMemberRole === "co_owner"
-    );
+    return currentMemberRole === "owner" || currentMemberRole === "co_owner";
   }, [user, currentMemberRole]);
 
   // === Follow / unfollow handler ===
   const handleFollowClick = async (
-    e: React.MouseEvent<HTMLButtonElement>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ) => {
     e.preventDefault();
     if (!org) return;
@@ -348,9 +345,7 @@ export default function OrganizationDetailPage() {
           console.error("Error following organization", error);
         } else {
           setIsFollowing(true);
-          setFollowersCount((prev) =>
-            prev === null ? 1 : prev + 1
-          );
+          setFollowersCount((prev) => (prev === null ? 1 : prev + 1));
         }
       }
     } catch (err) {
@@ -392,12 +387,8 @@ export default function OrganizationDetailPage() {
       const ra = rank[a.role] ?? 99;
       const rb = rank[b.role] ?? 99;
       if (ra !== rb) return ra - rb;
-      const nameA =
-        a.profiles?.full_name?.toLowerCase() ||
-        "zzzz";
-      const nameB =
-        b.profiles?.full_name?.toLowerCase() ||
-        "zzzz";
+      const nameA = a.profiles?.full_name?.toLowerCase() || "zzzz";
+      const nameB = b.profiles?.full_name?.toLowerCase() || "zzzz";
       return nameA.localeCompare(nameB);
     });
   }, [members]);
@@ -418,10 +409,7 @@ export default function OrganizationDetailPage() {
         const name = (f.full_name || "Quantum5ocial member").toLowerCase();
         const role = (f.role || "").toLowerCase();
         const aff = (f.affiliation || "").toLowerCase();
-        const loc = [f.city, f.country]
-          .filter(Boolean)
-          .join(", ")
-          .toLowerCase();
+        const loc = [f.city, f.country].filter(Boolean).join(", ").toLowerCase();
         return (
           name.includes(term) ||
           role.includes(term) ||
@@ -455,9 +443,7 @@ export default function OrganizationDetailPage() {
       }
 
       setMembers((prev) =>
-        prev.map((m) =>
-          m.user_id === memberUserId ? { ...m, role: newRole } : m
-        )
+        prev.map((m) => (m.user_id === memberUserId ? { ...m, role: newRole } : m))
       );
 
       if (memberUserId === user.id) {
@@ -479,7 +465,6 @@ export default function OrganizationDetailPage() {
     if (!org || !user) return;
     if (!canManageMembers) return;
 
-    // Optional: block removing yourself if you're the only owner, but keeping it simple for now.
     const confirmed = window.confirm(
       "Remove this person from the team? They will remain a follower."
     );
@@ -497,9 +482,7 @@ export default function OrganizationDetailPage() {
         return;
       }
 
-      setMembers((prev) =>
-        prev.filter((m) => m.user_id !== memberUserId)
-      );
+      setMembers((prev) => prev.filter((m) => m.user_id !== memberUserId));
 
       if (memberUserId === user.id) {
         setCurrentMemberRole(null);
@@ -542,14 +525,16 @@ export default function OrganizationDetailPage() {
           )
         `
         )
-        .single<OrgMember>();
+        .single();
 
       if (error) {
         console.error("Error adding member", error);
         return;
       }
 
-      setMembers((prev) => [...prev, data]);
+      // 👇 cast via unknown here as well
+      const newMember = data as unknown as OrgMember;
+      setMembers((prev) => [...prev, newMember]);
       setMemberSearch("");
       setShowAddMember(false);
     } catch (err) {
@@ -557,28 +542,21 @@ export default function OrganizationDetailPage() {
     }
   };
 
-  // ✅ ONLY MAIN CONTENT (AppLayout provides left sidebar + overall page shell)
+  // === RENDER ===
   return (
     <section className="section" style={{ paddingTop: 24, paddingBottom: 48 }}>
       {loading ? (
-        <div
-          style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}
-        >
+        <div style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}>
           Loading organization…
         </div>
       ) : notFound || !org ? (
-        <div
-          style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}
-        >
+        <div style={{ fontSize: 14, color: "rgba(209,213,219,0.9)" }}>
           Organization not found or no longer active.
         </div>
       ) : (
         <>
           <div style={{ marginBottom: 16, fontSize: 13 }}>
-            <Link
-              href="/orgs"
-              style={{ color: "#7dd3fc", textDecoration: "none" }}
-            >
+            <Link href="/orgs" style={{ color: "#7dd3fc", textDecoration: "none" }}>
               ← Back to organizations
             </Link>
           </div>
@@ -589,8 +567,7 @@ export default function OrganizationDetailPage() {
               borderRadius: 24,
               padding: 24,
               border: "1px solid rgba(148,163,184,0.35)",
-              background:
-                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
+              background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
               boxShadow: "0 22px 50px rgba(15,23,42,0.75)",
               marginBottom: 24,
               display: "flex",
@@ -606,8 +583,7 @@ export default function OrganizationDetailPage() {
                 overflow: "hidden",
                 flexShrink: 0,
                 border: "1px solid rgba(148,163,184,0.45)",
-                background:
-                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -628,7 +604,7 @@ export default function OrganizationDetailPage() {
                   }}
                 />
               ) : (
-                firstOrgLetter
+                firstLetter
               )}
             </div>
 
@@ -670,10 +646,8 @@ export default function OrganizationDetailPage() {
                         fontSize: 12,
                         borderRadius: 999,
                         padding: "3px 9px",
-                        border:
-                          "1px solid rgba(148,163,184,0.7)",
-                        color:
-                          "rgba(226,232,240,0.95)",
+                        border: "1px solid rgba(148,163,184,0.7)",
+                        color: "rgba(226,232,240,0.95)",
                       }}
                     >
                       {kindLabel}
@@ -685,10 +659,8 @@ export default function OrganizationDetailPage() {
                           fontSize: 12,
                           borderRadius: 999,
                           padding: "3px 9px",
-                          border:
-                            "1px solid rgba(148,163,184,0.5)",
-                          color:
-                            "rgba(226,232,240,0.9)",
+                          border: "1px solid rgba(148,163,184,0.5)",
+                          color: "rgba(226,232,240,0.9)",
                         }}
                       >
                         {org.size_label}
@@ -701,10 +673,8 @@ export default function OrganizationDetailPage() {
                           fontSize: 12,
                           borderRadius: 999,
                           padding: "3px 9px",
-                          border:
-                            "1px solid rgba(148,163,184,0.5)",
-                          color:
-                            "rgba(226,232,240,0.9)",
+                          border: "1px solid rgba(148,163,184,0.5)",
+                          color: "rgba(226,232,240,0.9)",
                           whiteSpace: "nowrap",
                         }}
                       >
@@ -718,8 +688,7 @@ export default function OrganizationDetailPage() {
                           fontSize: 11,
                           borderRadius: 999,
                           padding: "3px 9px",
-                          border:
-                            "1px solid rgba(52,211,153,0.6)",
+                          border: "1px solid rgba(52,211,153,0.6)",
                           color: "rgba(190,242,100,0.9)",
                           display: "inline-flex",
                           alignItems: "center",
@@ -758,8 +727,7 @@ export default function OrganizationDetailPage() {
                         fontSize: 13,
                         fontWeight: 500,
                         textDecoration: "none",
-                        background:
-                          "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                         color: "#0f172a",
                         whiteSpace: "nowrap",
                       }}
@@ -781,20 +749,12 @@ export default function OrganizationDetailPage() {
                         background: isFollowing
                           ? "transparent"
                           : "rgba(59,130,246,0.16)",
-                        color: isFollowing
-                          ? "rgba(148,163,184,0.95)"
-                          : "#bfdbfe",
-                        cursor: followLoading
-                          ? "default"
-                          : "pointer",
+                        color: isFollowing ? "rgba(148,163,184,0.95)" : "#bfdbfe",
+                        cursor: followLoading ? "default" : "pointer",
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {followLoading
-                        ? "…"
-                        : isFollowing
-                        ? "Following"
-                        : "Follow"}
+                      {followLoading ? "…" : isFollowing ? "Following" : "Follow"}
                     </button>
                   )}
                 </div>
@@ -925,8 +885,7 @@ export default function OrganizationDetailPage() {
                       color: "rgba(148,163,184,0.95)",
                     }}
                   >
-                    People officially linked to this organization on
-                    Quantum5ocial.
+                    People officially linked to this organization on Quantum5ocial.
                   </div>
                 </div>
 
@@ -937,10 +896,8 @@ export default function OrganizationDetailPage() {
                     style={{
                       padding: "7px 14px",
                       borderRadius: 999,
-                      border:
-                        "1px solid rgba(148,163,184,0.6)",
-                      background:
-                        "rgba(15,23,42,0.85)",
+                      border: "1px solid rgba(148,163,184,0.6)",
+                      background: "rgba(15,23,42,0.85)",
                       fontSize: 12,
                       color: "#e5e7eb",
                       cursor: "pointer",
@@ -963,10 +920,7 @@ export default function OrganizationDetailPage() {
               </div>
 
               {loadingMembers ? (
-                <p
-                  className="profile-muted"
-                  style={{ fontSize: 13 }}
-                >
+                <p className="profile-muted" style={{ fontSize: 13 }}>
                   Loading team…
                 </p>
               ) : membersError ? (
@@ -978,23 +932,21 @@ export default function OrganizationDetailPage() {
                 </p>
               ) : sortedMembers.length === 0 ? (
                 <div className="products-empty">
-                  No team members yet. Once people are added from
-                  followers, they will appear here.
+                  No team members yet. Once people are added from followers, they
+                  will appear here.
                 </div>
               ) : (
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns:
-                      "repeat(4, minmax(0, 1fr))",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                     gap: 12,
                     marginTop: 6,
                   }}
                 >
                   {sortedMembers.map((m) => {
                     const p = m.profiles;
-                    const name =
-                      p?.full_name || "Quantum5ocial member";
+                    const name = p?.full_name || "Quantum5ocial member";
                     const initials = name
                       .split(" ")
                       .map((part) => part[0])
@@ -1006,14 +958,9 @@ export default function OrganizationDetailPage() {
                       .filter(Boolean)
                       .join(", ");
                     const subtitle =
-                      [
-                        p?.role,
-                        p?.affiliation,
-                        location,
-                      ]
+                      [p?.role, p?.affiliation, location]
                         .filter(Boolean)
-                        .join(" · ") ||
-                      "Quantum5ocial member";
+                        .join(" · ") || "Quantum5ocial member";
 
                     const isMe = user && p?.id === user.id;
                     const isOwner = m.role === "owner";
@@ -1038,9 +985,7 @@ export default function OrganizationDetailPage() {
                       >
                         <button
                           type="button"
-                          onClick={() =>
-                            p?.id && goToProfile(p.id)
-                          }
+                          onClick={() => p?.id && goToProfile(p.id)}
                           style={{
                             border: "none",
                             padding: 0,
@@ -1065,8 +1010,7 @@ export default function OrganizationDetailPage() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              border:
-                                "1px solid rgba(148,163,184,0.6)",
+                              border: "1px solid rgba(148,163,184,0.6)",
                               color: "#e5e7eb",
                               fontWeight: 700,
                               fontSize: 13,
@@ -1093,8 +1037,7 @@ export default function OrganizationDetailPage() {
                               style={{
                                 fontSize: 13,
                                 fontWeight: 600,
-                                color:
-                                  "rgba(226,232,240,0.98)",
+                                color: "rgba(226,232,240,0.98)",
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
@@ -1106,8 +1049,7 @@ export default function OrganizationDetailPage() {
                               style={{
                                 marginTop: 2,
                                 fontSize: 11,
-                                color:
-                                  "rgba(148,163,184,0.95)",
+                                color: "rgba(148,163,184,0.95)",
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
@@ -1166,15 +1108,7 @@ export default function OrganizationDetailPage() {
                               </span>
                             )}
                             <span>{roleLabel(m.role)}</span>
-                            {isMe && (
-                              <span
-                                style={{
-                                  opacity: 0.7,
-                                }}
-                              >
-                                · you
-                              </span>
-                            )}
+                            {isMe && <span style={{ opacity: 0.7 }}>· you</span>}
                           </div>
 
                           {showRoleMenuButton && (
@@ -1184,21 +1118,16 @@ export default function OrganizationDetailPage() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setOpenRoleMenuFor((prev) =>
-                                  prev === m.user_id
-                                    ? null
-                                    : m.user_id
+                                  prev === m.user_id ? null : m.user_id
                                 );
                               }}
                               style={{
                                 width: 26,
                                 height: 26,
                                 borderRadius: 999,
-                                border:
-                                  "1px solid rgba(148,163,184,0.5)",
-                                background:
-                                  "rgba(15,23,42,0.9)",
-                                color:
-                                  "rgba(148,163,184,0.95)",
+                                border: "1px solid rgba(148,163,184,0.5)",
+                                background: "rgba(15,23,42,0.9)",
+                                color: "rgba(148,163,184,0.95)",
                                 fontSize: 14,
                                 cursor: "pointer",
                                 display: "flex",
@@ -1211,7 +1140,7 @@ export default function OrganizationDetailPage() {
                           )}
                         </div>
 
-                        {/* Role / actions menu — absolute + high zIndex so it never hides behind tiles */}
+                        {/* Role / actions menu */}
                         {openRoleMenuFor === m.user_id && (
                           <div
                             style={{
@@ -1221,12 +1150,9 @@ export default function OrganizationDetailPage() {
                               zIndex: 50,
                               minWidth: 190,
                               borderRadius: 12,
-                              background:
-                                "rgba(15,23,42,0.98)",
-                              border:
-                                "1px solid rgba(148,163,184,0.9)",
-                              boxShadow:
-                                "0 18px 40px rgba(0,0,0,0.75)",
+                              background: "rgba(15,23,42,0.98)",
+                              border: "1px solid rgba(148,163,184,0.9)",
+                              boxShadow: "0 18px 40px rgba(0,0,0,0.75)",
                               padding: 8,
                             }}
                           >
@@ -1235,35 +1161,27 @@ export default function OrganizationDetailPage() {
                                 fontSize: 11,
                                 textTransform: "uppercase",
                                 letterSpacing: 0.08,
-                                color:
-                                  "rgba(148,163,184,0.9)",
+                                color: "rgba(148,163,184,0.9)",
                                 marginBottom: 4,
                               }}
                             >
                               Change role
                             </div>
 
-                            {/* Make co-owner */}
                             {m.role !== "co_owner" && (
                               <button
                                 type="button"
                                 onClick={(e) =>
-                                  handleChangeMemberRole(
-                                    m.user_id,
-                                    "co_owner",
-                                    e
-                                  )
+                                  handleChangeMemberRole(m.user_id, "co_owner", e)
                                 }
                                 style={{
                                   width: "100%",
                                   textAlign: "left",
                                   border: "none",
                                   background: "transparent",
-                                  padding:
-                                    "4px 6px 4px 2px",
+                                  padding: "4px 6px 4px 2px",
                                   fontSize: 13,
-                                  color:
-                                    "rgba(226,232,240,0.96)",
+                                  color: "rgba(226,232,240,0.96)",
                                   cursor: "pointer",
                                 }}
                               >
@@ -1271,27 +1189,20 @@ export default function OrganizationDetailPage() {
                               </button>
                             )}
 
-                            {/* Make admin */}
                             {m.role !== "admin" && (
                               <button
                                 type="button"
                                 onClick={(e) =>
-                                  handleChangeMemberRole(
-                                    m.user_id,
-                                    "admin",
-                                    e
-                                  )
+                                  handleChangeMemberRole(m.user_id, "admin", e)
                                 }
                                 style={{
                                   width: "100%",
                                   textAlign: "left",
                                   border: "none",
                                   background: "transparent",
-                                  padding:
-                                    "4px 6px 4px 2px",
+                                  padding: "4px 6px 4px 2px",
                                   fontSize: 13,
-                                  color:
-                                    "rgba(226,232,240,0.96)",
+                                  color: "rgba(226,232,240,0.96)",
                                   cursor: "pointer",
                                 }}
                               >
@@ -1299,27 +1210,20 @@ export default function OrganizationDetailPage() {
                               </button>
                             )}
 
-                            {/* Make member */}
                             {m.role !== "member" && (
                               <button
                                 type="button"
                                 onClick={(e) =>
-                                  handleChangeMemberRole(
-                                    m.user_id,
-                                    "member",
-                                    e
-                                  )
+                                  handleChangeMemberRole(m.user_id, "member", e)
                                 }
                                 style={{
                                   width: "100%",
                                   textAlign: "left",
                                   border: "none",
                                   background: "transparent",
-                                  padding:
-                                    "4px 6px 4px 2px",
+                                  padding: "4px 6px 4px 2px",
                                   fontSize: 13,
-                                  color:
-                                    "rgba(226,232,240,0.96)",
+                                  color: "rgba(226,232,240,0.96)",
                                   cursor: "pointer",
                                 }}
                               >
@@ -1327,15 +1231,12 @@ export default function OrganizationDetailPage() {
                               </button>
                             )}
 
-                            {/* Remove from team — only for owner/co-owner, and we avoid showing for existing owner */}
                             {(currentMemberRole === "owner" ||
-                              currentMemberRole ===
-                                "co_owner") &&
+                              currentMemberRole === "co_owner") &&
                               !isOwner && (
                                 <div
                                   style={{
-                                    borderTop:
-                                      "1px solid rgba(55,65,81,0.9)",
+                                    borderTop: "1px solid rgba(55,65,81,0.9)",
                                     marginTop: 4,
                                     paddingTop: 4,
                                   }}
@@ -1343,19 +1244,14 @@ export default function OrganizationDetailPage() {
                                   <button
                                     type="button"
                                     onClick={(e) =>
-                                      handleRemoveMember(
-                                        m.user_id,
-                                        e
-                                      )
+                                      handleRemoveMember(m.user_id, e)
                                     }
                                     style={{
                                       width: "100%",
                                       textAlign: "left",
                                       border: "none",
-                                      background:
-                                        "transparent",
-                                      padding:
-                                        "4px 6px 4px 2px",
+                                      background: "transparent",
+                                      padding: "4px 6px 4px 2px",
                                       fontSize: 13,
                                       color: "#fecaca",
                                       cursor: "pointer",
@@ -1382,8 +1278,7 @@ export default function OrganizationDetailPage() {
                   position: "fixed",
                   inset: 0,
                   zIndex: 40,
-                  background:
-                    "rgba(15,23,42,0.75)",
+                  background: "rgba(15,23,42,0.75)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1395,12 +1290,10 @@ export default function OrganizationDetailPage() {
                     width: "100%",
                     maxWidth: 420,
                     borderRadius: 18,
-                    border:
-                      "1px solid rgba(148,163,184,0.55)",
+                    border: "1px solid rgba(148,163,184,0.55)",
                     background:
                       "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
-                    boxShadow:
-                      "0 22px 50px rgba(0,0,0,0.8)",
+                    boxShadow: "0 22px 50px rgba(0,0,0,0.8)",
                     padding: 18,
                   }}
                 >
@@ -1424,13 +1317,11 @@ export default function OrganizationDetailPage() {
                       <div
                         style={{
                           fontSize: 12,
-                          color:
-                            "rgba(148,163,184,0.9)",
+                          color: "rgba(148,163,184,0.9)",
                         }}
                       >
-                        Start typing a name, role, or
-                        affiliation. Only followers who are
-                        not yet in the team are shown.
+                        Start typing a name, role, or affiliation. Only followers
+                        who are not yet in the team are shown.
                       </div>
                     </div>
 
@@ -1441,12 +1332,9 @@ export default function OrganizationDetailPage() {
                         width: 26,
                         height: 26,
                         borderRadius: 999,
-                        border:
-                          "1px solid rgba(148,163,184,0.6)",
-                        background:
-                          "rgba(15,23,42,0.95)",
-                        color:
-                          "rgba(148,163,184,0.96)",
+                        border: "1px solid rgba(148,163,184,0.6)",
+                        background: "rgba(15,23,42,0.95)",
+                        color: "rgba(148,163,184,0.96)",
                         fontSize: 13,
                         cursor: "pointer",
                       }}
@@ -1459,19 +1347,15 @@ export default function OrganizationDetailPage() {
                     <input
                       type="text"
                       value={memberSearch}
-                      onChange={(e) =>
-                        setMemberSearch(e.target.value)
-                      }
+                      onChange={(e) => setMemberSearch(e.target.value)}
                       placeholder="Search followers…"
                       autoFocus
                       style={{
                         width: "100%",
                         padding: "9px 11px",
                         borderRadius: 999,
-                        border:
-                          "1px solid rgba(148,163,184,0.7)",
-                        background:
-                          "rgba(15,23,42,0.95)",
+                        border: "1px solid rgba(148,163,184,0.7)",
+                        background: "rgba(15,23,42,0.95)",
                         color: "#e5e7eb",
                         fontSize: 13,
                       }}
@@ -1482,12 +1366,11 @@ export default function OrganizationDetailPage() {
                     <div
                       style={{
                         fontSize: 12,
-                        color:
-                          "rgba(148,163,184,0.9)",
+                        color: "rgba(148,163,184,0.9)",
                       }}
                     >
-                      No matching followers found that are
-                      not already in the team.
+                      No matching followers found that are not already in the
+                      team.
                     </div>
                   ) : (
                     <div
@@ -1501,47 +1384,31 @@ export default function OrganizationDetailPage() {
                       }}
                     >
                       {candidateFollowers.map((f) => {
-                        const name =
-                          f.full_name ||
-                          "Quantum5ocial member";
+                        const name = f.full_name || "Quantum5ocial member";
                         const initials = name
                           .split(" ")
                           .map((p) => p[0])
                           .join("")
                           .slice(0, 2)
                           .toUpperCase();
-                        const location = [
-                          f.city,
-                          f.country,
-                        ]
+                        const location = [f.city, f.country]
                           .filter(Boolean)
                           .join(", ");
                         const subtitle =
-                          [
-                            f.role,
-                            f.affiliation,
-                            location,
-                          ]
+                          [f.role, f.affiliation, location]
                             .filter(Boolean)
-                            .join(" · ") ||
-                          "Quantum5ocial member";
+                            .join(" · ") || "Quantum5ocial member";
 
                         return (
                           <button
                             key={f.id}
                             type="button"
-                            onClick={() =>
-                              handleAddMemberFromFollower(
-                                f.id
-                              )
-                            }
+                            onClick={() => handleAddMemberFromFollower(f.id)}
                             style={{
                               width: "100%",
                               borderRadius: 10,
-                              border:
-                                "1px solid rgba(148,163,184,0.5)",
-                              background:
-                                "rgba(15,23,42,0.95)",
+                              border: "1px solid rgba(148,163,184,0.5)",
+                              background: "rgba(15,23,42,0.95)",
                               padding: 8,
                               display: "flex",
                               alignItems: "center",
@@ -1561,8 +1428,7 @@ export default function OrganizationDetailPage() {
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                border:
-                                  "1px solid rgba(148,163,184,0.6)",
+                                border: "1px solid rgba(148,163,184,0.6)",
                                 color: "#e5e7eb",
                                 fontWeight: 700,
                                 fontSize: 12,
@@ -1595,8 +1461,7 @@ export default function OrganizationDetailPage() {
                                 style={{
                                   fontSize: 13,
                                   fontWeight: 500,
-                                  color:
-                                    "rgba(226,232,240,0.98)",
+                                  color: "rgba(226,232,240,0.98)",
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -1607,8 +1472,7 @@ export default function OrganizationDetailPage() {
                               <div
                                 style={{
                                   fontSize: 11,
-                                  color:
-                                    "rgba(148,163,184,0.95)",
+                                  color: "rgba(148,163,184,0.95)",
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -1651,9 +1515,7 @@ export default function OrganizationDetailPage() {
               </div>
 
               {loadingFollowers && (
-                <p className="profile-muted">
-                  Loading followers…
-                </p>
+                <p className="profile-muted">Loading followers…</p>
               )}
 
               {followersError && !loadingFollowers && (
@@ -1668,167 +1530,142 @@ export default function OrganizationDetailPage() {
                 </p>
               )}
 
-              {!loadingFollowers &&
-                !followersError &&
-                followersCount === 0 && (
-                  <div className="products-empty">
-                    No followers yet. Once people follow
-                    this organization, they will appear
-                    here.
-                  </div>
-                )}
+              {!loadingFollowers && !followersError && followersCount === 0 && (
+                <div className="products-empty">
+                  No followers yet. Once people follow this organization, they
+                  will appear here.
+                </div>
+              )}
 
-              {!loadingFollowers &&
-                !followersError &&
-                followers.length > 0 && (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(4, minmax(0, 1fr))",
-                      gap: 12,
-                      marginTop: 6,
-                    }}
-                  >
-                    {followers.map((f) => {
-                      const name =
-                        f.full_name ||
-                        "Quantum5ocial member";
-                      const initials = name
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase();
+              {!loadingFollowers && !followersError && followers.length > 0 && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                    gap: 12,
+                    marginTop: 6,
+                  }}
+                >
+                  {followers.map((f) => {
+                    const name = f.full_name || "Quantum5ocial member";
+                    const initials = name
+                      .split(" ")
+                      .map((p) => p[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
 
-                      const location = [
-                        f.city,
-                        f.country,
-                      ]
+                    const location = [f.city, f.country]
+                      .filter(Boolean)
+                      .join(", ");
+                    const subtitle =
+                      [f.role, f.affiliation, location]
                         .filter(Boolean)
-                        .join(", ");
-                      const subtitle =
-                        [
-                          f.role,
-                          f.affiliation,
-                          location,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") ||
-                        "Quantum5ocial member";
+                        .join(" · ") || "Quantum5ocial member";
 
-                      return (
-                        <button
-                          key={f.id}
-                          type="button"
-                          onClick={() =>
-                            goToProfile(f.id)
-                          }
-                          className="card"
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => goToProfile(f.id)}
+                        className="card"
+                        style={{
+                          textAlign: "left",
+                          padding: 12,
+                          borderRadius: 14,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                          cursor: "pointer",
+                          background: "rgba(2,6,23,0.35)",
+                        }}
+                      >
+                        <div
                           style={{
-                            textAlign: "left",
-                            padding: 12,
-                            borderRadius: 14,
                             display: "flex",
-                            flexDirection: "column",
+                            alignItems: "center",
                             gap: 10,
-                            cursor: "pointer",
-                            background:
-                              "rgba(2,6,23,0.35)",
                           }}
                         >
                           <div
                             style={{
+                              width: 38,
+                              height: 38,
+                              borderRadius: 999,
+                              overflow: "hidden",
+                              flexShrink: 0,
+                              background:
+                                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
                               display: "flex",
                               alignItems: "center",
-                              gap: 10,
+                              justifyContent: "center",
+                              border: "1px solid rgba(148,163,184,0.6)",
+                              color: "#e5e7eb",
+                              fontWeight: 700,
+                              fontSize: 13,
                             }}
                           >
+                            {f.avatar_url ? (
+                              <img
+                                src={f.avatar_url}
+                                alt={name}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  objectFit: "cover",
+                                  display: "block",
+                                }}
+                              />
+                            ) : (
+                              initials
+                            )}
+                          </div>
+
+                          <div style={{ minWidth: 0 }}>
                             <div
                               style={{
-                                width: 38,
-                                height: 38,
-                                borderRadius: 999,
-                                overflow: "hidden",
-                                flexShrink: 0,
-                                background:
-                                  "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                border:
-                                  "1px solid rgba(148,163,184,0.6)",
-                                color: "#e5e7eb",
-                                fontWeight: 700,
                                 fontSize: 13,
+                                fontWeight: 600,
+                                color: "rgba(226,232,240,0.98)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
                             >
-                              {f.avatar_url ? (
-                                <img
-                                  src={f.avatar_url}
-                                  alt={name}
-                                  style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                  }}
-                                />
-                              ) : (
-                                initials
-                              )}
+                              {name}
                             </div>
-
-                            <div style={{ minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  color:
-                                    "rgba(226,232,240,0.98)",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                {name}
-                              </div>
-                              <div
-                                style={{
-                                  marginTop: 2,
-                                  fontSize: 11,
-                                  color:
-                                    "rgba(148,163,184,0.95)",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                }}
-                              >
-                                {subtitle}
-                              </div>
+                            <div
+                              style={{
+                                marginTop: 2,
+                                fontSize: 11,
+                                color: "rgba(148,163,184,0.95)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {subtitle}
                             </div>
                           </div>
+                        </div>
 
-                          <div
-                            style={{
-                              marginTop: "auto",
-                              fontSize: 12,
-                              color: "#7dd3fc",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                            }}
-                          >
-                            View profile{" "}
-                            <span style={{ opacity: 0.9 }}>
-                              ›
-                            </span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                        <div
+                          style={{
+                            marginTop: "auto",
+                            fontSize: 12,
+                            color: "#7dd3fc",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          View profile <span style={{ opacity: 0.9 }}>›</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </section>
         </>
@@ -1837,7 +1674,7 @@ export default function OrganizationDetailPage() {
   );
 }
 
-// ✅ tell AppLayout: left-only global sidebar, no right sidebar
+// layout config
 (OrganizationDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
