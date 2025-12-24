@@ -38,27 +38,34 @@ type FollowerProfile = {
   city: string | null;
 };
 
+// membership roles for org_members
 type OrgMemberRole = "owner" | "co_owner" | "admin" | "member";
 
-type OrgMember = {
-  id: string;
-  org_id: string;
+type OrgMemberRow = {
   user_id: string;
   role: OrgMemberRole;
-  title: string | null;
-  profiles?: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-    role: string | null;
-    highest_education: string | null;
-    affiliation: string | null;
-    country: string | null;
-    city: string | null;
-  } | null;
+  is_affiliated: boolean;
 };
 
-export default function OrganizationDetailPage() {
+type OrgMemberWithProfile = {
+  user_id: string;
+  role: OrgMemberRole;
+  is_affiliated: boolean;
+  profile: FollowerProfile | null;
+};
+
+// search results for invite panel – now only from followers
+type SearchProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  role: string | null;
+  affiliation: string | null;
+  country: string | null;
+  city: string | null;
+};
+
+const OrganizationDetailPage = () => {
   const router = useRouter();
   const { user } = useSupabaseUser();
   const { slug } = router.query;
@@ -73,23 +80,32 @@ export default function OrganizationDetailPage() {
   const [loadingFollowers, setLoadingFollowers] = useState<boolean>(true);
   const [followersError, setFollowersError] = useState<string | null>(null);
 
-  // Team / members state
-  const [members, setMembers] = useState<OrgMember[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState<boolean>(true);
-  const [membersError, setMembersError] = useState<string | null>(null);
-  const [currentMemberRole, setCurrentMemberRole] =
-    useState<OrgMemberRole | null>(null);
-
   // Follow state (current user ↔ this org)
   const [isFollowing, setIsFollowing] = useState<boolean>(false);
   const [followLoading, setFollowLoading] = useState<boolean>(false);
 
-  // Team role menu
-  const [openRoleMenuFor, setOpenRoleMenuFor] = useState<string | null>(null);
+  // Membership state for current user
+  const [memberRole, setMemberRole] = useState<OrgMemberRole | null>(null);
+  const [isAffiliated, setIsAffiliated] = useState<boolean>(false);
 
-  // Add member UI (invite from followers)
-  const [showAddMember, setShowAddMember] = useState(false);
-  const [memberSearch, setMemberSearch] = useState("");
+  // Team / members list state
+  const [members, setMembers] = useState<OrgMemberWithProfile[]>([]);
+  const [membersLoading, setMembersLoading] = useState<boolean>(true);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
+  // Invite / add-member panel state
+  const [showAddMember, setShowAddMember] = useState<boolean>(false);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<SearchProfile[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<OrgMemberRole>("member");
+  const [selectedAffiliated, setSelectedAffiliated] = useState<boolean>(true);
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+
+  // Member management (role changes / remove / self-affiliation)
+  const [memberMenuOpenId, setMemberMenuOpenId] = useState<string | null>(null);
+  const [memberActionLoadingId, setMemberActionLoadingId] = useState<string | null>(null);
+  const [selfAffLoadingId, setSelfAffLoadingId] = useState<string | null>(null);
 
   // === LOAD CURRENT ORG BY SLUG ===
   useEffect(() => {
@@ -104,10 +120,10 @@ export default function OrganizationDetailPage() {
         .select("*")
         .eq("slug", slug)
         .eq("is_active", true)
-        .maybeSingle<Org>();
+        .maybeSingle();
 
       if (!error && data) {
-        setOrg(data);
+        setOrg(data as Org);
       } else {
         setOrg(null);
         setNotFound(true);
@@ -183,6 +199,7 @@ export default function OrganizationDetailPage() {
         const userIds = (followRows || []).map((r: any) => r.user_id);
         setFollowersCount(userIds.length);
 
+        // derive following state without extra roundtrip
         if (user) setIsFollowing(userIds.includes(user.id));
         else setIsFollowing(false);
 
@@ -220,94 +237,145 @@ export default function OrganizationDetailPage() {
     loadFollowers();
   }, [org, user]);
 
-  // === LOAD TEAM / MEMBERS FOR THIS ORG ===
+  // === LOAD MEMBERSHIP FOR CURRENT USER ===
+  useEffect(() => {
+    const loadMembership = async () => {
+      if (!user || !org) {
+        setMemberRole(null);
+        setIsAffiliated(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("org_members")
+        .select("role, is_affiliated")
+        .eq("org_id", org.id)
+        .eq("user_id", user.id)
+        .maybeSingle<OrgMemberRow>();
+
+      if (error) {
+        console.error("Error loading org membership", error);
+        setMemberRole(null);
+        setIsAffiliated(false);
+        return;
+      }
+
+      if (data) {
+        setMemberRole(data.role);
+        setIsAffiliated(!!data.is_affiliated);
+      } else {
+        setMemberRole(null);
+        setIsAffiliated(false);
+      }
+    };
+
+    loadMembership();
+  }, [user, org]);
+
+  // === PERMISSIONS ===
+  const canEdit = useMemo(() => {
+    if (!user || !org) return false;
+    if (memberRole === "owner" || memberRole === "co_owner" || memberRole === "admin")
+      return true;
+    // Fallback for legacy orgs without org_members rows
+    return org.created_by === user.id;
+  }, [user, org, memberRole]);
+
+  const canRemoveOthers = useMemo(
+    () => memberRole === "owner" || memberRole === "co_owner",
+    [memberRole]
+  );
+
+  // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
     const loadMembers = async () => {
       if (!org) {
         setMembers([]);
-        setCurrentMemberRole(null);
         setMembersError(null);
-        setLoadingMembers(false);
+        setMembersLoading(false);
         return;
       }
 
-      setLoadingMembers(true);
+      setMembersLoading(true);
       setMembersError(null);
 
       try {
-        const { data, error } = await supabase
+        const { data: memberRows, error: membersErr } = await supabase
           .from("org_members")
-          .select(
-            `
-            id,
-            org_id,
-            user_id,
-            role,
-            title,
-            profiles:profiles (
-              id,
-              full_name,
-              avatar_url,
-              role,
-              highest_education,
-              affiliation,
-              country,
-              city
-            )
-          `
-          )
+          .select("user_id, role, is_affiliated")
           .eq("org_id", org.id);
 
-        if (error) {
-          console.error("Error loading org members", error);
-          setMembersError("Could not load team members.");
+        if (membersErr) {
+          console.error("Error loading org members", membersErr);
           setMembers([]);
-          setCurrentMemberRole(null);
+          setMembersError("Could not load team members.");
           return;
         }
 
-        // 👇 Cast via unknown to satisfy TS
-        const rows = (data ?? []) as unknown as OrgMember[];
-        setMembers(rows);
+        const rows = (memberRows || []) as OrgMemberRow[];
 
-        if (user) {
-          const mine = rows.find((m) => m.user_id === user.id) || null;
-          setCurrentMemberRole(mine ? mine.role : null);
-        } else {
-          setCurrentMemberRole(null);
+        if (rows.length === 0) {
+          setMembers([]);
+          return;
         }
-      } catch (e) {
-        console.error("Unexpected error loading members", e);
-        setMembersError("Could not load team members.");
+
+        const userIds = rows.map((m) => m.user_id);
+
+        const { data: profileRows, error: profErr } = await supabase
+          .from("profiles")
+          .select(
+            "id, full_name, avatar_url, role, highest_education, affiliation, country, city"
+          )
+          .in("id", userIds);
+
+        if (profErr) {
+          console.error("Error loading member profiles", profErr);
+          setMembersError("Could not load member profiles.");
+          setMembers([]);
+          return;
+        }
+
+        const profileMap = new Map(
+          (profileRows || []).map((p: any) => [p.id, p as FollowerProfile])
+        );
+
+        const merged: OrgMemberWithProfile[] = rows.map((m) => ({
+          user_id: m.user_id,
+          role: m.role,
+          is_affiliated: !!m.is_affiliated,
+          profile: profileMap.get(m.user_id) || null,
+        }));
+
+        // sort: owner → co-owner → admin → member, then name
+        merged.sort((a, b) => {
+          const order: Record<OrgMemberRole, number> = {
+            owner: 0,
+            co_owner: 1,
+            admin: 2,
+            member: 3,
+          };
+          const da = order[a.role] - order[b.role];
+          if (da !== 0) return da;
+
+          const nameA = a.profile?.full_name || "";
+          const nameB = b.profile?.full_name || "";
+          return nameA.localeCompare(nameB);
+        });
+
+        setMembers(merged);
+      } catch (err) {
+        console.error("Unexpected error loading org members", err);
         setMembers([]);
-        setCurrentMemberRole(null);
+        setMembersError("Could not load team members.");
       } finally {
-        setLoadingMembers(false);
+        setMembersLoading(false);
       }
     };
 
     loadMembers();
-  }, [org, user]);
+  }, [org]);
 
-  // PERMISSIONS
-  const canEditOrg = useMemo(() => {
-    if (!org || !user) return false;
-    if (org.created_by === user.id) return true;
-    if (currentMemberRole === "owner" || currentMemberRole === "co_owner") {
-      return true;
-    }
-    return false;
-  }, [org, user, currentMemberRole]);
-
-  const canManageMembers = useMemo(() => {
-    if (!user) return false;
-    return currentMemberRole === "owner" || currentMemberRole === "co_owner";
-  }, [user, currentMemberRole]);
-
-  // === Follow / unfollow handler ===
-  const handleFollowClick = async (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
-  ) => {
+  const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (!org) return;
 
@@ -359,77 +427,152 @@ export default function OrganizationDetailPage() {
     router.push(`/profile/${profileId}`);
   };
 
-  const firstOrgLetter = org?.name?.charAt(0).toUpperCase() || "Q";
-
-  // TEAM HELPERS
   const roleLabel = (role: OrgMemberRole) => {
-    switch (role) {
-      case "owner":
-        return "Owner";
-      case "co_owner":
-        return "Co-owner";
-      case "admin":
-        return "Admin";
-      case "member":
-      default:
-        return "Member";
+    if (role === "owner") return "Owner";
+    if (role === "co_owner") return "Co-owner";
+    if (role === "admin") return "Admin";
+    return "Member";
+  };
+
+  // === INVITE / ADD MEMBER – NOW ONLY FROM FOLLOWERS, LIVE SEARCH ===
+
+  // Just prevent submit refresh; results are driven by typing.
+  const handleSearchProfiles = (e: React.FormEvent) => {
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    if (!showAddMember) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      setSearchError(null);
+      return;
+    }
+
+    const lower = searchTerm.trim().toLowerCase();
+
+    // filter only among followers
+    const filtered = followers.filter((f) =>
+      (f.full_name || "").toLowerCase().includes(lower)
+    );
+
+    setSearchResults(filtered.slice(0, 20));
+    setSearchError(null);
+  }, [searchTerm, followers, showAddMember]);
+
+  const handleAddMember = async (profileId: string) => {
+    if (!org || !canEdit) return;
+
+    setSavingMemberId(profileId);
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .upsert(
+          {
+            org_id: org.id,
+            user_id: profileId,
+            role: selectedRole,
+            is_affiliated: selectedAffiliated,
+          },
+          { onConflict: "org_id,user_id" }
+        );
+
+      if (error) {
+        console.error("Error adding org member", error);
+        return;
+      }
+
+      // Find profile in *followers* based search results
+      const profile =
+        (searchResults.find((p) => p.id === profileId) as FollowerProfile) ||
+        null;
+
+      setMembers((prev) => {
+        const existingIndex = prev.findIndex((m) => m.user_id === profileId);
+        const updatedEntry: OrgMemberWithProfile = {
+          user_id: profileId,
+          role: selectedRole,
+          is_affiliated: selectedAffiliated,
+          profile: profile,
+        };
+
+        if (existingIndex >= 0) {
+          const copy = [...prev];
+          copy[existingIndex] = updatedEntry;
+          return copy;
+        }
+        return [...prev, updatedEntry];
+      });
+
+      // If this is the current user being added/updated, sync membership state
+      if (user && user.id === profileId) {
+        setMemberRole(selectedRole);
+        setIsAffiliated(selectedAffiliated);
+      }
+    } catch (err) {
+      console.error("Unexpected error adding org member", err);
+    } finally {
+      setSavingMemberId(null);
     }
   };
 
-  const sortedMembers: OrgMember[] = useMemo(() => {
-    const rank: Record<OrgMemberRole, number> = {
-      owner: 0,
-      co_owner: 1,
-      admin: 2,
-      member: 3,
-    };
-    return [...members].sort((a, b) => {
-      const ra = rank[a.role] ?? 99;
-      const rb = rank[b.role] ?? 99;
-      if (ra !== rb) return ra - rb;
-      const nameA = a.profiles?.full_name?.toLowerCase() || "zzzz";
-      const nameB = b.profiles?.full_name?.toLowerCase() || "zzzz";
-      return nameA.localeCompare(nameB);
-    });
-  }, [members]);
+  // === SELF AFFILIATION TOGGLE ===
+  const handleToggleSelfAffiliation = (
+    member: OrgMemberWithProfile,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    if (!org || !user) return;
+    if (member.user_id !== user.id) return;
 
-  const existingMemberUserIds = useMemo(
-    () => new Set(members.map((m) => m.user_id)),
-    [members]
-  );
+    const update = async () => {
+      const newValue = !member.is_affiliated;
+      setSelfAffLoadingId(member.user_id);
 
-  const candidateFollowers = useMemo(() => {
-    if (!followers) return [];
-    const term = memberSearch.trim().toLowerCase();
+      try {
+        const { error } = await supabase
+          .from("org_members")
+          .update({ is_affiliated: newValue })
+          .eq("org_id", org.id)
+          .eq("user_id", user.id);
 
-    return followers
-      .filter((f) => !existingMemberUserIds.has(f.id))
-      .filter((f) => {
-        if (!term) return true;
-        const name = (f.full_name || "Quantum5ocial member").toLowerCase();
-        const role = (f.role || "").toLowerCase();
-        const aff = (f.affiliation || "").toLowerCase();
-        const loc = [f.city, f.country].filter(Boolean).join(", ").toLowerCase();
-        return (
-          name.includes(term) ||
-          role.includes(term) ||
-          aff.includes(term) ||
-          loc.includes(term)
+        if (error) {
+          console.error("Error updating self affiliation", error);
+          return;
+        }
+
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m
+          )
         );
-      })
-      .slice(0, 10);
-  }, [followers, existingMemberUserIds, memberSearch]);
 
+        setIsAffiliated(newValue);
+      } catch (err) {
+        console.error("Unexpected error updating self affiliation", err);
+      } finally {
+        setSelfAffLoadingId(null);
+      }
+    };
+
+    void update();
+  };
+
+  // === OWNER / CO-OWNER / ADMIN: CHANGE ROLE ===
   const handleChangeMemberRole = async (
     memberUserId: string,
     newRole: OrgMemberRole,
     e: React.MouseEvent
   ) => {
-    e.preventDefault();
     e.stopPropagation();
-    if (!org || !user) return;
-    if (!canManageMembers) return;
+    if (!org || !canEdit) return;
 
+    setMemberActionLoadingId(memberUserId);
     try {
       const { error } = await supabase
         .from("org_members")
@@ -438,38 +581,38 @@ export default function OrganizationDetailPage() {
         .eq("user_id", memberUserId);
 
       if (error) {
-        console.error("Error updating member role", error);
+        console.error("Error changing member role", error);
         return;
       }
 
       setMembers((prev) =>
-        prev.map((m) => (m.user_id === memberUserId ? { ...m, role: newRole } : m))
+        prev.map((m) =>
+          m.user_id === memberUserId ? { ...m, role: newRole } : m
+        )
       );
 
-      if (memberUserId === user.id) {
-        setCurrentMemberRole(newRole);
+      // If we changed our own role, sync state
+      if (user && user.id === memberUserId) {
+        setMemberRole(newRole);
       }
 
-      setOpenRoleMenuFor(null);
+      setMemberMenuOpenId(null);
     } catch (err) {
-      console.error("Unexpected error updating member role", err);
+      console.error("Unexpected error changing member role", err);
+    } finally {
+      setMemberActionLoadingId(null);
     }
   };
 
+  // === OWNER / CO-OWNER: REMOVE MEMBER ===
   const handleRemoveMember = async (
     memberUserId: string,
     e: React.MouseEvent
   ) => {
-    e.preventDefault();
     e.stopPropagation();
-    if (!org || !user) return;
-    if (!canManageMembers) return;
+    if (!org || !canRemoveOthers) return;
 
-    const confirmed = window.confirm(
-      "Remove this person from the team? They will remain a follower."
-    );
-    if (!confirmed) return;
-
+    setMemberActionLoadingId(memberUserId);
     try {
       const { error } = await supabase
         .from("org_members")
@@ -478,67 +621,23 @@ export default function OrganizationDetailPage() {
         .eq("user_id", memberUserId);
 
       if (error) {
-        console.error("Error removing member", error);
+        console.error("Error removing member from org", error);
         return;
       }
 
       setMembers((prev) => prev.filter((m) => m.user_id !== memberUserId));
 
-      if (memberUserId === user.id) {
-        setCurrentMemberRole(null);
+      // If we removed ourselves, clear membership state
+      if (user && user.id === memberUserId) {
+        setMemberRole(null);
+        setIsAffiliated(false);
       }
 
-      setOpenRoleMenuFor(null);
+      setMemberMenuOpenId(null);
     } catch (err) {
       console.error("Unexpected error removing member", err);
-    }
-  };
-
-  const handleAddMemberFromFollower = async (followerId: string) => {
-    if (!org || !user) return;
-    if (!canManageMembers) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("org_members")
-        .insert({
-          org_id: org.id,
-          user_id: followerId,
-          role: "member" as OrgMemberRole,
-        })
-        .select(
-          `
-          id,
-          org_id,
-          user_id,
-          role,
-          title,
-          profiles:profiles (
-            id,
-            full_name,
-            avatar_url,
-            role,
-            highest_education,
-            affiliation,
-            country,
-            city
-          )
-        `
-        )
-        .single();
-
-      if (error) {
-        console.error("Error adding member", error);
-        return;
-      }
-
-      // 👇 cast via unknown here as well
-      const newMember = data as unknown as OrgMember;
-      setMembers((prev) => [...prev, newMember]);
-      setMemberSearch("");
-      setShowAddMember(false);
-    } catch (err) {
-      console.error("Unexpected error adding member", err);
+    } finally {
+      setMemberActionLoadingId(null);
     }
   };
 
@@ -567,7 +666,8 @@ export default function OrganizationDetailPage() {
               borderRadius: 24,
               padding: 24,
               border: "1px solid rgba(148,163,184,0.35)",
-              background: "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
               boxShadow: "0 22px 50px rgba(15,23,42,0.75)",
               marginBottom: 24,
               display: "flex",
@@ -682,29 +782,18 @@ export default function OrganizationDetailPage() {
                       </span>
                     )}
 
-                    {currentMemberRole && (
+                    {isAffiliated && (
                       <span
                         style={{
-                          fontSize: 11,
+                          fontSize: 12,
                           borderRadius: 999,
                           padding: "3px 9px",
-                          border: "1px solid rgba(52,211,153,0.6)",
-                          color: "rgba(190,242,100,0.9)",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 6,
+                          border: "1px solid rgba(34,197,94,0.7)",
+                          color: "rgba(187,247,208,0.95)",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        <span>Team</span>
-                        <span
-                          style={{
-                            opacity: 0.7,
-                            fontSize: 10,
-                          }}
-                        >
-                          •
-                        </span>
-                        <span>{roleLabel(currentMemberRole)}</span>
+                        You&apos;re affiliated
                       </span>
                     )}
                   </div>
@@ -718,7 +807,7 @@ export default function OrganizationDetailPage() {
                     flexShrink: 0,
                   }}
                 >
-                  {canEditOrg ? (
+                  {canEdit ? (
                     <Link
                       href={editHref}
                       style={{
@@ -749,7 +838,9 @@ export default function OrganizationDetailPage() {
                         background: isFollowing
                           ? "transparent"
                           : "rgba(59,130,246,0.16)",
-                        color: isFollowing ? "rgba(148,163,184,0.95)" : "#bfdbfe",
+                        color: isFollowing
+                          ? "rgba(148,163,184,0.95)"
+                          : "#bfdbfe",
                         cursor: followLoading ? "default" : "pointer",
                         whiteSpace: "nowrap",
                       }}
@@ -784,20 +875,12 @@ export default function OrganizationDetailPage() {
               )}
 
               {org.website && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    fontSize: 13,
-                  }}
-                >
+                <div style={{ marginTop: 10, fontSize: 13 }}>
                   <a
                     href={org.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      color: "#7dd3fc",
-                      textDecoration: "none",
-                    }}
+                    style={{ color: "#7dd3fc", textDecoration: "none" }}
                   >
                     {org.website.replace(/^https?:\/\//, "")} ↗
                   </a>
@@ -808,7 +891,6 @@ export default function OrganizationDetailPage() {
 
           {/* Body */}
           <section>
-            {/* Description */}
             {org.description ? (
               <div
                 style={{
@@ -831,7 +913,6 @@ export default function OrganizationDetailPage() {
               </div>
             )}
 
-            {/* Focus areas */}
             {org.focus_areas && (
               <div style={{ marginTop: 18 }}>
                 <div
@@ -856,50 +937,46 @@ export default function OrganizationDetailPage() {
               </div>
             )}
 
-            {/* Team & Members */}
-            <div style={{ marginTop: 26 }}>
+            {/* Team / Members */}
+            <div style={{ marginTop: 24 }}>
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
                   gap: 12,
-                  marginBottom: 8,
+                  marginBottom: 10,
                 }}
               >
-                <div>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      textTransform: "uppercase",
-                      letterSpacing: 0.08,
-                      color: "rgba(148,163,184,0.9)",
-                      marginBottom: 4,
-                    }}
-                  >
-                    Team & members
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: "rgba(148,163,184,0.95)",
-                    }}
-                  >
-                    People officially linked to this organization on Quantum5ocial.
-                  </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.08,
+                    color: "rgba(148,163,184,0.9)",
+                  }}
+                >
+                  Team &amp; members
                 </div>
 
-                {canManageMembers && (
+                {canEdit && (
                   <button
                     type="button"
-                    onClick={() => setShowAddMember(true)}
+                    onClick={() => {
+                      setShowAddMember((prev) => !prev);
+                      setSearchTerm("");
+                      setSearchResults([]);
+                      setSearchError(null);
+                    }}
                     style={{
-                      padding: "7px 14px",
+                      padding: "6px 12px",
                       borderRadius: 999,
-                      border: "1px solid rgba(148,163,184,0.6)",
-                      background: "rgba(15,23,42,0.85)",
                       fontSize: 12,
-                      color: "#e5e7eb",
+                      border: "1px solid rgba(148,163,184,0.6)",
+                      background: showAddMember
+                        ? "rgba(15,23,42,0.9)"
+                        : "rgba(15,23,42,0.6)",
+                      color: "rgba(226,232,240,0.95)",
                       cursor: "pointer",
                       display: "inline-flex",
                       alignItems: "center",
@@ -908,34 +985,382 @@ export default function OrganizationDetailPage() {
                   >
                     <span
                       style={{
-                        fontSize: 16,
-                        lineHeight: 1,
+                        display: "inline-flex",
+                        width: 14,
+                        height: 14,
+                        borderRadius: 999,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid rgba(148,163,184,0.8)",
+                        fontSize: 10,
                       }}
                     >
-                      +
+                      {showAddMember ? "−" : "+"}
                     </span>
-                    <span>Add from followers</span>
+                    {showAddMember ? "Close" : "Add member"}
                   </button>
                 )}
               </div>
 
-              {loadingMembers ? (
-                <p className="profile-muted" style={{ fontSize: 13 }}>
-                  Loading team…
-                </p>
-              ) : membersError ? (
+              {showAddMember && canEdit && (
+                <div
+                  style={{
+                    borderRadius: 16,
+                    border: "1px solid rgba(148,163,184,0.4)",
+                    padding: 12,
+                    marginBottom: 12,
+                    background: "rgba(15,23,42,0.85)",
+                  }}
+                >
+                  <form
+                    onSubmit={handleSearchProfiles}
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      alignItems: "center",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search followers by name…"
+                      style={{
+                        flex: "1 1 220px",
+                        minWidth: 0,
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(51,65,85,0.9)",
+                        background: "rgba(15,23,42,0.95)",
+                        color: "#e5e7eb",
+                        fontSize: 13,
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSearchResults([]);
+                        setSearchError(null);
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(148,163,184,0.6)",
+                        background: "transparent",
+                        color: "rgba(148,163,184,0.95)",
+                        fontSize: 12,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </form>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 12,
+                      alignItems: "center",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        color: "rgba(209,213,219,0.95)",
+                      }}
+                    >
+                      Member role:
+                      <select
+                        value={selectedRole}
+                        onChange={(e) =>
+                          setSelectedRole(e.target.value as OrgMemberRole)
+                        }
+                        style={{
+                          padding: "4px 8px",
+                          borderRadius: 999,
+                          border: "1px solid rgba(148,163,184,0.7)",
+                          background: "rgba(15,23,42,0.9)",
+                          color: "#e5e7eb",
+                          fontSize: 12,
+                          outline: "none",
+                        }}
+                      >
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                        <option value="co_owner">Co-owner</option>
+                      </select>
+                    </label>
+
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        color: "rgba(209,213,219,0.95)",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedAffiliated}
+                        onChange={(e) =>
+                          setSelectedAffiliated(e.target.checked)
+                        }
+                        style={{ margin: 0 }}
+                      />
+                      Mark as affiliated
+                    </label>
+                  </div>
+
+                  {searchError && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#f97373",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {searchError}
+                    </div>
+                  )}
+
+                  {searchResults.length > 0 ? (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                        gap: 10,
+                        maxHeight: 260,
+                        overflowY: "auto",
+                        paddingRight: 4,
+                      }}
+                    >
+                      {searchResults.map((p) => {
+                        const name = p.full_name || "Quantum5ocial member";
+                        const initials = name
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase();
+
+                        const location = [p.city, p.country]
+                          .filter(Boolean)
+                          .join(", ");
+                        const subtitle =
+                          [p.role, p.affiliation, location]
+                            .filter(Boolean)
+                            .join(" · ") || "Quantum5ocial member";
+
+                        const alreadyMember = members.some(
+                          (m) => m.user_id === p.id
+                        );
+
+                        const isMe = user && user.id === p.id;
+
+                        return (
+                          <div
+                            key={p.id}
+                            className="card"
+                            style={{
+                              borderRadius: 14,
+                              padding: 10,
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                              background: "rgba(2,6,23,0.7)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 999,
+                                  overflow: "hidden",
+                                  flexShrink: 0,
+                                  background:
+                                    "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  border: "1px solid rgba(148,163,184,0.6)",
+                                  color: "#e5e7eb",
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                }}
+                              >
+                                {p.avatar_url ? (
+                                  <img
+                                    src={p.avatar_url}
+                                    alt={name}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      display: "block",
+                                    }}
+                                  />
+                                ) : (
+                                  initials
+                                )}
+                              </div>
+                              <div style={{ minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "rgba(226,232,240,0.98)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {name}
+                                  {isMe && (
+                                    <span
+                                      style={{
+                                        marginLeft: 6,
+                                        fontSize: 11,
+                                        color: "rgba(148,163,184,0.95)",
+                                      }}
+                                    >
+                                      (you)
+                                    </span>
+                                  )}
+                                </div>
+                                <div
+                                  style={{
+                                    marginTop: 2,
+                                    fontSize: 11,
+                                    color: "rgba(148,163,184,0.95)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {subtitle}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                marginTop: 4,
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.9)",
+                                }}
+                              >
+                                {alreadyMember ? "Already in team" : "Add to team"}
+                              </div>
+                              <button
+                                type="button"
+                                disabled={alreadyMember || savingMemberId === p.id}
+                                onClick={() => handleAddMember(p.id)}
+                                style={{
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  border: alreadyMember
+                                    ? "1px solid rgba(148,163,184,0.6)"
+                                    : "1px solid rgba(34,197,94,0.7)",
+                                  background: alreadyMember
+                                    ? "transparent"
+                                    : "rgba(22,163,74,0.18)",
+                                  color: alreadyMember
+                                    ? "rgba(148,163,184,0.9)"
+                                    : "rgba(187,247,208,0.96)",
+                                  fontSize: 11,
+                                  cursor:
+                                    alreadyMember || savingMemberId === p.id
+                                      ? "default"
+                                      : "pointer",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {alreadyMember
+                                  ? "In team"
+                                  : savingMemberId === p.id
+                                  ? "Adding…"
+                                  : "Add"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    searchTerm.trim() &&
+                    !searchError && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(148,163,184,0.9)",
+                        }}
+                      >
+                        No matching followers found. Only followers can be added to
+                        the team.
+                      </div>
+                    )
+                  )}
+
+                  {!searchTerm.trim() && followers.length === 0 && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(148,163,184,0.85)",
+                        marginTop: 6,
+                      }}
+                    >
+                      This organization has no followers yet. Once people follow,
+                      you can add them here as team members.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {membersLoading && (
+                <p className="profile-muted">Loading team members…</p>
+              )}
+
+              {membersError && !membersLoading && (
                 <p
                   className="profile-muted"
-                  style={{ color: "#f97373", fontSize: 13 }}
+                  style={{ color: "#f97373", marginTop: 4 }}
                 >
                   {membersError}
                 </p>
-              ) : sortedMembers.length === 0 ? (
+              )}
+
+              {!membersLoading && !membersError && members.length === 0 && (
                 <div className="products-empty">
-                  No team members yet. Once people are added from followers, they
-                  will appear here.
+                  No team members added yet.
                 </div>
-              ) : (
+              )}
+
+              {!membersLoading && !membersError && members.length > 0 && (
                 <div
                   style={{
                     display: "grid",
@@ -944,482 +1369,68 @@ export default function OrganizationDetailPage() {
                     marginTop: 6,
                   }}
                 >
-                  {sortedMembers.map((m) => {
-                    const p = m.profiles;
-                    const name = p?.full_name || "Quantum5ocial member";
+                  {members.map((m) => {
+                    const profile = m.profile;
+                    const name = profile?.full_name || "Quantum5ocial member";
                     const initials = name
                       .split(" ")
-                      .map((part) => part[0])
+                      .map((p) => p[0])
                       .join("")
                       .slice(0, 2)
                       .toUpperCase();
 
-                    const location = [p?.city, p?.country]
+                    const location = [profile?.city, profile?.country]
                       .filter(Boolean)
                       .join(", ");
+
                     const subtitle =
-                      [p?.role, p?.affiliation, location]
+                      [profile?.role, profile?.affiliation, location]
                         .filter(Boolean)
                         .join(" · ") || "Quantum5ocial member";
 
-                    const isMe = user && p?.id === user.id;
-                    const isOwner = m.role === "owner";
-                    const isCoOwner = m.role === "co_owner";
-
-                    const showRoleMenuButton = canManageMembers;
+                    const isCurrentUser = user && profile && profile.id === user.id;
+                    const isMenuOpen = memberMenuOpenId === m.user_id;
+                    const isMemberActionLoading = memberActionLoadingId === m.user_id;
+                    const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
                     return (
-                      <div
-                        key={m.id}
+                      <button
+                        key={m.user_id}
+                        type="button"
+                        onClick={() => profile && goToProfile(profile.id)}
                         className="card"
                         style={{
-                          position: "relative",
                           textAlign: "left",
                           padding: 12,
                           borderRadius: 14,
                           display: "flex",
                           flexDirection: "column",
                           gap: 10,
+                          cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
+                          position: "relative",
                         }}
                       >
-                        <button
-                          type="button"
-                          onClick={() => p?.id && goToProfile(p.id)}
-                          style={{
-                            border: "none",
-                            padding: 0,
-                            margin: 0,
-                            textAlign: "left",
-                            background: "transparent",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            cursor: "pointer",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              background:
-                                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              color: "#e5e7eb",
-                              fontWeight: 700,
-                              fontSize: 13,
-                            }}
-                          >
-                            {p?.avatar_url ? (
-                              <img
-                                src={p.avatar_url}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              initials
-                            )}
-                          </div>
-
-                          <div style={{ minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 600,
-                                color: "rgba(226,232,240,0.98)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {name}
-                            </div>
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color: "rgba(148,163,184,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {subtitle}
-                            </div>
-                          </div>
-                        </button>
-
                         <div
                           style={{
                             display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginTop: "auto",
+                            alignItems: "flex-start",
                             gap: 8,
                           }}
                         >
                           <div
                             style={{
-                              fontSize: 11,
-                              borderRadius: 999,
-                              padding: "3px 8px",
-                              border: isOwner
-                                ? "1px solid rgba(250,204,21,0.7)"
-                                : isCoOwner
-                                ? "1px solid rgba(129,230,217,0.8)"
-                                : "1px solid rgba(148,163,184,0.7)",
-                              color: isOwner
-                                ? "rgba(252,211,77,0.95)"
-                                : isCoOwner
-                                ? "rgba(129,230,217,0.95)"
-                                : "rgba(226,232,240,0.95)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 6,
-                            }}
-                          >
-                            {isOwner && (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                }}
-                              >
-                                👑
-                              </span>
-                            )}
-                            {isCoOwner && (
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                }}
-                              >
-                                ✦
-                              </span>
-                            )}
-                            <span>{roleLabel(m.role)}</span>
-                            {isMe && <span style={{ opacity: 0.7 }}>· you</span>}
-                          </div>
-
-                          {showRoleMenuButton && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setOpenRoleMenuFor((prev) =>
-                                  prev === m.user_id ? null : m.user_id
-                                );
-                              }}
-                              style={{
-                                width: 26,
-                                height: 26,
-                                borderRadius: 999,
-                                border: "1px solid rgba(148,163,184,0.5)",
-                                background: "rgba(15,23,42,0.9)",
-                                color: "rgba(148,163,184,0.95)",
-                                fontSize: 14,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              ⋯
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Role / actions menu */}
-                        {openRoleMenuFor === m.user_id && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: 6,
-                              right: 6,
-                              zIndex: 50,
-                              minWidth: 190,
-                              borderRadius: 12,
-                              background: "rgba(15,23,42,0.98)",
-                              border: "1px solid rgba(148,163,184,0.9)",
-                              boxShadow: "0 18px 40px rgba(0,0,0,0.75)",
-                              padding: 8,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 11,
-                                textTransform: "uppercase",
-                                letterSpacing: 0.08,
-                                color: "rgba(148,163,184,0.9)",
-                                marginBottom: 4,
-                              }}
-                            >
-                              Change role
-                            </div>
-
-                            {m.role !== "co_owner" && (
-                              <button
-                                type="button"
-                                onClick={(e) =>
-                                  handleChangeMemberRole(m.user_id, "co_owner", e)
-                                }
-                                style={{
-                                  width: "100%",
-                                  textAlign: "left",
-                                  border: "none",
-                                  background: "transparent",
-                                  padding: "4px 6px 4px 2px",
-                                  fontSize: 13,
-                                  color: "rgba(226,232,240,0.96)",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Make co-owner
-                              </button>
-                            )}
-
-                            {m.role !== "admin" && (
-                              <button
-                                type="button"
-                                onClick={(e) =>
-                                  handleChangeMemberRole(m.user_id, "admin", e)
-                                }
-                                style={{
-                                  width: "100%",
-                                  textAlign: "left",
-                                  border: "none",
-                                  background: "transparent",
-                                  padding: "4px 6px 4px 2px",
-                                  fontSize: 13,
-                                  color: "rgba(226,232,240,0.96)",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Make admin
-                              </button>
-                            )}
-
-                            {m.role !== "member" && (
-                              <button
-                                type="button"
-                                onClick={(e) =>
-                                  handleChangeMemberRole(m.user_id, "member", e)
-                                }
-                                style={{
-                                  width: "100%",
-                                  textAlign: "left",
-                                  border: "none",
-                                  background: "transparent",
-                                  padding: "4px 6px 4px 2px",
-                                  fontSize: 13,
-                                  color: "rgba(226,232,240,0.96)",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Make member
-                              </button>
-                            )}
-
-                            {(currentMemberRole === "owner" ||
-                              currentMemberRole === "co_owner") &&
-                              !isOwner && (
-                                <div
-                                  style={{
-                                    borderTop: "1px solid rgba(55,65,81,0.9)",
-                                    marginTop: 4,
-                                    paddingTop: 4,
-                                  }}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={(e) =>
-                                      handleRemoveMember(m.user_id, e)
-                                    }
-                                    style={{
-                                      width: "100%",
-                                      textAlign: "left",
-                                      border: "none",
-                                      background: "transparent",
-                                      padding: "4px 6px 4px 2px",
-                                      fontSize: 13,
-                                      color: "#fecaca",
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    Remove from team
-                                  </button>
-                                </div>
-                              )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Add member drawer / panel */}
-            {showAddMember && canManageMembers && (
-              <div
-                onClick={() => setShowAddMember(false)}
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 40,
-                  background: "rgba(15,23,42,0.75)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    width: "100%",
-                    maxWidth: 420,
-                    borderRadius: 18,
-                    border: "1px solid rgba(148,163,184,0.55)",
-                    background:
-                      "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(15,23,42,1))",
-                    boxShadow: "0 22px 50px rgba(0,0,0,0.8)",
-                    padding: 18,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 10,
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 500,
-                        }}
-                      >
-                        Add member from followers
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "rgba(148,163,184,0.9)",
-                        }}
-                      >
-                        Start typing a name, role, or affiliation. Only followers
-                        who are not yet in the team are shown.
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setShowAddMember(false)}
-                      style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 999,
-                        border: "1px solid rgba(148,163,184,0.6)",
-                        background: "rgba(15,23,42,0.95)",
-                        color: "rgba(148,163,184,0.96)",
-                        fontSize: 13,
-                        cursor: "pointer",
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <div style={{ marginBottom: 10 }}>
-                    <input
-                      type="text"
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      placeholder="Search followers…"
-                      autoFocus
-                      style={{
-                        width: "100%",
-                        padding: "9px 11px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(148,163,184,0.7)",
-                        background: "rgba(15,23,42,0.95)",
-                        color: "#e5e7eb",
-                        fontSize: 13,
-                      }}
-                    />
-                  </div>
-
-                  {candidateFollowers.length === 0 ? (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: "rgba(148,163,184,0.9)",
-                      }}
-                    >
-                      No matching followers found that are not already in the
-                      team.
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        maxHeight: 260,
-                        overflowY: "auto",
-                        paddingRight: 2,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 6,
-                      }}
-                    >
-                      {candidateFollowers.map((f) => {
-                        const name = f.full_name || "Quantum5ocial member";
-                        const initials = name
-                          .split(" ")
-                          .map((p) => p[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase();
-                        const location = [f.city, f.country]
-                          .filter(Boolean)
-                          .join(", ");
-                        const subtitle =
-                          [f.role, f.affiliation, location]
-                            .filter(Boolean)
-                            .join(" · ") || "Quantum5ocial member";
-
-                        return (
-                          <button
-                            key={f.id}
-                            type="button"
-                            onClick={() => handleAddMemberFromFollower(f.id)}
-                            style={{
-                              width: "100%",
-                              borderRadius: 10,
-                              border: "1px solid rgba(148,163,184,0.5)",
-                              background: "rgba(15,23,42,0.95)",
-                              padding: 8,
                               display: "flex",
                               alignItems: "center",
-                              gap: 8,
-                              cursor: "pointer",
+                              gap: 10,
+                              flex: 1,
+                              minWidth: 0,
                             }}
                           >
                             <div
                               style={{
-                                width: 30,
-                                height: 30,
+                                width: 38,
+                                height: 38,
                                 borderRadius: 999,
                                 overflow: "hidden",
                                 flexShrink: 0,
@@ -1431,12 +1442,12 @@ export default function OrganizationDetailPage() {
                                 border: "1px solid rgba(148,163,184,0.6)",
                                 color: "#e5e7eb",
                                 fontWeight: 700,
-                                fontSize: 12,
+                                fontSize: 13,
                               }}
                             >
-                              {f.avatar_url ? (
+                              {profile?.avatar_url ? (
                                 <img
-                                  src={f.avatar_url}
+                                  src={profile.avatar_url}
                                   alt={name}
                                   style={{
                                     width: "100%",
@@ -1450,17 +1461,11 @@ export default function OrganizationDetailPage() {
                               )}
                             </div>
 
-                            <div
-                              style={{
-                                flex: 1,
-                                minWidth: 0,
-                                textAlign: "left",
-                              }}
-                            >
+                            <div style={{ minWidth: 0 }}>
                               <div
                                 style={{
                                   fontSize: 13,
-                                  fontWeight: 500,
+                                  fontWeight: 600,
                                   color: "rgba(226,232,240,0.98)",
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
@@ -1468,9 +1473,21 @@ export default function OrganizationDetailPage() {
                                 }}
                               >
                                 {name}
+                                {isCurrentUser && (
+                                  <span
+                                    style={{
+                                      marginLeft: 6,
+                                      fontSize: 11,
+                                      color: "rgba(148,163,184,0.95)",
+                                    }}
+                                  >
+                                    (you)
+                                  </span>
+                                )}
                               </div>
                               <div
                                 style={{
+                                  marginTop: 2,
                                   fontSize: 11,
                                   color: "rgba(148,163,184,0.95)",
                                   whiteSpace: "nowrap",
@@ -1481,27 +1498,248 @@ export default function OrganizationDetailPage() {
                                 {subtitle}
                               </div>
                             </div>
+                          </div>
 
+                          {canEdit && (
+                            <div
+                              style={{
+                                marginLeft: "auto",
+                                flexShrink: 0,
+                                position: "relative",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMemberMenuOpenId((prev) =>
+                                    prev === m.user_id ? null : m.user_id
+                                  );
+                                }}
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: 999,
+                                  border: "1px solid rgba(71,85,105,0.9)",
+                                  background: "rgba(15,23,42,0.95)",
+                                  color: "rgba(148,163,184,0.95)",
+                                  fontSize: 14,
+                                  lineHeight: 1,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                }}
+                              >
+                                ⋯
+                              </button>
+
+                              {isMenuOpen && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 26,
+                                    right: 0,
+                                    zIndex: 20,
+                                    borderRadius: 10,
+                                    border: "1px solid rgba(30,64,175,0.9)",
+                                    background:
+                                      "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
+                                    boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
+                                    minWidth: 160,
+                                    padding: 4,
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div
+                                    style={{
+                                      padding: "4px 8px",
+                                      fontSize: 11,
+                                      color: "rgba(148,163,184,0.95)",
+                                      borderBottom: "1px solid rgba(30,64,175,0.6)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    Manage member
+                                  </div>
+                                  {(["co_owner", "admin", "member"] as OrgMemberRole[]).map(
+                                    (roleOption) => (
+                                      <button
+                                        key={roleOption}
+                                        type="button"
+                                        disabled={isMemberActionLoading}
+                                        onClick={(e) =>
+                                          handleChangeMemberRole(
+                                            m.user_id,
+                                            roleOption,
+                                            e
+                                          )
+                                        }
+                                        style={{
+                                          width: "100%",
+                                          textAlign: "left",
+                                          padding: "6px 8px",
+                                          borderRadius: 6,
+                                          border: "none",
+                                          background:
+                                            roleOption === m.role
+                                              ? "rgba(37,99,235,0.2)"
+                                              : "transparent",
+                                          color:
+                                            roleOption === m.role
+                                              ? "#bfdbfe"
+                                              : "rgba(226,232,240,0.95)",
+                                          fontSize: 12,
+                                          cursor: isMemberActionLoading
+                                            ? "default"
+                                            : "pointer",
+                                        }}
+                                      >
+                                        {roleOption === "co_owner"
+                                          ? "Make co-owner"
+                                          : roleOption === "admin"
+                                          ? "Make admin"
+                                          : "Make member"}
+                                      </button>
+                                    )
+                                  )}
+                                  {canRemoveOthers && (
+                                    <div
+                                      style={{
+                                        borderTop: "1px solid rgba(30,64,175,0.6)",
+                                        marginTop: 4,
+                                        paddingTop: 4,
+                                      }}
+                                    >
+                                      <button
+                                        type="button"
+                                        disabled={isMemberActionLoading}
+                                        onClick={(e) =>
+                                          handleRemoveMember(m.user_id, e)
+                                        }
+                                        style={{
+                                          width: "100%",
+                                          textAlign: "left",
+                                          padding: "6px 8px",
+                                          borderRadius: 6,
+                                          border: "none",
+                                          background: "transparent",
+                                          color: "#fecaca",
+                                          fontSize: 12,
+                                          cursor: isMemberActionLoading
+                                            ? "default"
+                                            : "pointer",
+                                        }}
+                                      >
+                                        {isMemberActionLoading
+                                          ? "Removing…"
+                                          : "Remove from team"}
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 6,
+                            marginTop: 4,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 11,
+                              borderRadius: 999,
+                              padding: "2px 7px",
+                              border: "1px solid rgba(129,140,248,0.8)",
+                              color: "rgba(191,219,254,0.95)",
+                            }}
+                          >
+                            {roleLabel(m.role)}
+                          </span>
+
+                          {m.is_affiliated && (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                borderRadius: 999,
+                                padding: "2px 7px",
+                                border: "1px solid rgba(34,197,94,0.7)",
+                                color: "rgba(187,247,208,0.95)",
+                              }}
+                            >
+                              Affiliated
+                            </span>
+                          )}
+                        </div>
+
+                        {isCurrentUser && (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              paddingTop: 6,
+                              borderTop: "1px dashed rgba(51,65,85,0.9)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div
                               style={{
                                 fontSize: 11,
-                                color: "#a5b4fc",
+                                color: "rgba(148,163,184,0.95)",
+                              }}
+                            >
+                              Affiliated with this organization
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) =>
+                                handleToggleSelfAffiliation(m, e)
+                              }
+                              disabled={isSelfAffLoading}
+                              style={{
+                                fontSize: 11,
+                                borderRadius: 999,
+                                padding: "2px 8px",
+                                border: m.is_affiliated
+                                  ? "1px solid rgba(34,197,94,0.8)"
+                                  : "1px solid rgba(148,163,184,0.7)",
+                                background: m.is_affiliated
+                                  ? "rgba(22,163,74,0.2)"
+                                  : "transparent",
+                                color: m.is_affiliated
+                                  ? "rgba(187,247,208,0.96)"
+                                  : "rgba(226,232,240,0.9)",
+                                cursor: isSelfAffLoading ? "default" : "pointer",
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              Add to team
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                              {isSelfAffLoading
+                                ? "Updating…"
+                                : m.is_affiliated
+                                ? "Set as not affiliated"
+                                : "Set as affiliated"}
+                            </button>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Followers */}
-            <div style={{ marginTop: 28 }}>
+            <div style={{ marginTop: 24 }}>
               <div
                 style={{
                   fontSize: 13,
@@ -1521,161 +1759,165 @@ export default function OrganizationDetailPage() {
               {followersError && !loadingFollowers && (
                 <p
                   className="profile-muted"
-                  style={{
-                    color: "#f97373",
-                    marginTop: 4,
-                  }}
+                  style={{ color: "#f97373", marginTop: 4 }}
                 >
                   {followersError}
                 </p>
               )}
 
-              {!loadingFollowers && !followersError && followersCount === 0 && (
-                <div className="products-empty">
-                  No followers yet. Once people follow this organization, they
-                  will appear here.
-                </div>
-              )}
+              {!loadingFollowers &&
+                !followersError &&
+                followersCount === 0 && (
+                  <div className="products-empty">
+                    No followers yet. Once people follow this organization,
+                    they will appear here.
+                  </div>
+                )}
 
-              {!loadingFollowers && !followersError && followers.length > 0 && (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                    gap: 12,
-                    marginTop: 6,
-                  }}
-                >
-                  {followers.map((f) => {
-                    const name = f.full_name || "Quantum5ocial member";
-                    const initials = name
-                      .split(" ")
-                      .map((p) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase();
+              {!loadingFollowers &&
+                !followersError &&
+                followers.length > 0 && (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gap: 12,
+                      marginTop: 6,
+                    }}
+                  >
+                    {followers.map((f) => {
+                      const name = f.full_name || "Quantum5ocial member";
+                      const initials = name
+                        .split(" ")
+                        .map((p) => p[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase();
 
-                    const location = [f.city, f.country]
-                      .filter(Boolean)
-                      .join(", ");
-                    const subtitle =
-                      [f.role, f.affiliation, location]
+                      const location = [f.city, f.country]
                         .filter(Boolean)
-                        .join(" · ") || "Quantum5ocial member";
+                        .join(", ");
+                      const subtitle =
+                        [f.role, f.affiliation, location]
+                          .filter(Boolean)
+                          .join(" · ") || "Quantum5ocial member";
 
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => goToProfile(f.id)}
-                        className="card"
-                        style={{
-                          textAlign: "left",
-                          padding: 12,
-                          borderRadius: 14,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 10,
-                          cursor: "pointer",
-                          background: "rgba(2,6,23,0.35)",
-                        }}
-                      >
-                        <div
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => goToProfile(f.id)}
+                          className="card"
                           style={{
+                            textAlign: "left",
+                            padding: 12,
+                            borderRadius: 14,
                             display: "flex",
-                            alignItems: "center",
+                            flexDirection: "column",
                             gap: 10,
+                            cursor: "pointer",
+                            background: "rgba(2,6,23,0.35)",
                           }}
                         >
                           <div
                             style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 999,
-                              overflow: "hidden",
-                              flexShrink: 0,
-                              background:
-                                "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "center",
-                              border: "1px solid rgba(148,163,184,0.6)",
-                              color: "#e5e7eb",
-                              fontWeight: 700,
-                              fontSize: 13,
+                              gap: 10,
                             }}
                           >
-                            {f.avatar_url ? (
-                              <img
-                                src={f.avatar_url}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              initials
-                            )}
-                          </div>
-
-                          <div style={{ minWidth: 0 }}>
                             <div
                               style={{
+                                width: 38,
+                                height: 38,
+                                borderRadius: 999,
+                                overflow: "hidden",
+                                flexShrink: 0,
+                                background:
+                                  "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "1px solid rgba(148,163,184,0.6)",
+                                color: "#e5e7eb",
+                                fontWeight: 700,
                                 fontSize: 13,
-                                fontWeight: 600,
-                                color: "rgba(226,232,240,0.98)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
                               }}
                             >
-                              {name}
+                              {f.avatar_url ? (
+                                <img
+                                  src={f.avatar_url}
+                                  alt={name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                />
+                              ) : (
+                                initials
+                              )}
                             </div>
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color: "rgba(148,163,184,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {subtitle}
+
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  color: "rgba(226,232,240,0.98)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {name}
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 2,
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.95)",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {subtitle}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div
-                          style={{
-                            marginTop: "auto",
-                            fontSize: 12,
-                            color: "#7dd3fc",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          View profile <span style={{ opacity: 0.9 }}>›</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                          <div
+                            style={{
+                              marginTop: "auto",
+                              fontSize: 12,
+                              color: "#7dd3fc",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            View profile{" "}
+                            <span style={{ opacity: 0.9 }}>›</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
             </div>
           </section>
         </>
       )}
     </section>
   );
-}
+};
 
-// layout config
+// ✅ AppLayout: left-only global sidebar, no right sidebar
 (OrganizationDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
 };
+
+export default OrganizationDetailPage;
