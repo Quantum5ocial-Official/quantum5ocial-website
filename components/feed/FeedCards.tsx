@@ -1,8 +1,13 @@
 // components/feed/FeedCards.tsx
-import React from "react";
+import React, {
+  CSSProperties,
+  MutableRefObject,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import Link from "next/link";
 
-export type FeedProfile = {
+type FeedProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
@@ -10,22 +15,23 @@ export type FeedProfile = {
   affiliation?: string | null;
 };
 
-export type FeedOrg = {
+type FeedOrg = {
   id: string;
   name: string;
   slug: string;
   logo_url: string | null;
 };
 
-export type PostRow = {
+type PostRow = {
   id: string;
   user_id: string;
   body: string;
   created_at: string | null;
   image_url: string | null;
+  org_id: string | null;
 };
 
-export type CommentRow = {
+type CommentRow = {
   id: string;
   post_id: string;
   user_id: string;
@@ -33,49 +39,41 @@ export type CommentRow = {
   created_at: string | null;
 };
 
-export type PostVM = {
+type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
-  // when present, card will show org as the main actor
   org?: FeedOrg | null;
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
 };
 
-type SupaUser = { id: string } | null;
-
-type Props = {
+type FeedCardsProps = {
   items: PostVM[];
-  user: SupaUser;
+  user: any;
 
   openComments: Record<string, boolean>;
-  setOpenComments: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >;
+  setOpenComments: Dispatch<SetStateAction<Record<string, boolean>>>;
 
   commentsByPost: Record<string, CommentRow[]>;
   commenterProfiles: Record<string, FeedProfile>;
 
   commentDraft: Record<string, string>;
-  setCommentDraft: React.Dispatch<
-    React.SetStateAction<Record<string, string>>
-  >;
+  setCommentDraft: Dispatch<SetStateAction<Record<string, string>>>;
 
   commentSaving: Record<string, boolean>;
 
   onToggleLike: (postId: string) => void;
-  onLoadComments: (postId: string) => Promise<void> | void;
-  onSubmitComment: (postId: string) => Promise<void> | void;
+  onLoadComments: (postId: string) => Promise<void>;
+  onSubmitComment: (postId: string) => Promise<void>;
 
   formatRelativeTime: (created_at: string | null) => string;
   formatSubtitle: (p?: FeedProfile | null) => string;
   initialsOf: (name: string | null | undefined) => string;
-  avatarStyle: (size?: number) => React.CSSProperties;
-
+  avatarStyle: (size?: number) => CSSProperties;
   LinkifyText: React.ComponentType<{ text: string }>;
 
-  postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+  postRefs: MutableRefObject<Record<string, HTMLDivElement | null>>;
 };
 
 export default function FeedCards({
@@ -97,99 +95,116 @@ export default function FeedCards({
   avatarStyle,
   LinkifyText,
   postRefs,
-}: Props) {
-  const cardStyle: React.CSSProperties = {
-    borderRadius: 18,
-    border: "1px solid rgba(148,163,184,0.18)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
-    boxShadow: "0 18px 40px rgba(15,23,42,0.35)",
-    padding: 14,
-    marginBottom: 12,
+}: FeedCardsProps) {
+  const handleToggleComments = async (postId: string) => {
+    const isOpen = !!openComments[postId];
+    if (!isOpen && !commentsByPost[postId]) {
+      // opening for the first time, load comments
+      await onLoadComments(postId);
+    }
+    setOpenComments((prev) => ({ ...prev, [postId]: !isOpen }));
   };
 
-  const pillBtn: React.CSSProperties = {
-    fontSize: 13,
-    padding: "6px 10px",
+  const likeBtnStyle: CSSProperties = {
+    padding: "5px 10px",
     borderRadius: 999,
     border: "1px solid rgba(148,163,184,0.28)",
-    background: "rgba(2,6,23,0.22)",
-    color: "rgba(226,232,240,0.92)",
+    background: "rgba(15,23,42,0.75)",
+    color: "rgba(226,232,240,0.95)",
+    fontSize: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
     cursor: "pointer",
-    userSelect: "none",
   };
 
-  const subtle: React.CSSProperties = { opacity: 0.78, fontSize: 12 };
+  const countBubbleStyle: CSSProperties = {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.45)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 11,
+    padding: "0 5px",
+  };
+
+  const cardStyle: CSSProperties = {
+    borderRadius: 22,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background:
+      "radial-gradient(circle at top left, rgba(56,189,248,0.08), transparent 55%), rgba(15,23,42,0.96)",
+    padding: 14,
+    marginBottom: 10,
+  };
+
+  const commentAvatarSize = 26;
 
   return (
     <div>
-      {items.map((vm) => {
-        const p = vm.post;
-        const author = vm.author;
-        const org = vm.org ?? null;
-        const isOpen = !!openComments[p.id];
-        const comments = commentsByPost[p.id] || [];
+      {items.map((item) => {
+        const { post, author, org, likeCount, commentCount, likedByMe } = item;
 
-        // Who is the main actor? org if present, else profile
-        const actorName = org?.name || author?.full_name || "Quantum member";
-        const actorHref = org
-          ? `/orgs/${org.slug}`
-          : author?.id
-          ? `/profile/${author.id}`
-          : undefined;
+        // === DISPLAY CONTEXT (org vs user) ===
+        const displayName =
+          (org && org.name) || author?.full_name || "Quantum member";
+
         const avatarSrc = org?.logo_url || author?.avatar_url || null;
 
+        const avatarInitials = initialsOf(
+          org?.name || author?.full_name || null
+        );
+
+        const headerHref =
+          org && org.slug
+            ? `/orgs/${org.slug}`
+            : author
+            ? `/profile/${author.id}`
+            : "/community";
+
+        // subtitle line under title
         const subtitle = org
-          ? [
-              author?.full_name
-                ? `Posted by ${author.full_name}`
-                : "Posted by member",
-              formatSubtitle(author),
-            ]
-              .filter(Boolean)
-              .join(" · ")
+          ? author
+            ? (() => {
+                const base =
+                  author.full_name && author.full_name.length > 0
+                    ? author.full_name
+                    : "Member";
+                const meta = formatSubtitle(author);
+                return meta ? `Posted by ${base} · ${meta}` : `Posted by ${base}`;
+              })()
+            : ""
           : formatSubtitle(author);
 
-        const initials = initialsOf(actorName);
+        const commentsOpen = !!openComments[post.id];
+        const comments = commentsByPost[post.id] || [];
+        const draft = commentDraft[post.id] || "";
+        const saving = !!commentSaving[post.id];
 
         return (
           <div
-            key={p.id}
-            ref={(el) => {
-              postRefs.current[p.id] = el;
-            }}
+            key={post.id}
             style={cardStyle}
+            ref={(el) => {
+              postRefs.current[post.id] = el;
+            }}
           >
-            {/* Header */}
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              {actorHref ? (
-                <Link
-                  href={actorHref}
-                  style={{ textDecoration: "none", cursor: "pointer" }}
-                >
-                  <div style={avatarStyle(38)}>
-                    {avatarSrc ? (
-                      <img
-                        src={avatarSrc}
-                        alt={actorName}
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                          display: "block",
-                        }}
-                      />
-                    ) : (
-                      initials
-                    )}
-                  </div>
-                </Link>
-              ) : (
-                <div style={avatarStyle(38)}>
+            {/* HEADER ROW */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                marginBottom: 6,
+              }}
+            >
+              <Link href={headerHref} style={{ textDecoration: "none" }}>
+                <div style={avatarStyle(40)}>
                   {avatarSrc ? (
                     <img
                       src={avatarSrc}
-                      alt={actorName}
+                      alt={displayName}
                       style={{
                         width: "100%",
                         height: "100%",
@@ -198,77 +213,83 @@ export default function FeedCards({
                       }}
                     />
                   ) : (
-                    initials
+                    avatarInitials
                   )}
                 </div>
-              )}
+              </Link>
 
-              <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     display: "flex",
-                    gap: 10,
                     alignItems: "baseline",
+                    gap: 6,
                     flexWrap: "wrap",
                   }}
                 >
-                  <div
+                  <Link
+                    href={headerHref}
                     style={{
+                      textDecoration: "none",
+                      color: "rgba(241,245,249,0.98)",
                       fontWeight: 800,
                       fontSize: 14,
-                      lineHeight: 1.2,
                     }}
                   >
-                    {actorHref ? (
-                      <Link
-                        href={actorHref}
-                        style={{
-                          textDecoration: "none",
-                          color: "inherit",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {actorName}
-                      </Link>
-                    ) : (
-                      actorName
-                    )}
-                  </div>
-                  <div style={subtle}>{formatRelativeTime(p.created_at)}</div>
+                    {displayName}
+                  </Link>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.7,
+                    }}
+                  >
+                    {formatRelativeTime(post.created_at)}
+                  </span>
                 </div>
-                <div style={{ ...subtle, marginTop: 2 }}>{subtitle}</div>
+
+                {subtitle && (
+                  <div
+                    style={{
+                      marginTop: 2,
+                      fontSize: 12,
+                      opacity: 0.78,
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {subtitle}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Body */}
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 14,
-                lineHeight: 1.45,
-                color: "rgba(226,232,240,0.92)",
-              }}
-            >
-              <LinkifyText text={p.body || ""} />
-            </div>
-
-            {/* Image */}
-            {p.image_url && (
+            {/* BODY */}
+            {post.body && (
               <div
                 style={{
-                  marginTop: 10,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  background: "rgba(2,6,23,0.22)",
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  color: "rgba(226,232,240,0.96)",
+                  marginTop: 4,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
                 }}
               >
+                <LinkifyText text={post.body} />
+              </div>
+            )}
+
+            {post.image_url && (
+              <div style={{ marginTop: 10 }}>
                 <img
-                  src={p.image_url}
+                  src={post.image_url}
                   alt="Post media"
                   style={{
                     width: "100%",
-                    maxHeight: 520,
+                    borderRadius: 16,
+                    maxHeight: 420,
                     objectFit: "cover",
                     display: "block",
                   }}
@@ -276,203 +297,242 @@ export default function FeedCards({
               </div>
             )}
 
-            {/* Actions */}
+            {/* ACTIONS */}
             <div
               style={{
                 display: "flex",
-                gap: 10,
+                justifyContent: "space-between",
                 alignItems: "center",
-                marginTop: 12,
-                flexWrap: "wrap",
+                gap: 8,
+                marginTop: 10,
               }}
             >
-              <button
-                type="button"
-                style={{
-                  ...pillBtn,
-                  borderColor: vm.likedByMe
-                    ? "rgba(34,211,238,0.55)"
-                    : "rgba(148,163,184,0.28)",
-                  background: vm.likedByMe
-                    ? "rgba(34,211,238,0.12)"
-                    : "rgba(2,6,23,0.22)",
-                }}
-                onClick={() => onToggleLike(p.id)}
-              >
-                {vm.likedByMe ? "♥" : "♡"} {vm.likeCount}
-              </button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => onToggleLike(post.id)}
+                  style={{
+                    ...likeBtnStyle,
+                    borderColor: likedByMe
+                      ? "rgba(56,189,248,0.9)"
+                      : likeBtnStyle.border,
+                    background: likedByMe
+                      ? "rgba(56,189,248,0.12)"
+                      : likeBtnStyle.background,
+                  }}
+                >
+                  <span aria-hidden="true">♡</span>
+                  <span style={countBubbleStyle}>{likeCount}</span>
+                </button>
 
-              <button
-                type="button"
-                style={pillBtn}
-                onClick={async () => {
-                  const next = !isOpen;
-                  setOpenComments((prev) => ({ ...prev, [p.id]: next }));
-                  if (next && !commentsByPost[p.id]) {
-                    await onLoadComments(p.id);
-                  }
-                }}
-              >
-                💬 {vm.commentCount}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleComments(post.id)}
+                  style={likeBtnStyle}
+                >
+                  <span aria-hidden="true">💬</span>
+                  <span style={countBubbleStyle}>{commentCount}</span>
+                </button>
+              </div>
             </div>
 
-            {/* Comments */}
-            {isOpen && (
+            {/* COMMENTS */}
+            {commentsOpen && (
               <div
                 style={{
-                  marginTop: 12,
-                  paddingTop: 12,
-                  borderTop: "1px solid rgba(148,163,184,0.14)",
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid rgba(148,163,184,0.25)",
                 }}
               >
-                {/* Comment input */}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div style={avatarStyle(32)}>{user ? "🙂" : "?"}</div>
+                {comments.length === 0 && (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.7,
+                      marginBottom: 6,
+                    }}
+                  >
+                    No comments yet. Start the discussion.
+                  </div>
+                )}
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <textarea
-                      value={commentDraft[p.id] || ""}
-                      onChange={(e) =>
-                        setCommentDraft((prev) => ({
-                          ...prev,
-                          [p.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={
-                        user ? "Write a comment…" : "Login to comment…"
-                      }
-                      disabled={!user || !!commentSaving[p.id]}
-                      style={{
-                        width: "100%",
-                        minHeight: 46,
-                        borderRadius: 14,
-                        border: "1px solid rgba(148,163,184,0.2)",
-                        background: "rgba(2,6,23,0.22)",
-                        color: "rgba(226,232,240,0.92)",
-                        padding: "10px 12px",
-                        fontSize: 13,
-                        outline: "none",
-                        resize: "vertical",
-                      }}
-                    />
+                {comments.map((c) => {
+                  const prof = commenterProfiles[c.user_id];
+                  const commenterName =
+                    prof?.full_name || "Member";
+                  const commenterHref = prof
+                    ? `/profile/${prof.id}`
+                    : "/community";
+                  const cAvatarSrc = prof?.avatar_url || null;
+                  const cInitials = initialsOf(commenterName);
 
+                  return (
                     <div
+                      key={c.id}
                       style={{
                         display: "flex",
-                        justifyContent: "flex-end",
-                        marginTop: 8,
+                        gap: 8,
+                        marginTop: 6,
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={() => onSubmitComment(p.id)}
-                        disabled={
-                          !user ||
-                          !!commentSaving[p.id] ||
-                          !(commentDraft[p.id] || "").trim()
-                        }
+                      <Link
+                        href={commenterHref}
+                        style={{ textDecoration: "none" }}
+                      >
+                        <div style={avatarStyle(commentAvatarSize)}>
+                          {cAvatarSrc ? (
+                            <img
+                              src={cAvatarSrc}
+                              alt={commenterName}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                                display: "block",
+                              }}
+                            />
+                          ) : (
+                            cInitials
+                          )}
+                        </div>
+                      </Link>
+
+                      <div
                         style={{
+                          flex: 1,
+                          minWidth: 0,
                           fontSize: 13,
-                          padding: "7px 12px",
-                          borderRadius: 999,
-                          border: "1px solid rgba(148,163,184,0.28)",
-                          background: "rgba(2,6,23,0.22)",
-                          color: "rgba(226,232,240,0.92)",
-                          cursor: "pointer",
-                          opacity:
-                            !user ||
-                            !!commentSaving[p.id] ||
-                            !(commentDraft[p.id] || "").trim()
-                              ? 0.5
-                              : 1,
+                          lineHeight: 1.4,
+                          color: "rgba(226,232,240,0.96)",
                         }}
                       >
-                        {commentSaving[p.id] ? "Posting…" : "Comment"}
-                      </button>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "baseline",
+                            gap: 6,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <Link
+                            href={commenterHref}
+                            style={{
+                              textDecoration: "none",
+                              color: "rgba(241,245,249,0.98)",
+                              fontWeight: 700,
+                              fontSize: 12,
+                            }}
+                          >
+                            {commenterName}
+                          </Link>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              opacity: 0.65,
+                            }}
+                          >
+                            {formatRelativeTime(c.created_at)}
+                          </span>
+                        </div>
+
+                        <div style={{ marginTop: 2 }}>
+                          <LinkifyText text={c.body} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* COMMENT INPUT */}
+                {user && (
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginTop: 10,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div style={avatarStyle(commentAvatarSize)}>
+                      {user.user_metadata?.avatar_url ? (
+                        <img
+                          src={user.user_metadata.avatar_url}
+                          alt="You"
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        initialsOf(
+                          user.user_metadata?.full_name ||
+                            user.email ||
+                            "You"
+                        )
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      <textarea
+                        value={draft}
+                        onChange={(e) =>
+                          setCommentDraft((prev) => ({
+                            ...prev,
+                            [post.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Write a comment…"
+                        style={{
+                          width: "100%",
+                          minHeight: 60,
+                          borderRadius: 14,
+                          border: "1px solid rgba(148,163,184,0.3)",
+                          background: "rgba(15,23,42,0.9)",
+                          color: "rgba(226,232,240,0.96)",
+                          padding: 8,
+                          fontSize: 13,
+                          resize: "vertical",
+                          outline: "none",
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          marginTop: 6,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          disabled={saving || !draft.trim()}
+                          onClick={() => onSubmitComment(post.id)}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 999,
+                            border: "none",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor:
+                              saving || !draft.trim()
+                                ? "default"
+                                : "pointer",
+                            opacity:
+                              saving || !draft.trim() ? 0.55 : 1,
+                            background:
+                              "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                            color: "#0f172a",
+                          }}
+                        >
+                          {saving ? "Posting…" : "Comment"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Comments list */}
-                <div
-                  style={{
-                    marginTop: 12,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}
-                >
-                  {comments.length === 0 ? (
-                    <div style={{ opacity: 0.7, fontSize: 12 }}>
-                      No comments yet.
-                    </div>
-                  ) : (
-                    comments.map((c) => {
-                      const cp = commenterProfiles[c.user_id];
-                      const name = cp?.full_name || "Member";
-                      return (
-                        <div key={c.id} style={{ display: "flex", gap: 10 }}>
-                          <div style={avatarStyle(30)}>
-                            {cp?.avatar_url ? (
-                              <img
-                                src={cp.avatar_url}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                              />
-                            ) : (
-                              initialsOf(name)
-                            )}
-                          </div>
-
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 10,
-                                alignItems: "baseline",
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: 800,
-                                  fontSize: 13,
-                                }}
-                              >
-                                {name}
-                              </div>
-                              <div style={{ opacity: 0.7, fontSize: 12 }}>
-                                {formatRelativeTime(c.created_at)}
-                              </div>
-                            </div>
-                            <div
-                              style={{
-                                marginTop: 4,
-                                fontSize: 13,
-                                lineHeight: 1.4,
-                                opacity: 0.92,
-                              }}
-                            >
-                              <LinkifyText text={c.body || ""} />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                )}
               </div>
             )}
           </div>
