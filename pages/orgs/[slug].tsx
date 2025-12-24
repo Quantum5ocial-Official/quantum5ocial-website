@@ -1415,7 +1415,6 @@ const OrganizationDetailPage = () => {
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
-                          zIndex: isMenuOpen ? 40 : 1,
                           overflow: "visible", // so dropdown can extend outside
                         }}
                       >
