@@ -1,3 +1,4 @@
+// components/feed/FeedCards.tsx
 import React from "react";
 import Link from "next/link";
 
@@ -19,7 +20,6 @@ type FeedOrg = {
 type PostRow = {
   id: string;
   user_id: string;
-  org_id: string | null;
   body: string;
   created_at: string | null;
   image_url: string | null;
@@ -33,17 +33,10 @@ type CommentRow = {
   created_at: string | null;
 };
 
-type FeedOrg = {
-  id: string;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-};
-
 type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
-  // OPTIONAL so older code (no org) still compiles
+  // optional so old callers (no org) still work
   org?: FeedOrg | null;
   likeCount: number;
   commentCount: number;
@@ -127,29 +120,33 @@ export default function FeedCards({
   return (
     <div>
       {items.map((vm) => {
-  const p = vm.post;
-  const author = vm.author;
-  const org = vm.org ?? null;          // <— safe even if undefined
-  const isOpen = !!openComments[p.id];
-  const comments = commentsByPost[p.id] || [];
+        const p = vm.post;
+        const author = vm.author;
+        const org = vm.org ?? null;
+        const isOpen = !!openComments[p.id];
+        const comments = commentsByPost[p.id] || [];
 
-  const profileHref = author?.id ? `/profile/${author.id}` : undefined;
-  const orgHref = org ? `/orgs/${org.slug}` : undefined;
+        // figure out who the "actor" is: org if present, else person
+        const actorName = org?.name || author?.full_name || "Quantum member";
+        const actorHref = org
+          ? `/orgs/${org.slug}`
+          : author?.id
+          ? `/profile/${author.id}`
+          : undefined;
+        const avatarSrc = org?.logo_url || author?.avatar_url || null;
 
-  const actorName = org?.name || author?.full_name || "Quantum member";
-  const avatarSrc = org?.logo_url || author?.avatar_url || null;
-  const actorHref = org ? orgHref : profileHref;
+        const subtitle = org
+          ? [
+              author?.full_name
+                ? `Posted by ${author.full_name}`
+                : "Posted by member",
+              formatSubtitle(author),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : formatSubtitle(author);
 
-  const subtitle = org
-    ? [
-        author?.full_name ? `Posted by ${author.full_name}` : "Posted by member",
-        formatSubtitle(author),
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : formatSubtitle(author);
-
-  const initials = initialsOf(actorName);
+        const initials = initialsOf(actorName);
 
         return (
           <div
@@ -184,7 +181,22 @@ export default function FeedCards({
                   </div>
                 </Link>
               ) : (
-                <div style={avatarStyle(38)}>{initials}</div>
+                <div style={avatarStyle(38)}>
+                  {avatarSrc ? (
+                    <img
+                      src={avatarSrc}
+                      alt={actorName}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    initials
+                  )}
+                </div>
               )}
 
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -220,9 +232,7 @@ export default function FeedCards({
                   </div>
                   <div style={subtle}>{formatRelativeTime(p.created_at)}</div>
                 </div>
-                <div style={{ ...subtle, marginTop: 2 }}>
-                  {subtitle || "Quantum5ocial member"}
-                </div>
+                <div style={{ ...subtle, marginTop: 2 }}>{subtitle}</div>
               </div>
             </div>
 
@@ -303,7 +313,7 @@ export default function FeedCards({
               </button>
             </div>
 
-            {/* Comments unchanged */}
+            {/* Comments */}
             {isOpen && (
               <div
                 style={{
@@ -314,7 +324,11 @@ export default function FeedCards({
               >
                 {/* Comment input */}
                 <div
-                  style={{ display: "flex", gap: 10, alignItems: "flex-start" }}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "flex-start",
+                  }}
                 >
                   <div style={avatarStyle(32)}>{user ? "🙂" : "?"}</div>
 
@@ -428,11 +442,16 @@ export default function FeedCards({
                               }}
                             >
                               <div
-                                style={{ fontWeight: 800, fontSize: 13 }}
+                                style={{
+                                  fontWeight: 800,
+                                  fontSize: 13,
+                                }}
                               >
                                 {name}
                               </div>
-                              <div style={{ opacity: 0.7, fontSize: 12 }}>
+                              <div
+                                style={{ opacity: 0.7, fontSize: 12 }}
+                              >
                                 {formatRelativeTime(c.created_at)}
                               </div>
                             </div>
