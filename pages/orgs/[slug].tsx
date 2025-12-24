@@ -1417,8 +1417,7 @@ const OrganizationDetailPage = () => {
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
-                          zIndex: isMenuOpen ? 40 : 1,
-                          overflow: "visible", // 🔧 allow dropdown to float outside tile
+                          overflow: "visible", // let dropdown escape tile
                         }}
                       >
                         <div
