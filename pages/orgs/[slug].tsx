@@ -1,6 +1,7 @@
 // pages/orgs/[slug].tsx
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import type React from "react";
+import type { CSSProperties } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
@@ -67,6 +68,899 @@ type SearchProfile = {
 };
 
 type MenuPosition = { top: number; left: number } | null;
+
+const POSTS_BUCKET = "post-images";
+
+/* =========================
+   SHARED MINI COMPONENTS
+   ========================= */
+
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+    return;
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+function MiniIcon({ path }: { path: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path
+        d={path}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  title,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={title || label}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "8px 10px",
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(2,6,23,0.22)",
+        color: "rgba(226,232,240,0.92)",
+        fontSize: 13,
+        cursor: "pointer",
+      }}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+    >
+      <span style={{ display: "inline-flex", alignItems: "center" }}>{icon}</span>
+      <span style={{ opacity: 0.95 }}>{label}</span>
+    </button>
+  );
+}
+
+/* =========================
+   ORG COMPOSER (POST + ASK)
+   ========================= */
+
+function OrgComposerStrip({
+  org,
+  canPostAsOrg,
+}: {
+  org: Org;
+  canPostAsOrg: boolean;
+}) {
+  const router = useRouter();
+  const { user } = useSupabaseUser();
+  const isMobile = useIsMobile(520);
+
+  // Only render for people allowed to act as org
+  if (!canPostAsOrg) return null;
+
+  const [mode, setMode] = useState<"post" | "ask">("post");
+  const [open, setOpen] = useState(false);
+
+  const [postText, setPostText] = useState("");
+  const [postSaving, setPostSaving] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
+  const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(null);
+
+  const [askTitle, setAskTitle] = useState("");
+  const [askBody, setAskBody] = useState("");
+  const [askType, setAskType] = useState<"concept" | "experiment" | "career">("concept");
+  const [askSaving, setAskSaving] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+
+  const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5 MB
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
+    };
+  }, [postPhotoPreview]);
+
+  const isAuthed = !!user;
+
+  const orgName = org.name || "Organization";
+  const orgShortName = (orgName.split(" ")[0] || orgName).trim();
+  const initials =
+    orgName
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "Q";
+
+  const avatarNode = (
+    <div
+      style={{
+        width: isMobile ? 36 : 40,
+        height: isMobile ? 36 : 40,
+        borderRadius: 999,
+        overflow: "hidden",
+        flexShrink: 0,
+        border: "1px solid rgba(148,163,184,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+        color: "#0f172a",
+        fontWeight: 800,
+        letterSpacing: 0.5,
+      }}
+      aria-label={orgName}
+      title={orgName}
+    >
+      {org.logo_url ? (
+        <img
+          src={org.logo_url}
+          alt={orgName}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+
+  const shellStyle: CSSProperties = {
+    borderRadius: 18,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
+    boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
+    padding: isMobile ? 12 : 14,
+  };
+
+  const collapsedInputStyle: CSSProperties = {
+    height: isMobile ? 40 : 42,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "rgba(2,6,23,0.35)",
+    color: "rgba(226,232,240,0.92)",
+    padding: "0 14px",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    cursor: "pointer",
+    userSelect: "none",
+    minWidth: 0,
+  };
+
+  const toggleBtn = (active: boolean): CSSProperties => ({
+    padding: isMobile ? "7px 10px" : "7px 11px",
+    borderRadius: 999,
+    border: "none",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    background: active ? "linear-gradient(135deg,#3bc7f3,#8468ff)" : "transparent",
+    color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
+    whiteSpace: "nowrap",
+  });
+
+  const modalCard: CSSProperties = {
+    width: "min(740px, 100%)",
+    borderRadius: isMobile ? "18px 18px 0 0" : 18,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+    boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+    overflow: "hidden",
+    maxHeight: isMobile ? "86vh" : undefined,
+  };
+
+  const modalHeader: CSSProperties = {
+    padding: "14px 16px",
+    borderBottom: "1px solid rgba(148,163,184,0.14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  };
+
+  const closeBtn: CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(2,6,23,0.2)",
+    color: "rgba(226,232,240,0.92)",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  };
+
+  const modalBody: CSSProperties = {
+    padding: 16,
+    overflowY: isMobile ? "auto" : undefined,
+  };
+
+  const bigTextarea: CSSProperties = {
+    width: "100%",
+    minHeight: isMobile ? 140 : 160,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: 14,
+    fontSize: 15,
+    lineHeight: 1.45,
+    outline: "none",
+    resize: "vertical",
+  };
+
+  const smallInput: CSSProperties = {
+    width: "100%",
+    height: 42,
+    borderRadius: 12,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: "0 12px",
+    fontSize: 14,
+    outline: "none",
+  };
+
+  const footerBar: CSSProperties = {
+    padding: "12px 16px",
+    borderTop: "1px solid rgba(148,163,184,0.14)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  };
+
+  const primaryBtn = (disabled?: boolean): CSSProperties => ({
+    padding: "9px 16px",
+    borderRadius: 999,
+    border: "none",
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: disabled ? "default" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+    background:
+      mode === "ask"
+        ? "linear-gradient(135deg,#a78bfa,#3bc7f3)"
+        : "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    color: "#0f172a",
+  });
+
+  const typeChip = (active: boolean): CSSProperties => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 10px",
+    borderRadius: 999,
+    border: active
+      ? "1px solid rgba(59,199,243,0.55)"
+      : "1px solid rgba(148,163,184,0.18)",
+    background: active ? "rgba(59,199,243,0.12)" : "rgba(2,6,23,0.2)",
+    color: "rgba(226,232,240,0.92)",
+    fontSize: 13,
+    cursor: "pointer",
+    userSelect: "none",
+    whiteSpace: "nowrap",
+  });
+
+  const openComposer = () => {
+    if (!isAuthed) {
+      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      return;
+    }
+    setAskError(null);
+    setPostError(null);
+    setMediaError(null);
+    setOpen(true);
+  };
+
+  const closeComposer = () => {
+    setMediaError(null);
+    setOpen(false);
+  };
+
+  const collapsedPlaceholder =
+    mode === "post"
+      ? isMobile
+        ? `Share an update as ${orgShortName}…`
+        : `Share an update as ${orgName}…`
+      : isMobile
+      ? "Ask the community…"
+      : "Ask the quantum community…";
+
+  const canSubmit =
+    mode === "post"
+      ? !!postText.trim() && !postSaving
+      : !!askTitle.trim() && !!askBody.trim() && !askSaving;
+
+  const pickPhoto = () => {
+    if (!isAuthed) {
+      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const onPhotoSelected = (file: File | null) => {
+    setMediaError(null);
+
+    if (postPhotoPreview?.startsWith("blob:")) URL.revokeObjectURL(postPhotoPreview);
+
+    if (!file) {
+      setPostPhotoFile(null);
+      setPostPhotoPreview(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setMediaError("Only image files are allowed (video coming later).");
+      setPostPhotoFile(null);
+      setPostPhotoPreview(null);
+      return;
+    }
+
+    if (file.size > MAX_MEDIA_SIZE) {
+      setMediaError("Media must be smaller than 5 MB.");
+      setPostPhotoFile(null);
+      setPostPhotoPreview(null);
+      return;
+    }
+
+    setPostPhotoFile(file);
+    setPostPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const clearPhoto = () => {
+    setMediaError(null);
+    onPhotoSelected(null);
+  };
+
+  const uploadPostPhotoIfAny = async (): Promise<string | null> => {
+    if (!user) return null;
+    if (!postPhotoFile) return null;
+
+    if (!postPhotoFile.type.startsWith("image/")) {
+      throw new Error("Please choose an image file.");
+    }
+
+    if (postPhotoFile.size > MAX_MEDIA_SIZE) {
+      throw new Error("Media must be smaller than 5 MB.");
+    }
+
+    const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
+    const path = `posts/${user.id}/${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from(POSTS_BUCKET)
+      .upload(path, postPhotoFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: postPhotoFile.type,
+      });
+
+    if (upErr) throw upErr;
+
+    const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
+    return data?.publicUrl || null;
+  };
+
+  const submitPost = async () => {
+    if (!user) {
+      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      return;
+    }
+
+    const body = postText.trim();
+    if (!body) return;
+
+    setPostSaving(true);
+    setPostError(null);
+
+    try {
+      const image_url = await uploadPostPhotoIfAny();
+
+      // ✅ Key difference from home: attach org_id
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        org_id: org.id,
+        body,
+        image_url: image_url ?? null,
+      });
+
+      if (error) throw error;
+
+      setPostText("");
+      clearPhoto();
+      closeComposer();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+    } catch (e: any) {
+      console.error("submitPost (org) error:", e);
+      setPostError(e?.message || "Could not create post.");
+    } finally {
+      setPostSaving(false);
+    }
+  };
+
+  const submitAskToQnA = async () => {
+    if (!user) {
+      window.location.href = `/auth?redirect=${encodeURIComponent(router.asPath)}`;
+      return;
+    }
+
+    const title = askTitle.trim();
+    const body = askBody.trim();
+    if (!title || !body) return;
+
+    setAskSaving(true);
+    setAskError(null);
+
+    try {
+      let insertedId: string | null = null;
+
+      const attempt1 = await supabase
+        .from("qna_questions")
+        .insert({
+          user_id: user.id,
+          title,
+          body,
+          tags: [askType],
+        })
+        .select("id")
+        .maybeSingle();
+
+      if (!attempt1.error) {
+        insertedId = (attempt1.data as any)?.id ?? null;
+      } else {
+        const attempt2 = await supabase
+          .from("qna_questions")
+          .insert({
+            user_id: user.id,
+            title,
+            body,
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (attempt2.error) {
+          const msg =
+            attempt2.error.message ||
+            attempt2.error.details ||
+            "Failed to post question";
+          throw new Error(msg);
+        }
+
+        insertedId = (attempt2.data as any)?.id ?? null;
+      }
+
+      setAskTitle("");
+      setAskBody("");
+      setAskType("concept");
+      closeComposer();
+
+      if (insertedId) {
+        router.push(`/qna?open=${insertedId}`);
+      } else {
+        router.push(`/qna`);
+      }
+    } catch (e: any) {
+      console.error("submitAskToQnA (org) error:", e);
+      setAskError(
+        e?.message ||
+          "Could not post your question. Check Supabase RLS/policies for qna_questions."
+      );
+    } finally {
+      setAskSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div style={shellStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {avatarNode}
+
+          <div
+            style={{ ...collapsedInputStyle, flex: "1 1 260px" }}
+            onClick={openComposer}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") openComposer();
+            }}
+          >
+            <span
+              style={{
+                opacity: 0.88,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {collapsedPlaceholder}
+            </span>
+            <span style={{ marginLeft: "auto", opacity: 0.7, fontSize: 12, flexShrink: 0 }}>
+              {mode === "post" ? "✨" : "❓"}
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: 4,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.18)",
+              background: "rgba(2,6,23,0.22)",
+              flex: "0 0 auto",
+              marginLeft: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              style={toggleBtn(mode === "post")}
+              onClick={() => setMode("post")}
+            >
+              Post
+            </button>
+            <button
+              type="button"
+              style={toggleBtn(mode === "ask")}
+              onClick={() => setMode("ask")}
+            >
+              Ask
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2,6,23,0.62)",
+            backdropFilter: "blur(8px)",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: isMobile ? "flex-end" : "center",
+            justifyContent: "center",
+            padding: isMobile ? 10 : 18,
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeComposer();
+          }}
+        >
+          <div style={modalCard}>
+            <div style={modalHeader}>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>
+                {mode === "post" ? "Create post as organization" : "Ask a question"}
+              </div>
+
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: 4,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(2,6,23,0.22)",
+                }}
+              >
+                <button
+                  type="button"
+                  style={toggleBtn(mode === "post")}
+                  onClick={() => setMode("post")}
+                >
+                  Post
+                </button>
+                <button
+                  type="button"
+                  style={toggleBtn(mode === "ask")}
+                  onClick={() => setMode("ask")}
+                >
+                  Ask
+                </button>
+              </div>
+
+              <button
+                type="button"
+                style={closeBtn}
+                onClick={closeComposer}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={modalBody}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                {avatarNode}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
+                    {orgName}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 2 }}>
+                    {mode === "post"
+                      ? "Public · Posting as organization"
+                      : "Public · Q&A"}
+                  </div>
+                </div>
+              </div>
+
+              {mode === "post" ? (
+                <>
+                  <textarea
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    placeholder={
+                      isMobile
+                        ? `Share an update as ${orgShortName}…`
+                        : `Share an update as ${orgName}…`
+                    }
+                    style={bigTextarea}
+                  />
+
+                  {postPhotoPreview && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        background: "rgba(2,6,23,0.22)",
+                        padding: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 800 }}>
+                          Photo attached
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearPhoto}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(248,113,113,0.35)",
+                            background: "rgba(248,113,113,0.10)",
+                            color: "rgba(254,226,226,0.95)",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            fontWeight: 800,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div style={{ marginTop: 8 }}>
+                        <img
+                          src={postPhotoPreview}
+                          alt="Preview"
+                          style={{
+                            width: "100%",
+                            maxHeight: 360,
+                            objectFit: "cover",
+                            borderRadius: 12,
+                            display: "block",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {mediaError && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.35)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,226,226,0.95)",
+                        fontSize: 13,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {mediaError}
+                    </div>
+                  )}
+
+                  {postError && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.35)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,226,226,0.95)",
+                        fontSize: 13,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {postError}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+                    <div
+                      style={typeChip(askType === "concept")}
+                      onClick={() => setAskType("concept")}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <MiniIcon path="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12c.6.6 1 1.4 1 2v1h6v-1c0-.6.4-1.4 1-2A7 7 0 0 0 12 2Z" />
+                      Concept
+                    </div>
+                    <div
+                      style={typeChip(askType === "experiment")}
+                      onClick={() => setAskType("experiment")}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <MiniIcon path="M10 2v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V2M8 8h8" />
+                      Experiment
+                    </div>
+                    <div
+                      style={typeChip(askType === "career")}
+                      onClick={() => setAskType("career")}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <MiniIcon path="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1m-9 4h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Zm0 0V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2" />
+                      Career
+                    </div>
+                  </div>
+
+                  <input
+                    value={askTitle}
+                    onChange={(e) => setAskTitle(e.target.value)}
+                    placeholder="Question title (be specific)"
+                    style={smallInput}
+                  />
+
+                  <div style={{ height: 10 }} />
+
+                  <textarea
+                    value={askBody}
+                    onChange={(e) => setAskBody(e.target.value)}
+                    placeholder="Add context, details, constraints, what you already tried…"
+                    style={{ ...bigTextarea, minHeight: isMobile ? 140 : 150 }}
+                  />
+
+                  {askError && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: "10px 12px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.35)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,226,226,0.95)",
+                        fontSize: 13,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {askError}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div style={footerBar}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                {mode === "post" ? (
+                  <ActionButton
+                    icon={
+                      <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
+                    }
+                    label="Media"
+                    onClick={pickPhoto}
+                  />
+                ) : (
+                  <>
+                    <ActionButton icon="❓" label="Add details" title="Add more context" />
+                    <ActionButton icon="🔗" label="Add link" title="Link to paper/code" />
+                    <ActionButton icon="🧪" label="Add tags" title="Tag it for discovery" />
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                style={primaryBtn(!canSubmit)}
+                disabled={!canSubmit}
+                onClick={() => {
+                  if (mode === "post") submitPost();
+                  else submitAskToQnA();
+                }}
+              >
+                {mode === "post"
+                  ? postSaving
+                    ? "Posting…"
+                    : "Post"
+                  : askSaving
+                  ? "Asking…"
+                  : "Ask"}
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null;
+                onPhotoSelected(f);
+                e.currentTarget.value = "";
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* =========================
+   MAIN ORG PAGE
+   ========================= */
 
 const OrganizationDetailPage = () => {
   const router = useRouter();
@@ -310,6 +1204,17 @@ const OrganizationDetailPage = () => {
       canManageMembers: canManage,
       canRemoveOthers: canRemove,
     };
+  }, [user, org, memberRole]);
+
+  // ✅ Who is allowed to post as the org
+  const canPostAsOrg = useMemo(() => {
+    if (!user || !org) return false;
+    const isCreator = org.created_by === user.id;
+    const privileged =
+      memberRole === "owner" ||
+      memberRole === "co_owner" ||
+      memberRole === "admin";
+    return isCreator || privileged;
   }, [user, org, memberRole]);
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
@@ -1703,6 +2608,11 @@ const OrganizationDetailPage = () => {
                   })}
                 </div>
               )}
+            </div>
+
+            {/* ✅ ORG COMPOSER: after Team & before Followers */}
+            <div style={{ marginTop: 24, marginBottom: 4 }}>
+              <OrgComposerStrip org={org} canPostAsOrg={canPostAsOrg} />
             </div>
 
             {/* Followers */}
