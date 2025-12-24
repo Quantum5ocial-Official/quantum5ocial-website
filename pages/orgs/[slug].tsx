@@ -281,7 +281,7 @@ const OrganizationDetailPage = () => {
     return org.created_by === user.id;
   }, [user, org, memberRole]);
 
-  // 🔧 allow owner, co-owner, and admin to remove members
+  // allow owner, co-owner, and admin to remove members
   const canRemoveOthers = useMemo(
     () =>
       memberRole === "owner" ||
@@ -1397,7 +1397,7 @@ const OrganizationDetailPage = () => {
                     const isMemberActionLoading = memberActionLoadingId === m.user_id;
                     const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
-                    // 🔧 show Remove for any non-owner when viewer has permission
+                    // show Remove for any non-owner when viewer has permission
                     const canShowRemove =
                       canRemoveOthers && m.role !== "owner";
 
@@ -1418,6 +1418,7 @@ const OrganizationDetailPage = () => {
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
                           zIndex: isMenuOpen ? 40 : 1,
+                          overflow: "visible", // 🔧 allow dropdown to float outside tile
                         }}
                       >
                         <div
@@ -1923,7 +1924,7 @@ const OrganizationDetailPage = () => {
   );
 };
 
-// ✅ AppLayout: left-only global sidebar, no right sidebar
+// AppLayout: left-only global sidebar, no right sidebar
 (OrganizationDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
