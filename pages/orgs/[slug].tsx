@@ -281,8 +281,12 @@ const OrganizationDetailPage = () => {
     return org.created_by === user.id;
   }, [user, org, memberRole]);
 
+  // 🔧 allow owner, co-owner, and admin to remove members
   const canRemoveOthers = useMemo(
-    () => memberRole === "owner" || memberRole === "co_owner",
+    () =>
+      memberRole === "owner" ||
+      memberRole === "co_owner" ||
+      memberRole === "admin",
     [memberRole]
   );
 
@@ -604,7 +608,7 @@ const OrganizationDetailPage = () => {
     }
   };
 
-  // === OWNER / CO-OWNER: REMOVE MEMBER ===
+  // === OWNER / CO-OWNER / ADMIN: REMOVE MEMBER ===
   const handleRemoveMember = async (
     memberUserId: string,
     e: React.MouseEvent
@@ -1393,9 +1397,9 @@ const OrganizationDetailPage = () => {
                     const isMemberActionLoading = memberActionLoadingId === m.user_id;
                     const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
-                    // owner / co-owner can remove others, but never the owner row
+                    // 🔧 show Remove for any non-owner when viewer has permission
                     const canShowRemove =
-                      canRemoveOthers && m.role !== "owner" && (!isCurrentUser || memberRole === "owner");
+                      canRemoveOthers && m.role !== "owner";
 
                     return (
                       <button
@@ -1413,8 +1417,6 @@ const OrganizationDetailPage = () => {
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
-                          // ⬇️ raise the card when its menu is open so the dropdown
-                          // draws above neighbouring tiles
                           zIndex: isMenuOpen ? 40 : 1,
                         }}
                       >
@@ -1548,7 +1550,6 @@ const OrganizationDetailPage = () => {
                                     position: "absolute",
                                     top: 26,
                                     right: 0,
-                                    // ⬇️ ensure dropdown is above everything around it
                                     zIndex: 50,
                                     borderRadius: 10,
                                     border: "1px solid rgba(30,64,175,0.9)",
