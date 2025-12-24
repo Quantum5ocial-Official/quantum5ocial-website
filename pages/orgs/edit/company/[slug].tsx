@@ -37,6 +37,10 @@ type OrgRow = {
   logo_url: string | null;
 };
 
+type OrgMemberRow = {
+  role: "owner" | "co_owner" | "admin" | "member";
+};
+
 export default function EditCompanyPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -62,6 +66,8 @@ export default function EditCompanyPage() {
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [canEditOrg, setCanEditOrg] = useState(false);
+
   const slugify = (value: string) =>
     value
       .toLowerCase()
@@ -76,13 +82,14 @@ export default function EditCompanyPage() {
     }
   }, [loading, user, router]);
 
-  // Load existing organization
+  // Load existing organization + check permissions (creator OR owner/co-owner)
   useEffect(() => {
     if (!user || !slugFromUrl) return;
 
     const loadOrg = async () => {
       setLoadingOrg(true);
       setSubmitError(null);
+      setCanEditOrg(false);
 
       const { data, error } = await supabase
         .from("organizations")
@@ -100,12 +107,34 @@ export default function EditCompanyPage() {
         return;
       }
 
-      // Permission check
-      if (data.created_by !== user.id) {
+      const isCreator = data.created_by === user.id;
+
+      let role: OrgMemberRow["role"] | null = null;
+
+      if (!isCreator) {
+        const { data: memberRow, error: memberError } = await supabase
+          .from("org_members")
+          .select("role")
+          .eq("org_id", data.id)
+          .eq("user_id", user.id)
+          .maybeSingle<OrgMemberRow>();
+
+        if (memberError) {
+          console.error("Error loading org membership", memberError);
+        }
+        role = memberRow?.role ?? null;
+      }
+
+      const isOwnerLike =
+        isCreator || role === "owner" || role === "co_owner";
+
+      if (!isOwnerLike) {
         setSubmitError("You are not allowed to edit this organization.");
         setLoadingOrg(false);
         return;
       }
+
+      setCanEditOrg(true);
 
       // Prefill form
       setOrgId(data.id);
@@ -152,6 +181,12 @@ export default function EditCompanyPage() {
       setSubmitError("Missing organization information.");
       return;
     }
+
+    if (!canEditOrg) {
+      setSubmitError("You are not allowed to edit this organization.");
+      return;
+    }
+
     if (!name.trim()) {
       setSubmitError("Please enter your organization name.");
       return;
@@ -193,7 +228,6 @@ export default function EditCompanyPage() {
           // logo_url will be wired later when upload is implemented
         })
         .eq("id", orgId)
-        .eq("created_by", user.id)
         .eq("kind", "company")
         .select("slug")
         .single();
@@ -328,7 +362,13 @@ export default function EditCompanyPage() {
                   }}
                 />
               </div>
-              <p style={{ marginTop: 4, fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
+              <p
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: "rgba(148,163,184,0.9)",
+                }}
+              >
                 This is the public URL of your company page.
               </p>
             </div>
@@ -396,7 +436,8 @@ export default function EditCompanyPage() {
                   htmlFor="org-size"
                   style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
-                  Organization size <span style={{ color: "#f97373" }}>*</span>
+                  Organization size{" "}
+                  <span style={{ color: "#f97373" }}>*</span>
                 </label>
                 <select
                   id="org-size"
@@ -427,7 +468,8 @@ export default function EditCompanyPage() {
                   htmlFor="org-type"
                   style={{ display: "block", fontSize: 14, marginBottom: 4 }}
                 >
-                  Organization type <span style={{ color: "#f97373" }}>*</span>
+                  Organization type{" "}
+                  <span style={{ color: "#f97373" }}>*</span>
                 </label>
                 <select
                   id="org-type"
@@ -457,7 +499,10 @@ export default function EditCompanyPage() {
 
             {/* Logo upload (UI only) */}
             <div>
-              <label htmlFor="org-logo" style={{ display: "block", fontSize: 14, marginBottom: 4 }}>
+              <label
+                htmlFor="org-logo"
+                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+              >
                 Logo
               </label>
               <div
@@ -476,7 +521,9 @@ export default function EditCompanyPage() {
               >
                 <div>
                   <div>Upload a square logo (300×300px recommended).</div>
-                  <div style={{ marginTop: 2, fontSize: 12 }}>JPG, JPEG or PNG.</div>
+                  <div style={{ marginTop: 2, fontSize: 12 }}>
+                    JPG, JPEG or PNG.
+                  </div>
                 </div>
                 <input
                   id="org-logo"
@@ -487,15 +534,25 @@ export default function EditCompanyPage() {
                 />
               </div>
               {logoFile && (
-                <div style={{ marginTop: 4, fontSize: 12, color: "rgba(148,163,184,0.95)" }}>
-                  Selected: {logoFile.name} (logo upload wiring will come later)
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 12,
+                    color: "rgba(148,163,184,0.95)",
+                  }}
+                >
+                  Selected: {logoFile.name} (logo upload wiring will come
+                  later)
                 </div>
               )}
             </div>
 
             {/* Tagline */}
             <div>
-              <label htmlFor="org-tagline" style={{ display: "block", fontSize: 14, marginBottom: 4 }}>
+              <label
+                htmlFor="org-tagline"
+                style={{ display: "block", fontSize: 14, marginBottom: 4 }}
+              >
                 Tagline
               </label>
               <textarea
@@ -517,7 +574,14 @@ export default function EditCompanyPage() {
             </div>
 
             {/* Authorization checkbox */}
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 4 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                marginTop: 4,
+              }}
+            >
               <input
                 id="org-authorized"
                 type="checkbox"
@@ -525,25 +589,39 @@ export default function EditCompanyPage() {
                 onChange={(e) => setAuthorizedCheckbox(e.target.checked)}
                 style={{ marginTop: 3 }}
               />
-              <label htmlFor="org-authorized" style={{ fontSize: 13, lineHeight: 1.4 }}>
-                I confirm that I am still authorized to manage this organization page.
+              <label
+                htmlFor="org-authorized"
+                style={{ fontSize: 13, lineHeight: 1.4 }}
+              >
+                I confirm that I am still authorized to manage this
+                organization page.
               </label>
             </div>
 
             {/* Messages */}
             {submitError && (
-              <div style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}>
+              <div
+                style={{ marginTop: 4, fontSize: 13, color: "#fecaca" }}
+              >
                 {submitError}
               </div>
             )}
             {submitMessage && (
-              <div style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}>
+              <div
+                style={{ marginTop: 4, fontSize: 13, color: "#bbf7d0" }}
+              >
                 {submitMessage}
               </div>
             )}
 
             {/* Submit */}
-            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+            <div
+              style={{
+                marginTop: 12,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
               <button
                 type="submit"
                 disabled={submitting}
