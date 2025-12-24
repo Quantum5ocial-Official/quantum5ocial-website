@@ -273,21 +273,18 @@ const OrganizationDetailPage = () => {
   }, [user, org]);
 
   // === PERMISSIONS ===
-
-  // treat owner / co-owner / admin OR org creator as "privileged"
-  const isPrivileged = useMemo(() => {
+  const canEdit = useMemo(() => {
     if (!user || !org) return false;
     if (memberRole === "owner" || memberRole === "co_owner" || memberRole === "admin")
       return true;
-    // legacy orgs without org_members row: creator is privileged
-    if (!memberRole && org.created_by === user.id) return true;
-    return false;
+    // Fallback for legacy orgs without org_members rows
+    return org.created_by === user.id;
   }, [user, org, memberRole]);
 
-  const canEdit = isPrivileged;
-
-  // we want owner / co-owner / admin / creator to be able to remove members
-  const canRemoveOthers = isPrivileged;
+  const canRemoveOthers = useMemo(
+    () => memberRole === "owner" || memberRole === "co_owner",
+    [memberRole]
+  );
 
   // === LOAD FULL TEAM / MEMBERS LIST ===
   useEffect(() => {
@@ -607,7 +604,7 @@ const OrganizationDetailPage = () => {
     }
   };
 
-  // === OWNER / CO-OWNER / ADMIN / CREATOR: REMOVE MEMBER ===
+  // === OWNER / CO-OWNER: REMOVE MEMBER ===
   const handleRemoveMember = async (
     memberUserId: string,
     e: React.MouseEvent
@@ -1396,9 +1393,6 @@ const OrganizationDetailPage = () => {
                     const isMemberActionLoading = memberActionLoadingId === m.user_id;
                     const isSelfAffLoading = selfAffLoadingId === m.user_id;
 
-                    const canShowRemove =
-                      canRemoveOthers && m.role !== "owner";
-
                     return (
                       <button
                         key={m.user_id}
@@ -1415,7 +1409,7 @@ const OrganizationDetailPage = () => {
                           cursor: profile ? "pointer" : "default",
                           background: "rgba(2,6,23,0.35)",
                           position: "relative",
-                          overflow: "visible", // so dropdown can extend outside
+                          overflow: "visible", // <== allow menu to extend, no card zIndex
                         }}
                       >
                         <div
@@ -1554,7 +1548,7 @@ const OrganizationDetailPage = () => {
                                     background:
                                       "linear-gradient(135deg,rgba(15,23,42,0.98),rgba(15,23,42,1))",
                                     boxShadow: "0 18px 40px rgba(15,23,42,0.9)",
-                                    minWidth: 170,
+                                    minWidth: 160,
                                     padding: 4,
                                   }}
                                   onClick={(e) => e.stopPropagation()}
@@ -1611,7 +1605,7 @@ const OrganizationDetailPage = () => {
                                       </button>
                                     )
                                   )}
-                                  {canShowRemove && (
+                                  {canRemoveOthers && (
                                     <div
                                       style={{
                                         borderTop: "1px solid rgba(30,64,175,0.6)",
