@@ -33,10 +33,18 @@ type CommentRow = {
   created_at: string | null;
 };
 
+type FeedOrg = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+};
+
 type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
-  org: FeedOrg | null;
+  // OPTIONAL so older code (no org) still compiles
+  org?: FeedOrg | null;
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
