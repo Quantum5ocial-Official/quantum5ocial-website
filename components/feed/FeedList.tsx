@@ -13,9 +13,17 @@ type FeedProfile = {
   affiliation?: string | null;
 };
 
+type FeedOrg = {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+};
+
 type PostRow = {
   id: string;
   user_id: string;
+  org_id: string | null;
   body: string;
   created_at: string | null;
   image_url: string | null;
@@ -34,6 +42,7 @@ type CommentRow = {
 type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
+  org: FeedOrg | null;
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
@@ -41,11 +50,13 @@ type PostVM = {
 
 export default function FeedList({
   filterUserId,
+  filterOrgId,
   limit = 30,
   hideCopyLink = false,
   imageFit = "cover",
 }: {
   filterUserId?: string | null;
+  filterOrgId?: string | null;
   limit?: number;
   hideCopyLink?: boolean;
   imageFit?: "cover" | "contain";
@@ -58,10 +69,13 @@ export default function FeedList({
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
+  const [commentsByPost, setCommentsByPost] =
+    useState<Record<string, CommentRow[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commentSaving, setCommentSaving] =
+    useState<Record<string, boolean>>();
+  const [commenterProfiles, setCommenterProfiles] =
+    useState<Record<string, FeedProfile>>({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -84,16 +98,20 @@ export default function FeedList({
     if (diffSec < 60) return `${diffSec} seconds ago`;
 
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    if (diffMin < 60)
+      return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
 
     const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    if (diffHr < 24)
+      return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
 
     const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+    if (diffDay < 7)
+      return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
 
     const diffWk = Math.floor(diffDay / 7);
-    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+    if (diffWk < 5)
+      return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
 
     const diffMo = Math.floor(diffDay / 30);
     return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
@@ -159,11 +177,12 @@ export default function FeedList({
     try {
       let q = supabase
         .from("posts")
-        .select("id, user_id, body, created_at, image_url")
+        .select("id, user_id, org_id, body, created_at, image_url")
         .order("created_at", { ascending: false })
         .limit(limit);
 
       if (filterUserId) q = q.eq("user_id", filterUserId);
+      if (filterOrgId) q = q.eq("org_id", filterOrgId);
 
       const { data: postRows, error: postErr } = await q;
       if (postErr) throw postErr;
@@ -171,7 +190,11 @@ export default function FeedList({
       const posts = (postRows || []) as PostRow[];
       const postIds = posts.map((p) => p.id);
       const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
+      const orgIds = Array.from(
+        new Set(posts.map((p) => p.org_id).filter(Boolean) as string[])
+      );
 
+      // Profiles
       let profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
@@ -180,10 +203,26 @@ export default function FeedList({
           .in("id", userIds);
 
         if (!profErr && profRows) {
-          (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
+          (profRows as FeedProfile[]).forEach((p) =>
+            profileMap.set(p.id, p)
+          );
         }
       }
 
+      // Orgs
+      let orgMap = new Map<string, FeedOrg>();
+      if (orgIds.length > 0) {
+        const { data: orgRows, error: orgErr } = await supabase
+          .from("organizations")
+          .select("id, name, slug, logo_url")
+          .in("id", orgIds);
+
+        if (!orgErr && orgRows) {
+          (orgRows as FeedOrg[]).forEach((o) => orgMap.set(o.id, o));
+        }
+      }
+
+      // Likes
       let likeRows: LikeRow[] = [];
       if (postIds.length > 0) {
         const { data: likes, error: likeErr } = await supabase
@@ -194,6 +233,7 @@ export default function FeedList({
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
+      // Comments (for counts)
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -207,18 +247,21 @@ export default function FeedList({
       const likeCountByPost: Record<string, number> = {};
       const likedByMeSet = new Set<string>();
       likeRows.forEach((r) => {
-        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
+        likeCountByPost[r.post_id] =
+          (likeCountByPost[r.post_id] || 0) + 1;
         if (uid && r.user_id === uid) likedByMeSet.add(r.post_id);
       });
 
       const commentCountByPost: Record<string, number> = {};
       commentRows.forEach((r) => {
-        commentCountByPost[r.post_id] = (commentCountByPost[r.post_id] || 0) + 1;
+        commentCountByPost[r.post_id] =
+          (commentCountByPost[r.post_id] || 0) + 1;
       });
 
       const vms: PostVM[] = posts.map((p) => ({
         post: p,
         author: profileMap.get(p.user_id) || null,
+        org: p.org_id ? orgMap.get(p.org_id) || null : null,
         likeCount: likeCountByPost[p.id] || 0,
         commentCount: commentCountByPost[p.id] || 0,
         likedByMe: likedByMeSet.has(p.id),
@@ -238,16 +281,17 @@ export default function FeedList({
     if (userLoading) return;
     loadFeed(user?.id ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLoading, user?.id, filterUserId, limit]);
+  }, [userLoading, user?.id, filterUserId, filterOrgId, limit]);
 
   // Optional refresh if composer dispatches event (homepage uses this)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onFeedChanged = () => loadFeed(user?.id ?? null);
     window.addEventListener("q5:feed-changed", onFeedChanged);
-    return () => window.removeEventListener("q5:feed-changed", onFeedChanged);
+    return () =>
+      window.removeEventListener("q5:feed-changed", onFeedChanged);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, filterUserId, limit]);
+  }, [user?.id, filterUserId, filterOrgId, limit]);
 
   // Deep-link open comments + scroll
   useEffect(() => {
@@ -258,7 +302,8 @@ export default function FeedList({
     setOpenComments((prev) => ({ ...prev, [postParam]: true }));
 
     const node = postRefs.current[postParam];
-    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (node)
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
 
     if (!commentsByPost[postParam]) void loadComments(postParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -300,7 +345,10 @@ export default function FeedList({
       await loadProfilesForUserIds(list.map((c) => c.user_id));
     } catch (e) {
       console.warn("loadComments error", e);
-      setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: prev[postId] || [],
+      }));
     }
   };
 
@@ -323,7 +371,10 @@ export default function FeedList({
           : {
               ...x,
               likedByMe: nextLiked,
-              likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
+              likeCount: Math.max(
+                0,
+                x.likeCount + (nextLiked ? 1 : -1)
+              ),
             }
       )
     );
@@ -345,7 +396,9 @@ export default function FeedList({
       }
 
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+        window.dispatchEvent(
+          new CustomEvent("q5:notifications-changed")
+        );
       }
     } catch (e) {
       console.warn("toggleLike error", e);
@@ -362,7 +415,7 @@ export default function FeedList({
     const body = (commentDraft[postId] || "").trim();
     if (!body) return;
 
-    setCommentSaving((p) => ({ ...p, [postId]: true }));
+    setCommentSaving((p) => ({ ...(p || {}), [postId]: true }));
 
     try {
       const { data, error } = await supabase
@@ -390,17 +443,21 @@ export default function FeedList({
 
       setItems((prev) =>
         prev.map((x) =>
-          x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
+          x.post.id === postId
+            ? { ...x, commentCount: x.commentCount + 1 }
+            : x
         )
       );
 
       if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+        window.dispatchEvent(
+          new CustomEvent("q5:notifications-changed")
+        );
       }
     } catch (e) {
       console.warn("submitComment error", e);
     } finally {
-      setCommentSaving((p) => ({ ...p, [postId]: false }));
+      setCommentSaving((p) => ({ ...(p || {}), [postId]: false }));
     }
   };
 
@@ -417,7 +474,7 @@ export default function FeedList({
   if (items.length === 0) {
     return (
       <div className="products-empty">
-        {filterUserId
+        {filterUserId || filterOrgId
           ? "No posts yet."
           : "No posts yet. Be the first to post something for the community."}
       </div>
@@ -429,9 +486,28 @@ export default function FeedList({
       {items.map((it) => {
         const p = it.post;
         const a = it.author;
+        const org = it.org;
 
-        const name = a?.full_name || "Quantum member";
-        const initials = initialsOf(a?.full_name);
+        const actorName = org?.name || a?.full_name || "Quantum member";
+        const avatarSrc = org?.logo_url || a?.avatar_url || null;
+        const initials = initialsOf(actorName);
+
+        const primaryHref = org
+          ? `/orgs/${org.slug}`
+          : a?.id
+          ? `/profile/${a.id}`
+          : undefined;
+
+        const subtitle = org
+          ? [
+              a?.full_name
+                ? `Posted by ${a.full_name}`
+                : "Posted by member",
+              formatSubtitle(a),
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : formatSubtitle(a) || "Quantum5ocial member";
 
         const isOpen = !!openComments[p.id];
         const comments = commentsByPost[p.id] || [];
@@ -450,90 +526,138 @@ export default function FeedList({
                 background: "rgba(15,23,42,0.92)",
               }}
             >
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-  {a?.id ? (
-    <Link
-      href={`/profile/${a.id}`}
-      style={{ textDecoration: "none", display: "inline-flex", cursor: "pointer" }}
-      aria-label={`Open profile: ${name}`}
-    >
-      <div style={avatarStyle(40)}>
-        {a?.avatar_url ? (
-          <img
-            src={a.avatar_url}
-            alt={name}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : (
-          initials
-        )}
-      </div>
-    </Link>
-  ) : (
-    <div style={avatarStyle(40)}>
-      {a?.avatar_url ? (
-        <img
-          src={a.avatar_url}
-          alt={name}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
-      ) : (
-        initials
-      )}
-    </div>
-  )}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "flex-start",
+                }}
+              >
+                {primaryHref ? (
+                  <Link
+                    href={primaryHref}
+                    style={{
+                      textDecoration: "none",
+                      display: "inline-flex",
+                      cursor: "pointer",
+                    }}
+                    aria-label={`Open: ${actorName}`}
+                  >
+                    <div style={avatarStyle(40)}>
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt={actorName}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        initials
+                      )}
+                    </div>
+                  </Link>
+                ) : (
+                  <div style={avatarStyle(40)}>
+                    {avatarSrc ? (
+                      <img
+                        src={avatarSrc}
+                        alt={actorName}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+                )}
 
-  <div style={{ flex: 1, minWidth: 0 }}>
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: 10,
-        alignItems: "flex-start",
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 900, fontSize: 13, lineHeight: 1.2 }}>
-          {a?.id ? (
-            <Link
-              href={`/profile/${a.id}`}
-              style={{
-                color: "rgba(226,232,240,0.95)",
-                textDecoration: "none",
-              }}
-            >
-              {name}
-            </Link>
-          ) : (
-            name
-          )}
-        </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          fontSize: 13,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {primaryHref ? (
+                          <Link
+                            href={primaryHref}
+                            style={{
+                              color: "rgba(226,232,240,0.95)",
+                              textDecoration: "none",
+                            }}
+                          >
+                            {actorName}
+                          </Link>
+                        ) : (
+                          actorName
+                        )}
+                      </div>
 
-        <div style={{ fontSize: 12, opacity: 0.82, marginTop: 3 }}>
-          {formatSubtitle(a) || "Quantum5ocial member"}
-        </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          opacity: 0.82,
+                          marginTop: 3,
+                        }}
+                      >
+                        {subtitle}
+                      </div>
 
-        <div style={{ fontSize: 11, opacity: 0.68, marginTop: 4 }}>
-          {formatRelativeTime(p.created_at)}
-        </div>
-      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          opacity: 0.68,
+                          marginTop: 4,
+                        }}
+                      >
+                        {formatRelativeTime(p.created_at)}
+                      </div>
+                    </div>
 
-      {!hideCopyLink && (
-        <button
-          type="button"
-          style={{ ...pillBtnStyle, padding: "5px 10px", fontSize: 12 }}
-          onClick={() => {
-            navigator.clipboard
-              ?.writeText(`${window.location.origin}/?post=${p.id}`)
-              .catch(() => {});
-          }}
-        >
-          Copy link
-        </button>
-      )}
-    </div>
+                    {!hideCopyLink && (
+                      <button
+                        type="button"
+                        style={{
+                          ...pillBtnStyle,
+                          padding: "5px 10px",
+                          fontSize: 12,
+                        }}
+                        onClick={() => {
+                          navigator.clipboard
+                            ?.writeText(
+                              `${window.location.origin}/?post=${p.id}`
+                            )
+                            .catch(() => {});
+                        }}
+                      >
+                        Copy link
+                      </button>
+                    )}
+                  </div>
 
-                  <div style={{ marginTop: 10, fontSize: 14, lineHeight: 1.5 }}>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 14,
+                      lineHeight: 1.5,
+                    }}
+                  >
                     <LinkifyText text={p.body} />
                   </div>
 
@@ -556,7 +680,14 @@ export default function FeedList({
                     </div>
                   )}
 
-                  <div style={{ marginTop: 12, display: "flex", gap: 10, alignItems: "center" }}>
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleLike(p.id)}
@@ -571,23 +702,40 @@ export default function FeedList({
                         border: it.likedByMe
                           ? "1px solid rgba(34,211,238,0.65)"
                           : "1px solid rgba(148,163,184,0.35)",
-                        background: it.likedByMe ? "rgba(34,211,238,0.12)" : "rgba(2,6,23,0.2)",
+                        background: it.likedByMe
+                          ? "rgba(34,211,238,0.12)"
+                          : "rgba(2,6,23,0.2)",
                         color: "rgba(226,232,240,0.92)",
                         cursor: "pointer",
                         fontSize: 13,
                         fontWeight: 800,
                       }}
                     >
-                      <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
+                      >
                         <FeedIcon path="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
                       </span>
-                      <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.likeCount}</span>
+                      <span
+                        style={{
+                          opacity: 0.85,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {it.likeCount}
+                      </span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => {
-                        setOpenComments((prev) => ({ ...prev, [p.id]: !prev[p.id] }));
+                        setOpenComments((prev) => ({
+                          ...prev,
+                          [p.id]: !prev[p.id],
+                        }));
                         if (!commentsByPost[p.id]) void loadComments(p.id);
                       }}
                       aria-label="Comment"
@@ -598,7 +746,8 @@ export default function FeedList({
                         gap: 8,
                         padding: "7px 10px",
                         borderRadius: 999,
-                        border: "1px solid rgba(148,163,184,0.35)",
+                        border:
+                          "1px solid rgba(148,163,184,0.35)",
                         background: "rgba(2,6,23,0.2)",
                         color: "rgba(226,232,240,0.92)",
                         cursor: "pointer",
@@ -606,33 +755,61 @@ export default function FeedList({
                         fontWeight: 800,
                       }}
                     >
-                      <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
+                      >
                         <FeedIcon path="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
                       </span>
-                      <span style={{ opacity: 0.85, fontWeight: 700 }}>{it.commentCount}</span>
+                      <span
+                        style={{
+                          opacity: 0.85,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {it.commentCount}
+                      </span>
                     </button>
                   </div>
 
                   {isOpen && (
                     <div style={{ marginTop: 12 }}>
-                      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 10,
+                          alignItems: "flex-start",
+                        }}
+                      >
                         <div style={avatarStyle(30)}>
-                          {user ? user.email?.[0]?.toUpperCase() || "U" : "U"}
+                          {user
+                            ? user.email?.[0]?.toUpperCase() || "U"
+                            : "U"}
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <textarea
                             value={commentDraft[p.id] || ""}
                             onChange={(e) =>
-                              setCommentDraft((prev) => ({ ...prev, [p.id]: e.target.value }))
+                              setCommentDraft((prev) => ({
+                                ...prev,
+                                [p.id]: e.target.value,
+                              }))
                             }
-                            placeholder={user ? "Write a comment…" : "Login to comment…"}
+                            placeholder={
+                              user
+                                ? "Write a comment…"
+                                : "Login to comment…"
+                            }
                             disabled={!user}
                             style={{
                               width: "100%",
                               minHeight: 54,
                               borderRadius: 12,
-                              border: "1px solid rgba(148,163,184,0.2)",
+                              border:
+                                "1px solid rgba(148,163,184,0.2)",
                               background: "rgba(2,6,23,0.26)",
                               color: "rgba(226,232,240,0.94)",
                               padding: 10,
@@ -643,37 +820,69 @@ export default function FeedList({
                             }}
                           />
 
-                          <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              display: "flex",
+                              justifyContent: "flex-end",
+                            }}
+                          >
                             <button
                               type="button"
                               onClick={() => submitComment(p.id)}
-                              disabled={!user || commentSaving[p.id] || !(commentDraft[p.id] || "").trim()}
+                              disabled={
+                                !user ||
+                                commentSaving?.[p.id] ||
+                                !(commentDraft[p.id] || "").trim()
+                              }
                               style={{
                                 padding: "8px 14px",
                                 borderRadius: 999,
                                 border: "none",
                                 fontSize: 13,
                                 fontWeight: 900,
-                                cursor: !user || commentSaving[p.id] ? "default" : "pointer",
-                                opacity: !user || commentSaving[p.id] ? 0.6 : 1,
-                                background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                                cursor:
+                                  !user || commentSaving?.[p.id]
+                                    ? "default"
+                                    : "pointer",
+                                opacity:
+                                  !user || commentSaving?.[p.id]
+                                    ? 0.6
+                                    : 1,
+                                background:
+                                  "linear-gradient(135deg,#3bc7f3,#8468ff)",
                                 color: "#0f172a",
                               }}
                             >
-                              {commentSaving[p.id] ? "Posting…" : "Post comment"}
+                              {commentSaving?.[p.id]
+                                ? "Posting…"
+                                : "Post comment"}
                             </button>
                           </div>
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div
+                        style={{
+                          marginTop: 10,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                        }}
+                      >
                         {comments.length === 0 ? (
-                          <div style={{ fontSize: 12, opacity: 0.75 }}>No comments yet.</div>
+                          <div
+                            style={{ fontSize: 12, opacity: 0.75 }}
+                          >
+                            No comments yet.
+                          </div>
                         ) : (
                           comments.map((c) => {
                             const cp = commenterProfiles[c.user_id];
-                            const cName = cp?.full_name || "Quantum member";
-                            const cInitials = initialsOf(cp?.full_name);
+                            const cName =
+                              cp?.full_name || "Quantum member";
+                            const cInitials =
+                              initialsOf(cp?.full_name);
 
                             return (
                               <div
@@ -681,40 +890,71 @@ export default function FeedList({
                                 style={{
                                   padding: 10,
                                   borderRadius: 12,
-                                  border: "1px solid rgba(148,163,184,0.14)",
-                                  background: "rgba(2,6,23,0.18)",
+                                  border:
+                                    "1px solid rgba(148,163,184,0.14)",
+                                  background:
+                                    "rgba(2,6,23,0.18)",
                                 }}
                               >
-                                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 10,
+                                    alignItems: "flex-start",
+                                  }}
+                                >
                                   <div style={avatarStyle(30)}>
                                     {cp?.avatar_url ? (
                                       <img
                                         src={cp.avatar_url}
                                         alt={cName}
-                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "cover",
+                                        }}
                                       />
                                     ) : (
                                       cInitials
                                     )}
                                   </div>
 
-                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      flex: 1,
+                                      minWidth: 0,
+                                    }}
+                                  >
                                     <div
                                       style={{
                                         display: "flex",
-                                        justifyContent: "space-between",
+                                        justifyContent:
+                                          "space-between",
                                         gap: 10,
-                                        alignItems: "flex-start",
+                                        alignItems:
+                                          "flex-start",
                                       }}
                                     >
-                                      <div style={{ minWidth: 0 }}>
-                                        <div style={{ fontSize: 12, fontWeight: 900, lineHeight: 1.2 }}>
+                                      <div
+                                        style={{
+                                          minWidth: 0,
+                                        }}
+                                      >
+                                        <div
+                                          style={{
+                                            fontSize: 12,
+                                            fontWeight: 900,
+                                            lineHeight: 1.2,
+                                          }}
+                                        >
                                           {cp?.id ? (
                                             <Link
                                               href={`/profile/${cp.id}`}
                                               style={{
-                                                color: "rgba(226,232,240,0.95)",
-                                                textDecoration: "none",
+                                                color:
+                                                  "rgba(226,232,240,0.95)",
+                                                textDecoration:
+                                                  "none",
                                               }}
                                             >
                                               {cName}
@@ -723,17 +963,37 @@ export default function FeedList({
                                             cName
                                           )}
                                         </div>
-                                        <div style={{ fontSize: 12, opacity: 0.78, marginTop: 3 }}>
-                                          {formatSubtitle(cp) || "Quantum5ocial member"}
+                                        <div
+                                          style={{
+                                            fontSize: 12,
+                                            opacity: 0.78,
+                                            marginTop: 3,
+                                          }}
+                                        >
+                                          {formatSubtitle(cp) ||
+                                            "Quantum5ocial member"}
                                         </div>
                                       </div>
 
-                                      <div style={{ fontSize: 11, opacity: 0.68 }}>
-                                        {formatRelativeTime(c.created_at)}
+                                      <div
+                                        style={{
+                                          fontSize: 11,
+                                          opacity: 0.68,
+                                        }}
+                                      >
+                                        {formatRelativeTime(
+                                          c.created_at
+                                        )}
                                       </div>
                                     </div>
 
-                                    <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.45 }}>
+                                    <div
+                                      style={{
+                                        marginTop: 6,
+                                        fontSize: 13,
+                                        lineHeight: 1.45,
+                                      }}
+                                    >
                                       {c.body}
                                     </div>
                                   </div>
@@ -749,7 +1009,13 @@ export default function FeedList({
               </div>
             </div>
 
-            <div style={{ height: 1, background: "rgba(148,163,184,0.18)", margin: "14px 0" }} />
+            <div
+              style={{
+                height: 1,
+                background: "rgba(148,163,184,0.18)",
+                margin: "14px 0",
+              }}
+            />
           </div>
         );
       })}
