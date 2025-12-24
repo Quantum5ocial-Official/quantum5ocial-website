@@ -27,6 +27,7 @@ type Org = {
   group_type: string | null;
   institution: string | null;
   department: string | null;
+  hiring_status: "" | "not_hiring" | "hiring_selectively" | "actively_hiring" | null;
 };
 
 type FollowerProfile = {
@@ -1295,14 +1296,38 @@ const OrganizationDetailPage = () => {
       : `/orgs/edit/research-group/${org.slug}`;
   }, [org]);
 
-  // ✅ Hiring badge heuristic (no schema change required)
-  const isHiring = useMemo(() => {
-    if (!org) return false;
-    if (org.kind !== "company") return false;
+  // ✅ Hiring badge: driven by explicit DB field `hiring_status`
+const hiringBadge = useMemo(() => {
+  if (!org) return null;
+  if (org.kind !== "company") return null;
 
-    const hay = `${org.tagline || ""} ${org.description || ""} ${org.website || ""}`.toLowerCase();
-    return /hiring|careers|join\s+us|open\s+roles|we(?:'| a)re\s+hiring|vacanc/i.test(hay);
-  }, [org]);
+  const hs = org.hiring_status || "";
+
+  if (hs === "actively_hiring") {
+    return {
+      text: "Actively hiring",
+      title: "This company is actively hiring",
+      border: "1px solid rgba(34,197,94,0.95)",
+      background: "rgba(22,163,74,0.18)",
+      color: "rgba(187,247,208,0.98)",
+      icon: "⚡",
+    };
+  }
+
+  if (hs === "hiring_selectively") {
+    return {
+      text: "Hiring selectively",
+      title: "This company is hiring selectively",
+      border: "1px solid rgba(250,204,21,0.9)",
+      background: "rgba(234,179,8,0.14)",
+      color: "rgba(254,249,195,0.95)",
+      icon: "✨",
+    };
+  }
+
+  // not_hiring or empty => no badge
+  return null;
+}, [org]);
 
   // === LOAD FOLLOWERS FOR THIS ORG ===
   useEffect(() => {
@@ -1916,43 +1941,26 @@ const OrganizationDetailPage = () => {
                       {kindLabel}
                     </span>
 
-                    {/* ✅ Hiring badge (more standout, no logic changes) */}
-{isHiring && (
+                    {/* ✅ Hiring badge */}
+{hiringBadge && (
   <span
-    title="This organization appears to be hiring"
+    title={hiringBadge.title}
     style={{
       fontSize: 12,
       borderRadius: 999,
-      padding: "4px 12px",
-      border: "1px solid rgba(34,197,94,0.95)",
-      background:
-        "linear-gradient(135deg, rgba(34,197,94,0.26), rgba(16,185,129,0.14))",
-      color: "rgba(220,252,231,0.98)",
-      fontWeight: 900,
-      letterSpacing: 0.2,
-      textTransform: "uppercase",
+      padding: "3px 10px",
+      border: hiringBadge.border,
+      background: hiringBadge.background,
+      color: hiringBadge.color,
+      fontWeight: 800,
       whiteSpace: "nowrap",
       display: "inline-flex",
       alignItems: "center",
-      gap: 8,
-      boxShadow:
-        "0 0 0 1px rgba(34,197,94,0.25), 0 12px 26px rgba(34,197,94,0.18)",
-      backdropFilter: "blur(8px)",
+      gap: 6,
     }}
   >
-    <span
-      aria-hidden
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: 999,
-        background: "rgba(34,197,94,0.95)",
-        boxShadow: "0 0 14px rgba(34,197,94,0.65)",
-        flexShrink: 0,
-      }}
-    />
-    Hiring
-    <span style={{ opacity: 0.9, fontWeight: 900 }}>Now</span>
+    <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
+    {hiringBadge.text}
   </span>
 )}
 
