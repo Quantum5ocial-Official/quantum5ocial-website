@@ -1,6 +1,6 @@
 // components/qna/QuestionsGrid.tsx
 import React from "react";
-import { QQuestion } from "../../types/qna"; // you can define/re-export your types
+import { QQuestion, QAnswer, ProfileLite, MyProfileMini } from "../../types/qna";
 import { pickProfile, timeAgo } from "../../lib/qnaHelpers"; // optional helpers
 
 type Props = {
