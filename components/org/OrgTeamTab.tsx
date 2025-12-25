@@ -113,14 +113,8 @@ export default function OrgTeamTab({
 
   const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
-  // scroller
+  // scroller ref kept only for potential future use; not needed for grid
   const teamScrollerRef = useRef<HTMLDivElement | null>(null);
-  const scrollTeamByCard = (dir: -1 | 1) => {
-    const el = teamScrollerRef.current;
-    if (!el) return;
-    const amount = Math.max(260, Math.floor(el.clientWidth * 0.9));
-    el.scrollBy({ left: dir * amount, behavior: "smooth" });
-  };
 
   const goToProfile = (profileId: string) => {
     router.push(`/profile/${profileId}`);
@@ -580,45 +574,120 @@ export default function OrgTeamTab({
       {!membersLoading && !membersError && members.length === 0 && <div className="products-empty">No team members added yet.</div>}
 
       {!membersLoading && !membersError && members.length > 0 && (
-        <div className="card" style={{ position: "relative", padding: 14, borderRadius: 16, border: "1px solid rgba(148,163,184,0.22)", background: "rgba(15,23,42,0.72)", overflow: "hidden" }}>
-          <div aria-hidden style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 44, background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))", pointerEvents: "none", zIndex: 2 }} />
-          <div aria-hidden style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 44, background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))", pointerEvents: "none", zIndex: 2 }} />
-
-          <button type="button" onClick={() => scrollTeamByCard(-1)} style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: 10, width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(148,163,184,0.28)", background: "rgba(2,6,23,0.65)", color: "rgba(226,232,240,0.95)", cursor: "pointer", fontWeight: 900, zIndex: 5, backdropFilter: "blur(8px)" }} aria-label="Scroll left">‹</button>
-          <button type="button" onClick={() => scrollTeamByCard(1)} style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", right: 10, width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(148,163,184,0.28)", background: "rgba(2,6,23,0.65)", color: "rgba(226,232,240,0.95)", cursor: "pointer", fontWeight: 900, zIndex: 5, backdropFilter: "blur(8px)" }} aria-label="Scroll right">›</button>
-
-          <div ref={teamScrollerRef} style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 44px 10px 64px", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+        <div
+          className="card"
+          style={{
+            position: "relative",
+            padding: 14,
+            borderRadius: 16,
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(15,23,42,0.72)",
+            overflow: "hidden",
+          }}
+        >
+          {/* changed from horizontal scroll to grid: */}
+          <div
+            style={{
+              display: "grid",
+              // exactly 3 columns layout; MDN shows similar pattern for repeat(3, 1fr)
+              // see https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Grid_layout/Auto-placement lines 322–325
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 12,
+              padding: "4px 0px 10px 0px",
+            }}
+          >
             {members.map((m) => {
               const profile = m.profile;
               const name = profile?.full_name || "Quantum5ocial member";
-              const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+              const initials = name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
 
               const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-              const subtitle = [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+              const subtitle =
+                [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
 
               const isCurrentUser = !!user && !!profile && profile.id === user.id;
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
 
               return (
-                <div key={m.user_id} style={{ scrollSnapAlign: "start", flex: "0 0 auto", width: "clamp(260px, calc((100% - 24px) / 3), 420px)" }}>
+                <div
+                  key={m.user_id}
+                  // grid items don't need scrollSnapAlign or specific width anymore
+                  style={{ width: "100%" }}
+                >
                   <button
                     type="button"
                     onClick={() => profile && goToProfile(profile.id)}
                     className="card"
-                    style={{ width: "100%", textAlign: "left", padding: 12, borderRadius: 14, display: "flex", flexDirection: "column", gap: 10, cursor: profile ? "pointer" : "default", background: "rgba(2,6,23,0.35)", position: "relative" }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: 12,
+                      borderRadius: 14,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      cursor: profile ? "pointer" : "default",
+                      background: "rgba(2,6,23,0.35)",
+                      position: "relative",
+                    }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div style={{ width: 38, height: 38, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.6)", color: "#e5e7eb", fontWeight: 700, fontSize: 13 }}>
-                          {profile?.avatar_url ? <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 999,
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid rgba(148,163,184,0.6)",
+                            color: "#e5e7eb",
+                            fontWeight: 700,
+                            fontSize: 13,
+                          }}
+                        >
+                          {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            initials
+                          )}
                         </div>
 
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(226,232,240,0.98)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "rgba(226,232,240,0.98)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
                             {name}
-                            {isCurrentUser && <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>}
+                            {isCurrentUser && (
+                              <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
+                            )}
                           </div>
-                          <div style={{ marginTop: 2, fontSize: 11, color: "rgba(148,163,184,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontSize: 11,
+                              color: "rgba(148,163,184,0.95)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
                             {subtitle}
                           </div>
                         </div>
@@ -649,7 +718,20 @@ export default function OrgTeamTab({
                               setMemberMenuOpenId(m.user_id);
                               setMenuPosition({ top, left });
                             }}
-                            style={{ width: 24, height: 24, borderRadius: 999, border: "1px solid rgba(71,85,105,0.9)", background: "rgba(15,23,42,0.95)", color: "rgba(148,163,184,0.95)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 999,
+                              border: "1px solid rgba(71,85,105,0.9)",
+                              background: "rgba(15,23,42,0.95)",
+                              color: "rgba(148,163,184,0.95)",
+                              fontSize: 14,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
                           >
                             ⋯
                           </button>
@@ -658,12 +740,28 @@ export default function OrgTeamTab({
                     </div>
 
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 11, borderRadius: 999, padding: "2px 7px", border: "1px solid rgba(129,140,248,0.8)", color: "rgba(191,219,254,0.95)" }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          borderRadius: 999,
+                          padding: "2px 7px",
+                          border: "1px solid rgba(129,140,248,0.8)",
+                          color: "rgba(191,219,254,0.95)",
+                        }}
+                      >
                         {roleLabel(m.role)}
                       </span>
 
                       {m.is_affiliated && (
-                        <span style={{ fontSize: 11, borderRadius: 999, padding: "2px 7px", border: "1px solid rgba(34,197,94,0.7)", color: "rgba(187,247,208,0.95)" }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            borderRadius: 999,
+                            padding: "2px 7px",
+                            border: "1px solid rgba(34,197,94,0.7)",
+                            color: "rgba(187,247,208,0.95)",
+                          }}
+                        >
                           Affiliated
                         </span>
                       )}
@@ -671,10 +769,20 @@ export default function OrgTeamTab({
 
                     {isCurrentUser && (
                       <div
-                        style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed rgba(51,65,85,0.9)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+                        style={{
+                          marginTop: 6,
+                          paddingTop: 6,
+                          borderTop: "1px dashed rgba(51,65,85,0.9)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)" }}>Affiliated with this organization</div>
+                        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)" }}>
+                          Affiliated with this organization
+                        </div>
                         <button
                           type="button"
                           onClick={(e) => handleToggleSelfAffiliation(m, e)}
@@ -735,7 +843,8 @@ export default function OrgTeamTab({
 
         {!loadingFollowers && !followersError && followers.length > 0 && !followersExpanded && (
           <div style={{ fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-            {followersCount !== null ? `${followersCount} follower${followersCount === 1 ? "" : "s"}.` : "Followers."} Click <span style={{ color: "#7dd3fc" }}>Expand</span> to view.
+            {followersCount !== null ? `${followersCount} follower${followersCount === 1 ? "" : "s"}.` : "Followers."} Click{" "}
+            <span style={{ color: "#7dd3fc" }}>Expand</span> to view.
           </div>
         )}
 
@@ -743,9 +852,15 @@ export default function OrgTeamTab({
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginTop: 6 }}>
             {followers.map((f) => {
               const name = f.full_name || "Quantum5ocial member";
-              const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+              const initials = name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
               const location = [f.city, f.country].filter(Boolean).join(", ");
-              const subtitle = [f.role, f.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+              const subtitle =
+                [f.role, f.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
 
               return (
                 <button
@@ -833,7 +948,11 @@ export default function OrgTeamTab({
                   cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                 }}
               >
-                {roleOption === "co_owner" ? "Make co-owner" : roleOption === "admin" ? "Make admin" : "Make member"}
+                {roleOption === "co_owner"
+                  ? "Make co-owner"
+                  : roleOption === "admin"
+                  ? "Make admin"
+                  : "Make member"}
               </button>
             ))}
 
