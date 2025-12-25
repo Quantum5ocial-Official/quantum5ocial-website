@@ -734,7 +734,7 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout; MDN docs describe grid property usage.  For reference on `repeat()`, see MDN examples.  [oai_citation:0‡interactive-examples.mdn.mozilla.net](https://interactive-examples.mdn.mozilla.net/pages/css/function-repeat.html#:~:text=grid,columns%3A%201fr%20repeat%282%2C%2060px)
+              // exactly 3 columns layout
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -751,8 +751,9 @@ export default function OrgTeamTab({
                 .toUpperCase();
 
               const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-              const subtitle =
-                [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+              const education = profile?.highest_education ?? "";
+              // show edu + location
+              const eduLocation = [education, location].filter(Boolean).join(" · ");
 
               const isCurrentUser = !!user && !!profile && profile.id === user.id;
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
@@ -818,32 +819,20 @@ export default function OrgTeamTab({
                               <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
                             )}
                           </div>
-                          <div
-                            style={{
-                              marginTop: 2,
-                              fontSize: 11,
-                              color: "rgba(148,163,184,0.95)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {subtitle}
-                          </div>
-                          {/* Optional: show designation under subtitle if present */}
-                          {m.designation && (
+
+                          {/* education + location line */}
+                          {eduLocation && (
                             <div
                               style={{
                                 marginTop: 2,
                                 fontSize: 11,
-                                fontStyle: "italic",
-                                color: "rgba(178,186,207,0.95)",
+                                color: "rgba(148,163,184,0.95)",
                                 whiteSpace: "nowrap",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                               }}
                             >
-                              {m.designation}
+                              {eduLocation}
                             </div>
                           )}
                         </div>
@@ -898,8 +887,9 @@ export default function OrgTeamTab({
                       )}
                     </div>
 
+                    {/* badges row */}
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      {/* role badge now shown only to viewers allowed */}
+                      {/* role badge shown only to allowed viewers */}
                       {canSeeRoleAndAffiliation && (
                         <span
                           style={{
@@ -914,8 +904,8 @@ export default function OrgTeamTab({
                         </span>
                       )}
 
-                      {/* affiliated badge also only shown to viewers allowed */}
-                      {canSeeRoleAndAffiliation && m.is_affiliated && (
+                      {/* affiliated badge shown if affiliated */}
+                      {m.is_affiliated && (
                         <span
                           style={{
                             fontSize: 11,
@@ -926,6 +916,21 @@ export default function OrgTeamTab({
                           }}
                         >
                           Affiliated
+                        </span>
+                      )}
+
+                      {/* designation pill shown for all if present */}
+                      {m.designation && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            borderRadius: 999,
+                            padding: "2px 7px",
+                            border: "1px solid rgba(34,197,94,0.7)",
+                            color: "rgba(187,247,208,0.95)",
+                          }}
+                        >
+                          {m.designation}
                         </span>
                       )}
                     </div>
@@ -1186,7 +1191,7 @@ export default function OrgTeamTab({
                           borderRadius: 6,
                           border: "none",
                           background: "rgba(148,163,184,0.7)",
-                          color: "#e5e7eb",
+                          color: "rgba(226,232,240,0.95)",
                           cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                         }}
                       >
@@ -1303,7 +1308,7 @@ export default function OrgTeamTab({
                           borderRadius: 6,
                           border: "none",
                           background: "rgba(148,163,184,0.7)",
-                          color: "#e5e7eb",
+                          color: "rgba(226,232,240,0.95)",
                           cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                         }}
                       >
