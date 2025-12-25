@@ -9,6 +9,7 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import OrgPostsTab from "../../components/org/OrgPostsTab";
 import OrgTeamTab from "../../components/org/OrgTeamTab";
 import OrgProductsTab from "../../components/org/OrgProductsTab";
+import OrgJobsTab from "../../components/org/OrgJobsTab"; // <-- new import
 
 type Org = {
   id: string;
@@ -29,7 +30,12 @@ type Org = {
   group_type: string | null;
   institution: string | null;
   department: string | null;
-  hiring_status: "" | "not_hiring" | "hiring_selectively" | "actively_hiring" | null;
+  hiring_status:
+    | ""
+    | "not_hiring"
+    | "hiring_selectively"
+    | "actively_hiring"
+    | null;
 };
 
 // membership roles for org_members
@@ -76,7 +82,9 @@ const OrganizationDetailPage = () => {
   const setTab = (t: TabKey) => {
     setActiveTab(t);
     const next = { ...router.query, tab: t };
-    router.replace({ pathname: router.pathname, query: next }, undefined, { shallow: true });
+    router.replace({ pathname: router.pathname, query: next }, undefined, {
+      shallow: true,
+    });
   };
 
   // === LOAD CURRENT ORG BY SLUG ===
@@ -297,11 +305,15 @@ const OrganizationDetailPage = () => {
     !!org &&
     (org.created_by === user.id || memberRole === "owner" || memberRole === "co_owner");
 
+  // ✅ Who is allowed to list jobs as the org (owner/co_owner only) — mirror products logic
+  const canListJobsAsOrg = canListProductsAsOrg;
+
   const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (!org) return;
 
     if (!user) {
+      // Next.js Link usage for client-side nav is standard; docs note this is primary for route nav.  [oai_citation:0‡nextjs.org](https://nextjs.org/docs/14/app/api-reference/components/link#:~:text=%60,Dashboard%3C%2FLink%3E)
       router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
@@ -589,13 +601,17 @@ const OrganizationDetailPage = () => {
               </div>
 
               {metaLine && (
-                <div style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginBottom: 6 }}>
+                <div
+                  style={{ fontSize: 13, color: "rgba(148,163,184,0.95)", marginBottom: 6 }}
+                >
                   {metaLine}
                 </div>
               )}
 
               {org.tagline && (
-                <div style={{ fontSize: 14, color: "rgba(209,213,219,0.95)" }}>{org.tagline}</div>
+                <div style={{ fontSize: 14, color: "rgba(209,213,219,0.95)" }}>
+                  {org.tagline}
+                </div>
               )}
 
               {org.website && (
@@ -700,6 +716,11 @@ const OrganizationDetailPage = () => {
             <OrgProductsTab org={org} canListProduct={canListProductsAsOrg} />
           )}
 
+          {activeTab === "jobs" && (
+            // render jobs tab instead of coming soon
+            <OrgJobsTab org={org} canListJob={canListJobsAsOrg} />
+          )}
+
           {activeTab === "team" && (
             <OrgTeamTab
               org={org}
@@ -709,15 +730,6 @@ const OrganizationDetailPage = () => {
               isAffiliated={isAffiliated}
               onSelfAffiliatedChange={(v: boolean) => setIsAffiliated(v)}
             />
-          )}
-
-          {activeTab === "jobs" && (
-            <div style={comingSoonCard}>
-              <div style={{ fontWeight: 900, fontSize: 14 }}>Jobs</div>
-              <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                Coming soon — we’ll show jobs posted by this organization here.
-              </div>
-            </div>
           )}
         </>
       )}
