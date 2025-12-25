@@ -9,8 +9,7 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import OrgPostsTab from "../../components/org/OrgPostsTab";
 import OrgTeamTab from "../../components/org/OrgTeamTab";
 import OrgProductsTab from "../../components/org/OrgProductsTab";
-import OrgJobsTab from "../../components/org/OrgJobsTab"; 
-import OrgAnalyticsTab from "../../components/org/OrgAnalyticsTab"; 
+import OrgJobsTab from "../../components/org/OrgJobsTab"; // <-- new import
 
 type Org = {
   id: string;
@@ -48,10 +47,7 @@ type OrgMemberRow = {
   is_affiliated: boolean;
 };
 
-// ------------------------------------
-// extended TabKey to include analytics
-// ------------------------------------
-type TabKey = "posts" | "products" | "jobs" | "team" | "analytics";
+type TabKey = "posts" | "products" | "jobs" | "team";
 
 const OrganizationDetailPage = () => {
   const router = useRouter();
@@ -77,13 +73,7 @@ const OrganizationDetailPage = () => {
   useEffect(() => {
     const t = (router.query.tab as string | undefined) || "";
     const key = (t || "").toLowerCase();
-    if (
-      key === "posts" ||
-      key === "products" ||
-      key === "jobs" ||
-      key === "team" ||
-      key === "analytics"
-    ) {
+    if (key === "posts" || key === "products" || key === "jobs" || key === "team") {
       setActiveTab(key as TabKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,7 +169,7 @@ const OrganizationDetailPage = () => {
       return {
         text: "Not hiring",
         title: "This company is not hiring currently",
-        border: "1px solid rgba(248,113,113,0.9)",
+        border: "1px solid rgba(248,113,113,0.9)", // reddish border
         background: "rgba(248,113,113,0.12)",
         color: "rgba(248,113,113,0.95)",
         icon: "🚫",
@@ -341,15 +331,12 @@ const OrganizationDetailPage = () => {
   // ✅ Who is allowed to list jobs as the org (owner/co_owner only) — mirror products logic
   const canListJobsAsOrg = canListProductsAsOrg;
 
-  // ---------- new: who can view analytics ----------
-  const canViewAnalytics = memberRole === "owner" || memberRole === "co_owner";
-
   const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     if (!org) return;
 
     if (!user) {
-      // Next.js Link usage shown in docs.  [oai_citation:0‡Next.js](https://nextjs.org/docs/app/api-reference/components/link#:~:text=,Script%20Component)
+      // Next.js Link usage for client-side nav is standard. Docs show Link component etc.  [oai_citation:0‡Next.js](https://nextjs.org/docs/app/api-reference/components/link#:~:text=,Script%20Component)
       router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
@@ -743,19 +730,6 @@ const OrganizationDetailPage = () => {
             >
               Our Team
             </button>
-
-            {/* new Analytics tab — only for owner/co-owner */}
-            {canViewAnalytics && (
-              <button
-                type="button"
-                onClick={() => setTab("analytics")}
-                style={tabBtn(activeTab === "analytics")}
-                role="tab"
-                aria-selected={activeTab === "analytics"}
-              >
-                Analytics
-              </button>
-            )}
           </div>
 
           {/* Panels */}
@@ -780,9 +754,6 @@ const OrganizationDetailPage = () => {
               onSelfAffiliatedChange={(v: boolean) => setIsAffiliated(v)}
             />
           )}
-
-          {/* new Analytics panel — only render if allowed */}
-          {activeTab === "analytics" && canViewAnalytics && <OrgAnalyticsTab org={org} />}
         </>
       )}
     </section>
