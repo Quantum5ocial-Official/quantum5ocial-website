@@ -1357,14 +1357,15 @@ function QnAMiddle() {
 
       {!loading && !err && questions.length > 0 && (
         <div
-  style={{
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  }}
->
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
           {questions.map((q) => {
-           const isMobile = typeof window !== "undefined" && window.innerWidth <= 520;
+            const isMobile =
+              typeof window !== "undefined" && window.innerWidth <= 520;
             const p = pickProfile(q.profiles);
             const author = p?.full_name || "Quantum5ocial member";
             const votes = q.qna_votes?.[0]?.count ?? 0;
@@ -1442,12 +1443,12 @@ function QnAMiddle() {
                     </div>
 
                     <div
-  style={{
-    display: "flex",
-    gap: isMobile ? 6 : 8,
-    alignItems: "center",
-  }}
->
+                      style={{
+                        display: "flex",
+                        gap: isMobile ? 6 : 8,
+                        alignItems: "center",
+                      }}
+                    >
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1456,22 +1457,22 @@ function QnAMiddle() {
                         }}
                         disabled={isVoteLoading(q.id)}
                         style={{
-  borderRadius: 12,
-  padding: isMobile ? "4px 7px" : "7px 10px",
-  border: mine
-    ? "1px solid rgba(34,211,238,0.8)"
-    : "1px solid rgba(148,163,184,0.45)",
-  background: mine
-    ? "rgba(34,211,238,0.12)"
-    : "rgba(15,23,42,0.6)",
-  color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
-  cursor: isVoteLoading(q.id) ? "default" : "pointer",
-  fontSize: isMobile ? 10 : 12,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: isMobile ? 4 : 6,
-  opacity: isVoteLoading(q.id) ? 0.7 : 1,
-}}
+                          borderRadius: 12,
+                          padding: isMobile ? "4px 7px" : "7px 10px",
+                          border: mine
+                            ? "1px solid rgba(34,211,238,0.8)"
+                            : "1px solid rgba(148,163,184,0.45)",
+                          background: mine
+                            ? "rgba(34,211,238,0.12)"
+                            : "rgba(15,23,42,0.6)",
+                          color: mine ? "#7dd3fc" : "rgba(226,232,240,0.9)",
+                          cursor: isVoteLoading(q.id) ? "default" : "pointer",
+                          fontSize: isMobile ? 10 : 12,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: isMobile ? 4 : 6,
+                          opacity: isVoteLoading(q.id) ? 0.7 : 1,
+                        }}
                         title={mine ? "Remove upvote" : "Upvote"}
                       >
                         ▲ {votes}
@@ -1479,16 +1480,16 @@ function QnAMiddle() {
 
                       <div
                         style={{
-  borderRadius: 12,
-  padding: isMobile ? "4px 7px" : "7px 10px",
-  border: "1px solid rgba(148,163,184,0.45)",
-  background: "rgba(15,23,42,0.6)",
-  color: "rgba(226,232,240,0.9)",
-  fontSize: isMobile ? 10 : 12,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: isMobile ? 4 : 6,
-}}
+                          borderRadius: 12,
+                          padding: isMobile ? "4px 7px" : "7px 10px",
+                          border: "1px solid rgba(148,163,184,0.45)",
+                          background: "rgba(15,23,42,0.6)",
+                          color: "rgba(226,232,240,0.9)",
+                          fontSize: isMobile ? 10 : 12,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: isMobile ? 4 : 6,
+                        }}
                         title="Answers"
                       >
                         💬 {ansCount}
@@ -1622,6 +1623,55 @@ function QnAMiddle() {
             </div>
 
             <div style={{ marginTop: 12 }}>
+              {/* AUTHOR ROW */}
+              {(() => {
+                const p = pickProfile(openQ.profiles);
+                const authorName = p?.full_name || "Quantum5ocial member";
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Link
+                      href={`/profile/${openQ.user_id}`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        textDecoration: "none",
+                        color: "inherit",
+                      }}
+                    >
+                      {avatarBubble(authorName, p?.avatar_url || null, 32)}
+
+                      <div style={{ minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 800,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {authorName}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "rgba(148,163,184,0.9)",
+                          }}
+                        >
+                          {timeAgo(openQ.created_at)} ago
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                );
+              })()}
+
               <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1.25 }}>
                 {openQ.title}
               </div>
@@ -1716,9 +1766,12 @@ function QnAMiddle() {
                   No answers yet. Be the first to help.
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                >
                   {answers.map((a) => {
-                    const name = a.profile?.full_name || "Quantum5ocial member";
+                    const name =
+                      a.profile?.full_name || "Quantum5ocial member";
                     const aid = a.id;
                     const mine = !!myAnswerVotes[aid];
                     const v = a.qna_answer_votes?.[0]?.count ?? 0;
