@@ -32,7 +32,7 @@ type ProductRow = {
   id: string;
   owner_id: string | null;
 
-  // ✅ new: org ownership (assumes you have org_id column in products table)
+  // ✅ org ownership
   org_id?: string | null;
 
   name: string;
@@ -52,14 +52,22 @@ type ProductRow = {
   datasheet_url: string | null;
 };
 
+const isUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+
 export default function NewProductPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
-  const { id, org: orgIdParam, orgSlug } = router.query as {
-    id?: string;
-    org?: string;
-    orgSlug?: string;
-  };
+
+  // ✅ We only support ONE param: ?org=<slug-or-uuid>
+  // - From org page: /products/new?org=<org.slug>
+  // - Also supports uuid if you ever pass id instead.
+  const { id } = router.query as { id?: string };
+  const orgParamRaw = router.query.org;
+  const orgParam = useMemo(() => {
+    if (!orgParamRaw) return "";
+    return Array.isArray(orgParamRaw) ? String(orgParamRaw[0] || "") : String(orgParamRaw);
+  }, [orgParamRaw]);
 
   const isEditMode = !!id;
 
@@ -95,61 +103,59 @@ export default function NewProductPage() {
   const [loadingOrg, setLoadingOrg] = useState(false);
   const [canListForOrg, setCanListForOrg] = useState(false);
 
-  const effectiveOrgId = useMemo(() => (orgIdParam ? String(orgIdParam) : ""), [orgIdParam]);
-  const effectiveOrgSlug = useMemo(() => (orgSlug ? String(orgSlug) : ""), [orgSlug]);
+  const lockCompanyField = !!org;
 
-  // Redirect if not logged in
+  // Redirect if not logged in (preserve org param)
   useEffect(() => {
     if (!loading && !user) {
-      router.replace(
-        isEditMode ? `/auth?redirect=/products/new?id=${id}` : "/auth?redirect=/products/new"
-      );
+      const redirect = isEditMode
+        ? `/products/new?id=${encodeURIComponent(String(id || ""))}${orgParam ? `&org=${encodeURIComponent(orgParam)}` : ""}`
+        : `/products/new${orgParam ? `?org=${encodeURIComponent(orgParam)}` : ""}`;
+      router.replace(`/auth?redirect=${encodeURIComponent(redirect)}`);
     }
-  }, [loading, user, router, isEditMode, id]);
+  }, [loading, user, router, isEditMode, id, orgParam]);
 
-  // ✅ Load org context (for new listing, org is mandatory)
+  // ✅ Load org context (create mode REQUIRES org param)
   useEffect(() => {
     const loadOrgContext = async () => {
       if (!user) return;
 
-      // In create mode: require org id or slug in query
-      if (!isEditMode && !effectiveOrgId && !effectiveOrgSlug) {
+      // Create mode: enforce org param
+      if (!isEditMode && !orgParam) {
         setOrg(null);
         setCanListForOrg(false);
         setCreateError("You must create a product from an organization page.");
         return;
       }
 
-      // In edit mode: org can come from query, or we may discover it from the product later
-      if (isEditMode && !effectiveOrgId && !effectiveOrgSlug) return;
+      // Edit mode: org can be derived from product (later), so skip if no param
+      if (isEditMode && !orgParam) return;
 
       setLoadingOrg(true);
       setCreateError(null);
 
       let foundOrg: Org | null = null;
 
-      // Prefer org id if given
-      if (effectiveOrgId) {
-        const { data, error } = await supabase
-          .from("organizations")
-          .select("id,name,slug,created_by,is_active")
-          .eq("id", effectiveOrgId)
-          .eq("is_active", true)
-          .maybeSingle();
+      if (orgParam) {
+        if (isUuid(orgParam)) {
+          const { data, error } = await supabase
+            .from("organizations")
+            .select("id,name,slug,created_by,is_active")
+            .eq("id", orgParam)
+            .eq("is_active", true)
+            .maybeSingle();
 
-        if (!error && data) foundOrg = data as Org;
-      }
+          if (!error && data) foundOrg = data as Org;
+        } else {
+          const { data, error } = await supabase
+            .from("organizations")
+            .select("id,name,slug,created_by,is_active")
+            .eq("slug", orgParam)
+            .eq("is_active", true)
+            .maybeSingle();
 
-      // Fallback to org slug if given (or if id lookup failed)
-      if (!foundOrg && effectiveOrgSlug) {
-        const { data, error } = await supabase
-          .from("organizations")
-          .select("id,name,slug,created_by,is_active")
-          .eq("slug", effectiveOrgSlug)
-          .eq("is_active", true)
-          .maybeSingle();
-
-        if (!error && data) foundOrg = data as Org;
+          if (!error && data) foundOrg = data as Org;
+        }
       }
 
       if (!foundOrg) {
@@ -185,7 +191,7 @@ export default function NewProductPage() {
       // ✅ Auto-fill & lock company_name
       setForm((prev) => ({
         ...prev,
-        company_name: foundOrg?.name || prev.company_name,
+        company_name: foundOrg.name || prev.company_name,
       }));
 
       if (!allowed) {
@@ -196,7 +202,8 @@ export default function NewProductPage() {
     };
 
     loadOrgContext();
-  }, [user, isEditMode, effectiveOrgId, effectiveOrgSlug]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isEditMode, orgParam]);
 
   // If edit mode: load existing product & prefill
   useEffect(() => {
@@ -206,11 +213,7 @@ export default function NewProductPage() {
       setLoadingExisting(true);
       setCreateError(null);
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", id as string)
-        .maybeSingle();
+      const { data, error } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
 
       if (error || !data) {
         console.error("Error loading product for edit", error);
@@ -247,29 +250,29 @@ export default function NewProductPage() {
       setExistingDatasheetUrl(product.datasheet_url);
 
       // ✅ If product has org_id, load org + lock company_name (even if query missing)
-      if (product.org_id && !org) {
+      if (product.org_id) {
         setLoadingOrg(true);
-        const { data: o } = await supabase
+
+        const { data: o, error: oErr } = await supabase
           .from("organizations")
           .select("id,name,slug,created_by,is_active")
           .eq("id", product.org_id)
           .eq("is_active", true)
           .maybeSingle();
 
-        if (o) {
+        if (!oErr && o) {
           setOrg(o as Org);
           setForm((prev) => ({ ...prev, company_name: (o as Org).name || prev.company_name }));
-          // In edit mode we still keep existing owner_id permission;
-          // but we also mark canListForOrg true so button isn't blocked.
-          setCanListForOrg(true);
+          setCanListForOrg(true); // edit mode is governed by owner_id rule above
         }
+
         setLoadingOrg(false);
       }
 
       setLoadingExisting(false);
     };
 
-    if (isEditMode) loadExisting();
+    loadExisting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, id, user]);
 
@@ -338,7 +341,7 @@ export default function NewProductPage() {
     }
 
     const inStock = form.in_stock === "yes";
-    const stockQty =
+_tp    const stockQty =
       form.stock_quantity.trim() === ""
         ? null
         : Number.isNaN(Number(form.stock_quantity))
@@ -354,25 +357,27 @@ export default function NewProductPage() {
 
       if (isEditMode && id) {
         // UPDATE existing product
+        const updatePayload: any = {
+          name: form.name.trim(),
+          company_name: (org?.name || form.company_name).trim() || null,
+          category: form.category || null,
+          short_description: form.short_description.trim() || null,
+          specifications: form.specifications.trim() || null,
+          product_url: form.product_url.trim() || null,
+          keywords: form.keywords.trim() || null,
+          price_type: priceType,
+          price_value: priceValue,
+          in_stock: inStock,
+          stock_quantity: stockQty,
+        };
+
+        // If org exists, keep link consistent
+        if (org?.id) updatePayload.org_id = org.id;
+
         const { error: updateBaseError } = await supabase
           .from("products")
-          .update({
-            name: form.name.trim(),
-
-            // ✅ company_name stays as-is (and typically locked to org name)
-            company_name: form.company_name.trim() || null,
-
-            category: form.category || null,
-            short_description: form.short_description.trim() || null,
-            specifications: form.specifications.trim() || null,
-            product_url: form.product_url.trim() || null,
-            keywords: form.keywords.trim() || null,
-            price_type: priceType,
-            price_value: priceValue,
-            in_stock: inStock,
-            stock_quantity: stockQty,
-          })
-          .eq("id", id as string)
+          .update(updatePayload)
+          .eq("id", id)
           .eq("owner_id", user.id);
 
         if (updateBaseError) {
@@ -382,22 +387,16 @@ export default function NewProductPage() {
           return;
         }
 
-        productId = id as string;
+        productId = id;
       } else {
         // INSERT new product (✅ requires org)
         const { data: inserted, error: insertError } = await supabase
           .from("products")
           .insert({
             owner_id: user.id,
-
-            // ✅ enforce org linkage
-            org_id: org!.id,
-
+            org_id: org!.id, // ✅ hard requirement
             name: form.name.trim(),
-
-            // ✅ auto-filled org name
-            company_name: org!.name,
-
+            company_name: org!.name, // ✅ fixed to org name
             category: form.category || null,
             short_description: form.short_description.trim() || null,
             specifications: form.specifications.trim() || null,
@@ -474,8 +473,6 @@ export default function NewProductPage() {
     ? "Update the information for this product listing."
     : "Create a product listing that will appear in the Quantum5ocial marketplace.";
 
-  const lockCompanyField = !!org; // ✅ when org exists, company is fixed
-
   const backTarget = useMemo(() => {
     if (org?.slug) return `/orgs/${org.slug}?tab=products`;
     return isEditMode ? (id ? `/products/${id}` : "/products") : "/products";
@@ -495,7 +492,8 @@ export default function NewProductPage() {
                 {subtitle}
                 {!isEditMode && org?.name ? (
                   <span style={{ display: "block", marginTop: 6, color: "rgba(148,163,184,0.95)" }}>
-                    Publishing as: <strong style={{ color: "rgba(226,232,240,0.95)" }}>{org.name}</strong>
+                    Publishing as:{" "}
+                    <strong style={{ color: "rgba(226,232,240,0.95)" }}>{org.name}</strong>
                   </span>
                 ) : null}
               </div>
@@ -513,7 +511,7 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {(loadingOrg && !isEditMode) && <p className="profile-muted">Loading organization…</p>}
+          {loadingOrg && !isEditMode && <p className="profile-muted">Loading organization…</p>}
 
           {loadingExisting && isEditMode ? (
             <p className="profile-muted">Loading product data…</p>
@@ -726,11 +724,7 @@ export default function NewProductPage() {
 
                         <div className="products-field products-field-full">
                           <label>Datasheet (PDF)</label>
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            onChange={handleDatasheetChange}
-                          />
+                          <input type="file" accept="application/pdf" onChange={handleDatasheetChange} />
                           {datasheetFile ? (
                             <span style={{ fontSize: 12, color: "#9ca3af" }}>
                               Selected: {datasheetFile.name}
