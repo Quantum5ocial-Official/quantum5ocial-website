@@ -664,6 +664,7 @@ export default function OrgTeamTab({
             style={{
               display: "grid",
               // exactly 3 columns layout
+              // MDN notes the repeat() usage for grid-template; see docs on repeat and track lists.  [oai_citation:1‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/grid-template-rows#:~:text=repeat%28%20%5B%20%3Cpositive,in%20a%20more%20compact%20form)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
