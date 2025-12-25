@@ -9,8 +9,8 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import OrgPostsTab from "../../components/org/OrgPostsTab";
 import OrgTeamTab from "../../components/org/OrgTeamTab";
 import OrgProductsTab from "../../components/org/OrgProductsTab";
-import OrgJobsTab from "../../components/org/OrgJobsTab"; //
-// import OrgAnalyticsTab from "../../components/org/OrgAnalyticsTab"; // <-- new import (placeholder)
+import OrgJobsTab from "../../components/org/OrgJobsTab"; 
+import OrgAnalyticsTab from "../../components/org/OrgAnalyticsTab"; 
 
 type Org = {
   id: string;
