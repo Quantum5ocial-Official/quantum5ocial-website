@@ -1,5 +1,6 @@
-// lib/qnaHelpers.ts
-import type { ProfileMaybe, ProfileLite } from "../types/qna";
+// /lib/qnaHelpers.ts
+
+import { ProfileLite, ProfileMaybe } from "../types/qna";
 
 export function pickProfile(p: ProfileMaybe): ProfileLite | null {
   if (!p) return null;
