@@ -18,6 +18,7 @@ type Job = {
   salary_display: string | null;
   apply_url: string | null;
   owner_id: string | null;
+  org_id?: string | null;        // optional organization linkage
   created_at?: string | null;
 };
 
@@ -31,6 +32,9 @@ export default function JobDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Org slug for clickable company name (if available)
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
+
   // Load job
   useEffect(() => {
     const fetchJob = async () => {
@@ -38,6 +42,7 @@ export default function JobDetailPage() {
       setLoading(true);
       setLoadError(null);
 
+      // Fetch job row
       const { data, error } = await supabase
         .from("jobs")
         .select("*")
@@ -49,7 +54,30 @@ export default function JobDetailPage() {
         setLoadError("Could not load this job.");
         setJob(null);
       } else {
-        setJob(data as Job);
+        const jobRow = data as Job | null;
+        setJob(jobRow);
+
+        // If org_id present, load org slug for linking
+        if (jobRow?.org_id) {
+          try {
+            const { data: orgData, error: orgErr } = await supabase
+              .from("organizations")
+              .select("slug")
+              .eq("id", jobRow.org_id)
+              .maybeSingle();
+
+            if (!orgErr && orgData && orgData.slug) {
+              setOrgSlug(orgData.slug);
+            } else {
+              setOrgSlug(null);
+            }
+          } catch (e) {
+            console.error("Error loading organization for job", e);
+            setOrgSlug(null);
+          }
+        } else {
+          setOrgSlug(null);
+        }
       }
 
       setLoading(false);
@@ -130,7 +158,15 @@ export default function JobDetailPage() {
 
                 {job.company_name && (
                   <div className="product-detail-company">
-                    {job.company_name}
+                    {orgSlug ? (
+                      // clickable company name when org slug available
+                      <Link href={`/orgs/${encodeURIComponent(orgSlug)}`}>
+                        {/* Next.js Link recommended usage: primary way to navigate client‑side.  [oai_citation:0‡Next.js](https://nextjs.org/docs/14/app/api-reference/components/link#:~:text=%60,Dashboard%3C%2FLink) */}
+                        <a>{job.company_name}</a>
+                      </Link>
+                    ) : (
+                      job.company_name
+                    )}
                   </div>
                 )}
 
