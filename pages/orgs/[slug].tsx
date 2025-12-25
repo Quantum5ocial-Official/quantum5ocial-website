@@ -146,12 +146,35 @@ const OrganizationDetailPage = () => {
       : `/orgs/edit/research-group/${org.slug}`;
   }, [org]);
 
-  // ✅ Hiring badge: driven by explicit DB field `hiring_status`
+  // === UPDATED Hiring badge logic ===
   const hiringBadge = useMemo(() => {
     if (!org) return null;
     if (org.kind !== "company") return null;
 
     const hs = org.hiring_status || "";
+
+    // No status or empty string
+    if (!hs) {
+      return {
+        text: "Hiring updates soon",
+        title: "Hiring status not set yet",
+        border: "1px solid rgba(148,163,184,0.7)",
+        background: "rgba(15,23,42,0.18)",
+        color: "rgba(209,213,219,0.95)",
+        icon: "🕒",
+      };
+    }
+
+    if (hs === "not_hiring") {
+      return {
+        text: "Not hiring",
+        title: "This company is not hiring currently",
+        border: "1px solid rgba(248,113,113,0.9)", // reddish border
+        background: "rgba(248,113,113,0.12)",
+        color: "rgba(248,113,113,0.95)",
+        icon: "🚫",
+      };
+    }
 
     if (hs === "actively_hiring") {
       return {
@@ -313,7 +336,7 @@ const OrganizationDetailPage = () => {
     if (!org) return;
 
     if (!user) {
-      // Client-side route navigation via <Link> or router.push; Next.js docs explain matching usage and shallow routing.  [oai_citation:0‡Next.js](https://nextjs.org/docs/pages/building-your-application/routing/linking-and-navigating#:~:text=,import%20Link%20from%20%27next%2Flink)
+      // Next.js Link usage for client-side nav is standard. Docs show Link component etc.  [oai_citation:0‡Next.js](https://nextjs.org/docs/app/api-reference/components/link#:~:text=,Script%20Component)
       router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
