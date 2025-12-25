@@ -31,8 +31,6 @@ type OrgMemberRole = "owner" | "co_owner" | "admin" | "member";
 type ProductRow = {
   id: string;
   owner_id: string | null;
-
-  // ✅ org ownership
   org_id?: string | null;
 
   name: string;
@@ -52,22 +50,21 @@ type ProductRow = {
   datasheet_url: string | null;
 };
 
-const isUuid = (v: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+function firstQueryValue(v: string | string[] | undefined) {
+  if (!v) return "";
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function looksLikeUuid(v: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
 
 export default function NewProductPage() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  // ✅ We only support ONE param: ?org=<slug-or-uuid>
-  // - From org page: /products/new?org=<org.slug>
-  // - Also supports uuid if you ever pass id instead.
-  const { id } = router.query as { id?: string };
-  const orgParamRaw = router.query.org;
-  const orgParam = useMemo(() => {
-    if (!orgParamRaw) return "";
-    return Array.isArray(orgParamRaw) ? String(orgParamRaw[0] || "") : String(orgParamRaw);
-  }, [orgParamRaw]);
+  const id = firstQueryValue(router.query.id as any);
+  const orgParam = firstQueryValue(router.query.org as any); // ✅ single param: slug OR uuid
 
   const isEditMode = !!id;
 
@@ -103,24 +100,22 @@ export default function NewProductPage() {
   const [loadingOrg, setLoadingOrg] = useState(false);
   const [canListForOrg, setCanListForOrg] = useState(false);
 
-  const lockCompanyField = !!org;
-
-  // Redirect if not logged in (preserve org param)
+  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
-      const redirect = isEditMode
-        ? `/products/new?id=${encodeURIComponent(String(id || ""))}${orgParam ? `&org=${encodeURIComponent(orgParam)}` : ""}`
-        : `/products/new${orgParam ? `?org=${encodeURIComponent(orgParam)}` : ""}`;
-      router.replace(`/auth?redirect=${encodeURIComponent(redirect)}`);
+      router.replace(
+        isEditMode ? `/auth?redirect=/products/new?id=${encodeURIComponent(id)}` : "/auth?redirect=/products/new"
+      );
     }
-  }, [loading, user, router, isEditMode, id, orgParam]);
+  }, [loading, user, router, isEditMode, id]);
 
-  // ✅ Load org context (create mode REQUIRES org param)
+  // ✅ Load org context in CREATE mode: org is mandatory
   useEffect(() => {
     const loadOrgContext = async () => {
+      if (!router.isReady) return;
       if (!user) return;
 
-      // Create mode: enforce org param
+      // In create mode: require org param
       if (!isEditMode && !orgParam) {
         setOrg(null);
         setCanListForOrg(false);
@@ -128,7 +123,7 @@ export default function NewProductPage() {
         return;
       }
 
-      // Edit mode: org can be derived from product (later), so skip if no param
+      // In edit mode: org can be discovered from the product; we don't require orgParam
       if (isEditMode && !orgParam) return;
 
       setLoadingOrg(true);
@@ -137,7 +132,7 @@ export default function NewProductPage() {
       let foundOrg: Org | null = null;
 
       if (orgParam) {
-        if (isUuid(orgParam)) {
+        if (looksLikeUuid(orgParam)) {
           const { data, error } = await supabase
             .from("organizations")
             .select("id,name,slug,created_by,is_active")
@@ -202,12 +197,12 @@ export default function NewProductPage() {
     };
 
     loadOrgContext();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, isEditMode, orgParam]);
+  }, [router.isReady, user, isEditMode, orgParam]);
 
   // If edit mode: load existing product & prefill
   useEffect(() => {
     const loadExisting = async () => {
+      if (!router.isReady) return;
       if (!isEditMode || !user || !id) return;
 
       setLoadingExisting(true);
@@ -250,20 +245,20 @@ export default function NewProductPage() {
       setExistingDatasheetUrl(product.datasheet_url);
 
       // ✅ If product has org_id, load org + lock company_name (even if query missing)
-      if (product.org_id) {
+      if (product.org_id && !org) {
         setLoadingOrg(true);
 
-        const { data: o, error: oErr } = await supabase
+        const { data: o } = await supabase
           .from("organizations")
           .select("id,name,slug,created_by,is_active")
           .eq("id", product.org_id)
           .eq("is_active", true)
           .maybeSingle();
 
-        if (!oErr && o) {
+        if (o) {
           setOrg(o as Org);
           setForm((prev) => ({ ...prev, company_name: (o as Org).name || prev.company_name }));
-          setCanListForOrg(true); // edit mode is governed by owner_id rule above
+          setCanListForOrg(true);
         }
 
         setLoadingOrg(false);
@@ -274,7 +269,7 @@ export default function NewProductPage() {
 
     loadExisting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, id, user]);
+  }, [router.isReady, isEditMode, id, user]);
 
   const handleFormChange =
     (field: keyof typeof form) =>
@@ -341,7 +336,9 @@ export default function NewProductPage() {
     }
 
     const inStock = form.in_stock === "yes";
-_tp    const stockQty =
+
+    // ✅ FIXED: removed the stray `_tp` token that broke your build
+    const stockQty =
       form.stock_quantity.trim() === ""
         ? null
         : Number.isNaN(Number(form.stock_quantity))
@@ -357,26 +354,21 @@ _tp    const stockQty =
 
       if (isEditMode && id) {
         // UPDATE existing product
-        const updatePayload: any = {
-          name: form.name.trim(),
-          company_name: (org?.name || form.company_name).trim() || null,
-          category: form.category || null,
-          short_description: form.short_description.trim() || null,
-          specifications: form.specifications.trim() || null,
-          product_url: form.product_url.trim() || null,
-          keywords: form.keywords.trim() || null,
-          price_type: priceType,
-          price_value: priceValue,
-          in_stock: inStock,
-          stock_quantity: stockQty,
-        };
-
-        // If org exists, keep link consistent
-        if (org?.id) updatePayload.org_id = org.id;
-
         const { error: updateBaseError } = await supabase
           .from("products")
-          .update(updatePayload)
+          .update({
+            name: form.name.trim(),
+            company_name: form.company_name.trim() || null,
+            category: form.category || null,
+            short_description: form.short_description.trim() || null,
+            specifications: form.specifications.trim() || null,
+            product_url: form.product_url.trim() || null,
+            keywords: form.keywords.trim() || null,
+            price_type: priceType,
+            price_value: priceValue,
+            in_stock: inStock,
+            stock_quantity: stockQty,
+          })
           .eq("id", id)
           .eq("owner_id", user.id);
 
@@ -394,9 +386,9 @@ _tp    const stockQty =
           .from("products")
           .insert({
             owner_id: user.id,
-            org_id: org!.id, // ✅ hard requirement
+            org_id: org!.id, // ✅ required linkage
             name: form.name.trim(),
-            company_name: org!.name, // ✅ fixed to org name
+            company_name: org!.name, // ✅ force org name
             category: form.category || null,
             short_description: form.short_description.trim() || null,
             specifications: form.specifications.trim() || null,
@@ -473,6 +465,8 @@ _tp    const stockQty =
     ? "Update the information for this product listing."
     : "Create a product listing that will appear in the Quantum5ocial marketplace.";
 
+  const lockCompanyField = !!org; // ✅ when org exists, company is fixed
+
   const backTarget = useMemo(() => {
     if (org?.slug) return `/orgs/${org.slug}?tab=products`;
     return isEditMode ? (id ? `/products/${id}` : "/products") : "/products";
@@ -511,7 +505,7 @@ _tp    const stockQty =
             </div>
           </div>
 
-          {loadingOrg && !isEditMode && <p className="profile-muted">Loading organization…</p>}
+          {!isEditMode && loadingOrg && <p className="profile-muted">Loading organization…</p>}
 
           {loadingExisting && isEditMode ? (
             <p className="profile-muted">Loading product data…</p>
@@ -534,12 +528,7 @@ _tp    const stockQty =
                       <div className="products-grid">
                         <div className="products-field">
                           <label>Product name *</label>
-                          <input
-                            type="text"
-                            value={form.name}
-                            onChange={handleFormChange("name")}
-                            required
-                          />
+                          <input type="text" value={form.name} onChange={handleFormChange("name")} required />
                         </div>
 
                         <div className="products-field">
@@ -752,13 +741,7 @@ _tp    const stockQty =
                           loading
                         }
                       >
-                        {creating
-                          ? isEditMode
-                            ? "Saving…"
-                            : "Publishing…"
-                          : isEditMode
-                          ? "Save changes"
-                          : "Publish product"}
+                        {creating ? (isEditMode ? "Saving…" : "Publishing…") : isEditMode ? "Save changes" : "Publish product"}
                       </button>
 
                       {createError && <span className="products-status error">{createError}</span>}
