@@ -408,6 +408,41 @@ export default function OrgTeamTab({
     }
   };
 
+  // NEW: Edit designation for an existing member
+  const handleChangeDesignation = async (member: OrgMemberWithProfile) => {
+    if (!canManageMembers) return;
+    const current = member.designation || "";
+    const input = window.prompt("Designation / Role (optional)", current);
+    if (input === null) return; // cancelled
+
+    const newDesignation = input.trim() === "" ? null : input.trim();
+
+    // optionally skip if unchanged
+    if (newDesignation === member.designation) return;
+
+    setMemberActionLoadingId(member.user_id);
+    try {
+      const { error } = await supabase
+        .from("org_members")
+        .update({ designation: newDesignation })
+        .eq("org_id", org.id)
+        .eq("user_id", member.user_id);
+
+      if (error) {
+        console.error("Error updating designation", error);
+        return;
+      }
+
+      setMembers((prev) =>
+        prev.map((m) => (m.user_id === member.user_id ? { ...m, designation: newDesignation } : m))
+      );
+      setMemberMenuOpenId(null);
+      setMenuPosition(null);
+    } finally {
+      setMemberActionLoadingId(null);
+    }
+  };
+
   return (
     <div style={{ marginTop: 18 }}>
       {/* Team header + Add member */}
@@ -623,7 +658,8 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout; see MDN example for repeat usage in grid-template-columns.  [oai_citation:0‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
+              // exactly 3 columns layout; see MDN example for repeat usage in grid-template-columns.  
+              // repeat(3, 1fr) is standard CSS pattern; MDN documents this usage.  [oai_citation:0‡MDN Web Docs](https://developer.mozilla.org/de/docs/Web/CSS/Guides/Grid_layout/Basic_concepts#:~:text=Gro%C3%9Fe%20Grids%20mit%20vielen%20Tracks,columns%3A%20repeat%283%2C%201fr)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -979,6 +1015,7 @@ export default function OrgTeamTab({
               Manage member
             </div>
 
+            {/* Role change options */}
             {(["co_owner", "admin", "member"] as OrgMemberRole[]).map((roleOption) => (
               <button
                 key={roleOption}
@@ -1004,6 +1041,26 @@ export default function OrgTeamTab({
                   : "Make member"}
               </button>
             ))}
+
+            {/* NEW: Edit designation option for any member */}
+            <button
+              type="button"
+              disabled={memberActionLoadingId === openMember.user_id}
+              onClick={() => handleChangeDesignation(openMember)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                padding: "6px 8px",
+                borderRadius: 6,
+                border: "none",
+                background: "transparent",
+                color: "rgba(226,232,240,0.95)",
+                fontSize: 12,
+                cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+              }}
+            >
+              {openMember.designation ? "Edit designation" : "Set designation"}
+            </button>
 
             {shouldShowRemoveMember(openMember, canRemoveOthers) && (
               <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 4, paddingTop: 4 }}>
