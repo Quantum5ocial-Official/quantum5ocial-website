@@ -8,6 +8,7 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 import OrgPostsTab from "../../components/org/OrgPostsTab";
 import OrgTeamTab from "../../components/org/OrgTeamTab";
+import OrgProductsTab from "../../components/org/OrgProductsTab";
 
 type Org = {
   id: string;
@@ -67,7 +68,7 @@ const OrganizationDetailPage = () => {
     const t = (router.query.tab as string | undefined) || "";
     const key = (t || "").toLowerCase();
     if (key === "posts" || key === "products" || key === "jobs" || key === "team") {
-      setActiveTab(key);
+      setActiveTab(key as TabKey);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query.tab]);
@@ -289,6 +290,12 @@ const OrganizationDetailPage = () => {
       memberRole === "owner" ||
       memberRole === "co_owner" ||
       memberRole === "admin");
+
+  // ✅ Who is allowed to list products as the org (owner/co_owner only)
+  const canListProductsAsOrg =
+    !!user &&
+    !!org &&
+    (org.created_by === user.id || memberRole === "owner" || memberRole === "co_owner");
 
   const handleFollowClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -606,7 +613,7 @@ const OrganizationDetailPage = () => {
             </div>
           </section>
 
-          {/* ✅ About (description + focus areas) moved ABOVE the tabs */}
+          {/* About (description + focus areas) */}
           {(org.description || org.focus_areas) && (
             <div className="card" style={aboutCard}>
               {org.description ? (
@@ -643,7 +650,7 @@ const OrganizationDetailPage = () => {
             </div>
           )}
 
-          {/* Tabs (compact segmented control) */}
+          {/* Tabs */}
           <div style={tabWrapStyle} role="tablist" aria-label="Organization sections">
             <button
               type="button"
@@ -689,6 +696,10 @@ const OrganizationDetailPage = () => {
           {/* Panels */}
           {activeTab === "posts" && <OrgPostsTab org={org} canPostAsOrg={canPostAsOrg} />}
 
+          {activeTab === "products" && (
+            <OrgProductsTab org={org} canListProduct={canListProductsAsOrg} />
+          )}
+
           {activeTab === "team" && (
             <OrgTeamTab
               org={org}
@@ -698,15 +709,6 @@ const OrganizationDetailPage = () => {
               isAffiliated={isAffiliated}
               onSelfAffiliatedChange={(v: boolean) => setIsAffiliated(v)}
             />
-          )}
-
-          {activeTab === "products" && (
-            <div style={comingSoonCard}>
-              <div style={{ fontWeight: 900, fontSize: 14 }}>Products</div>
-              <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
-                Coming soon — we’ll show this organization’s products marketplace listings here.
-              </div>
-            </div>
           )}
 
           {activeTab === "jobs" && (
