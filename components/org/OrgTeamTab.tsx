@@ -109,8 +109,9 @@ export default function OrgTeamTab({
   const [selfAffLoadingId, setSelfAffLoadingId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<MenuPosition>(null);
 
-  // NEW: designation draft in menu
-  const [menuDesignationDraft, setMenuDesignationDraft] = useState<string>("");
+  // NEW: track when editing designation in-menu, and draft text
+  const [editingDesignationId, setEditingDesignationId] = useState<string | null>(null);
+  const [designationDraft, setDesignationDraft] = useState<string>("");
 
   const openMember = useMemo(
     () => members.find((m) => m.user_id === memberMenuOpenId) || null,
@@ -381,8 +382,6 @@ export default function OrgTeamTab({
       setMembers((prev) => prev.map((m) => (m.user_id === memberUserId ? { ...m, role: newRole } : m)));
       setMemberMenuOpenId(null);
       setMenuPosition(null);
-      // reset designation draft too
-      setMenuDesignationDraft("");
     } finally {
       setMemberActionLoadingId(null);
     }
@@ -408,22 +407,20 @@ export default function OrgTeamTab({
       setMembers((prev) => prev.filter((m) => m.user_id !== memberUserId));
       setMemberMenuOpenId(null);
       setMenuPosition(null);
-      setMenuDesignationDraft("");
     } finally {
       setMemberActionLoadingId(null);
     }
   };
 
-  // NEW: change designation for any member
-  const handleChangeMemberDesignation = async (memberUserId: string, newDesignation: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!canManageMembers) return;
-
+  // NEW: handle saving updated designation
+  const handleSaveDesignation = async (memberUserId: string) => {
+    const newDesign = designationDraft.trim() || null;
     setMemberActionLoadingId(memberUserId);
+
     try {
       const { error } = await supabase
         .from("org_members")
-        .update({ designation: newDesignation || null })
+        .update({ designation: newDesign })
         .eq("org_id", org.id)
         .eq("user_id", memberUserId);
 
@@ -434,21 +431,21 @@ export default function OrgTeamTab({
 
       setMembers((prev) =>
         prev.map((m) =>
-          m.user_id === memberUserId
-            ? {
-                ...m,
-                designation: newDesignation || null,
-              }
-            : m
+          m.user_id === memberUserId ? { ...m, designation: newDesign ?? null } : m
         )
       );
-      // close menu after saving designation
+      // close editing UI
+      setEditingDesignationId(null);
       setMemberMenuOpenId(null);
       setMenuPosition(null);
-      setMenuDesignationDraft("");
     } finally {
       setMemberActionLoadingId(null);
     }
+  };
+
+  const handleCancelEditDesignation = () => {
+    setEditingDesignationId(null);
+    setDesignationDraft("");
   };
 
   return (
@@ -666,8 +663,8 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout; see MDN example for repeat usage in grid-template-columns.
-              // repeat(3, 1fr) example also shown on MDN.  [oai_citation:0‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout/Basic_concepts_of_grid_layout#:~:text=,track)
+              // exactly 3 columns layout
+              // MDN notes the repeat() usage for grid-template; see docs on repeat and track lists.  [oai_citation:1‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/grid-template-rows#:~:text=repeat%28%20%5B%20%3Cpositive,in%20a%20more%20compact%20form)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -691,11 +688,7 @@ export default function OrgTeamTab({
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
 
               return (
-                <div
-                  key={m.user_id}
-                  // grid items don't need scrollSnapAlign or specific width anymore
-                  style={{ width: "100%" }}
-                >
+                <div key={m.user_id} style={{ width: "100%" }}>
                   <button
                     type="button"
                     onClick={() => profile && goToProfile(profile.id)}
@@ -786,7 +779,8 @@ export default function OrgTeamTab({
                         </div>
                       </div>
 
-                      {canManageMembers && !isRealOwner && (
+                      {/* show menu for all members if canManageMembers, including owner */}
+                      {canManageMembers && (
                         <div style={{ marginLeft: "auto", flexShrink: 0 }}>
                           <button
                             type="button"
@@ -797,11 +791,9 @@ export default function OrgTeamTab({
                               if (memberMenuOpenId === m.user_id) {
                                 setMemberMenuOpenId(null);
                                 setMenuPosition(null);
+                                setEditingDesignationId(null);
                                 return;
                               }
-
-                              // when opening menu, preload designation draft
-                              setMenuDesignationDraft(m.designation || "");
 
                               const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
                               const scrollX = window.scrollX ?? window.pageXOffset ?? 0;
@@ -813,6 +805,7 @@ export default function OrgTeamTab({
 
                               setMemberMenuOpenId(m.user_id);
                               setMenuPosition({ top, left });
+                              setEditingDesignationId(null);
                             }}
                             style={{
                               width: 24,
@@ -1026,98 +1019,143 @@ export default function OrgTeamTab({
               Manage member
             </div>
 
-            {/* NEW: designation editor */}
-            <div style={{ padding: "4px 8px", fontSize: 12, color: "rgba(226,232,240,0.95)" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                Designation
-                <input
-                  type="text"
-                  value={menuDesignationDraft}
-                  onChange={(e) => setMenuDesignationDraft(e.target.value)}
-                  placeholder="CEO / Engineer / Scientist"
-                  style={{
-                    width: "100%",
-                    padding: "4px 6px",
-                    borderRadius: 6,
-                    border: "1px solid rgba(148,163,184,0.7)",
-                    background: "rgba(15,23,42,0.9)",
-                    color: "#e5e7eb",
-                    fontSize: 12,
-                    outline: "none",
-                  }}
-                />
-              </label>
+            {/* role change options */}
+            {(["co_owner", "admin", "member"] as OrgMemberRole[]).map((roleOption) => (
               <button
+                key={roleOption}
                 type="button"
                 disabled={memberActionLoadingId === openMember.user_id}
-                onClick={(e) => handleChangeMemberDesignation(openMember.user_id, menuDesignationDraft, e)}
+                onClick={(e) => handleChangeMemberRole(openMember.user_id, roleOption, e)}
                 style={{
-                  marginTop: 6,
                   width: "100%",
-                  textAlign: "center",
+                  textAlign: "left",
                   padding: "6px 8px",
                   borderRadius: 6,
-                  border: "1px solid rgba(34,197,94,0.7)",
-                  background: "rgba(22,163,74,0.18)",
-                  color: "rgba(187,247,208,0.96)",
+                  border: "none",
+                  background: roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
+                  color: roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
                   fontSize: 12,
                   cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                 }}
               >
-                {memberActionLoadingId === openMember.user_id ? "Saving…" : "Save designation"}
+                {roleOption === "co_owner"
+                  ? "Make co-owner"
+                  : roleOption === "admin"
+                  ? "Make admin"
+                  : "Make member"}
               </button>
-            </div>
+            ))}
 
-            <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 6, paddingTop: 4 }}>
-              {(["co_owner", "admin", "member"] as OrgMemberRole[]).map((roleOption) => (
+            {/* Divider */}
+            <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 4, paddingTop: 4 }} />
+
+            {/* Edit designation option */}
+            {!editingDesignationId && (
+              <button
+                type="button"
+                disabled={memberActionLoadingId === openMember.user_id}
+                onClick={() => {
+                  setEditingDesignationId(openMember.user_id);
+                  setDesignationDraft(openMember.designation || "");
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "6px 8px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: "transparent",
+                  color: "rgba(226,232,240,0.95)",
+                  fontSize: 12,
+                  cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                }}
+              >
+                Edit designation
+              </button>
+            )}
+
+            {/* Designation edit UI */}
+            {editingDesignationId === openMember.user_id && (
+              <div style={{ marginTop: 4 }}>
+                <input
+                  type="text"
+                  value={designationDraft}
+                  onChange={(e) => setDesignationDraft(e.target.value)}
+                  placeholder="CEO / Engineer / Scientist"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    fontSize: 12,
+                    padding: "4px 6px",
+                    borderRadius: 6,
+                    border: "1px solid rgba(71,85,105,0.8)",
+                    background: "rgba(15,23,42,0.9)",
+                    color: "rgba(226,232,240,0.95)",
+                    marginBottom: 4,
+                  }}
+                />
+                <div style={{ display: "flex", gap: 4 }}>
+                  <button
+                    type="button"
+                    disabled={memberActionLoadingId === openMember.user_id}
+                    onClick={() => handleSaveDesignation(openMember.user_id)}
+                    style={{
+                      flex: 1,
+                      fontSize: 12,
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "rgba(34,197,94,0.7)",
+                      color: "#e5e7eb",
+                      cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                    }}
+                  >
+                    {memberActionLoadingId === openMember.user_id ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={memberActionLoadingId === openMember.user_id}
+                    onClick={handleCancelEditDesignation}
+                    style={{
+                      flex: 1,
+                      fontSize: 12,
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "rgba(148,163,184,0.7)",
+                      color: "#e5e7eb",
+                      cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Remove member option */}
+            {shouldShowRemoveMember(openMember, canRemoveOthers) && (
+              <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: editingDesignationId ? 8 : 4, paddingTop: 4 }}>
                 <button
-                  key={roleOption}
                   type="button"
                   disabled={memberActionLoadingId === openMember.user_id}
-                  onClick={(e) => handleChangeMemberRole(openMember.user_id, roleOption, e)}
+                  onClick={(e) => handleRemoveMember(openMember.user_id, e)}
                   style={{
                     width: "100%",
                     textAlign: "left",
                     padding: "6px 8px",
                     borderRadius: 6,
                     border: "none",
-                    background: roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
-                    color: roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
+                    background: "transparent",
+                    color: "#fecaca",
                     fontSize: 12,
                     cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                   }}
                 >
-                  {roleOption === "co_owner"
-                    ? "Make co-owner"
-                    : roleOption === "admin"
-                    ? "Make admin"
-                    : "Make member"}
+                  {memberActionLoadingId === openMember.user_id ? "Removing…" : "Remove from team"}
                 </button>
-              ))}
-
-              {shouldShowRemoveMember(openMember, canRemoveOthers) && (
-                <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 4, paddingTop: 4 }}>
-                  <button
-                    type="button"
-                    disabled={memberActionLoadingId === openMember.user_id}
-                    onClick={(e) => handleRemoveMember(openMember.user_id, e)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "6px 8px",
-                      borderRadius: 6,
-                      border: "none",
-                      background: "transparent",
-                      color: "#fecaca",
-                      fontSize: 12,
-                      cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
-                    }}
-                  >
-                    {memberActionLoadingId === openMember.user_id ? "Removing…" : "Remove from team"}
-                  </button>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>,
           document.body
         )}
