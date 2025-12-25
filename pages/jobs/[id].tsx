@@ -153,13 +153,36 @@ export default function JobDetailPage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            className="nav-ghost-btn"
-            onClick={() => router.push("/jobs")}
-          >
-            ← Back to jobs
-          </button>
+          {/* Back + owner actions in one row */}
+          <div className="header-actions">
+            <button
+              type="button"
+              className="nav-ghost-btn"
+              onClick={() => router.push("/jobs")}
+            >
+              ← Back to jobs
+            </button>
+
+            {isOwner && (
+              <>
+                <button
+                  type="button"
+                  className="nav-ghost-btn"
+                  onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="nav-cta delete-btn"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {loading && <p className="products-status">Loading job…</p>}
@@ -182,8 +205,6 @@ export default function JobDetailPage() {
                 {job.company_name && (
                   job.org_slug ? (
                     <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
-                      {/* Next.js Link wraps its child; docs note this for client-side navigation */}
-                      {/*  [oai_citation:0‡Next.js](https://nextjs.org/docs/13/app/api-reference/components/link#:~:text=%60,Dashboard%3C%2FLink) */}
                       <a className="product-detail-company" style={{ textDecoration: "underline" }}>
                         {job.company_name}
                       </a>
@@ -237,37 +258,6 @@ export default function JobDetailPage() {
                     >
                       Apply / learn more
                     </a>
-                  </div>
-                )}
-
-                {isOwner && (
-                  <div
-                    style={{
-                      marginTop: 18,
-                      display: "flex",
-                      gap: 10,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="nav-ghost-btn"
-                      onClick={() => router.push(`/jobs/new?id=${job.id}`)}
-                    >
-                      Edit job
-                    </button>
-                    <button
-                      type="button"
-                      className="nav-cta"
-                      style={{
-                        borderColor: "rgba(248,113,113,0.7)",
-                        color: "#fecaca",
-                      }}
-                      onClick={handleDelete}
-                      disabled={deleting}
-                    >
-                      {deleting ? "Deleting…" : "Delete job"}
-                    </button>
                   </div>
                 )}
               </div>
@@ -324,6 +314,18 @@ export default function JobDetailPage() {
 
         .job-detail-header {
           margin-bottom: 18px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        /* Container for back + owner actions */
+        .header-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
         }
 
         /* Reuse styles from products page */
@@ -416,6 +418,18 @@ export default function JobDetailPage() {
           border: 1px solid rgba(148, 163, 184, 0.4);
           background: rgba(15, 23, 42, 0.9);
           color: #cbd5f5;
+        }
+
+        /* Tight pill styles: remove extra min-width or flex-grow if any */
+        .nav-ghost-btn,
+        .nav-cta {
+          padding: 6px 12px;
+          min-width: auto; /* ensure tight width */
+        }
+
+        .delete-btn {
+          border-color: rgba(248,113,113,0.7);
+          color: #fecaca;
         }
       `}</style>
     </section>
