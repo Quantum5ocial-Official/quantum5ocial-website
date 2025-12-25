@@ -734,7 +734,6 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -751,9 +750,8 @@ export default function OrgTeamTab({
                 .toUpperCase();
 
               const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-              const education = profile?.highest_education ?? "";
-              // show edu + location
-              const eduLocation = [education, location].filter(Boolean).join(" · ");
+
+              const education = profile?.highest_education || "";
 
               const isCurrentUser = !!user && !!profile && profile.id === user.id;
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
@@ -778,118 +776,86 @@ export default function OrgTeamTab({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      {/* avatar slightly bigger */}
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1px solid rgba(148,163,184,0.6)",
+                          color: "#e5e7eb",
+                          fontWeight: 700,
+                          fontSize: 15,
+                        }}
+                      >
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          initials
+                        )}
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        {/* name */}
                         <div
                           style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 999,
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "rgba(226,232,240,0.98)",
+                            whiteSpace: "nowrap",
                             overflow: "hidden",
-                            flexShrink: 0,
-                            background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: "1px solid rgba(148,163,184,0.6)",
-                            color: "#e5e7eb",
-                            fontWeight: 700,
-                            fontSize: 13,
+                            textOverflow: "ellipsis",
                           }}
                         >
-                          {profile?.avatar_url ? (
-                            <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          ) : (
-                            initials
+                          {name}
+                          {isCurrentUser && (
+                            <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
                           )}
                         </div>
 
-                        <div style={{ minWidth: 0 }}>
+                        {/* highest education line */}
+                        {education && (
                           <div
                             style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: "rgba(226,232,240,0.98)",
+                              marginTop: 2,
+                              fontSize: 11,
+                              color: "rgba(148,163,184,0.95)",
                               whiteSpace: "nowrap",
                               overflow: "hidden",
                               textOverflow: "ellipsis",
                             }}
                           >
-                            {name}
-                            {isCurrentUser && (
-                              <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
-                            )}
+                            {education}
                           </div>
+                        )}
 
-                          {/* education + location line */}
-                          {eduLocation && (
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                color: "rgba(148,163,184,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {eduLocation}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* show menu for all members if canManageMembers */}
-                      {canManageMembers && (
-                        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isBrowser) return;
-
-                              if (memberMenuOpenId === m.user_id) {
-                                setMemberMenuOpenId(null);
-                                setMenuPosition(null);
-                                setEditingDesignationId(null);
-                                return;
-                              }
-
-                              const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                              const scrollX = window.scrollX ?? window.pageXOffset ?? 0;
-                              const scrollY = window.scrollY ?? window.pageYOffset ?? 0;
-
-                              const dropdownWidth = 190;
-                              const top = rect.bottom + scrollY + 6;
-                              const left = rect.right + scrollX - dropdownWidth;
-
-                              setMemberMenuOpenId(m.user_id);
-                              setMenuPosition({ top, left });
-                              setEditingDesignationId(null);
-                            }}
+                        {/* location line */}
+                        {location && (
+                          <div
                             style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 999,
-                              border: "1px solid rgba(71,85,105,0.9)",
-                              background: "rgba(15,23,42,0.95)",
+                              marginTop: 2,
+                              fontSize: 11,
                               color: "rgba(148,163,184,0.95)",
-                              fontSize: 14,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "pointer",
-                              padding: 0,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
                             }}
                           >
-                            ⋯
-                          </button>
-                        </div>
-                      )}
+                            {location}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* badges row */}
+                    {/* badges line */}
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      {/* role badge shown only to allowed viewers */}
+                      {/* role badge now shown only to viewers allowed */}
                       {canSeeRoleAndAffiliation && (
                         <span
                           style={{
@@ -904,8 +870,8 @@ export default function OrgTeamTab({
                         </span>
                       )}
 
-                      {/* affiliated badge shown if affiliated */}
-                      {m.is_affiliated && (
+                      {/* affiliation badge shown only to viewers allowed */}
+                      {canSeeRoleAndAffiliation && m.is_affiliated && (
                         <span
                           style={{
                             fontSize: 11,
@@ -919,7 +885,7 @@ export default function OrgTeamTab({
                         </span>
                       )}
 
-                      {/* designation pill shown for all if present */}
+                      {/* designation badge shown to all when present */}
                       {m.designation && (
                         <span
                           style={{
@@ -1191,7 +1157,7 @@ export default function OrgTeamTab({
                           borderRadius: 6,
                           border: "none",
                           background: "rgba(148,163,184,0.7)",
-                          color: "rgba(226,232,240,0.95)",
+                          color: "#e5e7eb",
                           cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                         }}
                       >
@@ -1308,7 +1274,7 @@ export default function OrgTeamTab({
                           borderRadius: 6,
                           border: "none",
                           background: "rgba(148,163,184,0.7)",
-                          color: "rgba(226,232,240,0.95)",
+                          color: "#e5e7eb",
                           cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                         }}
                       >
