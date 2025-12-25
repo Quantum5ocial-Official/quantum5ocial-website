@@ -28,6 +28,11 @@ type Org = {
 
 type OrgMemberRole = "owner" | "co_owner" | "admin" | "member";
 
+type OrgMemberRowLite = {
+  org_id: string;
+  role: OrgMemberRole;
+};
+
 type ProductRow = {
   id: string;
   owner_id: string | null;
@@ -64,7 +69,7 @@ export default function NewProductPage() {
   const router = useRouter();
 
   const id = firstQueryValue(router.query.id as any);
-  const orgParam = firstQueryValue(router.query.org as any); // ✅ single param: slug OR uuid
+  const orgParam = firstQueryValue(router.query.org as any); // ✅ optional: slug OR uuid (when coming from org page)
 
   const isEditMode = !!id;
 
@@ -100,30 +105,132 @@ export default function NewProductPage() {
   const [loadingOrg, setLoadingOrg] = useState(false);
   const [canListForOrg, setCanListForOrg] = useState(false);
 
+  // ✅ Marketplace mode support: auto-pick eligible org(s)
+  const [eligibleOrgs, setEligibleOrgs] = useState<Org[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
+
+  const isMarketplaceCreate = !isEditMode && !orgParam;
+
   // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace(
-        isEditMode ? `/auth?redirect=/products/new?id=${encodeURIComponent(id)}` : "/auth?redirect=/products/new"
+        isEditMode
+          ? `/auth?redirect=/products/new?id=${encodeURIComponent(id)}`
+          : "/auth?redirect=/products/new"
       );
     }
   }, [loading, user, router, isEditMode, id]);
 
-  // ✅ Load org context in CREATE mode: org is mandatory
+  // ✅ Load eligible orgs if user opens /products/new from marketplace (no org param)
   useEffect(() => {
-    const loadOrgContext = async () => {
+    const loadEligibleOrgs = async () => {
+      if (!router.isReady) return;
+      if (!user) return;
+      if (!isMarketplaceCreate) return;
+
+      setLoadingOrg(true);
+      setCreateError(null);
+
+      try {
+        // 1) Orgs where user is creator
+        const { data: created, error: createdErr } = await supabase
+          .from("organizations")
+          .select("id,name,slug,created_by,is_active")
+          .eq("is_active", true)
+          .eq("created_by", user.id);
+
+        if (createdErr) throw createdErr;
+
+        // 2) Orgs where user is owner/co_owner member
+        const { data: memberRows, error: memberErr } = await supabase
+          .from("org_members")
+          .select("org_id, role")
+          .eq("user_id", user.id)
+          .in("role", ["owner", "co_owner"]);
+
+        if (memberErr) throw memberErr;
+
+        const memberOrgIds = Array.from(
+          new Set((memberRows || []).map((r: any) => String(r.org_id)).filter(Boolean))
+        );
+
+        const { data: memberOrgs, error: memberOrgsErr } = memberOrgIds.length
+          ? await supabase
+              .from("organizations")
+              .select("id,name,slug,created_by,is_active")
+              .eq("is_active", true)
+              .in("id", memberOrgIds)
+          : { data: [], error: null as any };
+
+        if (memberOrgsErr) throw memberOrgsErr;
+
+        // Merge unique
+        const merged = [...(created || []), ...(memberOrgs || [])] as Org[];
+        const uniq = Array.from(new Map(merged.map((o) => [o.id, o])).values());
+
+        setEligibleOrgs(uniq);
+
+        if (uniq.length === 1) {
+          // Auto-pick single org
+          const only = uniq[0];
+          setOrg(only);
+          setSelectedOrgId(only.id);
+          setCanListForOrg(true);
+          setForm((prev) => ({ ...prev, company_name: only.name || prev.company_name }));
+          setCreateError(null);
+        } else if (uniq.length > 1) {
+          // Require explicit selection
+          setOrg(null);
+          setCanListForOrg(false);
+          setCreateError("Choose an organization to publish under.");
+        } else {
+          // None
+          setOrg(null);
+          setCanListForOrg(false);
+          setCreateError("You need an organization to publish a product.");
+        }
+      } catch (e: any) {
+        console.error("Error loading eligible orgs", e);
+        setOrg(null);
+        setCanListForOrg(false);
+        setEligibleOrgs([]);
+        setCreateError("Could not load your organizations.");
+      } finally {
+        setLoadingOrg(false);
+      }
+    };
+
+    loadEligibleOrgs();
+  }, [router.isReady, user, isMarketplaceCreate]);
+
+  // ✅ When user selects org in marketplace mode
+  const onPickOrg = (orgId: string) => {
+    setSelectedOrgId(orgId);
+    const found = eligibleOrgs.find((o) => o.id === orgId) || null;
+
+    if (!found) {
+      setOrg(null);
+      setCanListForOrg(false);
+      setCreateError("Choose an organization to publish under.");
+      setForm((prev) => ({ ...prev, company_name: "" }));
+      return;
+    }
+
+    setOrg(found);
+    setCanListForOrg(true);
+    setCreateError(null);
+    setForm((prev) => ({ ...prev, company_name: found.name || prev.company_name }));
+  };
+
+  // ✅ Load org context when orgParam is provided (coming from org page)
+  useEffect(() => {
+    const loadOrgContextFromParam = async () => {
       if (!router.isReady) return;
       if (!user) return;
 
-      // In create mode: require org param
-      if (!isEditMode && !orgParam) {
-        setOrg(null);
-        setCanListForOrg(false);
-        setCreateError("You must create a product from an organization page.");
-        return;
-      }
-
-      // In edit mode: org can be discovered from the product; we don't require orgParam
+      // Only run this effect when orgParam is present (org page flow)
+      if (!orgParam) return;
       if (isEditMode && !orgParam) return;
 
       setLoadingOrg(true);
@@ -131,7 +238,7 @@ export default function NewProductPage() {
 
       let foundOrg: Org | null = null;
 
-      if (orgParam) {
+      try {
         if (looksLikeUuid(orgParam)) {
           const { data, error } = await supabase
             .from("organizations")
@@ -151,52 +258,57 @@ export default function NewProductPage() {
 
           if (!error && data) foundOrg = data as Org;
         }
-      }
 
-      if (!foundOrg) {
+        if (!foundOrg) {
+          setOrg(null);
+          setCanListForOrg(false);
+          setCreateError("Organization not found or inactive.");
+          return;
+        }
+
+        setOrg(foundOrg);
+        setSelectedOrgId(foundOrg.id);
+
+        // ✅ Permission: creator OR owner/co_owner can list
+        let allowed = false;
+
+        if (foundOrg.created_by && foundOrg.created_by === user.id) {
+          allowed = true;
+        } else {
+          const { data: mem, error: memErr } = await supabase
+            .from("org_members")
+            .select("role")
+            .eq("org_id", foundOrg.id)
+            .eq("user_id", user.id)
+            .maybeSingle<{ role: OrgMemberRole }>();
+
+          if (!memErr && mem && (mem.role === "owner" || mem.role === "co_owner")) {
+            allowed = true;
+          }
+        }
+
+        setCanListForOrg(allowed);
+
+        // ✅ Auto-fill & lock company_name
+        setForm((prev) => ({
+          ...prev,
+          company_name: foundOrg!.name || prev.company_name,
+        }));
+
+        if (!allowed) {
+          setCreateError("Only the organization owner/co-owner can list products for this org.");
+        }
+      } catch (e: any) {
+        console.error("Error loading org context", e);
         setOrg(null);
         setCanListForOrg(false);
-        setCreateError("Organization not found or inactive.");
+        setCreateError("Could not load organization.");
+      } finally {
         setLoadingOrg(false);
-        return;
       }
-
-      setOrg(foundOrg);
-
-      // ✅ Permission: creator OR owner/co_owner can list
-      let allowed = false;
-
-      if (foundOrg.created_by && foundOrg.created_by === user.id) {
-        allowed = true;
-      } else {
-        const { data: mem, error: memErr } = await supabase
-          .from("org_members")
-          .select("role")
-          .eq("org_id", foundOrg.id)
-          .eq("user_id", user.id)
-          .maybeSingle<{ role: OrgMemberRole }>();
-
-        if (!memErr && mem && (mem.role === "owner" || mem.role === "co_owner")) {
-          allowed = true;
-        }
-      }
-
-      setCanListForOrg(allowed);
-
-      // ✅ Auto-fill & lock company_name
-      setForm((prev) => ({
-        ...prev,
-        company_name: foundOrg.name || prev.company_name,
-      }));
-
-      if (!allowed) {
-        setCreateError("Only the organization owner/co-owner can list products for this org.");
-      }
-
-      setLoadingOrg(false);
     };
 
-    loadOrgContext();
+    loadOrgContextFromParam();
   }, [router.isReady, user, isEditMode, orgParam]);
 
   // If edit mode: load existing product & prefill
@@ -257,6 +369,7 @@ export default function NewProductPage() {
 
         if (o) {
           setOrg(o as Org);
+          setSelectedOrgId((o as Org).id);
           setForm((prev) => ({ ...prev, company_name: (o as Org).name || prev.company_name }));
           setCanListForOrg(true);
         }
@@ -314,10 +427,10 @@ export default function NewProductPage() {
     e.preventDefault();
     if (!user) return;
 
-    // ✅ enforce org requirement in create mode
+    // ✅ enforce org requirement in create mode (marketplace OR org page)
     if (!isEditMode) {
       if (!org) {
-        setCreateError("You must create a product from an organization page.");
+        setCreateError(isMarketplaceCreate ? "Choose an organization to publish under." : "You must create a product from an organization page.");
         return;
       }
       if (!canListForOrg) {
@@ -337,7 +450,6 @@ export default function NewProductPage() {
 
     const inStock = form.in_stock === "yes";
 
-    // ✅ FIXED: removed the stray `_tp` token that broke your build
     const stockQty =
       form.stock_quantity.trim() === ""
         ? null
@@ -472,6 +584,8 @@ export default function NewProductPage() {
     return isEditMode ? (id ? `/products/${id}` : "/products") : "/products";
   }, [org?.slug, isEditMode, id]);
 
+  const showPublishAsPicker = !isEditMode && isMarketplaceCreate && eligibleOrgs.length > 1;
+
   return (
     <>
       <div className="bg-layer" />
@@ -528,8 +642,33 @@ export default function NewProductPage() {
                       <div className="products-grid">
                         <div className="products-field">
                           <label>Product name *</label>
-                          <input type="text" value={form.name} onChange={handleFormChange("name")} required />
+                          <input
+                            type="text"
+                            value={form.name}
+                            onChange={handleFormChange("name")}
+                            required
+                          />
                         </div>
+
+                        {showPublishAsPicker && (
+                          <div className="products-field">
+                            <label>Publish as *</label>
+                            <select
+                              value={selectedOrgId}
+                              onChange={(e) => onPickOrg(e.target.value)}
+                            >
+                              <option value="">Select…</option>
+                              {eligibleOrgs.map((o) => (
+                                <option key={o.id} value={o.id}>
+                                  {o.name}
+                                </option>
+                              ))}
+                            </select>
+                            <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                              This determines the organization shown on the product listing.
+                            </span>
+                          </div>
+                        )}
 
                         <div className="products-field">
                           <label>Company / organisation</label>
@@ -713,7 +852,11 @@ export default function NewProductPage() {
 
                         <div className="products-field products-field-full">
                           <label>Datasheet (PDF)</label>
-                          <input type="file" accept="application/pdf" onChange={handleDatasheetChange} />
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={handleDatasheetChange}
+                          />
                           {datasheetFile ? (
                             <span style={{ fontSize: 12, color: "#9ca3af" }}>
                               Selected: {datasheetFile.name}
@@ -741,7 +884,13 @@ export default function NewProductPage() {
                           loading
                         }
                       >
-                        {creating ? (isEditMode ? "Saving…" : "Publishing…") : isEditMode ? "Save changes" : "Publish product"}
+                        {creating
+                          ? isEditMode
+                            ? "Saving…"
+                            : "Publishing…"
+                          : isEditMode
+                          ? "Save changes"
+                          : "Publish product"}
                       </button>
 
                       {createError && <span className="products-status error">{createError}</span>}
