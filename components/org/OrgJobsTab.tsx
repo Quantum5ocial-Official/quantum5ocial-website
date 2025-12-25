@@ -486,7 +486,7 @@ const hiringBadge = useMemo(() => {
   // explicitly not hiring
   if (hs === "not_hiring") {
     return {
-      text: "Not hiring",
+      text: "Not hiring currently",
       title: "This company is not hiring right now",
       border: "1px solid rgba(239,68,68,0.9)", // red-ish
       background: "rgba(239,68,68,0.14)",
@@ -498,7 +498,7 @@ const hiringBadge = useMemo(() => {
   // no status / empty
   // show as updates soon
   return {
-    text: "Hiring updates soon",
+    text: "Updating the hiring status soon",
     title: "Hiring status will be updated soon",
     border: "1px solid rgba(148,163,184,0.7)", // neutral
     background: "rgba(148,163,184,0.14)",
