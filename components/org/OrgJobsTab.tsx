@@ -9,9 +9,20 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 type Org = {
   id: string;
-  name: string;
+  name: string | null;
   logo_url: string | null;
   slug?: string;
+  // no hiring_status here; badge is passed separately
+};
+
+// shape of the badge you compute upstream
+type HiringBadge = {
+  text: string;
+  title: string;
+  border: string;
+  background: string;
+  color: string;
+  icon: string;
 };
 
 type JobRow = {
@@ -430,15 +441,16 @@ function OrgJobsStrip({ orgId }: { orgId: string }) {
 export default function OrgJobsTab({
   org,
   canListJob,
+  hiringBadge, // NEW prop
 }: {
   org: Org;
   canListJob: boolean; // owner/co-owner only
+  hiringBadge: HiringBadge | null; // pass from parent
 }) {
   const router = useRouter();
   const isMobile = useIsMobile(520);
 
   const onPostJob = () => {
-    // similar pattern as products; include org context
     const orgToken = (org.slug || org.id || "").trim();
     router.push(`/jobs/new?org=${encodeURIComponent(orgToken)}`);
   };
@@ -480,10 +492,34 @@ export default function OrgJobsTab({
     <div style={{ marginTop: 18 }}>
       <div className="card" style={headerCard}>
         <div style={{ minWidth: 0 }}>
-          <div className="section-title">Jobs</div>
-          <div className="section-sub" style={{ maxWidth: 680 }}>
-            Roles posted by this organization. Click a card to open it.
-          </div>
+          {/* NEW: Changed title */}
+          <div className="section-title">We are:</div>
+
+          {/* NEW: show hiring badge if exists, same style as company card */}
+          {hiringBadge ? (
+            <span
+              title={hiringBadge.title}
+              style={{
+                fontSize: 12,
+                borderRadius: 999,
+                padding: "3px 10px",
+                border: hiringBadge.border,
+                background: hiringBadge.background,
+                color: hiringBadge.color,
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 4,
+              }}
+            >
+              <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
+              {hiringBadge.text}
+            </span>
+          ) : null}
+
+          {/* keep the explanatory hint only for non-owners perhaps */}
           {!canListJob ? (
             <div style={hint}>Only owners / co-owners can post jobs for an organization.</div>
           ) : null}
