@@ -1,5 +1,4 @@
-// /types/qna.ts
-
+// types/qna.ts
 export type ProfileLite = {
   id?: string;
   full_name: string | null;
@@ -16,7 +15,6 @@ export type QQuestion = {
   tags: string[] | null;
   created_at: string;
   profiles?: ProfileMaybe;
-
   qna_answers?: { count: number }[] | null;
   qna_votes?: { count: number }[] | null;
 };
@@ -27,7 +25,12 @@ export type QAnswer = {
   user_id: string;
   body: string;
   created_at: string;
-
   profile?: ProfileLite | null;
   qna_answer_votes?: { count: number }[] | null;
+};
+
+export type MyProfileMini = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
 };
