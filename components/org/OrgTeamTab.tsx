@@ -587,7 +587,7 @@ export default function OrgTeamTab({
           <button type="button" onClick={() => scrollTeamByCard(-1)} style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: 10, width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(148,163,184,0.28)", background: "rgba(2,6,23,0.65)", color: "rgba(226,232,240,0.95)", cursor: "pointer", fontWeight: 900, zIndex: 5, backdropFilter: "blur(8px)" }} aria-label="Scroll left">‹</button>
           <button type="button" onClick={() => scrollTeamByCard(1)} style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", right: 10, width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(148,163,184,0.28)", background: "rgba(2,6,23,0.65)", color: "rgba(226,232,240,0.95)", cursor: "pointer", fontWeight: 900, zIndex: 5, backdropFilter: "blur(8px)" }} aria-label="Scroll right">›</button>
 
-          <div ref={teamScrollerRef} style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 44px 10px 44px", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+          <div ref={teamScrollerRef} style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 44px 10px 64px", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
             {members.map((m) => {
               const profile = m.profile;
               const name = profile?.full_name || "Quantum5ocial member";
