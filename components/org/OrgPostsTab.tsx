@@ -1095,9 +1095,6 @@ export default function OrgPostsTab({
         }}
       >
         <div className="section-title">Posts</div>
-        <div className="section-sub" style={{ maxWidth: 620 }}>
-          Public posts from this organization. Click a card to open it expanded.
-        </div>
       </div>
 
       <OrgPostsStrip orgId={org.id} orgName={org.name} logoUrl={org.logo_url} initials={orgInitials} />
