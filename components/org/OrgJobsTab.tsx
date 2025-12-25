@@ -9,20 +9,16 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 type Org = {
   id: string;
-  name: string | null;
+  name: string;
   logo_url: string | null;
   slug?: string;
-  // no hiring_status here; badge is passed separately
-};
-
-// shape of the badge you compute upstream
-type HiringBadge = {
-  text: string;
-  title: string;
-  border: string;
-  background: string;
-  color: string;
-  icon: string;
+  // NEW: allow hiring status to be passed in, same as on org page
+  hiring_status?:
+    | ""
+    | "not_hiring"
+    | "hiring_selectively"
+    | "actively_hiring"
+    | null;
 };
 
 type JobRow = {
@@ -441,11 +437,9 @@ function OrgJobsStrip({ orgId }: { orgId: string }) {
 export default function OrgJobsTab({
   org,
   canListJob,
-  hiringBadge, // NEW prop
 }: {
   org: Org;
   canListJob: boolean; // owner/co-owner only
-  hiringBadge: HiringBadge | null; // pass from parent
 }) {
   const router = useRouter();
   const isMobile = useIsMobile(520);
@@ -454,6 +448,43 @@ export default function OrgJobsTab({
     const orgToken = (org.slug || org.id || "").trim();
     router.push(`/jobs/new?org=${encodeURIComponent(orgToken)}`);
   };
+
+  // --------------------------------------------------------
+  // Hiring badge logic: same idea as on org card
+  // --------------------------------------------------------
+  const hiringBadge = useMemo(() => {
+    if (!org) return null;
+
+    const hs = org.hiring_status || "";
+
+    if (hs === "actively_hiring") {
+      return {
+        text: "Actively hiring",
+        title: "This company is actively hiring",
+        border: "1px solid rgba(34,197,94,0.95)",
+        background: "rgba(22,163,74,0.18)",
+        color: "rgba(187,247,208,0.98)",
+        icon: "⚡",
+      };
+    }
+
+    if (hs === "hiring_selectively") {
+      return {
+        text: "Hiring selectively",
+        title: "This company is hiring selectively",
+        border: "1px solid rgba(250,204,21,0.9)",
+        background: "rgba(234,179,8,0.14)",
+        color: "rgba(254,249,195,0.95)",
+        icon: "✨",
+      };
+    }
+
+    return null;
+  }, [org]);
+
+  // --------------------------------------------------------
+  // Styles
+  // --------------------------------------------------------
 
   const headerCard: CSSProperties = {
     padding: 16,
@@ -492,34 +523,37 @@ export default function OrgJobsTab({
     <div style={{ marginTop: 18 }}>
       <div className="card" style={headerCard}>
         <div style={{ minWidth: 0 }}>
-          {/* NEW: Changed title */}
+          {/* NEW: We are: + hiring badge */}
           <div className="section-title">We are:</div>
 
-          {/* NEW: show hiring badge if exists, same style as company card */}
           {hiringBadge ? (
-            <span
-              title={hiringBadge.title}
-              style={{
-                fontSize: 12,
-                borderRadius: 999,
-                padding: "3px 10px",
-                border: hiringBadge.border,
-                background: hiringBadge.background,
-                color: hiringBadge.color,
-                fontWeight: 800,
-                whiteSpace: "nowrap",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                marginTop: 4,
-              }}
-            >
-              <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
-              {hiringBadge.text}
-            </span>
+            <div style={{ marginTop: 4 }}>
+              <span
+                title={hiringBadge.title}
+                style={{
+                  fontSize: 12,
+                  borderRadius: 999,
+                  padding: "3px 10px",
+                  border: hiringBadge.border,
+                  background: hiringBadge.background,
+                  color: hiringBadge.color,
+                  fontWeight: 800,
+                  whiteSpace: "nowrap",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
+                {hiringBadge.text}
+              </span>
+            </div>
           ) : null}
 
-          {/* keep the explanatory hint only for non-owners perhaps */}
+          {!hiringBadge ? (
+            <div style={hint}>No hiring status set.</div>
+          ) : null}
+
           {!canListJob ? (
             <div style={hint}>Only owners / co-owners can post jobs for an organization.</div>
           ) : null}
