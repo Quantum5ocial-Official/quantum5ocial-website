@@ -457,7 +457,7 @@ export default function OrgTeamTab({
       {/* Team header + Add member */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
         <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: 0.08, color: "rgba(148,163,184,0.9)" }}>
-          Team &amp; members
+          Our Team
         </div>
 
         {canManageMembers && (
