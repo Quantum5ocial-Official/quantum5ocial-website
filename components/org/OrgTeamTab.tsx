@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
@@ -115,12 +116,19 @@ export default function OrgTeamTab({
 
   // scroller
   const teamScrollerRef = useRef<HTMLDivElement | null>(null);
+
+  // ---- layout tweaks start ----
+  // Arrow offset from the container edge, negative value pushes arrow outside so cards are fully visible
+  const ARROW_OFFSET = -24; // px; tweak to taste
+  const ARROW_SIZE = 40; // px; unchanged from rest
+
   const scrollTeamByCard = (dir: -1 | 1) => {
     const el = teamScrollerRef.current;
     if (!el) return;
     const amount = Math.max(260, Math.floor(el.clientWidth * 0.9));
     el.scrollBy({ left: dir * amount, behavior: "smooth" });
   };
+  // ---- layout tweaks end ----
 
   const goToProfile = (profileId: string) => {
     router.push(`/profile/${profileId}`);
@@ -591,35 +599,8 @@ export default function OrgTeamTab({
             overflow: "hidden",
           }}
         >
-          {/* gradient fades still present but arrows moved outside */}
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 44,
-              background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
-              pointerEvents: "none",
-              zIndex: 2,
-            }}
-          />
-          <div
-            aria-hidden
-            style={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: 44,
-              background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
-              pointerEvents: "none",
-              zIndex: 2,
-            }}
-          />
-
-          {/* Arrow buttons placed just outside the scroll area */}
+          {/* Removed gradient overlays to keep full visibility */}
+          {/* Arrows moved outside of the visible scroller area */}
           <button
             type="button"
             onClick={() => scrollTeamByCard(-1)}
@@ -627,9 +608,9 @@ export default function OrgTeamTab({
               position: "absolute",
               top: "50%",
               transform: "translateY(-50%)",
-              left: -20, // moved outside
-              width: 40,
-              height: 40,
+              left: ARROW_OFFSET,
+              width: ARROW_SIZE,
+              height: ARROW_SIZE,
               borderRadius: 999,
               border: "1px solid rgba(148,163,184,0.28)",
               background: "rgba(2,6,23,0.65)",
@@ -643,7 +624,6 @@ export default function OrgTeamTab({
           >
             ‹
           </button>
-
           <button
             type="button"
             onClick={() => scrollTeamByCard(1)}
@@ -651,9 +631,9 @@ export default function OrgTeamTab({
               position: "absolute",
               top: "50%",
               transform: "translateY(-50%)",
-              right: -20, // moved outside
-              width: 40,
-              height: 40,
+              right: ARROW_OFFSET,
+              width: ARROW_SIZE,
+              height: ARROW_SIZE,
               borderRadius: 999,
               border: "1px solid rgba(148,163,184,0.28)",
               background: "rgba(2,6,23,0.65)",
@@ -668,14 +648,13 @@ export default function OrgTeamTab({
             ›
           </button>
 
-          {/* Scroller */}
           <div
             ref={teamScrollerRef}
             style={{
               display: "flex",
               gap: 12,
               overflowX: "auto",
-              padding: "4px 44px 10px 44px", // enough space for fade but arrows outside
+              padding: "4px 0px 10px 0px", // reduced padding
               scrollSnapType: "x mandatory",
               WebkitOverflowScrolling: "touch",
             }}
@@ -692,14 +671,7 @@ export default function OrgTeamTab({
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
 
               return (
-                <div
-                  key={m.user_id}
-                  style={{
-                    scrollSnapAlign: "start",
-                    flex: "0 0 auto",
-                    width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
-                  }}
-                >
+                <div key={m.user_id} style={{ scrollSnapAlign: "start", flex: "0 0 auto", width: "clamp(260px, calc((100% - 24px) / 3), 420px)" }}>
                   <button
                     type="button"
                     onClick={() => profile && goToProfile(profile.id)}
