@@ -578,7 +578,16 @@ export default function OrgTeamTab({
           {searchError && <div style={{ fontSize: 12, color: "#f97373", marginBottom: 8 }}>{searchError}</div>}
 
           {searchResults.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 10,
+                maxHeight: 260,
+                overflowY: "auto",
+                paddingRight: 4,
+              }}
+            >
               {searchResults.map((p) => {
                 const name = p.full_name || "Quantum5ocial member";
                 const initials = name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -589,23 +598,78 @@ export default function OrgTeamTab({
                 const alreadyMember = members.some((m) => m.user_id === p.id);
 
                 return (
-                  <div key={p.id} className="card" style={{ borderRadius: 14, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: "rgba(2,6,23,0.7)" }}>
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{
+                      borderRadius: 14,
+                      padding: 10,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      background: "rgba(2,6,23,0.7)",
+                    }}
+                  >
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.6)", color: "#e5e7eb", fontWeight: 700, fontSize: 12 }}>
-                        {p.avatar_url ? <img src={p.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1px solid rgba(148,163,184,0.6)",
+                          color: "#e5e7eb",
+                          fontWeight: 700,
+                          fontSize: 12,
+                        }}
+                      >
+                        {p.avatar_url ? (
+                          <img
+                            src={p.avatar_url}
+                            alt={name}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          initials
+                        )}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(226,232,240,0.98)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "rgba(226,232,240,0.98)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {name}
                         </div>
-                        <div style={{ marginTop: 2, fontSize: 11, color: "rgba(148,163,184,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontSize: 11,
+                            color: "rgba(148,163,184,0.95)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {subtitle}
                         </div>
                       </div>
                     </div>
 
                     <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)" }}>{alreadyMember ? "Already in team" : "Add to team"}</div>
+                      <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)" }}>
+                        {alreadyMember ? "Already in team" : "Add to team"}
+                      </div>
                       <button
                         type="button"
                         disabled={alreadyMember || savingMemberId === p.id}
@@ -613,7 +677,9 @@ export default function OrgTeamTab({
                         style={{
                           padding: "4px 10px",
                           borderRadius: 999,
-                          border: alreadyMember ? "1px solid rgba(148,163,184,0.6)" : "1px solid rgba(34,197,94,0.7)",
+                          border: alreadyMember
+                            ? "1px solid rgba(148,163,184,0.6)"
+                            : "1px solid rgba(34,197,94,0.7)",
                           background: alreadyMember ? "transparent" : "rgba(22,163,74,0.18)",
                           color: alreadyMember ? "rgba(148,163,184,0.9)" : "rgba(187,247,208,0.96)",
                           fontSize: 11,
@@ -628,7 +694,8 @@ export default function OrgTeamTab({
               })}
             </div>
           ) : (
-            searchTerm.trim() && !searchError && (
+            searchTerm.trim() &&
+            !searchError && (
               <div style={{ fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
                 No matching followers found. Only followers can be added to the team.
               </div>
@@ -659,12 +726,11 @@ export default function OrgTeamTab({
             overflow: "hidden",
           }}
         >
-          {/* changed from horizontal scroll to grid: */}
+          {/* changed from horizontal scroll to grid */}
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout
-              // MDN notes the repeat() usage for grid-template; see docs on repeat and track lists.  [oai_citation:1‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/grid-template-rows#:~:text=repeat%28%20%5B%20%3Cpositive,in%20a%20more%20compact%20form)
+              // exactly 3 columns layout; MDN docs describe grid property usage and patterns.  [oai_citation:0‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/grid#:~:text=%3C%27grid,if%20it%27s%20specified)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -779,7 +845,7 @@ export default function OrgTeamTab({
                         </div>
                       </div>
 
-                      {/* show menu for all members if canManageMembers, including owner */}
+                      {/* show menu for all members if canManageMembers */}
                       {canManageMembers && (
                         <div style={{ marginLeft: "auto", flexShrink: 0 }}>
                           <button
@@ -969,7 +1035,23 @@ export default function OrgTeamTab({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.6)", color: "#e5e7eb", fontWeight: 700, fontSize: 13 }}>
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 999,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid rgba(148,163,184,0.6)",
+                        color: "#e5e7eb",
+                        fontWeight: 700,
+                        fontSize: 13,
+                      }}
+                    >
                       {f.avatar_url ? <img src={f.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
                     </div>
 
@@ -1019,142 +1101,234 @@ export default function OrgTeamTab({
               Manage member
             </div>
 
-            {/* role change options */}
-            {(["co_owner", "admin", "member"] as OrgMemberRole[]).map((roleOption) => (
-              <button
-                key={roleOption}
-                type="button"
-                disabled={memberActionLoadingId === openMember.user_id}
-                onClick={(e) => handleChangeMemberRole(openMember.user_id, roleOption, e)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
-                  color: roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
-                  fontSize: 12,
-                  cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
-                }}
-              >
-                {roleOption === "co_owner"
-                  ? "Make co-owner"
-                  : roleOption === "admin"
-                  ? "Make admin"
-                  : "Make member"}
-              </button>
-            ))}
-
-            {/* Divider */}
-            <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 4, paddingTop: 4 }} />
-
-            {/* Edit designation option */}
-            {!editingDesignationId && (
-              <button
-                type="button"
-                disabled={memberActionLoadingId === openMember.user_id}
-                onClick={() => {
-                  setEditingDesignationId(openMember.user_id);
-                  setDesignationDraft(openMember.designation || "");
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: "transparent",
-                  color: "rgba(226,232,240,0.95)",
-                  fontSize: 12,
-                  cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
-                }}
-              >
-                Edit designation
-              </button>
-            )}
-
-            {/* Designation edit UI */}
-            {editingDesignationId === openMember.user_id && (
-              <div style={{ marginTop: 4 }}>
-                <input
-                  type="text"
-                  value={designationDraft}
-                  onChange={(e) => setDesignationDraft(e.target.value)}
-                  placeholder="CEO / Engineer / Scientist"
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    fontSize: 12,
-                    padding: "4px 6px",
-                    borderRadius: 6,
-                    border: "1px solid rgba(71,85,105,0.8)",
-                    background: "rgba(15,23,42,0.9)",
-                    color: "rgba(226,232,240,0.95)",
-                    marginBottom: 4,
-                  }}
-                />
-                <div style={{ display: "flex", gap: 4 }}>
+            {/* Only designation edit for Owner */}
+            {openMember.role === "owner" ? (
+              <>
+                {/* Edit designation option */}
+                {!editingDesignationId && (
                   <button
                     type="button"
                     disabled={memberActionLoadingId === openMember.user_id}
-                    onClick={() => handleSaveDesignation(openMember.user_id)}
+                    onClick={() => {
+                      setEditingDesignationId(openMember.user_id);
+                      setDesignationDraft(openMember.designation || "");
+                    }}
                     style={{
-                      flex: 1,
-                      fontSize: 12,
+                      width: "100%",
+                      textAlign: "left",
                       padding: "6px 8px",
                       borderRadius: 6,
                       border: "none",
-                      background: "rgba(34,197,94,0.7)",
-                      color: "#e5e7eb",
+                      background: "transparent",
+                      color: "rgba(226,232,240,0.95)",
+                      fontSize: 12,
                       cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                     }}
                   >
-                    {memberActionLoadingId === openMember.user_id ? "Saving…" : "Save"}
+                    Edit designation
                   </button>
+                )}
+
+                {/* Designation edit UI */}
+                {editingDesignationId === openMember.user_id && (
+                  <div style={{ marginTop: 4 }}>
+                    <input
+                      type="text"
+                      value={designationDraft}
+                      onChange={(e) => setDesignationDraft(e.target.value)}
+                      placeholder="CEO / Engineer / Scientist"
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        fontSize: 12,
+                        padding: "4px 6px",
+                        borderRadius: 6,
+                        border: "1px solid rgba(71,85,105,0.8)",
+                        background: "rgba(15,23,42,0.9)",
+                        color: "rgba(226,232,240,0.95)",
+                        marginBottom: 4,
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button
+                        type="button"
+                        disabled={memberActionLoadingId === openMember.user_id}
+                        onClick={() => handleSaveDesignation(openMember.user_id)}
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "rgba(34,197,94,0.7)",
+                          color: "#e5e7eb",
+                          cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                        }}
+                      >
+                        {memberActionLoadingId === openMember.user_id ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={memberActionLoadingId === openMember.user_id}
+                        onClick={handleCancelEditDesignation}
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "rgba(148,163,184,0.7)",
+                          color: "#e5e7eb",
+                          cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Non-owner menu: keep prior options */
+              <>
+                {/* role change options */}
+                {(["co_owner", "admin", "member"] as OrgMemberRole[]).map((roleOption) => (
+                  <button
+                    key={roleOption}
+                    type="button"
+                    disabled={memberActionLoadingId === openMember.user_id}
+                    onClick={(e) => handleChangeMemberRole(openMember.user_id, roleOption, e)}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
+                      color: roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
+                      fontSize: 12,
+                      cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                    }}
+                  >
+                    {roleOption === "co_owner"
+                      ? "Make co-owner"
+                      : roleOption === "admin"
+                      ? "Make admin"
+                      : "Make member"}
+                  </button>
+                ))}
+
+                {/* Divider */}
+                <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 4, paddingTop: 4 }} />
+
+                {/* Edit designation option */}
+                {!editingDesignationId && (
                   <button
                     type="button"
                     disabled={memberActionLoadingId === openMember.user_id}
-                    onClick={handleCancelEditDesignation}
+                    onClick={() => {
+                      setEditingDesignationId(openMember.user_id);
+                      setDesignationDraft(openMember.designation || "");
+                    }}
                     style={{
-                      flex: 1,
-                      fontSize: 12,
+                      width: "100%",
+                      textAlign: "left",
                       padding: "6px 8px",
                       borderRadius: 6,
                       border: "none",
-                      background: "rgba(148,163,184,0.7)",
-                      color: "#e5e7eb",
+                      background: "transparent",
+                      color: "rgba(226,232,240,0.95)",
+                      fontSize: 12,
                       cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                     }}
                   >
-                    Cancel
+                    Edit designation
                   </button>
-                </div>
-              </div>
-            )}
+                )}
 
-            {/* Remove member option */}
-            {shouldShowRemoveMember(openMember, canRemoveOthers) && (
-              <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: editingDesignationId ? 8 : 4, paddingTop: 4 }}>
-                <button
-                  type="button"
-                  disabled={memberActionLoadingId === openMember.user_id}
-                  onClick={(e) => handleRemoveMember(openMember.user_id, e)}
-                  style={{
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "6px 8px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "transparent",
-                    color: "#fecaca",
-                    fontSize: 12,
-                    cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
-                  }}
-                >
-                  {memberActionLoadingId === openMember.user_id ? "Removing…" : "Remove from team"}
-                </button>
-              </div>
+                {/* Designation edit UI */}
+                {editingDesignationId === openMember.user_id && (
+                  <div style={{ marginTop: 4 }}>
+                    <input
+                      type="text"
+                      value={designationDraft}
+                      onChange={(e) => setDesignationDraft(e.target.value)}
+                      placeholder="CEO / Engineer / Scientist"
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        fontSize: 12,
+                        padding: "4px 6px",
+                        borderRadius: 6,
+                        border: "1px solid rgba(71,85,105,0.8)",
+                        background: "rgba(15,23,42,0.9)",
+                        color: "rgba(226,232,240,0.95)",
+                        marginBottom: 4,
+                      }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button
+                        type="button"
+                        disabled={memberActionLoadingId === openMember.user_id}
+                        onClick={() => handleSaveDesignation(openMember.user_id)}
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "rgba(34,197,94,0.7)",
+                          color: "#e5e7eb",
+                          cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                        }}
+                      >
+                        {memberActionLoadingId === openMember.user_id ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={memberActionLoadingId === openMember.user_id}
+                        onClick={handleCancelEditDesignation}
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          border: "none",
+                          background: "rgba(148,163,184,0.7)",
+                          color: "#e5e7eb",
+                          cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Remove member option */}
+                {shouldShowRemoveMember(openMember, canRemoveOthers) && (
+                  <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: editingDesignationId ? 8 : 4, paddingTop: 4 }}>
+                    <button
+                      type="button"
+                      disabled={memberActionLoadingId === openMember.user_id}
+                      onClick={(e) => handleRemoveMember(openMember.user_id, e)}
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: "transparent",
+                        color: "#fecaca",
+                        fontSize: 12,
+                        cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
+                      }}
+                    >
+                      {memberActionLoadingId === openMember.user_id ? "Removing…" : "Remove from team"}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>,
           document.body
