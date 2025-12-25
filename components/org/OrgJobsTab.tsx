@@ -451,39 +451,61 @@ export default function OrgJobsTab({
   };
 
   /* -----------------
-     hiring badge logic
-     ----------------- */
-  const hiringBadge = useMemo(() => {
-    if (!org) return null;
-    if (org.kind !== "company") return null;
+   hiring badge logic
+   ----------------- */
+const hiringBadge = useMemo(() => {
+  if (!org) return null;
+  if (org.kind !== "company") return null;
 
-    const hs = org.hiring_status || "";
+  const hs = org.hiring_status || "";
 
-    if (hs === "actively_hiring") {
-      return {
-        text: "Actively hiring",
-        title: "This company is actively hiring",
-        border: "1px solid rgba(34,197,94,0.95)",
-        background: "rgba(22,163,74,0.18)",
-        color: "rgba(187,247,208,0.98)",
-        icon: "⚡",
-      };
-    }
+  // actively hiring
+  if (hs === "actively_hiring") {
+    return {
+      text: "Actively hiring",
+      title: "This company is actively hiring",
+      border: "1px solid rgba(34,197,94,0.95)",
+      background: "rgba(22,163,74,0.18)",
+      color: "rgba(187,247,208,0.98)",
+      icon: "⚡",
+    };
+  }
 
-    if (hs === "hiring_selectively") {
-      return {
-        text: "Hiring selectively",
-        title: "This company is hiring selectively",
-        border: "1px solid rgba(250,204,21,0.9)",
-        background: "rgba(234,179,8,0.14)",
-        color: "rgba(254,249,195,0.95)",
-        icon: "✨",
-      };
-    }
+  // hiring selectively
+  if (hs === "hiring_selectively") {
+    return {
+      text: "Hiring selectively",
+      title: "This company is hiring selectively",
+      border: "1px solid rgba(250,204,21,0.9)",
+      background: "rgba(234,179,8,0.14)",
+      color: "rgba(254,249,195,0.95)",
+      icon: "✨",
+    };
+  }
 
-    return null;
-  }, [org]);
+  // explicitly not hiring
+  if (hs === "not_hiring") {
+    return {
+      text: "Not hiring",
+      title: "This company is not hiring right now",
+      border: "1px solid rgba(239,68,68,0.9)", // red-ish
+      background: "rgba(239,68,68,0.14)",
+      color: "rgba(254,202,202,0.95)",
+      icon: "🚫",
+    };
+  }
 
+  // no status / empty
+  // show as updates soon
+  return {
+    text: "Hiring updates soon",
+    title: "Hiring status will be updated soon",
+    border: "1px solid rgba(148,163,184,0.7)", // neutral
+    background: "rgba(148,163,184,0.14)",
+    color: "rgba(209,213,219,0.95)",
+    icon: "🕒",
+  };
+}, [org]);
   /* -----------------
      header card styling
      ----------------- */
