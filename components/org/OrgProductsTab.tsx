@@ -10,6 +10,8 @@ type Org = {
   id: string;
   name: string;
   logo_url: string | null;
+  // ✅ add slug if you have it on the org object in /orgs/[slug].tsx (it does)
+  slug?: string;
 };
 
 type ProductRow = {
@@ -105,11 +107,7 @@ function formatStock(p: ProductRow) {
    ORG PRODUCTS STRIP
    ========================= */
 
-function OrgProductsStrip({
-  orgId,
-}: {
-  orgId: string;
-}) {
+function OrgProductsStrip({ orgId }: { orgId: string }) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -265,22 +263,10 @@ function OrgProductsStrip({
         }}
       />
 
-      <button
-        type="button"
-        onClick={() => scrollByCard(-1)}
-        style={{ ...edgeBtn, left: 10 }}
-        aria-label="Scroll left"
-        title="Scroll left"
-      >
+      <button type="button" onClick={() => scrollByCard(-1)} style={{ ...edgeBtn, left: 10 }} aria-label="Scroll left" title="Scroll left">
         ‹
       </button>
-      <button
-        type="button"
-        onClick={() => scrollByCard(1)}
-        style={{ ...edgeBtn, right: 10 }}
-        aria-label="Scroll right"
-        title="Scroll right"
-      >
+      <button type="button" onClick={() => scrollByCard(1)} style={{ ...edgeBtn, right: 10 }} aria-label="Scroll right" title="Scroll right">
         ›
       </button>
 
@@ -347,13 +333,9 @@ function OrgProductsStrip({
                       {title}
                     </div>
                     {p.company_name ? (
-                      <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
-                        {p.company_name}
-                      </div>
+                      <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>{p.company_name}</div>
                     ) : (
-                      <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
-                        {formatRelativeTime(p.created_at)}
-                      </div>
+                      <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>{formatRelativeTime(p.created_at)}</div>
                     )}
                   </div>
 
@@ -465,8 +447,11 @@ export default function OrgProductsTab({
       router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
-    // ✅ EXACT SAME PATH as /pages/products/index.tsx
-    router.push("/products/new");
+
+    // ✅ IMPORTANT: pass org context to /products/new
+    // NewProductPage expects: /products/new?org=<slug-or-uuid>
+    const orgToken = (org.slug || org.id || "").trim();
+    router.push(`/products/new?org=${encodeURIComponent(orgToken)}`);
   };
 
   const headerCard: CSSProperties = {
