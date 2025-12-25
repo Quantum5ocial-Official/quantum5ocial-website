@@ -28,12 +28,14 @@ type OrgMemberRow = {
   user_id: string;
   role: OrgMemberRole;
   is_affiliated: boolean;
+  designation?: string | null; // new column
 };
 
 type OrgMemberWithProfile = {
   user_id: string;
   role: OrgMemberRole;
   is_affiliated: boolean;
+  designation?: string | null; // store locally too
   profile: FollowerProfile | null;
 };
 
@@ -98,6 +100,7 @@ export default function OrgTeamTab({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<OrgMemberRole>("member");
   const [selectedAffiliated, setSelectedAffiliated] = useState<boolean>(true);
+  const [selectedDesignation, setSelectedDesignation] = useState<string>(""); // NEW
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
 
   // Member menu portal
@@ -183,7 +186,7 @@ export default function OrgTeamTab({
       try {
         const { data: memberRows, error: membersErr } = await supabase
           .from("org_members")
-          .select("user_id, role, is_affiliated")
+          .select("user_id, role, is_affiliated, designation") // include designation
           .eq("org_id", org.id);
 
         if (membersErr) {
@@ -228,6 +231,7 @@ export default function OrgTeamTab({
           user_id: m.user_id,
           role: m.role,
           is_affiliated: !!m.is_affiliated,
+          designation: m.designation ?? null,
           profile: profileMap.get(m.user_id) || null,
         }));
 
@@ -278,7 +282,13 @@ export default function OrgTeamTab({
       const { error } = await supabase
         .from("org_members")
         .upsert(
-          { org_id: org.id, user_id: profileId, role: selectedRole, is_affiliated: selectedAffiliated },
+          {
+            org_id: org.id,
+            user_id: profileId,
+            role: selectedRole,
+            is_affiliated: selectedAffiliated,
+            designation: selectedDesignation || null, // NEW
+          },
           { onConflict: "org_id,user_id" }
         );
 
@@ -295,6 +305,7 @@ export default function OrgTeamTab({
           user_id: profileId,
           role: selectedRole,
           is_affiliated: selectedAffiliated,
+          designation: selectedDesignation || null, // NEW
           profile,
         };
         if (idx >= 0) {
@@ -304,6 +315,8 @@ export default function OrgTeamTab({
         }
         return [...prev, updated];
       });
+      // Reset designation field if you want after add
+      setSelectedDesignation("");
     } catch (err) {
       console.error("Unexpected error adding org member", err);
     } finally {
@@ -499,6 +512,27 @@ export default function OrgTeamTab({
               <input type="checkbox" checked={selectedAffiliated} onChange={(e) => setSelectedAffiliated(e.target.checked)} style={{ margin: 0 }} />
               Mark as affiliated
             </label>
+
+            {/* NEW designation input */}
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(209,213,219,0.95)" }}>
+              Designation / role:
+              <input
+                type="text"
+                value={selectedDesignation}
+                onChange={(e) => setSelectedDesignation(e.target.value)}
+                placeholder="CEO / Engineer / Scientist"
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.7)",
+                  background: "rgba(15,23,42,0.9)",
+                  color: "#e5e7eb",
+                  fontSize: 12,
+                  outline: "none",
+                  minWidth: 140,
+                }}
+              />
+            </label>
           </div>
 
           {searchError && <div style={{ fontSize: 12, color: "#f97373", marginBottom: 8 }}>{searchError}</div>}
@@ -589,8 +623,7 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout; MDN shows similar pattern for repeat(3, 1fr)
-              // see https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Grid_layout/Auto-placement lines 322–325
+              // exactly 3 columns layout; see MDN example for repeat usage in grid-template-columns.  [oai_citation:0‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -690,6 +723,22 @@ export default function OrgTeamTab({
                           >
                             {subtitle}
                           </div>
+                          {/* Optional: show designation under subtitle if present */}
+                          {m.designation && (
+                            <div
+                              style={{
+                                marginTop: 2,
+                                fontSize: 11,
+                                fontStyle: "italic",
+                                color: "rgba(178,186,207,0.95)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {m.designation}
+                            </div>
+                          )}
                         </div>
                       </div>
 
