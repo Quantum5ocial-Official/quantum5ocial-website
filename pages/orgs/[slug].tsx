@@ -313,7 +313,7 @@ const OrganizationDetailPage = () => {
     if (!org) return;
 
     if (!user) {
-      // Next.js Link usage for client-side nav is standard; docs note this is primary for route nav.  [oai_citation:0‡nextjs.org](https://nextjs.org/docs/14/app/api-reference/components/link#:~:text=%60,Dashboard%3C%2FLink%3E)
+      // Client-side route navigation via <Link> or router.push; Next.js docs explain matching usage and shallow routing.  [oai_citation:0‡Next.js](https://nextjs.org/docs/pages/building-your-application/routing/linking-and-navigating#:~:text=,import%20Link%20from%20%27next%2Flink)
       router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
