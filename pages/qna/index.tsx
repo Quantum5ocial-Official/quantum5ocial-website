@@ -1357,12 +1357,12 @@ function QnAMiddle() {
 
       {!loading && !err && questions.length > 0 && (
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2,minmax(0,1fr))",
-            gap: 16,
-          }}
-        >
+  style={{
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
+  }}
+>
           {questions.map((q) => {
            const isMobile = typeof window !== "undefined" && window.innerWidth <= 520;
             const p = pickProfile(q.profiles);
