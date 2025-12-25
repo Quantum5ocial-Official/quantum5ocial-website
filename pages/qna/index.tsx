@@ -1,111 +1,62 @@
 // pages/qna/index.tsx
-'use client'; // this page uses client hooks, state, etc.
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useRouter } from "next/router";
+import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabaseClient';
-import { useSupabaseUser } from '../../lib/useSupabaseUser';
+// components
+import QuestionsGrid from "../../components/QuestionsGrid";
+import ThreadPanel from "../../components/ThreadPanel";
 
-// components to split out
-import QuestionsGrid from '../../components/qna/QuestionsGrid';
-import ThreadPanel from '../../components/qna/ThreadPanel';
-
-/* =========================
-   Types
-   ========================= */
-
-export type ProfileLite = {
-  id?: string;
-  full_name: string | null;
-  avatar_url: string | null;
-};
-
-// Supabase relation may return object OR array depending on config
-export type ProfileMaybe = ProfileLite | ProfileLite[] | null;
-
-export type QQuestion = {
-  id: string;
-  user_id: string;
-  title: string;
-  body: string;
-  tags: string[] | null;
-  created_at: string;
-  profiles?: ProfileMaybe;
-
-  qna_answers?: { count: number }[] | null;
-  qna_votes?: { count: number }[] | null;
-};
-
-export type QAnswer = {
-  id: string;
-  question_id: string;
-  user_id: string;
-  body: string;
-  created_at: string;
-
-  // attached manually
-  profile?: ProfileLite | null;
-
-  qna_answer_votes?: { count: number }[] | null;
-};
-
-export type MyProfileMini = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-};
-
-/* =========================
-   Helpers (kept minimal here)
-   ========================= */
-
-function pickProfile(p: ProfileMaybe): ProfileLite | null {
-  if (!p) return null;
-  return Array.isArray(p) ? p[0] ?? null : p;
-}
-
-/* =========================
-   Main page
-   ========================= */
+// helpers/types
+import {
+  QQuestion,
+  QAnswer,
+  ProfileLite,
+  ProfileMaybe,
+  pickProfile,
+  timeAgo,
+  pillTagStyle,
+  avatarBubble,
+} from "../../qnaHelpers"; // adjust path
 
 export default function QnAPage() {
   const router = useRouter();
   const { user } = useSupabaseUser();
 
-  // deep-link focus support: /qna?focus=<question_id>&answer=<answer_id>
+  // deep-link focus
   const focusQid =
-    typeof router.query.focus === 'string' ? router.query.focus : null;
+    typeof router.query.focus === "string" ? router.query.focus : null;
   const focusAid =
-    typeof router.query.answer === 'string' ? router.query.answer : null;
+    typeof router.query.answer === "string" ? router.query.answer : null;
 
-  /* -------- shared state -------- */
-
+  // questions list
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
   const [questions, setQuestions] = useState<QQuestion[]>([]);
-  const [loadingQuestions, setLoadingQuestions] = useState(true);
-  const [questionsError, setQuestionsError] = useState<string | null>(null);
-
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+
+  // thread panel
+  const [openQ, setOpenQ] = useState<QQuestion | null>(null);
+  const [answers, setAnswers] = useState<QAnswer[]>([]);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [answerBody, setAnswerBody] = useState("");
+  const [answerSaving, setAnswerSaving] = useState(false);
 
   // votes
   const [myVotes, setMyVotes] = useState<Record<string, boolean>>({});
   const [voteLoadingIds, setVoteLoadingIds] = useState<string[]>([]);
-  const isVoteLoading = (qid: string) => voteLoadingIds.includes(qid);
 
-  /* -------- thread panel -------- */
-
-  const [openQ, setOpenQ] = useState<QQuestion | null>(null);
-  const [answers, setAnswers] = useState<QAnswer[]>([]);
-  const [loadingAnswers, setLoadingAnswers] = useState(false);
-  const [answerBody, setAnswerBody] = useState('');
-  const [answerSaving, setAnswerSaving] = useState(false);
   const [myAnswerVotes, setMyAnswerVotes] = useState<Record<string, boolean>>(
     {}
   );
   const [answerVoteLoadingIds, setAnswerVoteLoadingIds] = useState<string[]>([]);
-  const isAnswerVoteLoading = (aid: string) =>
-    answerVoteLoadingIds.includes(aid);
 
   // refs for scroll-to-focus
   const questionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -113,18 +64,31 @@ export default function QnAPage() {
   const didAutoFocusQuestionRef = useRef(false);
   const didAutoFocusAnswerRef = useRef(false);
 
-  /* -------- load questions -------- */
+  const suggestedTags = useMemo(
+    () => [
+      "Hardware",
+      "Software",
+      "Careers",
+      "Cryo",
+      "Microwave",
+      "Qubits",
+      "Fabrication",
+      "Theory",
+      "Sensing",
+    ],
+    []
+  );
 
+  // fetch questions
   useEffect(() => {
     let cancelled = false;
-
     const load = async () => {
-      setLoadingQuestions(true);
-      setQuestionsError(null);
+      setLoading(true);
+      setErr(null);
 
       try {
         let q = supabase
-          .from('qna_questions')
+          .from("qna_questions")
           .select(
             `
             id, user_id, title, body, tags, created_at,
@@ -133,19 +97,19 @@ export default function QnAPage() {
             qna_votes(count)
           `
           )
-          .order('created_at', { ascending: false });
+          .order("created_at", { ascending: false });
 
         const term = search.trim();
         if (term) q = q.or(`title.ilike.%${term}%,body.ilike.%${term}%`);
-        if (activeTag) q = q.contains('tags', [activeTag]);
+        if (activeTag) q = q.contains("tags", [activeTag]);
 
         const { data, error } = await q.limit(100);
 
         if (cancelled) return;
 
         if (error) {
-          console.error('questions load error:', error);
-          setQuestionsError('Could not load QnA.');
+          console.error("questions load error:", error);
+          setErr("Could not load QnA.");
           setQuestions([]);
         } else {
           const normalized = (data || []).map((row: any) => ({
@@ -157,11 +121,11 @@ export default function QnAPage() {
       } catch (e) {
         if (!cancelled) {
           console.error(e);
-          setQuestionsError('Something went wrong while loading QnA.');
+          setErr("Something went wrong while loading QnA.");
           setQuestions([]);
         }
       } finally {
-        if (!cancelled) setLoadingQuestions(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -171,25 +135,23 @@ export default function QnAPage() {
     };
   }, [search, activeTag]);
 
-  /* -------- load my question votes -------- */
-
+  // load my question votes
   useEffect(() => {
     let cancelled = false;
-
     const loadMyVotes = async () => {
       if (!user) {
         setMyVotes({});
         return;
       }
       const { data, error } = await supabase
-        .from('qna_votes')
-        .select('question_id')
-        .eq('user_id', user.id);
+        .from("qna_votes")
+        .select("question_id")
+        .eq("user_id", user.id);
 
       if (cancelled) return;
 
       if (error) {
-        console.error('votes load error:', error);
+        console.error("votes load error", error);
         setMyVotes({});
         return;
       }
@@ -204,12 +166,12 @@ export default function QnAPage() {
     };
   }, [user]);
 
-  /* -------- thread open / close & answer handling -------- */
+  /* ---------- thread logic ---------- */
 
   const openThread = async (qq: QQuestion) => {
     setOpenQ(qq);
     setAnswers([]);
-    setAnswerBody('');
+    setAnswerBody("");
     setLoadingAnswers(true);
     setMyAnswerVotes({});
     didAutoFocusAnswerRef.current = false;
@@ -217,7 +179,7 @@ export default function QnAPage() {
 
     try {
       const { data: ans, error: ansErr } = await supabase
-        .from('qna_answers')
+        .from("qna_answers")
         .select(
           `
           id,
@@ -228,11 +190,11 @@ export default function QnAPage() {
           qna_answer_votes(count)
         `
         )
-        .eq('question_id', qq.id)
-        .order('created_at', { ascending: true });
+        .eq("question_id", qq.id)
+        .order("created_at", { ascending: true });
 
       if (ansErr) {
-        console.error('openThread answers error:', ansErr);
+        console.error("openThread answers error:", ansErr);
         setAnswers([]);
         return;
       }
@@ -247,12 +209,12 @@ export default function QnAPage() {
       let profileMap: Record<string, ProfileLite> = {};
       if (userIds.length > 0) {
         const { data: profs, error: profErr } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .in('id', userIds);
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", userIds);
 
         if (profErr) {
-          console.error('profiles fetch error:', profErr);
+          console.error("profiles fetch error:", profErr);
         } else {
           (profs || []).forEach((p: any) => {
             profileMap[p.id] = {
@@ -279,15 +241,14 @@ export default function QnAPage() {
       // Load my votes for answers in this thread
       if (user && normalized.length > 0) {
         const ids = normalized.map((a) => a.id).filter(Boolean);
-
         const { data: vd, error: ve } = await supabase
-          .from('qna_answer_votes')
-          .select('answer_id')
-          .eq('user_id', user.id)
-          .in('answer_id', ids);
+          .from("qna_answer_votes")
+          .select("answer_id")
+          .eq("user_id", user.id)
+          .in("answer_id", ids);
 
         if (ve) {
-          console.error('answer votes load error:', ve);
+          console.error("answer votes load error:", ve);
         } else {
           const map: Record<string, boolean> = {};
           (vd || []).forEach((r: any) => (map[r.answer_id] = true));
@@ -302,33 +263,29 @@ export default function QnAPage() {
   const closeThread = () => {
     setOpenQ(null);
     setAnswers([]);
-    setAnswerBody('');
+    setAnswerBody("");
     setMyAnswerVotes({});
   };
 
-  /* -------- auto-focus logic -------- */
-
+  // auto-focus question deep link
   useEffect(() => {
     if (!focusQid) return;
-    if (loadingQuestions || questionsError) return;
+    if (loading || err) return;
     if (didAutoFocusQuestionRef.current) return;
 
     const q = questions.find((x) => x.id === focusQid);
     if (!q) return;
-
     didAutoFocusQuestionRef.current = true;
 
-    // scroll the card into view first (if present), then open thread
     const el = questionRefs.current[focusQid];
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-
-    // open the thread
     openThread(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusQid, loadingQuestions, questionsError, questions]);
+  }, [focusQid, loading, err, questions]);
 
+  // auto-focus answer deep link
   useEffect(() => {
     if (!focusAid) return;
     if (!openQ) return;
@@ -339,7 +296,7 @@ export default function QnAPage() {
     const t = window.setTimeout(() => {
       const el = answerRefs.current[focusAid];
       if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       didAutoFocusAnswerRef.current = true;
     }, 60);
@@ -347,14 +304,98 @@ export default function QnAPage() {
     return () => window.clearTimeout(t);
   }, [focusAid, focusQid, openQ, loadingAnswers]);
 
-  /* -------- vote toggles & answer posting -------- */
+  /* ---------- add answer ---------- */
+
+  const handleAddAnswer = async () => {
+    if (!user) {
+      router.push("/auth?redirect=/qna");
+      return;
+    }
+    if (!openQ) return;
+
+    const body = answerBody.trim();
+    if (!body) return;
+
+    setAnswerSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("qna_answers")
+        .insert({
+          question_id: openQ.id,
+          user_id: user.id,
+          body,
+        })
+        .select(
+          `
+          id,
+          question_id,
+          user_id,
+          body,
+          created_at,
+          qna_answer_votes(count)
+        `
+        )
+        .maybeSingle();
+
+      if (error) {
+        console.error("insert answer error:", error);
+        return;
+      }
+
+      if (data) {
+        const { data: myP } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const normalized: QAnswer = {
+          id: (data as any).id,
+          question_id: (data as any).question_id,
+          user_id: (data as any).user_id,
+          body: (data as any).body,
+          created_at: (data as any).created_at,
+          qna_answer_votes: (data as any).qna_answer_votes ?? null,
+          profile: myP
+            ? {
+                id: myP.id,
+                full_name: myP.full_name ?? null,
+                avatar_url: myP.avatar_url ?? null,
+              }
+            : null,
+        };
+
+        setAnswers((prev) => [...prev, normalized]);
+        setAnswerBody("");
+
+        // bump counts locally
+        setQuestions((prev) =>
+          prev.map((q) => {
+            if (q.id !== openQ.id) return q;
+            const cur = (q.qna_answers?.[0]?.count ?? 0) + 1;
+            return { ...q, qna_answers: [{ count: cur }] as any };
+          })
+        );
+
+        setOpenQ((prev) => {
+          if (!prev) return prev;
+          const cur = (prev.qna_answers?.[0]?.count ?? 0) + 1;
+          return { ...prev, qna_answers: [{ count: cur }] as any };
+        });
+      }
+    } finally {
+      setAnswerSaving(false);
+    }
+  };
+
+  /* ---------- toggle votes ---------- */
 
   const toggleVote = async (qid: string) => {
     if (!user) {
-      router.push('/auth?redirect=/qna');
+      router.push("/auth?redirect=/qna");
       return;
     }
-    if (isVoteLoading(qid)) return;
+    if (voteLoadingIds.includes(qid)) return;
 
     setVoteLoadingIds((p) => [...p, qid]);
     const already = !!myVotes[qid];
@@ -362,10 +403,10 @@ export default function QnAPage() {
     try {
       if (already) {
         const { error } = await supabase
-          .from('qna_votes')
+          .from("qna_votes")
           .delete()
-          .eq('question_id', qid)
-          .eq('user_id', user.id);
+          .eq("question_id", qid)
+          .eq("user_id", user.id);
         if (error) {
           console.error(error);
           return;
@@ -392,7 +433,7 @@ export default function QnAPage() {
         });
       } else {
         const { error } = await supabase
-          .from('qna_votes')
+          .from("qna_votes")
           .insert({ question_id: qid, user_id: user.id });
         if (error) {
           console.error(error);
@@ -422,11 +463,11 @@ export default function QnAPage() {
 
   const toggleAnswerVote = async (answerId: string) => {
     if (!user) {
-      router.push('/auth?redirect=/qna');
+      router.push("/auth?redirect=/qna");
       return;
     }
     if (!answerId) return;
-    if (isAnswerVoteLoading(answerId)) return;
+    if (answerVoteLoadingIds.includes(answerId)) return;
 
     setAnswerVoteLoadingIds((p) => [...p, answerId]);
     const already = !!myAnswerVotes[answerId];
@@ -434,10 +475,10 @@ export default function QnAPage() {
     try {
       if (already) {
         const { error } = await supabase
-          .from('qna_answer_votes')
+          .from("qna_answer_votes")
           .delete()
-          .eq('answer_id', answerId)
-          .eq('user_id', user.id);
+          .eq("answer_id", answerId)
+          .eq("user_id", user.id);
         if (error) {
           console.error(error);
           return;
@@ -452,13 +493,16 @@ export default function QnAPage() {
         setAnswers((prev) =>
           prev.map((a) => {
             if (a.id !== answerId) return a;
-            const cur = Math.max(0, (a.qna_answer_votes?.[0]?.count ?? 0) - 1);
+            const cur = Math.max(
+              0,
+              (a.qna_answer_votes?.[0]?.count ?? 0) - 1
+            );
             return { ...a, qna_answer_votes: [{ count: cur }] as any };
           })
         );
       } else {
         const { error } = await supabase
-          .from('qna_answer_votes')
+          .from("qna_answer_votes")
           .insert({ answer_id: answerId, user_id: user.id });
         if (error) {
           console.error(error);
@@ -480,104 +524,7 @@ export default function QnAPage() {
     }
   };
 
-  const handleAddAnswer = async () => {
-    if (!user) {
-      router.push('/auth?redirect=/qna');
-      return;
-    }
-    if (!openQ) return;
-
-    const body = answerBody.trim();
-    if (!body) return;
-
-    setAnswerSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from('qna_answers')
-        .insert({
-          question_id: openQ.id,
-          user_id: user.id,
-          body,
-        })
-        .select(
-          `
-          id,
-          question_id,
-          user_id,
-          body,
-          created_at,
-          qna_answer_votes(count)
-        `
-        )
-        .maybeSingle();
-
-      if (error) {
-        console.error('insert answer error:', error);
-        return;
-      }
-
-      if (data) {
-        const { data: myP } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        const normalized: QAnswer = {
-          id: (data as any).id,
-          question_id: (data as any).question_id,
-          user_id: (data as any).user_id,
-          body: (data as any).body,
-          created_at: (data as any).created_at,
-          qna_answer_votes: (data as any).qna_answer_votes ?? null,
-          profile: myP
-            ? {
-                id: myP.id,
-                full_name: myP.full_name ?? null,
-                avatar_url: myP.avatar_url ?? null,
-              }
-            : null,
-        };
-
-        setAnswers((prev) => [...prev, normalized]);
-        setAnswerBody('');
-
-        // bump answer count locally
-        setQuestions((prev) =>
-          prev.map((q) => {
-            if (q.id !== openQ.id) return q;
-            const cur = (q.qna_answers?.[0]?.count ?? 0) + 1;
-            return { ...q, qna_answers: [{ count: cur }] as any };
-          })
-        );
-
-        setOpenQ((prev) => {
-          if (!prev) return prev;
-          const cur = (prev.qna_answers?.[0]?.count ?? 0) + 1;
-          return { ...prev, qna_answers: [{ count: cur }] as any };
-        });
-      }
-    } finally {
-      setAnswerSaving(false);
-    }
-  };
-
-  /* -------- suggested tags (for QuestionsGrid) -------- */
-
-  const suggestedTags = useMemo(
-    () => [
-      'Hardware',
-      'Software',
-      'Careers',
-      'Cryo',
-      'Microwave',
-      'Qubits',
-      'Fabrication',
-      'Theory',
-      'Sensing',
-    ],
-    []
-  );
+  /* ---------- tags takeover ---------- */
 
   const filteredTagChips = useMemo(() => {
     const fromData = new Set<string>();
@@ -588,48 +535,58 @@ export default function QnAPage() {
     return merged.slice(0, 18);
   }, [questions, suggestedTags]);
 
-  /* -------- render -------- */
+  /* ---------- render ---------- */
 
   return (
-    <section className="section">
-      {/* header + composer + search + tags are inside QuestionsGrid */}
-      <QuestionsGrid
-        questions={questions}
-        loading={loadingQuestions}
-        error={questionsError}
-        search={search}
-        setSearch={setSearch}
-        activeTag={activeTag}
-        setActiveTag={setActiveTag}
-        filteredTagChips={filteredTagChips}
-        myVotes={myVotes}
-        isVoteLoading={isVoteLoading}
-        toggleVote={toggleVote}
-        openThread={openThread}
-        questionRefs={questionRefs}
-      />
-
-      {openQ && (
-        <ThreadPanel
-          question={openQ}
-          answers={answers}
-          loadingAnswers={loadingAnswers}
-          answerBody={answerBody}
-          setAnswerBody={setAnswerBody}
-          answerSaving={answerSaving}
-          handleAddAnswer={handleAddAnswer}
+    <>
+      {/* Questions grid */}
+      <section className="section">
+        <QuestionsGrid
+          questions={questions}
+          loading={loading}
+          err={err}
+          search={search}
+          activeTag={activeTag}
+          suggestedTags={suggestedTags}
           myVotes={myVotes}
-          isVoteLoading={isVoteLoading}
-          toggleVote={toggleVote}
-          myAnswerVotes={myAnswerVotes}
-          isAnswerVoteLoading={isAnswerVoteLoading}
-          toggleAnswerVote={toggleAnswerVote}
-          closeThread={closeThread}
-          answerRefs={answerRefs}
-          focusQid={focusQid}
-          focusAid={focusAid}
+          voteLoadingIds={voteLoadingIds}
+          onSearchChange={setSearch}
+          onClearSearch={() => setSearch("")}
+          onClearTag={() => setActiveTag(null)}
+          onTagToggle={(t) => setActiveTag((prev) => (prev === t ? null : t))}
+          onOpenThread={openThread}
+          onToggleVote={toggleVote}
+          filteredTagChips={filteredTagChips}
+          onQuestionCreated={(newQ) => setQuestions((prev) => [newQ, ...prev])}
         />
-      )}
-    </section>
+
+        {/* Thread panel */}
+        {openQ && (
+          <ThreadPanel
+            openQ={openQ}
+            answers={answers}
+            loadingAnswers={loadingAnswers}
+            answerBody={answerBody}
+            answerSaving={answerSaving}
+            user={user}
+            myVotes={myVotes}
+            voteLoadingIds={voteLoadingIds}
+            myAnswerVotes={myAnswerVotes}
+            answerVoteLoadingIds={answerVoteLoadingIds}
+            onClose={closeThread}
+            onToggleVote={toggleVote}
+            onToggleAnswerVote={toggleAnswerVote}
+            onAnswerChange={setAnswerBody}
+            onAddAnswer={handleAddAnswer}
+          />
+        )}
+      </section>
+    </>
   );
 }
+
+(QnAPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+  mobileMain: <QnAPage />, // or <QuestionsGrid /> maybe; keep consistent with your layout logic
+};
