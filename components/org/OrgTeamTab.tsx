@@ -1,7 +1,7 @@
 // components/org/OrgTeamTab.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { createPortal } from "react-dom";
+import { createPortal } from "react-dom"; // used for floating menu
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
@@ -28,14 +28,14 @@ type OrgMemberRow = {
   user_id: string;
   role: OrgMemberRole;
   is_affiliated: boolean;
-  designation?: string | null; // new column
+  designation?: string | null;
 };
 
 type OrgMemberWithProfile = {
   user_id: string;
   role: OrgMemberRole;
   is_affiliated: boolean;
-  designation?: string | null; // store locally too
+  designation?: string | null;
   profile: FollowerProfile | null;
 };
 
@@ -100,7 +100,8 @@ export default function OrgTeamTab({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<OrgMemberRole>("member");
   const [selectedAffiliated, setSelectedAffiliated] = useState<boolean>(true);
-  const [selectedDesignation, setSelectedDesignation] = useState<string>(""); // NEW
+  const [selectedDesignation, setSelectedDesignation] = useState<string>("");
+
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
 
   // Member menu portal
@@ -120,7 +121,7 @@ export default function OrgTeamTab({
 
   const isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
 
-  // scroller ref kept only for potential future use; not needed for grid
+  // scroller ref kept for potential future use; not needed for grid
   const teamScrollerRef = useRef<HTMLDivElement | null>(null);
 
   const goToProfile = (profileId: string) => {
@@ -194,7 +195,7 @@ export default function OrgTeamTab({
       try {
         const { data: memberRows, error: membersErr } = await supabase
           .from("org_members")
-          .select("user_id, role, is_affiliated, designation") // include designation
+          .select("user_id, role, is_affiliated, designation")
           .eq("org_id", org.id);
 
         if (membersErr) {
@@ -295,7 +296,7 @@ export default function OrgTeamTab({
             user_id: profileId,
             role: selectedRole,
             is_affiliated: selectedAffiliated,
-            designation: selectedDesignation || null, // NEW
+            designation: selectedDesignation || null,
           },
           { onConflict: "org_id,user_id" }
         );
@@ -313,7 +314,7 @@ export default function OrgTeamTab({
           user_id: profileId,
           role: selectedRole,
           is_affiliated: selectedAffiliated,
-          designation: selectedDesignation || null, // NEW
+          designation: selectedDesignation || null,
           profile,
         };
         if (idx >= 0) {
@@ -323,7 +324,6 @@ export default function OrgTeamTab({
         }
         return [...prev, updated];
       });
-      // Reset designation field if you want after add
       setSelectedDesignation("");
     } catch (err) {
       console.error("Unexpected error adding org member", err);
@@ -354,7 +354,11 @@ export default function OrgTeamTab({
           return;
         }
 
-        setMembers((prev) => prev.map((m) => (m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m)));
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user_id === member.user_id ? { ...m, is_affiliated: newValue } : m
+          )
+        );
         onSelfAffiliatedChange?.(newValue);
       } catch (err) {
         console.error("Unexpected error updating self affiliation", err);
@@ -438,7 +442,6 @@ export default function OrgTeamTab({
           m.user_id === memberUserId ? { ...m, designation: newDesign ?? null } : m
         )
       );
-      // close editing UI
       setEditingDesignationId(null);
       setMemberMenuOpenId(null);
       setMenuPosition(null);
@@ -452,12 +455,36 @@ export default function OrgTeamTab({
     setDesignationDraft("");
   };
 
+  // NEW: open menu handler to capture click coords
+  const handleOpenMenu = (memberUserId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!canManageMembers) return;
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setMemberMenuOpenId(memberUserId);
+    setMenuPosition({ top: rect.bottom + 4, left: rect.left });
+  };
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (memberMenuOpenId) {
+        setMemberMenuOpenId(null);
+        setMenuPosition(null);
+        setEditingDesignationId(null);
+      }
+    };
+    if (isBrowser) {
+      window.addEventListener("click", handleClickOutside);
+      return () => window.removeEventListener("click", handleClickOutside);
+    }
+  }, [memberMenuOpenId]);
+
   return (
     <div style={{ marginTop: 18 }}>
       {/* Team header + Add member */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
         <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: 0.08, color: "rgba(148,163,184,0.9)" }}>
-          Team &amp; members
+          Our Team
         </div>
 
         {canManageMembers && (
@@ -730,15 +757,15 @@ export default function OrgTeamTab({
             overflow: "hidden",
           }}
         >
-          {/* changed from horizontal scroll to grid */}
+          {/* grid of members */}
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout; MDN docs describe grid property usage.  For reference on `repeat()`, see MDN examples.  [oai_citation:0‡interactive-examples.mdn.mozilla.net](https://interactive-examples.mdn.mozilla.net/pages/css/function-repeat.html#:~:text=grid,columns%3A%201fr%20repeat%282%2C%2060px)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
             }}
+            ref={teamScrollerRef}
           >
             {members.map((m) => {
               const profile = m.profile;
@@ -751,14 +778,13 @@ export default function OrgTeamTab({
                 .toUpperCase();
 
               const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-              const subtitle =
-                [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+              const education = profile?.highest_education || "";
 
               const isCurrentUser = !!user && !!profile && profile.id === user.id;
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
 
               return (
-                <div key={m.user_id} style={{ width: "100%" }}>
+                <div key={m.user_id} style={{ width: "100%", position: "relative" }}>
                   <button
                     type="button"
                     onClick={() => profile && goToProfile(profile.id)}
@@ -777,47 +803,51 @@ export default function OrgTeamTab({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                      {/* avatar slightly bigger */}
+                      <div
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1px solid rgba(148,163,184,0.6)",
+                          color: "#e5e7eb",
+                          fontWeight: 700,
+                          fontSize: 15,
+                        }}
+                      >
+                        {profile?.avatar_url ? (
+                          <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          initials
+                        )}
+                      </div>
+
+                      <div style={{ minWidth: 0 }}>
+                        {/* name */}
                         <div
                           style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 999,
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "rgba(226,232,240,0.98)",
+                            whiteSpace: "nowrap",
                             overflow: "hidden",
-                            flexShrink: 0,
-                            background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: "1px solid rgba(148,163,184,0.6)",
-                            color: "#e5e7eb",
-                            fontWeight: 700,
-                            fontSize: 13,
+                            textOverflow: "ellipsis",
                           }}
                         >
-                          {profile?.avatar_url ? (
-                            <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          ) : (
-                            initials
+                          {name}
+                          {isCurrentUser && (
+                            <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
                           )}
                         </div>
 
-                        <div style={{ minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              color: "rgba(226,232,240,0.98)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {name}
-                            {isCurrentUser && (
-                              <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
-                            )}
-                          </div>
+                        {/* highest education line */}
+                        {education && (
                           <div
                             style={{
                               marginTop: 2,
@@ -828,76 +858,29 @@ export default function OrgTeamTab({
                               textOverflow: "ellipsis",
                             }}
                           >
-                            {subtitle}
+                            {education}
                           </div>
-                          {/* Optional: show designation under subtitle if present */}
-                          {m.designation && (
-                            <div
-                              style={{
-                                marginTop: 2,
-                                fontSize: 11,
-                                fontStyle: "italic",
-                                color: "rgba(178,186,207,0.95)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {m.designation}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        )}
 
-                      {/* show menu for all members if canManageMembers */}
-                      {canManageMembers && (
-                        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isBrowser) return;
-
-                              if (memberMenuOpenId === m.user_id) {
-                                setMemberMenuOpenId(null);
-                                setMenuPosition(null);
-                                setEditingDesignationId(null);
-                                return;
-                              }
-
-                              const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
-                              const scrollX = window.scrollX ?? window.pageXOffset ?? 0;
-                              const scrollY = window.scrollY ?? window.pageYOffset ?? 0;
-
-                              const dropdownWidth = 190;
-                              const top = rect.bottom + scrollY + 6;
-                              const left = rect.right + scrollX - dropdownWidth;
-
-                              setMemberMenuOpenId(m.user_id);
-                              setMenuPosition({ top, left });
-                              setEditingDesignationId(null);
-                            }}
+                        {/* location line */}
+                        {location && (
+                          <div
                             style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 999,
-                              border: "1px solid rgba(71,85,105,0.9)",
-                              background: "rgba(15,23,42,0.95)",
+                              marginTop: 2,
+                              fontSize: 11,
                               color: "rgba(148,163,184,0.95)",
-                              fontSize: 14,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              cursor: "pointer",
-                              padding: 0,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
                             }}
                           >
-                            ⋯
-                          </button>
-                        </div>
-                      )}
+                            {location}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
+                    {/* badges line */}
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                       {/* role badge now shown only to viewers allowed */}
                       {canSeeRoleAndAffiliation && (
@@ -914,7 +897,7 @@ export default function OrgTeamTab({
                         </span>
                       )}
 
-                      {/* affiliated badge also only shown to viewers allowed */}
+                      {/* affiliation badge shown only to viewers allowed */}
                       {canSeeRoleAndAffiliation && m.is_affiliated && (
                         <span
                           style={{
@@ -926,6 +909,21 @@ export default function OrgTeamTab({
                           }}
                         >
                           Affiliated
+                        </span>
+                      )}
+
+                      {/* designation badge shown to all when present */}
+                      {m.designation && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            borderRadius: 999,
+                            padding: "2px 7px",
+                            border: "1px solid rgba(34,197,94,0.7)",
+                            color: "rgba(187,247,208,0.95)",
+                          }}
+                        >
+                          {m.designation}
                         </span>
                       )}
                     </div>
@@ -965,6 +963,34 @@ export default function OrgTeamTab({
                       </div>
                     )}
                   </button>
+
+                  {/* NEW: 3-dots menu button (only shown if manager) */}
+                  {canManageMembers && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleOpenMenu(m.user_id, e)}
+                      style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        border: "none",
+                        background: "transparent",
+                        color: "rgba(148,163,184,0.9)",
+                        fontSize: 16,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0,
+                      }}
+                    >
+                      ⋯
+                    </button>
+                  )}
                 </div>
               );
             })}
