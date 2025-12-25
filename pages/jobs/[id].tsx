@@ -9,6 +9,10 @@ type Job = {
   id: string;
   title: string | null;
   company_name: string | null;
+  // Optional org linkage (if you add org_id and join)
+  org_id?: string | null;
+  org_slug?: string | null;
+
   location: string | null;
   employment_type: string | null;
   remote_type: string | null;
@@ -18,7 +22,6 @@ type Job = {
   salary_display: string | null;
   apply_url: string | null;
   owner_id: string | null;
-  org_id?: string | null;        // optional organization linkage
   created_at?: string | null;
 };
 
@@ -32,9 +35,6 @@ export default function JobDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Org slug for clickable company name (if available)
-  const [orgSlug, setOrgSlug] = useState<string | null>(null);
-
   // Load job
   useEffect(() => {
     const fetchJob = async () => {
@@ -42,42 +42,60 @@ export default function JobDetailPage() {
       setLoading(true);
       setLoadError(null);
 
-      // Fetch job row
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      try {
+        // If you add an org relationship in the DB, select the slug too.
+        // Example assumes jobs has org_id, and organizations table has slug.
+        // Adjust to your exact schema / column names.
+        const { data, error } = await supabase
+          .from("jobs")
+          // Fetch everything from jobs, plus org slug if exists
+          .select(
+            `
+              *,
+              organizations!inner(
+                slug
+              )
+            `
+          )
+          .eq("id", id)
+          .maybeSingle();
 
-      if (error) {
-        console.error("Error loading job", error);
+        if (error) {
+          console.error("Error loading job", error);
+          setLoadError("Could not load this job.");
+          setJob(null);
+        } else if (data) {
+          // Map the joined org slug into job object if present
+          const jobRow: any = data;
+          const orgSlug = jobRow.organizations?.slug ?? null;
+
+          const jobWithOrg: Job = {
+            id: jobRow.id,
+            title: jobRow.title,
+            company_name: jobRow.company_name,
+            org_id: jobRow.organisations_id ?? jobRow.org_id ?? null,
+            org_slug: orgSlug,
+            location: jobRow.location,
+            employment_type: jobRow.employment_type,
+            remote_type: jobRow.remote_type,
+            short_description: jobRow.short_description,
+            description: jobRow.description,
+            keywords: jobRow.keywords,
+            salary_display: jobRow.salary_display,
+            apply_url: jobRow.apply_url,
+            owner_id: jobRow.owner_id,
+            created_at: jobRow.created_at,
+          };
+
+          setJob(jobWithOrg);
+        } else {
+          setJob(null);
+          setLoadError("Job not found.");
+        }
+      } catch (e) {
+        console.error("Unexpected fetch error", e);
         setLoadError("Could not load this job.");
         setJob(null);
-      } else {
-        const jobRow = data as Job | null;
-        setJob(jobRow);
-
-        // If org_id present, load org slug for linking
-        if (jobRow?.org_id) {
-          try {
-            const { data: orgData, error: orgErr } = await supabase
-              .from("organizations")
-              .select("slug")
-              .eq("id", jobRow.org_id)
-              .maybeSingle();
-
-            if (!orgErr && orgData && orgData.slug) {
-              setOrgSlug(orgData.slug);
-            } else {
-              setOrgSlug(null);
-            }
-          } catch (e) {
-            console.error("Error loading organization for job", e);
-            setOrgSlug(null);
-          }
-        } else {
-          setOrgSlug(null);
-        }
       }
 
       setLoading(false);
@@ -126,7 +144,7 @@ export default function JobDetailPage() {
   return (
     <section className="section">
       <div className="job-detail-shell">
-        {/* Header row (same width as card) */}
+        {/* Header row */}
         <div className="section-header job-detail-header">
           <div>
             <div className="section-title">Job details</div>
@@ -135,9 +153,13 @@ export default function JobDetailPage() {
             </div>
           </div>
 
-          <Link href="/jobs" className="nav-ghost-btn">
+          <button
+            type="button"
+            className="nav-ghost-btn"
+            onClick={() => router.push("/jobs")}
+          >
             ← Back to jobs
-          </Link>
+          </button>
         </div>
 
         {loading && <p className="products-status">Loading job…</p>}
@@ -149,25 +171,28 @@ export default function JobDetailPage() {
 
         {!loading && !loadError && job && (
           <div className="product-detail-card">
-            {/* Top area */}
+            {/* Main top section */}
             <div className="product-detail-top">
               <div className="product-detail-main">
                 <h1 className="product-detail-title">
                   {job.title || "Untitled job"}
                 </h1>
 
+                {/* Clickable company name if org slug available */}
                 {job.company_name && (
-                  <div className="product-detail-company">
-                    {orgSlug ? (
-                      // clickable company name when org slug available
-                      <Link href={`/orgs/${encodeURIComponent(orgSlug)}`}>
-                        {/* Next.js Link recommended usage: primary way to navigate client‑side.  [oai_citation:0‡Next.js](https://nextjs.org/docs/14/app/api-reference/components/link#:~:text=%60,Dashboard%3C%2FLink) */}
-                        <a>{job.company_name}</a>
-                      </Link>
-                    ) : (
-                      job.company_name
-                    )}
-                  </div>
+                  job.org_slug ? (
+                    <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
+                      {/* Next.js Link wraps its child; docs note this for client-side navigation */}
+                      {/*  [oai_citation:0‡Next.js](https://nextjs.org/docs/13/app/api-reference/components/link#:~:text=%60,Dashboard%3C%2FLink) */}
+                      <a className="product-detail-company" style={{ textDecoration: "underline" }}>
+                        {job.company_name}
+                      </a>
+                    </Link>
+                  ) : (
+                    <div className="product-detail-company">
+                      {job.company_name}
+                    </div>
+                  )
                 )}
 
                 {(job.location || job.employment_type || job.remote_type) && (
@@ -247,7 +272,7 @@ export default function JobDetailPage() {
                 )}
               </div>
 
-              {/* Short description / summary box */}
+              {/* Summary / short description */}
               <div className="product-detail-body">
                 {job.short_description && (
                   <div className="product-detail-section">
@@ -273,7 +298,7 @@ export default function JobDetailPage() {
               </div>
             </div>
 
-            {/* Full description below */}
+            {/* Full description */}
             {job.description && (
               <div style={{ marginTop: 24 }}>
                 <div className="profile-section-label">Full description</div>
@@ -299,6 +324,98 @@ export default function JobDetailPage() {
 
         .job-detail-header {
           margin-bottom: 18px;
+        }
+
+        /* Reuse styles from products page */
+        .product-detail-card {
+          width: 100%;
+          padding: 24px 22px 28px;
+          border-radius: 18px;
+          background: radial-gradient(
+              circle at top left,
+              rgba(56, 189, 248, 0.06),
+              transparent 55%
+            ),
+            rgba(15, 23, 42, 0.95);
+          border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .product-detail-top {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 32px;
+        }
+
+        @media (max-width: 900px) {
+          .product-detail-top {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+
+        .product-detail-main {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .product-detail-title {
+          margin: 0;
+          font-size: 24px;
+          font-weight: 600;
+        }
+
+        .product-detail-company {
+          font-size: 14px;
+          font-weight: 500;
+          color: #7dd3fc;
+        }
+
+        .product-detail-price {
+          margin-top: 10px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #22d3ee;
+        }
+
+        .product-detail-body {
+          margin-top: 22px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(31, 41, 55, 0.9);
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .product-detail-section {
+          max-width: 800px;
+        }
+
+        .profile-section-label {
+          font-size: 13px;
+          font-weight: 700;
+          color: rgba(148, 163, 184, 0.9);
+          margin-bottom: 4px;
+        }
+
+        .profile-summary-text {
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.5;
+        }
+
+        .profile-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .profile-tag-chip {
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.4);
+          background: rgba(15, 23, 42, 0.9);
+          color: #cbd5f5;
         }
       `}</style>
     </section>
