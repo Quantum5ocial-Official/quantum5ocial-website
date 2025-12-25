@@ -1,7 +1,5 @@
 // components/org/OrgProductsTab.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import type React from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -11,7 +9,7 @@ type Org = {
   id: string;
   name: string;
   logo_url: string | null;
-  // ✅ add slug here so we can link to the org page
+  // slug is optional but used for linking
   slug?: string;
 };
 
@@ -28,24 +26,17 @@ type ProductRow = {
   image1_url: string | null;
   image2_url: string | null;
   image3_url: string | null;
-
-  product_type: string | null;
-  technology_type: string | null;
-  organisation_type: string | null;
-  quantum_domain: string | null;
-
   created_at?: string | null;
-
-  // IMPORTANT: your org filtering relies on having org_id in products table
   org_id?: string | null;
 };
+
+/* ---------- helpers ---------- */
 
 function useIsMobile(maxWidth = 820) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
     const set = () => setIsMobile(mq.matches);
     set();
@@ -104,16 +95,14 @@ function formatStock(p: ProductRow) {
   return "Stock not specified";
 }
 
-/* =========================
-   ORG PRODUCTS STRIP
-   ========================= */
+/* ---------- main strip ---------- */
 
 function OrgProductsStrip({
   orgId,
   orgSlug,
 }: {
   orgId: string;
-  orgSlug?: string | undefined;
+  orgSlug?: string;
 }) {
   const router = useRouter();
 
@@ -128,10 +117,11 @@ function OrgProductsStrip({
     setError(null);
 
     try {
+      // ONLY select columns that actually exist
       const { data, error: prodErr } = await supabase
         .from("products")
         .select(
-          "id, name, company_name, category, short_description, price_type, price_value, in_stock, stock_quantity, image1_url, image2_url, image3_url, product_type, technology_type, organisation_type, quantum_domain, created_at, org_id"
+          "id, name, company_name, category, short_description, price_type, price_value, in_stock, stock_quantity, image1_url, image2_url, image3_url, created_at, org_id"
         )
         .eq("org_id", orgId)
         .order("created_at", { ascending: false })
@@ -159,6 +149,7 @@ function OrgProductsStrip({
 
     if (orgId) run();
 
+    // listen for changes
     const channel = supabase
       .channel(`org-products:${orgId}`)
       .on(
@@ -270,10 +261,22 @@ function OrgProductsStrip({
         }}
       />
 
-      <button type="button" onClick={() => scrollByCard(-1)} style={{ ...edgeBtn, left: 10 }} aria-label="Scroll left" title="Scroll left">
+      <button
+        type="button"
+        onClick={() => scrollByCard(-1)}
+        style={{ ...edgeBtn, left: 10 }}
+        aria-label="Scroll left"
+        title="Scroll left"
+      >
         ‹
       </button>
-      <button type="button" onClick={() => scrollByCard(1)} style={{ ...edgeBtn, right: 10 }} aria-label="Scroll right" title="Scroll right">
+      <button
+        type="button"
+        onClick={() => scrollByCard(1)}
+        style={{ ...edgeBtn, right: 10 }}
+        aria-label="Scroll right"
+        title="Scroll right"
+      >
         ›
       </button>
 
@@ -295,8 +298,6 @@ function OrgProductsStrip({
           const hasImage = !!img;
 
           const badgeBits: string[] = [];
-          if (p.product_type) badgeBits.push(p.product_type);
-          if (p.technology_type) badgeBits.push(p.technology_type);
           if (p.category) badgeBits.push(p.category);
 
           return (
@@ -340,10 +341,10 @@ function OrgProductsStrip({
                       {title}
                     </div>
                     {p.company_name ? (
-                      // ✅ clickable company name when slug is available
                       orgSlug ? (
                         <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
                           <Link href={`/orgs/${encodeURIComponent(orgSlug)}`}>
+                            {/* Next 13+ supports just Link; <a> optional; but keep safe */}
                             <a style={{ color: "inherit", textDecoration: "underline" }}>
                               {p.company_name}
                             </a>
@@ -362,10 +363,18 @@ function OrgProductsStrip({
                   </div>
 
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: "rgba(226,232,240,0.92)" }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 900,
+                        color: "rgba(226,232,240,0.92)",
+                      }}
+                    >
                       {formatPrice(p)}
                     </div>
-                    <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>{formatStock(p)}</div>
+                    <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2 }}>
+                      {formatStock(p)}
+                    </div>
                   </div>
                 </div>
 
@@ -395,7 +404,12 @@ function OrgProductsStrip({
                       <img
                         src={img as string}
                         alt="Product image"
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
                         loading="lazy"
                       />
                     </div>
@@ -431,7 +445,7 @@ function OrgProductsStrip({
 
                 <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {badgeBits.length > 0 ? (
-                    <span style={chipStyle} title="Type / technology / category">
+                    <span style={chipStyle} title="Category">
                       🧩 {badgeBits.join(" · ")}
                     </span>
                   ) : (
@@ -449,16 +463,14 @@ function OrgProductsStrip({
   );
 }
 
-/* =========================
-   PUBLIC EXPORT
-   ========================= */
+/* ---------- public export ---------- */
 
 export default function OrgProductsTab({
   org,
   canListProduct,
 }: {
   org: Org;
-  canListProduct: boolean; // owner/co-owner only
+  canListProduct: boolean;
 }) {
   const router = useRouter();
   const { user } = useSupabaseUser();
@@ -470,8 +482,7 @@ export default function OrgProductsTab({
       return;
     }
 
-    // ✅ IMPORTANT: pass org context to /products/new
-    // NewProductPage expects: /products/new?org=<slug-or-uuid>
+    // pass org context to /products/new
     const orgToken = (org.slug || org.id || "").trim();
     router.push(`/products/new?org=${encodeURIComponent(orgToken)}`);
   };
