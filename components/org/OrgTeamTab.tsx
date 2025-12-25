@@ -580,14 +580,106 @@ export default function OrgTeamTab({
       {!membersLoading && !membersError && members.length === 0 && <div className="products-empty">No team members added yet.</div>}
 
       {!membersLoading && !membersError && members.length > 0 && (
-        <div className="card" style={{ position: "relative", padding: 14, borderRadius: 16, border: "1px solid rgba(148,163,184,0.22)", background: "rgba(15,23,42,0.72)", overflow: "hidden" }}>
-          <div aria-hidden style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 44, background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))", pointerEvents: "none", zIndex: 2 }} />
-          <div aria-hidden style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: 44, background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))", pointerEvents: "none", zIndex: 2 }} />
+        <div
+          className="card"
+          style={{
+            position: "relative",
+            padding: 14,
+            borderRadius: 16,
+            border: "1px solid rgba(148,163,184,0.22)",
+            background: "rgba(15,23,42,0.72)",
+            overflow: "hidden",
+          }}
+        >
+          {/* gradient fades still present but arrows moved outside */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 44,
+              background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: 44,
+              background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
 
-          <button type="button" onClick={() => scrollTeamByCard(-1)} style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", left: 10, width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(148,163,184,0.28)", background: "rgba(2,6,23,0.65)", color: "rgba(226,232,240,0.95)", cursor: "pointer", fontWeight: 900, zIndex: 5, backdropFilter: "blur(8px)" }} aria-label="Scroll left">‹</button>
-          <button type="button" onClick={() => scrollTeamByCard(1)} style={{ position: "absolute", top: "50%", transform: "translateY(-50%)", right: 10, width: 40, height: 40, borderRadius: 999, border: "1px solid rgba(148,163,184,0.28)", background: "rgba(2,6,23,0.65)", color: "rgba(226,232,240,0.95)", cursor: "pointer", fontWeight: 900, zIndex: 5, backdropFilter: "blur(8px)" }} aria-label="Scroll right">›</button>
+          {/* Arrow buttons placed just outside the scroll area */}
+          <button
+            type="button"
+            onClick={() => scrollTeamByCard(-1)}
+            style={{
+              position: "absolute",
+              top: "50%",
+              transform: "translateY(-50%)",
+              left: -20, // moved outside
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.28)",
+              background: "rgba(2,6,23,0.65)",
+              color: "rgba(226,232,240,0.95)",
+              cursor: "pointer",
+              fontWeight: 900,
+              zIndex: 5,
+              backdropFilter: "blur(8px)",
+            }}
+            aria-label="Scroll left"
+          >
+            ‹
+          </button>
 
-          <div ref={teamScrollerRef} style={{ display: "flex", gap: 12, overflowX: "auto", padding: "4px 44px 10px 44px", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
+          <button
+            type="button"
+            onClick={() => scrollTeamByCard(1)}
+            style={{
+              position: "absolute",
+              top: "50%",
+              transform: "translateY(-50%)",
+              right: -20, // moved outside
+              width: 40,
+              height: 40,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.28)",
+              background: "rgba(2,6,23,0.65)",
+              color: "rgba(226,232,240,0.95)",
+              cursor: "pointer",
+              fontWeight: 900,
+              zIndex: 5,
+              backdropFilter: "blur(8px)",
+            }}
+            aria-label="Scroll right"
+          >
+            ›
+          </button>
+
+          {/* Scroller */}
+          <div
+            ref={teamScrollerRef}
+            style={{
+              display: "flex",
+              gap: 12,
+              overflowX: "auto",
+              padding: "4px 44px 10px 44px", // enough space for fade but arrows outside
+              scrollSnapType: "x mandatory",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
             {members.map((m) => {
               const profile = m.profile;
               const name = profile?.full_name || "Quantum5ocial member";
@@ -600,12 +692,30 @@ export default function OrgTeamTab({
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
 
               return (
-                <div key={m.user_id} style={{ scrollSnapAlign: "start", flex: "0 0 auto", width: "clamp(260px, calc((100% - 24px) / 3), 420px)" }}>
+                <div
+                  key={m.user_id}
+                  style={{
+                    scrollSnapAlign: "start",
+                    flex: "0 0 auto",
+                    width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => profile && goToProfile(profile.id)}
                     className="card"
-                    style={{ width: "100%", textAlign: "left", padding: 12, borderRadius: 14, display: "flex", flexDirection: "column", gap: 10, cursor: profile ? "pointer" : "default", background: "rgba(2,6,23,0.35)", position: "relative" }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: 12,
+                      borderRadius: 14,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      cursor: profile ? "pointer" : "default",
+                      background: "rgba(2,6,23,0.35)",
+                      position: "relative",
+                    }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
