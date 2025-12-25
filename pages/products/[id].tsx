@@ -8,6 +8,7 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 type Product = {
   id: string;
   owner_id: string | null;
+  org_id: string | null;          // <-- new: link to organization
   name: string;
   company_name: string | null;
   category: string | null;
@@ -32,6 +33,7 @@ export default function ProductDetailPage() {
 
   const { user, loading: userLoading } = useSupabaseUser();
   const [product, setProduct] = useState<Product | null>(null);
+  const [orgSlug, setOrgSlug] = useState<string | null>(null); // slug of linked org
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -59,6 +61,21 @@ export default function ProductDetailPage() {
         setProduct(null);
       } else {
         setProduct(data as Product);
+
+        // if product has an org_id, fetch org slug for linking
+        if (data && data.org_id) {
+          const { data: orgData, error: orgErr } = await supabase
+            .from("organizations")
+            .select("slug")
+            .eq("id", data.org_id)
+            .maybeSingle<{ slug: string }>();
+
+          if (!orgErr && orgData) {
+            setOrgSlug(orgData.slug);
+          } else {
+            // optional: keep orgSlug null; linking disabled
+          }
+        }
       }
 
       setLoading(false);
@@ -94,7 +111,7 @@ export default function ProductDetailPage() {
     if (error) {
       console.error("Error deleting product", error);
       setErrorMsg("Could not delete product. Please try again.");
-      setDeleting(false); // ✅ fixed typo
+      setDeleting(false);
       return;
     }
 
@@ -163,9 +180,21 @@ export default function ProductDetailPage() {
           <div>
             <div className="section-title">{product.name}</div>
             <div className="section-sub">
-              {product.company_name
-                ? `Listed by ${product.company_name}`
-                : "Listed by unknown vendor"}
+              {product.company_name ? (
+                orgSlug ? (
+                  // clickable link to org page
+                  <Link href={`/orgs/${encodeURIComponent(orgSlug)}`}>
+                    <a style={{ color: "#7dd3fc", textDecoration: "underline" }}>
+                      Listed by {product.company_name}
+                    </a>
+                  </Link>
+                ) : (
+                  // org slug not available; fallback plain text
+                  <>Listed by {product.company_name}</>
+                )
+              ) : (
+                "Listed by unknown vendor"
+              )}
             </div>
           </div>
 
@@ -336,6 +365,7 @@ export default function ProductDetailPage() {
             <div>current user id: {user?.id || "none"}</div>
             <div>product.owner_id: {product.owner_id || "null"}</div>
             <div>isOwner: {String(isOwner)}</div>
+            <div>linked org slug: {orgSlug || "none"}</div>
           </div>
         )}
       </div>
