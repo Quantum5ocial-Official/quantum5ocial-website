@@ -1,5 +1,5 @@
 // components/org/OrgJobsTab.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import type React from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
@@ -12,8 +12,8 @@ type Org = {
   name: string;
   logo_url: string | null;
   slug?: string;
-  // NEW: allow hiring status to be passed in, same as on org page
-  hiring_status?:
+  kind: "company" | "research_group";
+  hiring_status:
     | ""
     | "not_hiring"
     | "hiring_selectively"
@@ -445,15 +445,17 @@ export default function OrgJobsTab({
   const isMobile = useIsMobile(520);
 
   const onPostJob = () => {
+    // similar pattern as products; include org context
     const orgToken = (org.slug || org.id || "").trim();
     router.push(`/jobs/new?org=${encodeURIComponent(orgToken)}`);
   };
 
-  // --------------------------------------------------------
-  // Hiring badge logic: same idea as on org card
-  // --------------------------------------------------------
+  /* -----------------
+     hiring badge logic
+     ----------------- */
   const hiringBadge = useMemo(() => {
     if (!org) return null;
+    if (org.kind !== "company") return null;
 
     const hs = org.hiring_status || "";
 
@@ -482,10 +484,9 @@ export default function OrgJobsTab({
     return null;
   }, [org]);
 
-  // --------------------------------------------------------
-  // Styles
-  // --------------------------------------------------------
-
+  /* -----------------
+     header card styling
+     ----------------- */
   const headerCard: CSSProperties = {
     padding: 16,
     marginBottom: 12,
@@ -494,7 +495,7 @@ export default function OrgJobsTab({
     boxShadow: "0 18px 45px rgba(15,23,42,0.75)",
     borderRadius: 16,
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
     flexWrap: "wrap",
@@ -519,46 +520,49 @@ export default function OrgJobsTab({
     color: "rgba(148,163,184,0.95)",
   };
 
+  /* -----------------
+     render
+     ----------------- */
   return (
     <div style={{ marginTop: 18 }}>
       <div className="card" style={headerCard}>
-        <div style={{ minWidth: 0 }}>
-          {/* NEW: We are: + hiring badge */}
-          <div className="section-title">We are:</div>
+        {/* left part: "We are" + badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: 16,
+              fontWeight: 600,
+              color: "rgba(226,232,240,0.95)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            We are:
+          </span>
 
-          {hiringBadge ? (
-            <div style={{ marginTop: 4 }}>
-              <span
-                title={hiringBadge.title}
-                style={{
-                  fontSize: 12,
-                  borderRadius: 999,
-                  padding: "3px 10px",
-                  border: hiringBadge.border,
-                  background: hiringBadge.background,
-                  color: hiringBadge.color,
-                  fontWeight: 800,
-                  whiteSpace: "nowrap",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
-                {hiringBadge.text}
-              </span>
-            </div>
-          ) : null}
-
-          {!hiringBadge ? (
-            <div style={hint}>No hiring status set.</div>
-          ) : null}
-
-          {!canListJob ? (
-            <div style={hint}>Only owners / co-owners can post jobs for an organization.</div>
-          ) : null}
+          {hiringBadge && (
+            <span
+              title={hiringBadge.title}
+              style={{
+                fontSize: 12,
+                borderRadius: 999,
+                padding: "3px 10px",
+                border: hiringBadge.border,
+                background: hiringBadge.background,
+                color: hiringBadge.color,
+                fontWeight: 800,
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: 12, lineHeight: 1 }}>{hiringBadge.icon}</span>
+              {hiringBadge.text}
+            </span>
+          )}
         </div>
 
+        {/* right part: Post a job */}
         {canListJob ? (
           <button type="button" className="nav-cta" style={{ cursor: "pointer" }} onClick={onPostJob}>
             Post a job
