@@ -11,7 +11,7 @@ import {
   timeAgo,
   pillTagStyle,
   avatarBubble,
-} from "../qnaHelpers"; // adjust path as you choose
+} from "..types/qnaHelpers"; // adjust path as you choose
 
 type Props = {
   questions: QQuestion[];
