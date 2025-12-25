@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
-import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
@@ -117,18 +116,13 @@ export default function OrgTeamTab({
   // scroller
   const teamScrollerRef = useRef<HTMLDivElement | null>(null);
 
-  // ---- layout tweaks start ----
-  // Arrow offset from the container edge, negative value pushes arrow outside so cards are fully visible
-  const ARROW_OFFSET = -24; // px; tweak to taste
-  const ARROW_SIZE = 40; // px; unchanged from rest
-
+  // Scroll helper
   const scrollTeamByCard = (dir: -1 | 1) => {
     const el = teamScrollerRef.current;
     if (!el) return;
     const amount = Math.max(260, Math.floor(el.clientWidth * 0.9));
     el.scrollBy({ left: dir * amount, behavior: "smooth" });
   };
-  // ---- layout tweaks end ----
 
   const goToProfile = (profileId: string) => {
     router.push(`/profile/${profileId}`);
@@ -439,7 +433,18 @@ export default function OrgTeamTab({
               gap: 6,
             }}
           >
-            <span style={{ display: "inline-flex", width: 14, height: 14, borderRadius: 999, alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.8)", fontSize: 10 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                width: 14,
+                height: 14,
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid rgba(148,163,184,0.8)",
+                fontSize: 10,
+              }}
+            >
               {showAddMember ? "−" : "+"}
             </span>
             {showAddMember ? "Close" : "Add member"}
@@ -448,7 +453,16 @@ export default function OrgTeamTab({
       </div>
 
       {showAddMember && canManageMembers && (
-        <div style={{ borderRadius: 16, border: "1px solid rgba(148,163,184,0.4)", padding: 12, marginBottom: 12, background: "rgba(15,23,42,0.85)" }}>
+        <div
+          style={{
+            borderRadius: 16,
+            border: "1px solid rgba(148,163,184,0.4)",
+            padding: 12,
+            marginBottom: 12,
+            background: "rgba(15,23,42,0.85)",
+          }}
+        >
+          {/* Search + clear */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 12 }}>
             <input
               type="text"
@@ -487,8 +501,17 @@ export default function OrgTeamTab({
             </button>
           </div>
 
+          {/* Role + affiliation options */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", marginBottom: 10 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(209,213,219,0.95)" }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                color: "rgba(209,213,219,0.95)",
+              }}
+            >
               Member role:
               <select
                 value={selectedRole}
@@ -509,43 +532,138 @@ export default function OrgTeamTab({
               </select>
             </label>
 
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(209,213,219,0.95)" }}>
-              <input type="checkbox" checked={selectedAffiliated} onChange={(e) => setSelectedAffiliated(e.target.checked)} style={{ margin: 0 }} />
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                color: "rgba(209,213,219,0.95)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={selectedAffiliated}
+                onChange={(e) => setSelectedAffiliated(e.target.checked)}
+                style={{ margin: 0 }}
+              />
               Mark as affiliated
             </label>
           </div>
 
-          {searchError && <div style={{ fontSize: 12, color: "#f97373", marginBottom: 8 }}>{searchError}</div>}
+          {/* Errors / search results or hints */}
+          {searchError && (
+            <div style={{ fontSize: 12, color: "#f97373", marginBottom: 8 }}>{searchError}</div>
+          )}
 
           {searchResults.length > 0 ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10, maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                gap: 10,
+                maxHeight: 260,
+                overflowY: "auto",
+                paddingRight: 4,
+              }}
+            >
               {searchResults.map((p) => {
                 const name = p.full_name || "Quantum5ocial member";
-                const initials = name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+                const initials = name
+                  .split(" ")
+                  .map((part) => part[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase();
 
                 const location = [p.city, p.country].filter(Boolean).join(", ");
-                const subtitle = [p.role, p.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+                const subtitle = [p.role, p.affiliation, location]
+                  .filter(Boolean)
+                  .join(" · ") || "Quantum5ocial member";
 
                 const alreadyMember = members.some((m) => m.user_id === p.id);
 
                 return (
-                  <div key={p.id} className="card" style={{ borderRadius: 14, padding: 10, display: "flex", flexDirection: "column", gap: 8, background: "rgba(2,6,23,0.7)" }}>
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{
+                      borderRadius: 14,
+                      padding: 10,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      background: "rgba(2,6,23,0.7)",
+                    }}
+                  >
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.6)", color: "#e5e7eb", fontWeight: 700, fontSize: 12 }}>
-                        {p.avatar_url ? <img src={p.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          border: "1px solid rgba(148,163,184,0.6)",
+                          color: "#e5e7eb",
+                          fontWeight: 700,
+                          fontSize: 12,
+                        }}
+                      >
+                        {p.avatar_url ? (
+                          <img
+                            src={p.avatar_url}
+                            alt={name}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          initials
+                        )}
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(226,232,240,0.98)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "rgba(226,232,240,0.98)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {name}
                         </div>
-                        <div style={{ marginTop: 2, fontSize: 11, color: "rgba(148,163,184,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontSize: 11,
+                            color: "rgba(148,163,184,0.95)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
                           {subtitle}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ marginTop: 4, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                      <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)" }}>{alreadyMember ? "Already in team" : "Add to team"}</div>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: "rgba(148,163,184,0.9)" }}>
+                        {alreadyMember ? "Already in team" : "Add to team"}
+                      </div>
                       <button
                         type="button"
                         disabled={alreadyMember || savingMemberId === p.id}
@@ -553,9 +671,13 @@ export default function OrgTeamTab({
                         style={{
                           padding: "4px 10px",
                           borderRadius: 999,
-                          border: alreadyMember ? "1px solid rgba(148,163,184,0.6)" : "1px solid rgba(34,197,94,0.7)",
+                          border: alreadyMember
+                            ? "1px solid rgba(148,163,184,0.6)"
+                            : "1px solid rgba(34,197,94,0.7)",
                           background: alreadyMember ? "transparent" : "rgba(22,163,74,0.18)",
-                          color: alreadyMember ? "rgba(148,163,184,0.9)" : "rgba(187,247,208,0.96)",
+                          color: alreadyMember
+                            ? "rgba(148,163,184,0.9)"
+                            : "rgba(187,247,208,0.96)",
                           fontSize: 11,
                           cursor: alreadyMember || savingMemberId === p.id ? "default" : "pointer",
                         }}
@@ -568,7 +690,8 @@ export default function OrgTeamTab({
               })}
             </div>
           ) : (
-            searchTerm.trim() && !searchError && (
+            searchTerm.trim() &&
+            !searchError && (
               <div style={{ fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
                 No matching followers found. Only followers can be added to the team.
               </div>
@@ -576,7 +699,13 @@ export default function OrgTeamTab({
           )}
 
           {!searchTerm.trim() && followers.length === 0 && (
-            <div style={{ fontSize: 12, color: "rgba(148,163,184,0.85)", marginTop: 6 }}>
+            <div
+              style={{
+                fontSize: 12,
+                color: "rgba(148,163,184,0.85)",
+                marginTop: 6,
+              }}
+            >
               This organization has no followers yet. Once people follow, you can add them here as team members.
             </div>
           )}
@@ -584,8 +713,14 @@ export default function OrgTeamTab({
       )}
 
       {membersLoading && <p className="profile-muted">Loading team members…</p>}
-      {membersError && !membersLoading && <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>{membersError}</p>}
-      {!membersLoading && !membersError && members.length === 0 && <div className="products-empty">No team members added yet.</div>}
+      {membersError && !membersLoading && (
+        <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>
+          {membersError}
+        </p>
+      )}
+      {!membersLoading && !membersError && members.length === 0 && (
+        <div className="products-empty">No team members added yet.</div>
+      )}
 
       {!membersLoading && !membersError && members.length > 0 && (
         <div
@@ -599,8 +734,35 @@ export default function OrgTeamTab({
             overflow: "hidden",
           }}
         >
-          {/* Removed gradient overlays to keep full visibility */}
-          {/* Arrows moved outside of the visible scroller area */}
+          {/* gradient overlays */}
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 44,
+              background: "linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: 44,
+              background: "linear-gradient(270deg, rgba(15,23,42,0.95), rgba(15,23,42,0))",
+              pointerEvents: "none",
+              zIndex: 2,
+            }}
+          />
+
+          {/* left arrow */}
           <button
             type="button"
             onClick={() => scrollTeamByCard(-1)}
@@ -608,9 +770,9 @@ export default function OrgTeamTab({
               position: "absolute",
               top: "50%",
               transform: "translateY(-50%)",
-              left: ARROW_OFFSET,
-              width: ARROW_SIZE,
-              height: ARROW_SIZE,
+              left: 10,
+              width: 40,
+              height: 40,
               borderRadius: 999,
               border: "1px solid rgba(148,163,184,0.28)",
               background: "rgba(2,6,23,0.65)",
@@ -624,6 +786,8 @@ export default function OrgTeamTab({
           >
             ‹
           </button>
+
+          {/* right arrow */}
           <button
             type="button"
             onClick={() => scrollTeamByCard(1)}
@@ -631,9 +795,9 @@ export default function OrgTeamTab({
               position: "absolute",
               top: "50%",
               transform: "translateY(-50%)",
-              right: ARROW_OFFSET,
-              width: ARROW_SIZE,
-              height: ARROW_SIZE,
+              right: 10,
+              width: 40,
+              height: 40,
               borderRadius: 999,
               border: "1px solid rgba(148,163,184,0.28)",
               background: "rgba(2,6,23,0.65)",
@@ -654,7 +818,7 @@ export default function OrgTeamTab({
               display: "flex",
               gap: 12,
               overflowX: "auto",
-              padding: "4px 0px 10px 0px", // reduced padding
+              padding: "4px 44px 10px 44px",
               scrollSnapType: "x mandatory",
               WebkitOverflowScrolling: "touch",
             }}
@@ -662,16 +826,30 @@ export default function OrgTeamTab({
             {members.map((m) => {
               const profile = m.profile;
               const name = profile?.full_name || "Quantum5ocial member";
-              const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+              const initials = name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
 
               const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-              const subtitle = [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+              const subtitle =
+                [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") ||
+                "Quantum5ocial member";
 
               const isCurrentUser = !!user && !!profile && profile.id === user.id;
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
 
               return (
-                <div key={m.user_id} style={{ scrollSnapAlign: "start", flex: "0 0 auto", width: "clamp(260px, calc((100% - 24px) / 3), 420px)" }}>
+                <div
+                  key={m.user_id}
+                  style={{
+                    scrollSnapAlign: "start",
+                    flex: "0 0 auto",
+                    width: "clamp(260px, calc((100% - 24px) / 3), 420px)",
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => profile && goToProfile(profile.id)}
@@ -690,17 +868,77 @@ export default function OrgTeamTab({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
-                        <div style={{ width: 38, height: 38, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.6)", color: "#e5e7eb", fontWeight: 700, fontSize: 13 }}>
-                          {profile?.avatar_url ? <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 999,
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid rgba(148,163,184,0.6)",
+                            color: "#e5e7eb",
+                            fontWeight: 700,
+                            fontSize: 13,
+                          }}
+                        >
+                          {profile?.avatar_url ? (
+                            <img
+                              src={profile.avatar_url}
+                              alt={name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            initials
+                          )}
                         </div>
 
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(226,232,240,0.98)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "rgba(226,232,240,0.98)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
                             {name}
-                            {isCurrentUser && <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>}
+                            {isCurrentUser && (
+                              <span
+                                style={{
+                                  marginLeft: 6,
+                                  fontSize: 11,
+                                  color: "rgba(148,163,184,0.95)",
+                                }}
+                              >
+                                (you)
+                              </span>
+                            )}
                           </div>
-                          <div style={{ marginTop: 2, fontSize: 11, color: "rgba(148,163,184,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            style={{
+                              marginTop: 2,
+                              fontSize: 11,
+                              color: "rgba(148,163,184,0.95)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
                             {subtitle}
                           </div>
                         </div>
@@ -731,7 +969,20 @@ export default function OrgTeamTab({
                               setMemberMenuOpenId(m.user_id);
                               setMenuPosition({ top, left });
                             }}
-                            style={{ width: 24, height: 24, borderRadius: 999, border: "1px solid rgba(71,85,105,0.9)", background: "rgba(15,23,42,0.95)", color: "rgba(148,163,184,0.95)", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", padding: 0 }}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 999,
+                              border: "1px solid rgba(71,85,105,0.9)",
+                              background: "rgba(15,23,42,0.95)",
+                              color: "rgba(148,163,184,0.95)",
+                              fontSize: 14,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
                           >
                             ⋯
                           </button>
@@ -740,12 +991,28 @@ export default function OrgTeamTab({
                     </div>
 
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 11, borderRadius: 999, padding: "2px 7px", border: "1px solid rgba(129,140,248,0.8)", color: "rgba(191,219,254,0.95)" }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          borderRadius: 999,
+                          padding: "2px 7px",
+                          border: "1px solid rgba(129,140,248,0.8)",
+                          color: "rgba(191,219,254,0.95)",
+                        }}
+                      >
                         {roleLabel(m.role)}
                       </span>
 
                       {m.is_affiliated && (
-                        <span style={{ fontSize: 11, borderRadius: 999, padding: "2px 7px", border: "1px solid rgba(34,197,94,0.7)", color: "rgba(187,247,208,0.95)" }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            borderRadius: 999,
+                            padding: "2px 7px",
+                            border: "1px solid rgba(34,197,94,0.7)",
+                            color: "rgba(187,247,208,0.95)",
+                          }}
+                        >
                           Affiliated
                         </span>
                       )}
@@ -753,10 +1020,20 @@ export default function OrgTeamTab({
 
                     {isCurrentUser && (
                       <div
-                        style={{ marginTop: 6, paddingTop: 6, borderTop: "1px dashed rgba(51,65,85,0.9)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+                        style={{
+                          marginTop: 6,
+                          paddingTop: 6,
+                          borderTop: "1px dashed rgba(51,65,85,0.9)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                        }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)" }}>Affiliated with this organization</div>
+                        <div style={{ fontSize: 11, color: "rgba(148,163,184,0.95)" }}>
+                          Affiliated with this organization
+                        </div>
                         <button
                           type="button"
                           onClick={(e) => handleToggleSelfAffiliation(m, e)}
@@ -765,13 +1042,21 @@ export default function OrgTeamTab({
                             fontSize: 11,
                             borderRadius: 999,
                             padding: "2px 8px",
-                            border: m.is_affiliated ? "1px solid rgba(34,197,94,0.8)" : "1px solid rgba(148,163,184,0.7)",
+                            border: m.is_affiliated
+                              ? "1px solid rgba(34,197,94,0.8)"
+                              : "1px solid rgba(148,163,184,0.7)",
                             background: m.is_affiliated ? "rgba(22,163,74,0.2)" : "transparent",
-                            color: m.is_affiliated ? "rgba(187,247,208,0.96)" : "rgba(226,232,240,0.9)",
+                            color: m.is_affiliated
+                              ? "rgba(187,247,208,0.96)"
+                              : "rgba(226,232,240,0.9)",
                             cursor: selfAffLoadingId === m.user_id ? "default" : "pointer",
                           }}
                         >
-                          {selfAffLoadingId === m.user_id ? "Updating…" : m.is_affiliated ? "Set as not affiliated" : "Set as affiliated"}
+                          {selfAffLoadingId === m.user_id
+                            ? "Updating…"
+                            : m.is_affiliated
+                            ? "Set as not affiliated"
+                            : "Set as affiliated"}
                         </button>
                       </div>
                     )}
@@ -785,8 +1070,23 @@ export default function OrgTeamTab({
 
       {/* Followers section */}
       <div style={{ marginTop: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
-          <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: 0.08, color: "rgba(148,163,184,0.9)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 10,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              textTransform: "uppercase",
+              letterSpacing: 0.08,
+              color: "rgba(148,163,184,0.9)",
+            }}
+          >
             Followers
           </div>
 
@@ -807,27 +1107,49 @@ export default function OrgTeamTab({
               whiteSpace: "nowrap",
             }}
           >
-            {followersExpanded ? "Collapse" : "Expand"} <span style={{ opacity: 0.85 }}>{followersExpanded ? "▴" : "▾"}</span>
+            {followersExpanded ? "Collapse" : "Expand"}{" "}
+            <span style={{ opacity: 0.85 }}>{followersExpanded ? "▴" : "▾"}</span>
           </button>
         </div>
 
         {loadingFollowers && <p className="profile-muted">Loading followers…</p>}
-        {followersError && !loadingFollowers && <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>{followersError}</p>}
-        {!loadingFollowers && !followersError && followersCount === 0 && <div className="products-empty">No followers yet.</div>}
+        {followersError && !loadingFollowers && (
+          <p className="profile-muted" style={{ color: "#f97373", marginTop: 4 }}>
+            {followersError}
+          </p>
+        )}
+        {!loadingFollowers && !followersError && followersCount === 0 && (
+          <div className="products-empty">No followers yet.</div>
+        )}
 
         {!loadingFollowers && !followersError && followers.length > 0 && !followersExpanded && (
           <div style={{ fontSize: 12, color: "rgba(148,163,184,0.9)" }}>
-            {followersCount !== null ? `${followersCount} follower${followersCount === 1 ? "" : "s"}.` : "Followers."} Click <span style={{ color: "#7dd3fc" }}>Expand</span> to view.
+            {followersCount !== null ? `${followersCount} follower${followersCount === 1 ? "" : "s"}.` : "Followers."}{" "}
+            Click <span style={{ color: "#7dd3fc" }}>Expand</span> to view.
           </div>
         )}
 
         {!loadingFollowers && !followersError && followersExpanded && followers.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginTop: 6 }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+              gap: 12,
+              marginTop: 6,
+            }}
+          >
             {followers.map((f) => {
               const name = f.full_name || "Quantum5ocial member";
-              const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+              const initials = name
+                .split(" ")
+                .map((p) => p[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase();
               const location = [f.city, f.country].filter(Boolean).join(", ");
-              const subtitle = [f.role, f.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
+              const subtitle =
+                [f.role, f.affiliation, location].filter(Boolean).join(" · ") ||
+                "Quantum5ocial member";
 
               return (
                 <button
@@ -847,21 +1169,72 @@ export default function OrgTeamTab({
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 38, height: 38, borderRadius: 999, overflow: "hidden", flexShrink: 0, background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(148,163,184,0.6)", color: "#e5e7eb", fontWeight: 700, fontSize: 13 }}>
-                      {f.avatar_url ? <img src={f.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 999,
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid rgba(148,163,184,0.6)",
+                        color: "#e5e7eb",
+                        fontWeight: 700,
+                        fontSize: 13,
+                      }}
+                    >
+                      {f.avatar_url ? (
+                        <img
+                          src={f.avatar_url}
+                          alt={name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        initials
+                      )}
                     </div>
 
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(226,232,240,0.98)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "rgba(226,232,240,0.98)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {name}
                       </div>
-                      <div style={{ marginTop: 2, fontSize: 11, color: "rgba(148,163,184,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div
+                        style={{
+                          marginTop: 2,
+                          fontSize: 11,
+                          color: "rgba(148,163,184,0.95)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
                         {subtitle}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ marginTop: "auto", fontSize: 12, color: "#7dd3fc", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      fontSize: 12,
+                      color: "#7dd3fc",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
                     View profile <span style={{ opacity: 0.9 }}>›</span>
                   </div>
                 </button>
@@ -893,7 +1266,15 @@ export default function OrgTeamTab({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: "4px 8px", fontSize: 11, color: "rgba(148,163,184,0.95)", borderBottom: "1px solid rgba(30,64,175,0.6)", marginBottom: 4 }}>
+            <div
+              style={{
+                padding: "4px 8px",
+                fontSize: 11,
+                color: "rgba(148,163,184,0.95)",
+                borderBottom: "1px solid rgba(30,64,175,0.6)",
+                marginBottom: 4,
+              }}
+            >
               Manage member
             </div>
 
@@ -909,18 +1290,30 @@ export default function OrgTeamTab({
                   padding: "6px 8px",
                   borderRadius: 6,
                   border: "none",
-                  background: roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
-                  color: roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
+                  background:
+                    roleOption === openMember.role ? "rgba(37,99,235,0.2)" : "transparent",
+                  color:
+                    roleOption === openMember.role ? "#bfdbfe" : "rgba(226,232,240,0.95)",
                   fontSize: 12,
                   cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                 }}
               >
-                {roleOption === "co_owner" ? "Make co-owner" : roleOption === "admin" ? "Make admin" : "Make member"}
+                {roleOption === "co_owner"
+                  ? "Make co-owner"
+                  : roleOption === "admin"
+                  ? "Make admin"
+                  : "Make member"}
               </button>
             ))}
 
             {shouldShowRemoveMember(openMember, canRemoveOthers) && (
-              <div style={{ borderTop: "1px solid rgba(30,64,175,0.6)", marginTop: 4, paddingTop: 4 }}>
+              <div
+                style={{
+                  borderTop: "1px solid rgba(30,64,175,0.6)",
+                  marginTop: 4,
+                  paddingTop: 4,
+                }}
+              >
                 <button
                   type="button"
                   disabled={memberActionLoadingId === openMember.user_id}
@@ -937,7 +1330,9 @@ export default function OrgTeamTab({
                     cursor: memberActionLoadingId === openMember.user_id ? "default" : "pointer",
                   }}
                 >
-                  {memberActionLoadingId === openMember.user_id ? "Removing…" : "Remove from team"}
+                  {memberActionLoadingId === openMember.user_id
+                    ? "Removing…"
+                    : "Remove from team"}
                 </button>
               </div>
             )}
