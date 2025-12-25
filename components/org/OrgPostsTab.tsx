@@ -546,7 +546,7 @@ function OrgComposerStrip({
               <textarea
                 value={postText}
                 onChange={(e) => setPostText(e.target.value)}
-                placeholder={`Share an update as ${orgName}…`}
+                placeholder={`Post in feed as ${orgName}…`}
                 style={bigTextarea}
               />
 
