@@ -457,7 +457,7 @@ export default function OrgTeamTab({
       {/* Team header + Add member */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
         <div style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: 0.08, color: "rgba(148,163,184,0.9)" }}>
-          Our Team
+          Team &amp; members
         </div>
 
         {canManageMembers && (
@@ -734,6 +734,7 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
+              // exactly 3 columns layout; MDN docs describe grid property usage.  For reference on `repeat()`, see MDN examples.  [oai_citation:0‡interactive-examples.mdn.mozilla.net](https://interactive-examples.mdn.mozilla.net/pages/css/function-repeat.html#:~:text=grid,columns%3A%201fr%20repeat%282%2C%2060px)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -750,8 +751,8 @@ export default function OrgTeamTab({
                 .toUpperCase();
 
               const location = [profile?.city, profile?.country].filter(Boolean).join(", ");
-
-              const education = profile?.highest_education || "";
+              const subtitle =
+                [profile?.role, profile?.affiliation, location].filter(Boolean).join(" · ") || "Quantum5ocial member";
 
               const isCurrentUser = !!user && !!profile && profile.id === user.id;
               const isRealOwner = !!org && m.user_id === org.created_by && m.role === "owner";
@@ -776,51 +777,47 @@ export default function OrgTeamTab({
                     }}
                   >
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      {/* avatar slightly bigger */}
-                      <div
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 999,
-                          overflow: "hidden",
-                          flexShrink: 0,
-                          background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          border: "1px solid rgba(148,163,184,0.6)",
-                          color: "#e5e7eb",
-                          fontWeight: 700,
-                          fontSize: 15,
-                        }}
-                      >
-                        {profile?.avatar_url ? (
-                          <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          initials
-                        )}
-                      </div>
-
-                      <div style={{ minWidth: 0 }}>
-                        {/* name */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 14,
-                            fontWeight: 600,
-                            color: "rgba(226,232,240,0.98)",
-                            whiteSpace: "nowrap",
+                            width: 38,
+                            height: 38,
+                            borderRadius: 999,
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            flexShrink: 0,
+                            background: "radial-gradient(circle at 0% 0%, #22d3ee, #1e293b)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid rgba(148,163,184,0.6)",
+                            color: "#e5e7eb",
+                            fontWeight: 700,
+                            fontSize: 13,
                           }}
                         >
-                          {name}
-                          {isCurrentUser && (
-                            <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
+                          {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            initials
                           )}
                         </div>
 
-                        {/* highest education line */}
-                        {education && (
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "rgba(226,232,240,0.98)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {name}
+                            {isCurrentUser && (
+                              <span style={{ marginLeft: 6, fontSize: 11, color: "rgba(148,163,184,0.95)" }}>(you)</span>
+                            )}
+                          </div>
                           <div
                             style={{
                               marginTop: 2,
@@ -831,29 +828,76 @@ export default function OrgTeamTab({
                               textOverflow: "ellipsis",
                             }}
                           >
-                            {education}
+                            {subtitle}
                           </div>
-                        )}
-
-                        {/* location line */}
-                        {location && (
-                          <div
-                            style={{
-                              marginTop: 2,
-                              fontSize: 11,
-                              color: "rgba(148,163,184,0.95)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {location}
-                          </div>
-                        )}
+                          {/* Optional: show designation under subtitle if present */}
+                          {m.designation && (
+                            <div
+                              style={{
+                                marginTop: 2,
+                                fontSize: 11,
+                                fontStyle: "italic",
+                                color: "rgba(178,186,207,0.95)",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {m.designation}
+                            </div>
+                          )}
+                        </div>
                       </div>
+
+                      {/* show menu for all members if canManageMembers */}
+                      {canManageMembers && (
+                        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isBrowser) return;
+
+                              if (memberMenuOpenId === m.user_id) {
+                                setMemberMenuOpenId(null);
+                                setMenuPosition(null);
+                                setEditingDesignationId(null);
+                                return;
+                              }
+
+                              const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                              const scrollX = window.scrollX ?? window.pageXOffset ?? 0;
+                              const scrollY = window.scrollY ?? window.pageYOffset ?? 0;
+
+                              const dropdownWidth = 190;
+                              const top = rect.bottom + scrollY + 6;
+                              const left = rect.right + scrollX - dropdownWidth;
+
+                              setMemberMenuOpenId(m.user_id);
+                              setMenuPosition({ top, left });
+                              setEditingDesignationId(null);
+                            }}
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: 999,
+                              border: "1px solid rgba(71,85,105,0.9)",
+                              background: "rgba(15,23,42,0.95)",
+                              color: "rgba(148,163,184,0.95)",
+                              fontSize: 14,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                            }}
+                          >
+                            ⋯
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    {/* badges line */}
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                       {/* role badge now shown only to viewers allowed */}
                       {canSeeRoleAndAffiliation && (
@@ -870,7 +914,7 @@ export default function OrgTeamTab({
                         </span>
                       )}
 
-                      {/* affiliation badge shown only to viewers allowed */}
+                      {/* affiliated badge also only shown to viewers allowed */}
                       {canSeeRoleAndAffiliation && m.is_affiliated && (
                         <span
                           style={{
@@ -882,21 +926,6 @@ export default function OrgTeamTab({
                           }}
                         >
                           Affiliated
-                        </span>
-                      )}
-
-                      {/* designation badge shown to all when present */}
-                      {m.designation && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            borderRadius: 999,
-                            padding: "2px 7px",
-                            border: "1px solid rgba(34,197,94,0.7)",
-                            color: "rgba(187,247,208,0.95)",
-                          }}
-                        >
-                          {m.designation}
                         </span>
                       )}
                     </div>
