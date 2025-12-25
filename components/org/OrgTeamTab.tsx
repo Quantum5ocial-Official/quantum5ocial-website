@@ -127,6 +127,10 @@ export default function OrgTeamTab({
     router.push(`/profile/${profileId}`);
   };
 
+  // Determine whether viewer can see role/affiliation badges
+  const canSeeRoleAndAffiliation =
+    memberRole === "owner" || memberRole === "co_owner" || memberRole === "member";
+
   // Load followers
   useEffect(() => {
     const loadFollowers = async () => {
@@ -224,7 +228,7 @@ export default function OrgTeamTab({
 
         if (profErr) {
           console.error("Error loading member profiles", profErr);
-          setMembersError("Could not load member profiles.");
+          setMembersError("Could not load team members.");
           setMembers([]);
           return;
         }
@@ -730,7 +734,7 @@ export default function OrgTeamTab({
           <div
             style={{
               display: "grid",
-              // exactly 3 columns layout; MDN docs describe grid property usage and patterns.  [oai_citation:0‡MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/grid#:~:text=%3C%27grid,if%20it%27s%20specified)
+              // exactly 3 columns layout; MDN docs describe grid property usage.  For reference on `repeat()`, see MDN examples.  [oai_citation:0‡interactive-examples.mdn.mozilla.net](https://interactive-examples.mdn.mozilla.net/pages/css/function-repeat.html#:~:text=grid,columns%3A%201fr%20repeat%282%2C%2060px)
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 12,
               padding: "4px 0px 10px 0px",
@@ -895,19 +899,23 @@ export default function OrgTeamTab({
                     </div>
 
                     <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          borderRadius: 999,
-                          padding: "2px 7px",
-                          border: "1px solid rgba(129,140,248,0.8)",
-                          color: "rgba(191,219,254,0.95)",
-                        }}
-                      >
-                        {roleLabel(m.role)}
-                      </span>
+                      {/* role badge now shown only to viewers allowed */}
+                      {canSeeRoleAndAffiliation && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            borderRadius: 999,
+                            padding: "2px 7px",
+                            border: "1px solid rgba(129,140,248,0.8)",
+                            color: "rgba(191,219,254,0.95)",
+                          }}
+                        >
+                          {roleLabel(m.role)}
+                        </span>
+                      )}
 
-                      {m.is_affiliated && (
+                      {/* affiliated badge also only shown to viewers allowed */}
+                      {canSeeRoleAndAffiliation && m.is_affiliated && (
                         <span
                           style={{
                             fontSize: 11,
