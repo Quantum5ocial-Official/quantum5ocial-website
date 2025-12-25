@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import type { CSSProperties } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
@@ -10,7 +11,7 @@ type Org = {
   id: string;
   name: string;
   logo_url: string | null;
-  // ✅ add slug if you have it on the org object in /orgs/[slug].tsx (it does)
+  // ✅ add slug here so we can link to the org page
   slug?: string;
 };
 
@@ -107,7 +108,13 @@ function formatStock(p: ProductRow) {
    ORG PRODUCTS STRIP
    ========================= */
 
-function OrgProductsStrip({ orgId }: { orgId: string }) {
+function OrgProductsStrip({
+  orgId,
+  orgSlug,
+}: {
+  orgId: string;
+  orgSlug?: string | undefined;
+}) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -333,9 +340,24 @@ function OrgProductsStrip({ orgId }: { orgId: string }) {
                       {title}
                     </div>
                     {p.company_name ? (
-                      <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>{p.company_name}</div>
+                      // ✅ clickable company name when slug is available
+                      orgSlug ? (
+                        <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
+                          <Link href={`/orgs/${encodeURIComponent(orgSlug)}`}>
+                            <a style={{ color: "inherit", textDecoration: "underline" }}>
+                              {p.company_name}
+                            </a>
+                          </Link>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
+                          {p.company_name}
+                        </div>
+                      )
                     ) : (
-                      <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>{formatRelativeTime(p.created_at)}</div>
+                      <div style={{ fontSize: 11, opacity: 0.72, marginTop: 2 }}>
+                        {formatRelativeTime(p.created_at)}
+                      </div>
                     )}
                   </div>
 
@@ -520,7 +542,8 @@ export default function OrgProductsTab({
         )}
       </div>
 
-      <OrgProductsStrip orgId={org.id} />
+      {/* pass slug to strip so company name can link */}
+      <OrgProductsStrip orgId={org.id} orgSlug={org.slug} />
     </div>
   );
 }
