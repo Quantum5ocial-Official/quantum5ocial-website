@@ -88,9 +88,7 @@ export default function EcosystemEntangledPage() {
     if (!q) return profiles;
 
     return profiles.filter((p) => {
-      const haystack = `${p.full_name || ""} ${p.role || ""} ${
-        p.affiliation || ""
-      }`
+      const haystack = `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""}`
         .toLowerCase()
         .trim();
       return haystack.includes(q);
@@ -100,6 +98,19 @@ export default function EcosystemEntangledPage() {
   const total = profiles.length;
 
   if (!user && !loading) return null;
+
+  const entangledPill: React.CSSProperties = {
+    fontSize: 10.5,
+    borderRadius: 999,
+    padding: "2px 8px",
+    border: "1px solid rgba(74,222,128,0.7)",
+    color: "rgba(187,247,208,0.95)",
+    whiteSpace: "nowrap",
+    background: "rgba(2,6,23,0.35)",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  };
 
   return (
     <section className="section">
@@ -124,7 +135,10 @@ export default function EcosystemEntangledPage() {
           }}
         >
           <div>
-            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div
+              className="section-title"
+              style={{ display: "flex", gap: 10, alignItems: "center" }}
+            >
               🧬 Entangled members
               {!mainLoading && !errorMsg && (
                 <span
@@ -143,7 +157,7 @@ export default function EcosystemEntangledPage() {
               )}
             </div>
             <div className="section-sub" style={{ maxWidth: 560, lineHeight: 1.45 }}>
-              Minimal view for now: search + small tiles. Later we can add filters, sort, tags, mutuals, etc.
+              Same card style as Community; 4-column grid.
             </div>
           </div>
 
@@ -218,94 +232,126 @@ export default function EcosystemEntangledPage() {
         </div>
       )}
 
-      {/* Tiles */}
+      {/* ✅ Same card style as Community + ✅ 4-column grid */}
       {!mainLoading && !errorMsg && filtered.length > 0 && (
         <div
+          className="q5-community-grid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-            gap: 12,
+            gridTemplateColumns: "repeat(4,minmax(0,1fr))",
+            gap: 16,
             marginTop: 12,
           }}
         >
           {filtered.map((p) => {
             const name = p.full_name || "Quantum member";
             const initial = name.charAt(0).toUpperCase();
-            const meta = [p.role || null, p.affiliation || null].filter(Boolean).join(" · ");
+            const headline = (p.role || "").trim() || null;
+            const affiliationLine = (p.affiliation || "").trim() || null;
 
             return (
-              <Link
+              <div
                 key={p.id}
-                href={`/profile/${p.id}`}
                 className="card"
                 style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  padding: 12,
-                  borderRadius: 14,
-                  border: "1px solid rgba(148,163,184,0.28)",
-                  background: "rgba(15,23,42,0.92)",
+                  position: "relative",
+                  padding: 14,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  minHeight: 210,
+                  cursor: "pointer",
                 }}
+                onClick={() => router.push(`/profile/${p.id}`)}
               >
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                {/* top pill (matches the idea of the community badge area) */}
+                <div
+                  className="community-badge-pill"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ display: "flex", justifyContent: "center" }}
+                >
+                  <span style={entangledPill}>Entangled ✓</span>
+                </div>
+
+                {/* avatar centered + text below */}
+                <div className="card-inner community-card-top">
                   <div
                     style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: "999px",
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.55)",
-                      background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
-                      fontWeight: 700,
-                      flexShrink: 0,
+                      textAlign: "center",
+                      gap: 10,
+                      paddingTop: 6,
                     }}
                   >
-                    {p.avatar_url ? (
-                      <img
-                        src={p.avatar_url}
-                        alt={name}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                      />
-                    ) : (
-                      initial
-                    )}
-                  </div>
-
-                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div
                       style={{
-                        fontSize: 14,
-                        fontWeight: 700,
-                        whiteSpace: "nowrap",
+                        width: 62,
+                        height: 62,
+                        borderRadius: 999,
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        flexShrink: 0,
+                        border: "1px solid rgba(148,163,184,0.4)",
+                        background: "rgba(15,23,42,0.9)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 20,
+                        fontWeight: 800,
+                        color: "#e5e7eb",
                       }}
                     >
+                      {p.avatar_url ? (
+                        <img
+                          src={p.avatar_url}
+                          alt={name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <span>{initial}</span>
+                      )}
+                    </div>
+
+                    <div className="community-card-name" title={name}>
                       {name}
                     </div>
-                    <div
-                      style={{
-                        marginTop: 2,
-                        fontSize: 12,
-                        color: "rgba(148,163,184,0.95)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {meta || "Entangled member"}
+
+                    <div className="community-card-meta" title={affiliationLine || ""}>
+                      {headline ? headline : "—"}
+                      {affiliationLine ? ` · ${affiliationLine}` : ""}
                     </div>
                   </div>
-
-                  <div style={{ fontSize: 12, color: "#7dd3fc", whiteSpace: "nowrap" }}>
-                    Open →
-                  </div>
                 </div>
-              </Link>
+
+                {/* footer action (same vibe as community, but simple) */}
+                <div style={{ marginTop: 14 }}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/profile/${p.id}`);
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "7px 0",
+                      borderRadius: 10,
+                      border: "1px solid rgba(148,163,184,0.7)",
+                      background: "transparent",
+                      color: "rgba(148,163,184,0.95)",
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Open →
+                  </button>
+                </div>
+              </div>
             );
           })}
         </div>
