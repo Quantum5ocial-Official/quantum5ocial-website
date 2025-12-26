@@ -283,34 +283,32 @@ export default function JobDetailPage() {
         {!loading && !loadError && job && (
           <div className="job-detail-card">
             <div className="hero">
-              <div className="heroKicker">JOB</div>
+              {/* ✅ top row: JOB (left) + org/company (right) */}
+              <div className="heroTopRow">
+                <div className="heroKicker">JOB</div>
+
+                {job.company_name ? (
+                  job.org_slug ? (
+                    <Link
+                      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+                      legacyBehavior
+                      passHref
+                    >
+                      <a className="heroCompanyLink heroTopOrg">{job.company_name}</a>
+                    </Link>
+                  ) : (
+                    <div className="heroCompany heroTopOrg">{job.company_name}</div>
+                  )
+                ) : (
+                  <div />
+                )}
+              </div>
 
               {/* title left + posted ago top-right */}
               <div className="heroTitleRow">
                 <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
                 {postedAgo && <div className="heroPosted">Posted — {postedAgo}</div>}
               </div>
-
-              {/* Job by: ... */}
-              {job.company_name ? (
-                job.org_slug ? (
-                  <div className="heroCompanyRow">
-                    <span className="heroCompanyPrefix">Job by:</span>
-                    <Link
-                      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
-                      legacyBehavior
-                      passHref
-                    >
-                      <a className="heroCompanyLink">{job.company_name}</a>
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="heroCompanyRow">
-                    <span className="heroCompanyPrefix">Job by:</span>
-                    <div className="heroCompany">{job.company_name}</div>
-                  </div>
-                )
-              ) : null}
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
@@ -320,9 +318,7 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              {job.salary_display && (
-                <div className="heroMeta2">{job.salary_display}</div>
-              )}
+              {job.salary_display && <div className="heroMeta2">{job.salary_display}</div>}
 
               {/* Apply first row, keywords below */}
               <div className="heroCtas">
@@ -356,9 +352,7 @@ export default function JobDetailPage() {
                 )}
               </div>
 
-              {job.short_description && (
-                <div className="heroSummary">{job.short_description}</div>
-              )}
+              {job.short_description && <div className="heroSummary">{job.short_description}</div>}
             </div>
 
             <div className="divider" />
@@ -501,11 +495,24 @@ export default function JobDetailPage() {
           background: rgba(148, 163, 184, 0.18);
         }
 
+        .heroTopRow {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
         .heroKicker {
           font-size: 12px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(148, 163, 184, 0.9);
+        }
+
+        .heroTopOrg {
+          font-size: 12px;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
         }
 
         .heroTitleRow {
@@ -528,20 +535,6 @@ export default function JobDetailPage() {
           font-size: 12px;
           color: rgba(148, 163, 184, 0.85);
           white-space: nowrap;
-        }
-
-        .heroCompanyRow {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .heroCompanyPrefix {
-          font-size: 12px;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          color: rgba(148, 163, 184, 0.9);
         }
 
         .heroCompany {
@@ -577,7 +570,7 @@ export default function JobDetailPage() {
         .heroCtas {
           margin-top: 8px;
           display: flex;
-          flex-direction: column; /* ✅ keywords below apply */
+          flex-direction: column;
           gap: 10px;
           align-items: flex-start;
         }
@@ -668,6 +661,9 @@ export default function JobDetailPage() {
           }
           .heroPosted {
             margin-top: 2px;
+          }
+          .heroTopRow {
+            align-items: flex-start;
           }
         }
 
