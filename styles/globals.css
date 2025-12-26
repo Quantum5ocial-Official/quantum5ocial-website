@@ -3731,3 +3731,5 @@ html.theme-light footer {
     display: block;
   }
 }
+.heroCompanyLink { position: relative; z-index: 5; pointer-events: auto; }
+.job-detail-card { cursor: default; }
