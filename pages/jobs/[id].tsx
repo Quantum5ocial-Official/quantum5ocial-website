@@ -78,52 +78,46 @@ export default function JobDetailPage() {
           console.error("Error loading job", error);
           setLoadError("Could not load this job.");
           setJob(null);
-          setLoading(false);
-          return;
-        }
+        } else if (data) {
+          const jobRow: any = data;
+          const orgSlug = jobRow.organizations?.slug ?? null;
 
-        if (!data) {
+          const jobWithOrg: Job = {
+            id: jobRow.id,
+            title: jobRow.title,
+            company_name: jobRow.company_name,
+            org_id:
+              jobRow.org_id ??
+              jobRow.organisation_id ??
+              jobRow.organisations_id ??
+              null,
+            org_slug: orgSlug,
+
+            location: jobRow.location,
+            employment_type: jobRow.employment_type,
+            remote_type: jobRow.remote_type,
+            short_description: jobRow.short_description,
+
+            additional_description: jobRow.additional_description ?? null,
+
+            role: jobRow.role ?? null,
+            key_responsibilities: jobRow.key_responsibilities ?? null,
+            must_have_qualifications: jobRow.must_have_qualifications ?? null,
+            ideal_qualifications: jobRow.ideal_qualifications ?? null,
+            what_we_offer: jobRow.what_we_offer ?? null,
+
+            keywords: jobRow.keywords,
+            salary_display: jobRow.salary_display,
+            apply_url: jobRow.apply_url,
+            owner_id: jobRow.owner_id,
+            created_at: jobRow.created_at,
+          };
+
+          setJob(jobWithOrg);
+        } else {
           setJob(null);
           setLoadError("Job not found.");
-          setLoading(false);
-          return;
         }
-
-        const jobRow: any = data;
-        const orgSlug = jobRow.organizations?.slug ?? null;
-
-        const jobWithOrg: Job = {
-          id: jobRow.id,
-          title: jobRow.title ?? null,
-          company_name: jobRow.company_name ?? null,
-          org_id:
-            jobRow.org_id ??
-            jobRow.organisation_id ??
-            jobRow.organisations_id ??
-            null,
-          org_slug: orgSlug,
-
-          location: jobRow.location ?? null,
-          employment_type: jobRow.employment_type ?? null,
-          remote_type: jobRow.remote_type ?? null,
-          short_description: jobRow.short_description ?? null,
-
-          additional_description: jobRow.additional_description ?? null,
-
-          role: jobRow.role ?? null,
-          key_responsibilities: jobRow.key_responsibilities ?? null,
-          must_have_qualifications: jobRow.must_have_qualifications ?? null,
-          ideal_qualifications: jobRow.ideal_qualifications ?? null,
-          what_we_offer: jobRow.what_we_offer ?? null,
-
-          keywords: jobRow.keywords ?? null,
-          salary_display: jobRow.salary_display ?? null,
-          apply_url: jobRow.apply_url ?? null,
-          owner_id: jobRow.owner_id ?? null,
-          created_at: jobRow.created_at ?? null,
-        };
-
-        setJob(jobWithOrg);
       } catch (e) {
         console.error("Unexpected fetch error", e);
         setLoadError("Could not load this job.");
@@ -140,6 +134,7 @@ export default function JobDetailPage() {
 
   const handleDelete = async () => {
     if (!job || !user) return;
+
     const confirmed = window.confirm(
       "Are you sure you want to delete this job? This cannot be undone."
     );
@@ -211,6 +206,7 @@ export default function JobDetailPage() {
               minWidth: "unset",
               width: "auto",
               lineHeight: "1.2",
+              cursor: "pointer",
             }}
           >
             ← Back to jobs
@@ -227,6 +223,7 @@ export default function JobDetailPage() {
                   minWidth: "unset",
                   width: "auto",
                   lineHeight: "1.2",
+                  cursor: "pointer",
                 }}
               >
                 Edit
@@ -242,6 +239,7 @@ export default function JobDetailPage() {
                   minWidth: "unset",
                   width: "auto",
                   lineHeight: "1.2",
+                  cursor: "pointer",
                 }}
               >
                 {deleting ? "Deleting…" : "Delete"}
@@ -263,22 +261,15 @@ export default function JobDetailPage() {
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-              {/* ✅ clickable company name (forced like products page) */}
               {job.company_name ? (
-  job.org_slug ? (
-    <a
-      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
-      className="heroCompanyLink"
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
-    >
-      {job.company_name}
-    </a>
-  ) : (
-    <div className="heroCompany">{job.company_name}</div>
-  )
-) : null}
+                job.org_slug ? (
+                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} passHref>
+                    <a className="heroCompanyLink">{job.company_name}</a>
+                  </Link>
+                ) : (
+                  <div className="heroCompany">{job.company_name}</div>
+                )
+              ) : null}
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
@@ -307,6 +298,7 @@ export default function JobDetailPage() {
                       padding: "6px 12px",
                       minWidth: "unset",
                       width: "fit-content",
+                      cursor: "pointer",
                     }}
                   >
                     Apply / learn more
@@ -347,7 +339,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">Key Responsibilities</h3>
                         <ul className="bullets">
                           {responsibilities.map((x, i) => (
-                            <li key={`${x}-${i}`}>{x}</li>
+                            <li key={i}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -358,7 +350,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">Must-Have Qualifications</h3>
                         <ul className="bullets">
                           {mustHave.map((x, i) => (
-                            <li key={`${x}-${i}`}>{x}</li>
+                            <li key={i}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -371,7 +363,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">Ideal Qualifications</h3>
                         <ul className="bullets">
                           {ideal.map((x, i) => (
-                            <li key={`${x}-${i}`}>{x}</li>
+                            <li key={i}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -382,7 +374,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">What We Offer</h3>
                         <ul className="bullets">
                           {offer.map((x, i) => (
-                            <li key={`${x}-${i}`}>{x}</li>
+                            <li key={i}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -420,20 +412,6 @@ export default function JobDetailPage() {
           width: 100%;
           max-width: 1320px;
           margin: 0 auto;
-          cursor: default;
-        }
-
-        /* ✅ ensure normal cursor everywhere by default */
-        .job-card,
-        .hero,
-        .jobBody,
-        .block,
-        .col,
-        .twoCol,
-        .heroTags,
-        .tagChip,
-        .heroSummary {
-          cursor: default;
         }
 
         .top-actions {
@@ -443,6 +421,7 @@ export default function JobDetailPage() {
           gap: 10px;
           flex-wrap: wrap;
           align-items: center;
+          cursor: default;
         }
 
         .top-actions-right {
@@ -463,6 +442,7 @@ export default function JobDetailPage() {
           background: rgba(15, 23, 42, 0.95);
           border: 1px solid rgba(148, 163, 184, 0.25);
           overflow: hidden;
+          cursor: default; /* ✅ normal cursor on card */
         }
 
         .hero {
@@ -476,6 +456,7 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 8px;
+          cursor: default;
         }
 
         .divider {
@@ -505,18 +486,17 @@ export default function JobDetailPage() {
           color: #7dd3fc;
         }
 
-        /* ✅ only show hand on hover */
+        /* ✅ clickable only here */
         .heroCompanyLink {
-          display: inline-block;
           font-size: 14px;
           font-weight: 650;
           color: #7dd3fc;
           text-decoration: underline;
-          width: fit-content;
-          cursor: default;
-        }
-        .heroCompanyLink:hover {
           cursor: pointer;
+          width: fit-content;
+        }
+
+        .heroCompanyLink:hover {
           opacity: 0.95;
         }
 
@@ -537,12 +517,14 @@ export default function JobDetailPage() {
           gap: 10px;
           flex-wrap: wrap;
           align-items: center;
+          cursor: default;
         }
 
         .heroTags {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
+          cursor: default;
         }
 
         .tagChip {
@@ -552,6 +534,7 @@ export default function JobDetailPage() {
           border: 1px solid rgba(148, 163, 184, 0.35);
           background: rgba(2, 6, 23, 0.55);
           color: rgba(226, 232, 240, 0.9);
+          cursor: default; /* ✅ chips not clickable */
         }
 
         .heroSummary {
@@ -560,6 +543,7 @@ export default function JobDetailPage() {
           font-size: 14px;
           color: rgba(226, 232, 240, 0.92);
           line-height: 1.55;
+          cursor: default;
         }
 
         .jobBody {
@@ -567,10 +551,12 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 20px;
+          cursor: default;
         }
 
         .block {
           max-width: 1100px;
+          cursor: default;
         }
 
         .blockRole {
@@ -599,6 +585,7 @@ export default function JobDetailPage() {
           color: rgba(226, 232, 240, 0.92);
           line-height: 1.65;
           white-space: pre-wrap;
+          cursor: default;
         }
 
         .twoCol {
@@ -606,6 +593,7 @@ export default function JobDetailPage() {
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           gap: 24px;
           align-items: start;
+          cursor: default;
         }
 
         @media (max-width: 900px) {
@@ -618,6 +606,7 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 18px;
+          cursor: default;
         }
 
         .bullets {
@@ -626,12 +615,14 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 10px;
+          cursor: default;
         }
 
         .bullets li {
           font-size: 14px;
           color: rgba(226, 232, 240, 0.92);
           line-height: 1.6;
+          cursor: default;
         }
       `}</style>
     </section>
