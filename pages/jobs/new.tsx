@@ -499,9 +499,15 @@ export default function NewJobPage() {
   /* ---------------------------------------------------------------------- */
 
   const backTarget = useMemo(() => {
-    if (org?.slug) return `/orgs/${org.slug}?tab=jobs`;
-    return isEditing ? (jobId ? `/jobs/${jobId}` : "/jobs") : "/jobs";
-  }, [org?.slug, isEditing, jobId]);
+  // ✅ When editing, always go back to the job detail page
+  if (isEditing) return jobId ? `/jobs/${jobId}` : "/jobs";
+
+  // ✅ When creating from an org page, go back to org jobs tab
+  if (org?.slug) return `/orgs/${org.slug}?tab=jobs`;
+
+  // ✅ Marketplace create
+  return "/jobs";
+}, [isEditing, jobId, org?.slug]);
 
   const showPublishAsPicker = !isEditing && isMarketplaceCreate && eligibleOrgs.length > 1;
 
