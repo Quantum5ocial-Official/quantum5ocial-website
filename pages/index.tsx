@@ -307,50 +307,6 @@ export default function Home() {
         <HomeGlobalFeed />
       </section>
 
-      {/* GAMIFICATION */}
-      <section className="section">
-        <div className="gamify-strip">
-          <div>
-            <div className="gamify-title">
-              Earn Quantum Points (QP) &amp; unlock quantum-themed badges
-            </div>
-            <p className="gamify-text">
-              Quantum5ocial stays professional but adds a light gamified layer
-              – rewarding meaningful activity like completing your profile,
-              posting jobs/products, and exploring the ecosystem.
-            </p>
-            <ul className="gamify-list">
-              <li>Complete your profile → gain QP and visibility</li>
-              <li>Post roles or products → earn vendor &amp; mentor badges</li>
-              <li>
-                Explore and engage → unlock levels like Superposition,
-                Entangled, Resonant
-              </li>
-            </ul>
-          </div>
-          <div className="gamify-badges">
-            <div className="badge-pill">
-              <span className="badge-dot" /> Superposition · New member
-            </div>
-            <div className="badge-pill">
-              <span className="badge-dot" /> Entangled · Connected with labs
-            </div>
-            <div className="badge-pill">
-              <span className="badge-dot" /> Quantum Vendor · Active startup
-            </div>
-            <div className="badge-pill">
-              <span className="badge-dot" /> Resonant · Highly active profile
-            </div>
-            <div className="badge-pill">
-              <span className="badge-dot" /> Quantum Vendor · Active startup
-            </div>
-            <div className="badge-pill">
-              <span className="badge-dot" /> Resonant · Highly active profile
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* FOR WHOM */}
       <section className="section">
         <div className="section-header">
