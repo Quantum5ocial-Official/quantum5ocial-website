@@ -1,798 +1,603 @@
-// pages/jobs/new.tsx
+// pages/jobs/[id].tsx
 import { useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
-const Navbar = dynamic(() => import("../../components/Navbar"), { ssr: false });
-
-const EMPLOYMENT_TYPES = [
-  "Full-time",
-  "Part-time",
-  "Internship",
-  "PhD",
-  "Postdoc",
-  "Contract",
-  "Fellowship",
-  "Other",
-];
-
-const REMOTE_TYPES = ["On-site", "Hybrid", "Remote"];
-
-/* -------------------------------------------------------------------------- */
-/*  Types                                                                     */
-/* -------------------------------------------------------------------------- */
-
-type Org = {
+type Job = {
   id: string;
-  name: string;
-  slug: string;
-  created_by: string | null;
-  is_active?: boolean | null;
-};
-
-type OrgMemberRole = "owner" | "co_owner" | "admin" | "member";
-
-type JobRow = {
-  id: string;
-  owner_id: string | null;
   title: string | null;
   company_name: string | null;
+
+  org_id?: string | null;
+  org_slug?: string | null;
+
   location: string | null;
   employment_type: string | null;
   remote_type: string | null;
   short_description: string | null;
-
-  // existing
   description: string | null;
+
+  role?: string | null;
+  key_responsibilities?: string | null;
+  must_have_qualifications?: string | null;
+  ideal_qualifications?: string | null;
+  what_we_offer?: string | null;
+
   keywords: string | null;
   salary_display: string | null;
   apply_url: string | null;
-
-  // ✅ new structured fields
-  role: string | null;
-  key_responsibilities: string | null;
-  ideal_qualifications: string | null;
-  must_have_qualifications: string | null;
-  what_we_offer: string | null;
-
+  owner_id: string | null;
   created_at?: string | null;
-  org_id?: string | null;
 };
 
-/* -------------------------------------------------------------------------- */
-/*  Helpers                                                                   */
-/* -------------------------------------------------------------------------- */
-
-function firstQueryValue(v: string | string[] | undefined) {
-  if (!v) return "";
-  return Array.isArray(v) ? v[0] : v;
+function cleanLinesToList(value?: string | null) {
+  const raw = (value || "").replace(/\r/g, "").trim();
+  if (!raw) return [];
+  return raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^[-•\u2022]\s*/, "").trim())
+    .filter(Boolean);
 }
 
-function looksLikeUuid(v: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    v
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Component                                                                 */
-/* -------------------------------------------------------------------------- */
-
-export default function NewJobPage() {
-  const { user, loading } = useSupabaseUser();
+export default function JobDetailPage() {
   const router = useRouter();
+  const { id } = router.query;
+  const { user } = useSupabaseUser();
 
-  const jobId = firstQueryValue(router.query.id as any);
-  const orgParam = firstQueryValue(router.query.org as any);
-
-  const isEditing = !!jobId;
-
-  /* form fields */
-  const [form, setForm] = useState({
-    title: "",
-    company_name: "",
-    location: "",
-    employment_type: "",
-    remote_type: "",
-    short_description: "",
-
-    // ✅ new structured fields
-    role: "",
-    key_responsibilities: "",
-    ideal_qualifications: "",
-    must_have_qualifications: "",
-    what_we_offer: "",
-
-    // existing
-    description: "",
-    keywords: "",
-    salary_display: "",
-    apply_url: "",
-  });
-
-  const [saving, setSaving] = useState(false);
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  /* ---------- Org / permission state ---------- */
-
-  const [org, setOrg] = useState<Org | null>(null);
-  const [loadingOrg, setLoadingOrg] = useState(false);
-  const [canPostAsOrg, setCanPostAsOrg] = useState(false);
-
-  const [eligibleOrgs, setEligibleOrgs] = useState<Org[]>([]);
-  const [selectedOrgId, setSelectedOrgId] = useState<string>("");
-
-  const isMarketplaceCreate = !isEditing && !orgParam;
-
-  const lockCompanyField = !!org;
-
-  /* ---------------------------------------------------------------------- */
-  /*  Redirect if not logged in                                              */
-  /* ---------------------------------------------------------------------- */
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      const redirectUrl = isEditing
-        ? `/auth?redirect=/jobs/new?id=${encodeURIComponent(jobId || "")}`
-        : "/auth?redirect=/jobs/new";
-      router.replace(redirectUrl);
-    }
-  }, [loading, user, router, isEditing, jobId]);
-
-  /* ---------------------------------------------------------------------- */
-  /*  Load eligible orgs (marketplace flow)                                  */
-  /* ---------------------------------------------------------------------- */
-
-  useEffect(() => {
-    const loadEligibleOrgs = async () => {
-      if (!router.isReady) return;
-      if (!user) return;
-      if (!isMarketplaceCreate) return;
-
-      setLoadingOrg(true);
+    const fetchJob = async () => {
+      if (!id) return;
+      setLoading(true);
       setLoadError(null);
 
       try {
-        const { data: created, error: createdErr } = await supabase
-          .from("organizations")
-          .select("id,name,slug,created_by,is_active")
-          .eq("is_active", true)
-          .eq("created_by", user.id);
-
-        if (createdErr) throw createdErr;
-
-        const { data: memberRows, error: memberErr } = await supabase
-          .from("org_members")
-          .select("org_id, role")
-          .eq("user_id", user.id)
-          .in("role", ["owner", "co_owner"]);
-
-        if (memberErr) throw memberErr;
-
-        const memberOrgIds = Array.from(
-          new Set((memberRows || []).map((r: any) => String(r.org_id)).filter(Boolean))
-        );
-
-        const { data: memberOrgs, error: memberOrgsErr } = memberOrgIds.length
-          ? await supabase
-              .from("organizations")
-              .select("id,name,slug,created_by,is_active")
-              .eq("is_active", true)
-              .in("id", memberOrgIds)
-          : { data: [], error: null as any };
-
-        if (memberOrgsErr) throw memberOrgsErr;
-
-        const merged = [...(created || []), ...(memberOrgs || [])] as Org[];
-        const uniq = Array.from(new Map(merged.map((o) => [o.id, o])).values());
-
-        setEligibleOrgs(uniq);
-
-        if (uniq.length === 1) {
-          const only = uniq[0];
-          setOrg(only);
-          setSelectedOrgId(only.id);
-          setCanPostAsOrg(true);
-          setForm((prev) => ({ ...prev, company_name: only.name || prev.company_name }));
-          setLoadError(null);
-        } else if (uniq.length > 1) {
-          setOrg(null);
-          setCanPostAsOrg(false);
-          setLoadError("Choose an organization to publish under.");
-        } else {
-          setOrg(null);
-          setCanPostAsOrg(false);
-          setLoadError("You need an organization to publish a job.");
-        }
-      } catch (e: any) {
-        console.error("Error loading eligible orgs", e);
-        setOrg(null);
-        setCanPostAsOrg(false);
-        setEligibleOrgs([]);
-        setLoadError("Could not load your organizations.");
-      } finally {
-        setLoadingOrg(false);
-      }
-    };
-
-    loadEligibleOrgs();
-  }, [router.isReady, user, isMarketplaceCreate]);
-
-  const onPickOrg = (orgId: string) => {
-    setSelectedOrgId(orgId);
-    const found = eligibleOrgs.find((o) => o.id === orgId) || null;
-
-    if (!found) {
-      setOrg(null);
-      setCanPostAsOrg(false);
-      setLoadError("Choose an organization to publish under.");
-      setForm((prev) => ({ ...prev, company_name: "" }));
-      return;
-    }
-
-    setOrg(found);
-    setCanPostAsOrg(true);
-    setLoadError(null);
-    setForm((prev) => ({ ...prev, company_name: found.name || prev.company_name }));
-  };
-
-  /* ---------------------------------------------------------------------- */
-  /*  Load org context when orgParam is provided (from org page)            */
-  /* ---------------------------------------------------------------------- */
-
-  useEffect(() => {
-    const loadOrgContextFromParam = async () => {
-      if (!router.isReady) return;
-      if (!user) return;
-      if (!orgParam) return;
-
-      setLoadingOrg(true);
-      setLoadError(null);
-
-      let foundOrg: Org | null = null;
-
-      try {
-        if (looksLikeUuid(orgParam)) {
-          const { data, error } = await supabase
-            .from("organizations")
-            .select("id,name,slug,created_by,is_active")
-            .eq("id", orgParam)
-            .eq("is_active", true)
-            .maybeSingle();
-
-          if (!error && data) foundOrg = data as Org;
-        } else {
-          const { data, error } = await supabase
-            .from("organizations")
-            .select("id,name,slug,created_by,is_active")
-            .eq("slug", orgParam)
-            .eq("is_active", true)
-            .maybeSingle();
-
-          if (!error && data) foundOrg = data as Org;
-        }
-
-        if (!foundOrg) {
-          setOrg(null);
-          setCanPostAsOrg(false);
-          setLoadError("Organization not found or inactive.");
-          return;
-        }
-
-        setOrg(foundOrg);
-        setSelectedOrgId(foundOrg.id);
-
-        let allowed = false;
-
-        if (foundOrg.created_by && foundOrg.created_by === user.id) {
-          allowed = true;
-        } else {
-          const { data: mem, error: memErr } = await supabase
-            .from("org_members")
-            .select("role")
-            .eq("org_id", foundOrg.id)
-            .eq("user_id", user.id)
-            .maybeSingle<{ role: OrgMemberRole }>();
-
-          if (!memErr && mem && (mem.role === "owner" || mem.role === "co_owner")) {
-            allowed = true;
-          }
-        }
-
-        setCanPostAsOrg(allowed);
-
-        setForm((prev) => ({
-          ...prev,
-          company_name: foundOrg!.name || prev.company_name,
-        }));
-
-        if (!allowed) {
-          setLoadError("Only the organization owner/co-owner can post jobs for this org.");
-        }
-      } catch (e: any) {
-        console.error("Error loading org context", e);
-        setOrg(null);
-        setCanPostAsOrg(false);
-        setLoadError("Could not load organization.");
-      } finally {
-        setLoadingOrg(false);
-      }
-    };
-
-    loadOrgContextFromParam();
-  }, [router.isReady, user, orgParam]);
-
-  /* ---------------------------------------------------------------------- */
-  /*  If editing: load existing job                                          */
-  /* ---------------------------------------------------------------------- */
-
-  useEffect(() => {
-    const loadJob = async () => {
-      if (!jobId || !user) return;
-      setLoadError(null);
-
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("id", jobId)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error loading job to edit", error);
-        setLoadError("Could not load this job for editing.");
-        return;
-      }
-      if (!data) {
-        setLoadError("Job not found.");
-        return;
-      }
-      if ((data as any).owner_id && (data as any).owner_id !== user.id) {
-        setLoadError("You do not have permission to edit this job.");
-        return;
-      }
-
-      const job = data as JobRow;
-
-      setForm({
-        title: job.title || "",
-        company_name: job.company_name || "",
-        location: job.location || "",
-        employment_type: job.employment_type || "",
-        remote_type: job.remote_type || "",
-        short_description: job.short_description || "",
-
-        role: job.role || "",
-        key_responsibilities: job.key_responsibilities || "",
-        ideal_qualifications: job.ideal_qualifications || "",
-        must_have_qualifications: job.must_have_qualifications || "",
-        what_we_offer: job.what_we_offer || "",
-
-        description: job.description || "",
-        keywords: job.keywords || "",
-        salary_display: job.salary_display || "",
-        apply_url: job.apply_url || "",
-      });
-    };
-
-    if (isEditing && user) loadJob();
-  }, [jobId, user, isEditing]);
-
-  /* ---------------------------------------------------------------------- */
-  /*  Handlers                                                               */
-  /* ---------------------------------------------------------------------- */
-
-  const handleChange =
-    (field: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }));
-    };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-
-    if (!isEditing) {
-      if (!org) {
-        setSaveError(
-          isMarketplaceCreate
-            ? "Choose an organization to publish under."
-            : "You must create a job from an organization page."
-        );
-        return;
-      }
-      if (!canPostAsOrg) {
-        setSaveError("Only the organization owner/co-owner can post this job.");
-        return;
-      }
-    }
-
-    if (!form.title.trim()) {
-      setSaveError("Job title is required.");
-      return;
-    }
-    if (!form.company_name.trim()) {
-      setSaveError("Company / lab name is required.");
-      return;
-    }
-
-    setSaving(true);
-    setSaveError(null);
-
-    const payload = {
-      title: form.title.trim(),
-      company_name: form.company_name.trim(),
-      location: form.location.trim() || null,
-      employment_type: form.employment_type || null,
-      remote_type: form.remote_type || null,
-      short_description: form.short_description.trim() || null,
-
-      role: form.role.trim() || null,
-      key_responsibilities: form.key_responsibilities.trim() || null,
-      ideal_qualifications: form.ideal_qualifications.trim() || null,
-      must_have_qualifications: form.must_have_qualifications.trim() || null,
-      what_we_offer: form.what_we_offer.trim() || null,
-
-      description: form.description.trim() || null,
-      keywords: form.keywords.trim() || null,
-      salary_display: form.salary_display.trim() || null,
-      apply_url: form.apply_url.trim() || null,
-
-      org_id: org ? org.id : null,
-    };
-
-    try {
-      if (isEditing && jobId) {
-        const { error } = await supabase
-          .from("jobs")
-          .update(payload)
-          .eq("id", jobId)
-          .eq("owner_id", user.id);
-
-        if (error) {
-          console.error("Error updating job", error);
-          setSaveError(error.message || "Could not update job. Please try again.");
-        } else {
-          router.push(`/jobs/${jobId}`);
-        }
-      } else {
         const { data, error } = await supabase
           .from("jobs")
-          .insert({ owner_id: user.id, ...payload })
-          .select()
-          .single();
+          .select(
+            `
+              *,
+              organizations:organizations(
+                slug
+              )
+            `
+          )
+          .eq("id", id)
+          .maybeSingle();
 
         if (error) {
-          console.error("Error creating job", error);
-          setSaveError(error.message || "Could not create job. Please try again.");
+          console.error("Error loading job", error);
+          setLoadError("Could not load this job.");
+          setJob(null);
+        } else if (data) {
+          const jobRow: any = data;
+          const orgSlug = jobRow.organizations?.slug ?? null;
+
+          const jobWithOrg: Job = {
+            id: jobRow.id,
+            title: jobRow.title,
+            company_name: jobRow.company_name,
+            org_id:
+              jobRow.org_id ?? jobRow.organisation_id ?? jobRow.organisations_id ?? null,
+            org_slug: orgSlug,
+
+            location: jobRow.location,
+            employment_type: jobRow.employment_type,
+            remote_type: jobRow.remote_type,
+            short_description: jobRow.short_description,
+            description: jobRow.description,
+
+            role: jobRow.role ?? null,
+            key_responsibilities: jobRow.key_responsibilities ?? null,
+            must_have_qualifications: jobRow.must_have_qualifications ?? null,
+            ideal_qualifications: jobRow.ideal_qualifications ?? null,
+            what_we_offer: jobRow.what_we_offer ?? null,
+
+            keywords: jobRow.keywords,
+            salary_display: jobRow.salary_display,
+            apply_url: jobRow.apply_url,
+            owner_id: jobRow.owner_id,
+            created_at: jobRow.created_at,
+          };
+
+          setJob(jobWithOrg);
         } else {
-          router.push(`/jobs/${(data as any).id}`);
+          setJob(null);
+          setLoadError("Job not found.");
         }
+      } catch (e) {
+        console.error("Unexpected fetch error", e);
+        setLoadError("Could not load this job.");
+        setJob(null);
       }
-    } finally {
-      setSaving(false);
+
+      setLoading(false);
+    };
+
+    fetchJob();
+  }, [id]);
+
+  const isOwner = !!user && job?.owner_id === user.id;
+
+  const handleDelete = async () => {
+    if (!job || !user) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this job? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const { error } = await supabase
+      .from("jobs")
+      .delete()
+      .eq("id", job.id)
+      .eq("owner_id", user.id);
+
+    setDeleting(false);
+
+    if (error) {
+      console.error("Error deleting job", error);
+      alert("Could not delete job. Please try again.");
+      return;
     }
+
+    router.push("/jobs");
   };
 
-  if (!user && !loading) return null;
+  const formattedDate = job?.created_at
+    ? new Date(job.created_at).toLocaleDateString()
+    : null;
 
-  /* ---------------------------------------------------------------------- */
-  /*  Derived values and UI helpers                                         */
-  /* ---------------------------------------------------------------------- */
+  const keywordList =
+    job?.keywords
+      ?.split(",")
+      .map((k) => k.trim())
+      .filter(Boolean) || [];
 
-  const backTarget = useMemo(() => {
-    if (org?.slug) return `/orgs/${org.slug}?tab=jobs`;
-    return isEditing ? (jobId ? `/jobs/${jobId}` : "/jobs") : "/jobs";
-  }, [org?.slug, isEditing, jobId]);
+  const responsibilities = useMemo(
+    () => cleanLinesToList(job?.key_responsibilities),
+    [job?.key_responsibilities]
+  );
+  const mustHave = useMemo(
+    () => cleanLinesToList(job?.must_have_qualifications),
+    [job?.must_have_qualifications]
+  );
+  const ideal = useMemo(
+    () => cleanLinesToList(job?.ideal_qualifications),
+    [job?.ideal_qualifications]
+  );
+  const offer = useMemo(
+    () => cleanLinesToList(job?.what_we_offer),
+    [job?.what_we_offer]
+  );
 
-  const showPublishAsPicker = !isEditing && isMarketplaceCreate && eligibleOrgs.length > 1;
-
-  /* ---------------------------------------------------------------------- */
-  /*  Render                                                                */
-  /* ---------------------------------------------------------------------- */
+  const hasAnyStructured =
+    !!(job?.role || responsibilities.length || mustHave.length || ideal.length || offer.length);
 
   return (
-    <>
-      <div className="bg-layer" />
-      <div className="page">
-        <Navbar />
+    <section className="section">
+      <div className="job-shell">
+        {/* top actions */}
+        <div className="top-actions">
+          <button
+            type="button"
+            className="nav-ghost-btn"
+            onClick={() => router.push("/jobs")}
+            style={{
+              padding: "4px 10px",
+              minWidth: "unset",
+              width: "auto",
+              lineHeight: "1.2",
+            }}
+          >
+            ← Back to jobs
+          </button>
 
-        <section className="section">
-          <div className="section-header" style={{ alignItems: "flex-start" }}>
-            <div>
-              <div className="section-title">{isEditing ? "Edit job" : "Post a job"}</div>
-              <div className="section-sub">
-                {isEditing
-                  ? "Update your job listing for the quantum community."
-                  : "Create a role for students, researchers, and engineers in quantum."}
-              </div>
+          {isOwner && (
+            <div className="top-actions-right">
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
+                style={{
+                  padding: "4px 10px",
+                  minWidth: "unset",
+                  width: "auto",
+                  lineHeight: "1.2",
+                }}
+              >
+                Edit
+              </button>
+
+              <button
+                type="button"
+                className="nav-cta delete-btn"
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  padding: "4px 10px",
+                  minWidth: "unset",
+                  width: "auto",
+                  lineHeight: "1.2",
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
             </div>
+          )}
+        </div>
 
-            {/* ✅ tight pill width (fix) */}
-            <button
-              type="button"
-              className="nav-ghost-btn"
-              onClick={() => router.push(backTarget)}
-              style={{
-                padding: "4px 10px",
-                minWidth: "unset",
-                width: "auto",
-                lineHeight: "1.2",
-              }}
-            >
-              ← Back
-            </button>
-          </div>
+        {loading && <p className="products-status">Loading job…</p>}
+        {loadError && (
+          <p className="products-status error" style={{ marginTop: 8 }}>
+            {loadError}
+          </p>
+        )}
 
-          {!isEditing && loadingOrg && <p className="profile-muted">Loading organization…</p>}
+        {!loading && !loadError && job && (
+          <div className="job-card">
+            {/* header */}
+            <div className="hero">
+              <div className="heroLeft">
+                <div className="heroKicker">Job</div>
+                <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-          <div className="products-create-layout">
-            <div className="products-create-main">
-              <div className="products-create-card">
-                <h3 className="products-create-title">{isEditing ? "Job details" : "New job listing"}</h3>
+                {/* clickable company name when org slug exists */}
+                {job.company_name &&
+                  (job.org_slug ? (
+                    <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
+                      <span className="heroCompanyLink">{job.company_name}</span>
+                    </Link>
+                  ) : (
+                    <div className="heroCompany">{job.company_name}</div>
+                  ))}
 
-                {loadError && (
-                  <p className="products-status error" style={{ marginBottom: 10 }}>
-                    {loadError}
-                  </p>
+                {(job.location || job.employment_type || job.remote_type) && (
+                  <div className="heroMeta">
+                    {[job.location, job.employment_type, job.remote_type]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="products-create-form">
-                  {/* Basics */}
-                  <div className="products-section">
-                    <div className="products-section-header">
-                      <h4 className="products-section-title">Basics</h4>
-                      <p className="products-section-sub">Role title, organisation, and where it&apos;s based.</p>
-                    </div>
-
-                    <div className="products-grid">
-                      <div className="products-field">
-                        <label>Job title *</label>
-                        <input type="text" value={form.title} onChange={handleChange("title")} required />
-                      </div>
-
-                      {showPublishAsPicker && (
-                        <div className="products-field">
-                          <label>Publish as *</label>
-                          <select value={selectedOrgId} onChange={(e) => onPickOrg(e.target.value)}>
-                            <option value="">Select…</option>
-                            {eligibleOrgs.map((o) => (
-                              <option key={o.id} value={o.id}>
-                                {o.name}
-                              </option>
-                            ))}
-                          </select>
-                          <span style={{ fontSize: 12, color: "#9ca3af" }}>
-                            This determines the organization shown on the job listing.
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="products-field">
-                        <label>Company / lab *</label>
-                        <input
-                          type="text"
-                          value={form.company_name}
-                          onChange={handleChange("company_name")}
-                          required
-                          disabled={lockCompanyField}
-                        />
-                        {lockCompanyField && (
-                          <span style={{ fontSize: 12, color: "#9ca3af" }}>
-                            Fixed to the organization you’re publishing under.
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="products-field">
-                        <label>Location</label>
-                        <input
-                          type="text"
-                          value={form.location}
-                          onChange={handleChange("location")}
-                          placeholder="Basel, Switzerland / Remote"
-                        />
-                      </div>
-
-                      <div className="products-field">
-                        <label>Employment type</label>
-                        <select value={form.employment_type} onChange={handleChange("employment_type")}>
-                          <option value="">Select…</option>
-                          {EMPLOYMENT_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="products-field">
-                        <label>Work mode</label>
-                        <select value={form.remote_type} onChange={handleChange("remote_type")}>
-                          <option value="">Select…</option>
-                          {REMOTE_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>Short description</label>
-                        <input
-                          type="text"
-                          value={form.short_description}
-                          onChange={handleChange("short_description")}
-                          placeholder="1–2 line summary people see in the listing grid."
-                        />
-                      </div>
-                    </div>
+                {(formattedDate || job.salary_display) && (
+                  <div className="heroMeta2">
+                    {formattedDate ? `Posted on ${formattedDate}` : ""}
+                    {formattedDate && job.salary_display ? " · " : ""}
+                    {job.salary_display ? job.salary_display : ""}
                   </div>
+                )}
 
-                  {/* Structured role details */}
-                  <div className="products-section">
-                    <div className="products-section-header">
-                      <h4 className="products-section-title">Role details</h4>
-                      <p className="products-section-sub">Structured fields help candidates scan fast.</p>
-                    </div>
-
-                    <div className="products-grid">
-                      <div className="products-field products-field-full">
-                        <label>The role</label>
-                        <textarea
-                          rows={4}
-                          value={form.role}
-                          onChange={handleChange("role")}
-                          placeholder="What is this role about? What impact will the person have?"
-                        />
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>Key responsibilities</label>
-                        <textarea
-                          rows={5}
-                          value={form.key_responsibilities}
-                          onChange={handleChange("key_responsibilities")}
-                          placeholder="Bullet-style text works well here."
-                        />
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>Must-have qualifications</label>
-                        <textarea
-                          rows={5}
-                          value={form.must_have_qualifications}
-                          onChange={handleChange("must_have_qualifications")}
-                          placeholder="Non-negotiables (skills, degree, experience, tooling, etc.)."
-                        />
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>Ideal qualifications</label>
-                        <textarea
-                          rows={5}
-                          value={form.ideal_qualifications}
-                          onChange={handleChange("ideal_qualifications")}
-                          placeholder="Nice-to-haves."
-                        />
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>What we offer</label>
-                        <textarea
-                          rows={5}
-                          value={form.what_we_offer}
-                          onChange={handleChange("what_we_offer")}
-                          placeholder="Culture, benefits, growth, flexibility, equipment, travel, etc."
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Full description (keep existing) */}
-                  <div className="products-section">
-                    <div className="products-section-header">
-                      <h4 className="products-section-title">Long-form description</h4>
-                      <p className="products-section-sub">Optional: add extra detail beyond the structured fields.</p>
-                    </div>
-
-                    <div className="products-grid">
-                      <div className="products-field products-field-full">
-                        <label>Full description</label>
-                        <textarea
-                          rows={6}
-                          value={form.description}
-                          onChange={handleChange("description")}
-                          placeholder="Responsibilities, requirements, project context, etc."
-                        />
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>Keywords (comma-separated)</label>
-                        <input
-                          type="text"
-                          value={form.keywords}
-                          onChange={handleChange("keywords")}
-                          placeholder="spin qubits, cryogenics, cQED, fabrication…"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Salary & apply link */}
-                  <div className="products-section">
-                    <div className="products-section-header">
-                      <h4 className="products-section-title">Salary & application</h4>
-                      <p className="products-section-sub">Optional salary information and where to apply.</p>
-                    </div>
-
-                    <div className="products-grid">
-                      <div className="products-field">
-                        <label>Salary information</label>
-                        <input
-                          type="text"
-                          value={form.salary_display}
-                          onChange={handleChange("salary_display")}
-                          placeholder="e.g. CHF 80k–100k, based on experience"
-                        />
-                      </div>
-
-                      <div className="products-field products-field-full">
-                        <label>Application URL</label>
-                        <input
-                          type="url"
-                          value={form.apply_url}
-                          onChange={handleChange("apply_url")}
-                          placeholder="https://…"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="products-create-actions">
-                    <button
-                      type="submit"
+                <div className="heroCtas">
+                  {job.apply_url && (
+                    <a
+                      href={job.apply_url}
+                      target="_blank"
+                      rel="noreferrer"
                       className="nav-cta"
-                      disabled={saving || (!isEditing && (!org || !canPostAsOrg)) || loadingOrg || loading}
                       style={{
+                        padding: "6px 12px",
                         minWidth: "unset",
                         width: "fit-content",
                       }}
                     >
-                      {saving ? (isEditing ? "Updating…" : "Publishing…") : isEditing ? "Save changes" : "Publish job"}
-                    </button>
+                      Apply / learn more
+                    </a>
+                  )}
 
-                    {saveError && <span className="products-status error">{saveError}</span>}
-                  </div>
-                </form>
+                  {keywordList.length > 0 && (
+                    <div className="heroTags" aria-label="Keywords">
+                      {keywordList.slice(0, 6).map((k) => (
+                        <span key={k} className="tagChip">
+                          {k}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {job.short_description && (
+                  <div className="heroSummary">{job.short_description}</div>
+                )}
               </div>
             </div>
 
-            {/* Right-hand tips panel */}
-            <aside className="products-create-aside">
-              <div className="products-tips-card">
-                <h4 className="products-tips-title">Tips for a strong job post</h4>
-                <ul className="products-tips-list">
-                  <li>Use a specific title (e.g. “Spin qubit postdoc”).</li>
-                  <li>Mention the main platform (superconducting, ion trap, …).</li>
-                  <li>Include key requirements and location clearly.</li>
-                  <li>Add salary range if possible.</li>
-                  <li>Link to a lab or company page for more context.</li>
-                </ul>
+            {/* body like screenshot */}
+            {hasAnyStructured ? (
+              <div className="jobBody">
+                {!!(job.role || "").trim() && (
+                  <div className="block blockRole">
+                    <h2 className="hRole">The Role</h2>
+                    <p className="pText">{(job.role || "").trim()}</p>
+                  </div>
+                )}
+
+                <div className="twoCol">
+                  <div className="col">
+                    {responsibilities.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">Key Responsibilities</h3>
+                        <ul className="bullets">
+                          {responsibilities.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {mustHave.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">Must-Have Qualifications</h3>
+                        <ul className="bullets">
+                          {mustHave.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="col">
+                    {ideal.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">Ideal Qualifications</h3>
+                        <ul className="bullets">
+                          {ideal.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {offer.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">What We Offer</h3>
+                        <ul className="bullets">
+                          {offer.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {!!(job.description || "").trim() && (
+                  <div className="block">
+                    <h3 className="hTeal">Full Description</h3>
+                    <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
+                      {(job.description || "").trim()}
+                    </p>
+                  </div>
+                )}
               </div>
-            </aside>
+            ) : (
+              <div className="jobBody">
+                {!!(job.description || "").trim() && (
+                  <div className="block">
+                    <h3 className="hTeal">Full Description</h3>
+                    <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
+                      {(job.description || "").trim()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </section>
+        )}
       </div>
-    </>
+
+      <style jsx>{`
+        .job-shell {
+          width: 100%;
+          max-width: 1320px;
+          margin: 0 auto;
+        }
+
+        .top-actions {
+          margin-bottom: 12px;
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .top-actions-right {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .delete-btn {
+          border-color: rgba(248, 113, 113, 0.7);
+          color: #fecaca;
+        }
+
+        .job-card {
+          width: 100%;
+          border-radius: 18px;
+          background: rgba(15, 23, 42, 0.95);
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          overflow: hidden;
+        }
+
+        .hero {
+          padding: 18px;
+          border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+          background: radial-gradient(
+              circle at 0% 0%,
+              rgba(56, 189, 248, 0.12),
+              transparent 55%
+            ),
+            rgba(15, 23, 42, 0.95);
+        }
+
+        .heroLeft {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 4px 2px;
+        }
+
+        .heroKicker {
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(148, 163, 184, 0.9);
+        }
+
+        .heroTitle {
+          margin: 0;
+          font-size: 28px;
+          line-height: 1.15;
+          font-weight: 750;
+          color: rgba(226, 232, 240, 0.98);
+        }
+
+        .heroCompany {
+          font-size: 14px;
+          font-weight: 650;
+          color: #7dd3fc;
+        }
+
+        .heroCompanyLink {
+          font-size: 14px;
+          font-weight: 650;
+          color: #7dd3fc;
+          text-decoration: underline;
+          cursor: pointer;
+          width: fit-content;
+        }
+
+        .heroMeta {
+          margin-top: 2px;
+          font-size: 13px;
+          color: rgba(148, 163, 184, 0.95);
+        }
+
+        .heroMeta2 {
+          font-size: 12px;
+          color: rgba(148, 163, 184, 0.75);
+        }
+
+        .heroCtas {
+          margin-top: 8px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .heroTags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .tagChip {
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          background: rgba(2, 6, 23, 0.55);
+          color: rgba(226, 232, 240, 0.9);
+        }
+
+        .heroSummary {
+          margin-top: 10px;
+          max-width: 860px;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.55;
+        }
+
+        .jobBody {
+          padding: 18px 20px 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .block {
+          max-width: 1100px;
+        }
+
+        .blockRole {
+          max-width: 920px;
+        }
+
+        .hRole {
+          margin: 0 0 8px;
+          font-size: 26px;
+          font-weight: 800;
+          color: #7c3aed;
+          letter-spacing: -0.01em;
+        }
+
+        .hTeal {
+          margin: 0 0 10px;
+          font-size: 22px;
+          font-weight: 800;
+          color: #2dd4bf;
+          letter-spacing: -0.01em;
+        }
+
+        .pText {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.65;
+          white-space: pre-wrap;
+        }
+
+        .twoCol {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 24px;
+          align-items: start;
+        }
+
+        @media (max-width: 900px) {
+          .twoCol {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+
+        .col {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+
+        .bullets {
+          margin: 0;
+          padding-left: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .bullets li {
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.6;
+        }
+      `}</style>
+    </section>
   );
 }
 
-// ✅ global layout: left sidebar + middle only, no right column
-(NewJobPage as any).layoutProps = {
+(JobDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
 };
