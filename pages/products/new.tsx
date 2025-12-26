@@ -28,11 +28,6 @@ type Org = {
 
 type OrgMemberRole = "owner" | "co_owner" | "admin" | "member";
 
-type OrgMemberRowLite = {
-  org_id: string;
-  role: OrgMemberRole;
-};
-
 type ProductRow = {
   id: string;
   owner_id: string | null;
@@ -42,6 +37,10 @@ type ProductRow = {
   company_name: string | null;
   category: string | null;
   short_description: string | null;
+
+  // ✅ NEW: long-form description
+  full_description?: string | null;
+
   specifications: string | null;
   product_url: string | null;
   keywords: string | null;
@@ -61,7 +60,9 @@ function firstQueryValue(v: string | string[] | undefined) {
 }
 
 function looksLikeUuid(v: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    v
+  );
 }
 
 export default function NewProductPage() {
@@ -81,7 +82,13 @@ export default function NewProductPage() {
     company_name: "",
     category: "",
     short_description: "",
+
+    // ✅ NEW
+    full_description: "",
+
+    // ✅ keep "technical details" one-liner
     specifications: "",
+
     product_url: "",
     keywords: "",
     price_type: "contact", // 'fixed' | 'contact'
@@ -320,7 +327,11 @@ export default function NewProductPage() {
       setLoadingExisting(true);
       setCreateError(null);
 
-      const { data, error } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
 
       if (error || !data) {
         console.error("Error loading product for edit", error);
@@ -331,7 +342,7 @@ export default function NewProductPage() {
 
       const product = data as ProductRow;
 
-      // Only allow owner to edit (keep your existing rule)
+      // Only allow owner to edit
       if (product.owner_id && product.owner_id !== user.id) {
         setCreateError("You are not allowed to edit this product.");
         setLoadingExisting(false);
@@ -344,7 +355,13 @@ export default function NewProductPage() {
         company_name: product.company_name || "",
         category: product.category || "",
         short_description: product.short_description || "",
+
+        // ✅ NEW
+        full_description: (product as any).full_description || "",
+
+        // ✅ one-liner
         specifications: product.specifications || "",
+
         product_url: product.product_url || "",
         keywords: product.keywords || "",
         price_type: product.price_type === "fixed" ? "fixed" : "contact",
@@ -356,7 +373,7 @@ export default function NewProductPage() {
       setExistingImages([product.image1_url, product.image2_url, product.image3_url]);
       setExistingDatasheetUrl(product.datasheet_url);
 
-      // ✅ If product has org_id, load org + lock company_name (even if query missing)
+      // ✅ If product has org_id, load org + lock company_name
       if (product.org_id && !org) {
         setLoadingOrg(true);
 
@@ -427,10 +444,14 @@ export default function NewProductPage() {
     e.preventDefault();
     if (!user) return;
 
-    // ✅ enforce org requirement in create mode (marketplace OR org page)
+    // ✅ enforce org requirement in create mode
     if (!isEditMode) {
       if (!org) {
-        setCreateError(isMarketplaceCreate ? "Choose an organization to publish under." : "You must create a product from an organization page.");
+        setCreateError(
+          isMarketplaceCreate
+            ? "Choose an organization to publish under."
+            : "You must create a product from an organization page."
+        );
         return;
       }
       if (!canListForOrg) {
@@ -473,7 +494,13 @@ export default function NewProductPage() {
             company_name: form.company_name.trim() || null,
             category: form.category || null,
             short_description: form.short_description.trim() || null,
+
+            // ✅ NEW
+            full_description: form.full_description.trim() || null,
+
+            // ✅ one-liner
             specifications: form.specifications.trim() || null,
+
             product_url: form.product_url.trim() || null,
             keywords: form.keywords.trim() || null,
             price_type: priceType,
@@ -503,6 +530,10 @@ export default function NewProductPage() {
             company_name: org!.name, // ✅ force org name
             category: form.category || null,
             short_description: form.short_description.trim() || null,
+
+            // ✅ NEW
+            full_description: form.full_description.trim() || null,
+
             specifications: form.specifications.trim() || null,
             product_url: form.product_url.trim() || null,
             keywords: form.keywords.trim() || null,
@@ -577,7 +608,7 @@ export default function NewProductPage() {
     ? "Update the information for this product listing."
     : "Create a product listing that will appear in the Quantum5ocial marketplace.";
 
-  const lockCompanyField = !!org; // ✅ when org exists, company is fixed
+  const lockCompanyField = !!org;
 
   const backTarget = useMemo(() => {
     if (org?.slug) return `/orgs/${org.slug}?tab=products`;
@@ -599,7 +630,13 @@ export default function NewProductPage() {
               <div className="section-sub">
                 {subtitle}
                 {!isEditMode && org?.name ? (
-                  <span style={{ display: "block", marginTop: 6, color: "rgba(148,163,184,0.95)" }}>
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 6,
+                      color: "rgba(148,163,184,0.95)",
+                    }}
+                  >
                     Publishing as:{" "}
                     <strong style={{ color: "rgba(226,232,240,0.95)" }}>{org.name}</strong>
                   </span>
@@ -625,7 +662,8 @@ export default function NewProductPage() {
             <p className="profile-muted">Loading product data…</p>
           ) : (
             <div className="products-create-layout">
-              <div className="products-create-main">
+              {/* ✅ span full width since tips removed */}
+              <div className="products-create-main" style={{ gridColumn: "1 / -1" }}>
                 <div className="products-create-card">
                   <h3 className="products-create-title">Product details</h3>
 
@@ -653,10 +691,7 @@ export default function NewProductPage() {
                         {showPublishAsPicker && (
                           <div className="products-field">
                             <label>Publish as *</label>
-                            <select
-                              value={selectedOrgId}
-                              onChange={(e) => onPickOrg(e.target.value)}
-                            >
+                            <select value={selectedOrgId} onChange={(e) => onPickOrg(e.target.value)}>
                               <option value="">Select…</option>
                               {eligibleOrgs.map((o) => (
                                 <option key={o.id} value={o.id}>
@@ -725,18 +760,30 @@ export default function NewProductPage() {
                       <div className="products-section-header">
                         <h4 className="products-section-title">Technical details</h4>
                         <p className="products-section-sub">
-                          Specifications and keywords used for discovery and matching.
+                          Add a quick one-liner, plus a longer description if needed.
                         </p>
                       </div>
 
                       <div className="products-grid">
+                        {/* ✅ one-liner */}
                         <div className="products-field products-field-full">
-                          <label>Specifications / technical details</label>
-                          <textarea
-                            rows={4}
+                          <label>Technical details (one line)</label>
+                          <input
+                            type="text"
                             value={form.specifications}
                             onChange={handleFormChange("specifications")}
-                            placeholder="Key specs, performance, interfaces, compatibility, etc."
+                            placeholder="e.g. 4–12 GHz, 40 dB gain, 1–8 K, USB/Ethernet control…"
+                          />
+                        </div>
+
+                        {/* ✅ new full description */}
+                        <div className="products-field products-field-full">
+                          <label>Full description</label>
+                          <textarea
+                            rows={6}
+                            value={form.full_description}
+                            onChange={handleFormChange("full_description")}
+                            placeholder="Long-form description: features, use-cases, integration notes, performance, lead time, etc."
                           />
                         </div>
 
@@ -835,7 +882,12 @@ export default function NewProductPage() {
                       <div className="products-grid">
                         <div className="products-field products-field-full">
                           <label>Product images (up to 3)</label>
-                          <input type="file" accept="image/*" multiple onChange={handleImagesChange} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImagesChange}
+                          />
                           {imageFiles.length > 0 ? (
                             <span style={{ fontSize: 12, color: "#9ca3af" }}>
                               Selected: {imageFiles.map((f) => f.name).join(", ")}
@@ -899,19 +951,8 @@ export default function NewProductPage() {
                 </div>
               </div>
 
-              {/* Right-hand tips panel */}
-              <aside className="products-create-aside">
-                <div className="products-tips-card">
-                  <h4 className="products-tips-title">Tips for a strong listing</h4>
-                  <ul className="products-tips-list">
-                    <li>Use a clear, specific product name.</li>
-                    <li>Mention key specs (frequency range, noise, temp, etc.).</li>
-                    <li>Add relevant keywords for better discovery.</li>
-                    <li>Upload at least one clean product image.</li>
-                    <li>Add a datasheet so people can evaluate quickly.</li>
-                  </ul>
-                </div>
-              </aside>
+              {/* ✅ tips removed */}
+              <aside className="products-create-aside" style={{ display: "none" }} />
             </div>
           )}
         </section>
@@ -920,7 +961,6 @@ export default function NewProductPage() {
   );
 }
 
-// ✅ keep global layout consistent
 (NewProductPage as any).layoutProps = {
   variant: "two-left",
   right: null,
