@@ -119,6 +119,9 @@ export default function NewJobPage() {
   const [eligibleOrgs, setEligibleOrgs] = useState<Org[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
 
+  // ✅ NEW: keep the job’s existing org_id during edit, even if org state isn’t loaded yet
+  const [jobOrgId, setJobOrgId] = useState<string | null>(null);
+
   const isMarketplaceCreate = !isEditing && !orgParam;
   const lockCompanyField = !!org;
 
@@ -166,7 +169,11 @@ export default function NewJobPage() {
         if (memberErr) throw memberErr;
 
         const memberOrgIds = Array.from(
-          new Set((memberRows || []).map((r: any) => String(r.org_id)).filter(Boolean))
+          new Set(
+            (memberRows || [])
+              .map((r: any) => String(r.org_id))
+              .filter(Boolean)
+          )
         );
 
         const { data: memberOrgs, error: memberOrgsErr } = memberOrgIds.length
@@ -319,7 +326,7 @@ export default function NewJobPage() {
   }, [router.isReady, user, orgParam]);
 
   /* ---------------------------------------------------------------------- */
-  /*  If editing: load existing job                                          */
+  /*  If editing: load existing job + its org context                        */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -327,7 +334,11 @@ export default function NewJobPage() {
       if (!jobId || !user) return;
       setLoadError(null);
 
-      const { data, error } = await supabase.from("jobs").select("*").eq("id", jobId).maybeSingle();
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("id", jobId)
+        .maybeSingle();
 
       if (error) {
         console.error("Error loading job to edit", error);
@@ -344,6 +355,15 @@ export default function NewJobPage() {
       }
 
       const job = data as JobRow;
+
+      // ✅ keep existing org_id safe so updates don't wipe it
+      const existingOrgId =
+        (job as any).org_id ??
+        (job as any).organisation_id ??
+        (job as any).organisations_id ??
+        null;
+
+      setJobOrgId(existingOrgId ? String(existingOrgId) : null);
 
       setForm({
         title: job.title || "",
@@ -364,6 +384,38 @@ export default function NewJobPage() {
         salary_display: job.salary_display || "",
         apply_url: job.apply_url || "",
       });
+
+      // ✅ If job has org_id, load the org so detail page linking works
+      if (existingOrgId) {
+        setLoadingOrg(true);
+        try {
+          const { data: orgData, error: orgErr } = await supabase
+            .from("organizations")
+            .select("id,name,slug,created_by,is_active")
+            .eq("id", existingOrgId)
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (!orgErr && orgData) {
+            const foundOrg = orgData as Org;
+            setOrg(foundOrg);
+            setSelectedOrgId(foundOrg.id);
+
+            // if you're the job owner, let edit proceed; org permission is for create flow
+            setCanPostAsOrg(true);
+
+            // keep company_name aligned with org name (if it exists)
+            setForm((prev) => ({
+              ...prev,
+              company_name: foundOrg.name || prev.company_name,
+            }));
+          }
+        } catch (e) {
+          console.error("Error loading org for job edit", e);
+        } finally {
+          setLoadingOrg(false);
+        }
+      }
     };
 
     if (isEditing && user) loadJob();
@@ -410,6 +462,9 @@ export default function NewJobPage() {
     setSaving(true);
     setSaveError(null);
 
+    // ✅ IMPORTANT: during edit, don't wipe org_id if org state isn't loaded
+    const resolvedOrgId = org?.id ?? jobOrgId ?? null;
+
     const payload = {
       title: form.title.trim(),
       company_name: form.company_name.trim(),
@@ -429,12 +484,16 @@ export default function NewJobPage() {
       salary_display: form.salary_display.trim() || null,
       apply_url: form.apply_url.trim() || null,
 
-      org_id: org ? org.id : null,
+      org_id: resolvedOrgId,
     };
 
     try {
       if (isEditing && jobId) {
-        const { error } = await supabase.from("jobs").update(payload).eq("id", jobId).eq("owner_id", user.id);
+        const { error } = await supabase
+          .from("jobs")
+          .update(payload)
+          .eq("id", jobId)
+          .eq("owner_id", user.id);
 
         if (error) {
           console.error("Error updating job", error);
@@ -484,7 +543,6 @@ export default function NewJobPage() {
       <div className="page">
         <Navbar />
 
-        {/* ✅ reduce big top gap */}
         <section className="section" style={{ paddingTop: 10 }}>
           <div className="section-header" style={{ alignItems: "flex-start", marginTop: 0 }}>
             <div>
@@ -525,7 +583,6 @@ export default function NewJobPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="products-create-form">
-                  {/* Basics */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Basics</h4>
@@ -617,7 +674,6 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
-                  {/* Structured role details */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Role details</h4>
@@ -677,7 +733,6 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
-                  {/* ✅ renamed section */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Additional description</h4>
@@ -709,7 +764,6 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
-                  {/* Salary & apply link */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Salary & application</h4>
