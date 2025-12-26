@@ -4,13 +4,24 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import Q5BadgeChips from "../../components/Q5BadgeChips";
 
 type EntangledProfile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
-  affiliation: string | null;
+
   role: string | null;
+  current_title?: string | null;
+
+  affiliation: string | null;
+  city: string | null;
+  country: string | null;
+
+  q5_badge_level?: number | null;
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null;
+  q5_badge_claimed_at?: string | null;
 };
 
 export default function EcosystemEntangledPage() {
@@ -62,10 +73,12 @@ export default function EcosystemEntangledPage() {
           return;
         }
 
-        // ✅ Only select columns that definitely exist
+        // ✅ select fields needed to mirror Community card UI (wrapped text + location + badge)
         const { data: profData, error: profError } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar_url, affiliation, role")
+          .select(
+            "id, full_name, avatar_url, role, current_title, affiliation, city, country, q5_badge_level, q5_badge_label, q5_badge_review_status, q5_badge_claimed_at"
+          )
           .in("id", otherIds);
 
         if (profError) throw profError;
@@ -88,7 +101,11 @@ export default function EcosystemEntangledPage() {
     if (!q) return profiles;
 
     return profiles.filter((p) => {
-      const haystack = `${p.full_name || ""} ${p.role || ""} ${p.affiliation || ""}`
+      const haystack = (
+        `${p.full_name || ""} ${p.current_title || ""} ${p.role || ""} ${p.affiliation || ""} ${
+          p.city || ""
+        } ${p.country || ""}`
+      )
         .toLowerCase()
         .trim();
       return haystack.includes(q);
@@ -99,18 +116,7 @@ export default function EcosystemEntangledPage() {
 
   if (!user && !loading) return null;
 
-  const entangledPill: React.CSSProperties = {
-    fontSize: 10.5,
-    borderRadius: 999,
-    padding: "2px 8px",
-    border: "1px solid rgba(74,222,128,0.7)",
-    color: "rgba(187,247,208,0.95)",
-    whiteSpace: "nowrap",
-    background: "rgba(2,6,23,0.35)",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-  };
+  if (!user) return null;
 
   return (
     <section className="section">
@@ -157,11 +163,18 @@ export default function EcosystemEntangledPage() {
               )}
             </div>
             <div className="section-sub" style={{ maxWidth: 560, lineHeight: 1.45 }}>
-              Same card style as Community; 4-column grid.
+              Your accepted entanglements — same card style as Community.
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 6,
+            }}
+          >
             <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
               ← Back to ecosystem
             </Link>
@@ -176,7 +189,7 @@ export default function EcosystemEntangledPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, role, affiliation…"
+            placeholder="Search by name, role, affiliation, location…"
             style={{
               flex: 1,
               padding: "10px 14px",
@@ -232,7 +245,7 @@ export default function EcosystemEntangledPage() {
         </div>
       )}
 
-      {/* ✅ Same card style as Community + ✅ 4-column grid */}
+      {/* ✅ Community-style cards, ✅ 4-column grid */}
       {!mainLoading && !errorMsg && filtered.length > 0 && (
         <div
           className="q5-community-grid"
@@ -240,21 +253,29 @@ export default function EcosystemEntangledPage() {
             display: "grid",
             gridTemplateColumns: "repeat(4,minmax(0,1fr))",
             gap: 16,
-            marginTop: 12,
           }}
         >
           {filtered.map((p) => {
-            const name = p.full_name || "Quantum member";
+            const key = `person-${p.id}`;
+            const name = p.full_name || "Quantum5ocial member";
             const initial = name.charAt(0).toUpperCase();
-            const headline = (p.role || "").trim() || null;
-            const affiliationLine = (p.affiliation || "").trim() || null;
+
+            const headline = (p.current_title || p.role || "").trim() || null;
+            const affiliationLine = p.affiliation?.trim() || null;
+            const locationLine = [p.city, p.country].filter(Boolean).join(", ") || null;
+
+            const hasBadge = !!(p.q5_badge_label || p.q5_badge_level != null);
+            const badgeLabel =
+              (p.q5_badge_label && p.q5_badge_label.trim()) ||
+              (p.q5_badge_level != null ? `Q5-Level ${p.q5_badge_level}` : "");
 
             return (
               <div
-                key={p.id}
+                key={key}
                 className="card"
                 style={{
                   position: "relative",
+                  textDecoration: "none",
                   padding: 14,
                   display: "flex",
                   flexDirection: "column",
@@ -264,16 +285,18 @@ export default function EcosystemEntangledPage() {
                 }}
                 onClick={() => router.push(`/profile/${p.id}`)}
               >
-                {/* top pill (matches the idea of the community badge area) */}
-                <div
-                  className="community-badge-pill"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ display: "flex", justifyContent: "center" }}
-                >
-                  <span style={entangledPill}>Entangled ✓</span>
+                {/* badge (same behavior as community) */}
+                <div className="community-badge-pill" onClick={(e) => e.stopPropagation()}>
+                  {hasBadge ? (
+                    <Q5BadgeChips
+                      label={badgeLabel}
+                      reviewStatus={p.q5_badge_review_status ?? null}
+                      size="sm"
+                    />
+                  ) : null}
                 </div>
 
-                {/* avatar centered + text below */}
+                {/* avatar centered + text BELOW (same structure as community) */}
                 <div className="card-inner community-card-top">
                   <div
                     style={{
@@ -318,37 +341,55 @@ export default function EcosystemEntangledPage() {
                       )}
                     </div>
 
+                    {/* Name */}
                     <div className="community-card-name" title={name}>
                       {name}
                     </div>
 
+                    {/* title/role + affiliation */}
                     <div className="community-card-meta" title={affiliationLine || ""}>
                       {headline ? headline : "—"}
                       {affiliationLine ? ` · ${affiliationLine}` : ""}
                     </div>
+
+                    {/* location line */}
+                    {locationLine && (
+                      <div
+                        className="community-card-meta"
+                        title={locationLine}
+                        style={{ fontSize: 11, opacity: 0.85 }}
+                      >
+                        {locationLine}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* footer action (same vibe as community, but simple) */}
+                {/* footer: Message button (instead of entangle), no "Open →" anywhere */}
                 <div style={{ marginTop: 14 }}>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/profile/${p.id}`);
+                      router.push(`/messages?to=${p.id}`);
                     }}
                     style={{
                       width: "100%",
                       padding: "7px 0",
                       borderRadius: 10,
-                      border: "1px solid rgba(148,163,184,0.7)",
-                      background: "transparent",
-                      color: "rgba(148,163,184,0.95)",
+                      border: "none",
+                      background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+                      color: "#0f172a",
                       fontSize: 12,
+                      fontWeight: 800,
                       cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
                     }}
                   >
-                    Open →
+                    Message
                   </button>
                 </div>
               </div>
