@@ -1,5 +1,5 @@
 // pages/jobs/[id].tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
@@ -10,7 +10,6 @@ type Job = {
   title: string | null;
   company_name: string | null;
 
-  // Optional org linkage (if you add org_id and join)
   org_id?: string | null;
   org_slug?: string | null;
 
@@ -20,7 +19,7 @@ type Job = {
   short_description: string | null;
   description: string | null;
 
-  // ✅ new structured fields (safe even if null)
+  // structured fields
   role?: string | null;
   key_responsibilities?: string | null;
   must_have_qualifications?: string | null;
@@ -34,6 +33,17 @@ type Job = {
   created_at?: string | null;
 };
 
+function cleanLinesToList(value?: string | null) {
+  const raw = (value || "").replace(/\r/g, "").trim();
+  if (!raw) return [];
+  return raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^[-•\u2022]\s*/, "").trim())
+    .filter(Boolean);
+}
+
 export default function JobDetailPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -44,7 +54,6 @@ export default function JobDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Load job
   useEffect(() => {
     const fetchJob = async () => {
       if (!id) return;
@@ -52,7 +61,6 @@ export default function JobDetailPage() {
       setLoadError(null);
 
       try {
-        // LEFT JOIN org slug (works even if org_id is null)
         const { data, error } = await supabase
           .from("jobs")
           .select(
@@ -78,9 +86,8 @@ export default function JobDetailPage() {
             id: jobRow.id,
             title: jobRow.title,
             company_name: jobRow.company_name,
-
-            // prefer org_id column (your schema has org_id)
-            org_id: jobRow.org_id ?? jobRow.organisation_id ?? jobRow.organisations_id ?? null,
+            org_id:
+              jobRow.org_id ?? jobRow.organisation_id ?? jobRow.organisations_id ?? null,
             org_slug: orgSlug,
 
             location: jobRow.location,
@@ -89,7 +96,6 @@ export default function JobDetailPage() {
             short_description: jobRow.short_description,
             description: jobRow.description,
 
-            // ✅ new fields
             role: jobRow.role ?? null,
             key_responsibilities: jobRow.key_responsibilities ?? null,
             must_have_qualifications: jobRow.must_have_qualifications ?? null,
@@ -157,85 +163,77 @@ export default function JobDetailPage() {
       .map((k) => k.trim())
       .filter(Boolean) || [];
 
-  // helper for structured sections
-  const renderBlock = (label: string, value?: string | null) => {
-    const v = (value || "").trim();
-    if (!v) return null;
-    return (
-      <div style={{ marginTop: 18 }}>
-        <div className="profile-section-label">{label}</div>
-        <p
-          className="profile-summary-text"
-          style={{ whiteSpace: "pre-wrap", fontSize: 13 }}
-        >
-          {v}
-        </p>
-      </div>
-    );
-  };
+  const responsibilities = useMemo(
+    () => cleanLinesToList(job?.key_responsibilities),
+    [job?.key_responsibilities]
+  );
+  const mustHave = useMemo(
+    () => cleanLinesToList(job?.must_have_qualifications),
+    [job?.must_have_qualifications]
+  );
+  const ideal = useMemo(
+    () => cleanLinesToList(job?.ideal_qualifications),
+    [job?.ideal_qualifications]
+  );
+  const offer = useMemo(
+    () => cleanLinesToList(job?.what_we_offer),
+    [job?.what_we_offer]
+  );
+
+  const hasAnyStructured =
+    !!(job?.role || responsibilities.length || mustHave.length || ideal.length || offer.length);
 
   return (
     <section className="section">
-      <div className="job-detail-shell">
-        {/* Header row */}
-        <div className="section-header job-detail-header">
-          <div>
-            <div className="section-title">Job details</div>
-            <div className="section-sub">
-              A role inside the quantum ecosystem listed on Quantum5ocial.
+      <div className="job-shell">
+        {/* top actions */}
+        <div className="top-actions">
+          <button
+            type="button"
+            className="nav-ghost-btn"
+            onClick={() => router.push("/jobs")}
+            style={{
+              padding: "4px 10px",
+              minWidth: "unset",
+              width: "auto",
+              lineHeight: "1.2",
+            }}
+          >
+            ← Back to jobs
+          </button>
+
+          {isOwner && (
+            <div className="top-actions-right">
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
+                style={{
+                  padding: "4px 10px",
+                  minWidth: "unset",
+                  width: "auto",
+                  lineHeight: "1.2",
+                }}
+              >
+                Edit
+              </button>
+
+              <button
+                type="button"
+                className="nav-cta delete-btn"
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  padding: "4px 10px",
+                  minWidth: "unset",
+                  width: "auto",
+                  lineHeight: "1.2",
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
             </div>
-          </div>
-
-          {/* Back + owner actions in one row */}
-          <div className="header-actions">
-            <button
-              type="button"
-              className="nav-ghost-btn"
-              onClick={() => router.push("/jobs")}
-              style={{
-                padding: "4px 10px",
-                minWidth: "unset",
-                width: "auto",
-                lineHeight: "1.2",
-              }}
-            >
-              ← Back to jobs
-            </button>
-
-            {isOwner && (
-              <>
-                <button
-                  type="button"
-                  className="nav-ghost-btn"
-                  onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
-                  // ✅ tight pill width (fix)
-                  style={{
-                    padding: "4px 10px",
-                    minWidth: "unset",
-                    width: "auto",
-                    lineHeight: "1.2",
-                  }}
-                >
-                  Edit
-                </button>
-
-                <button
-                  type="button"
-                  className="nav-cta delete-btn"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  style={{
-                    padding: "4px 10px",
-                    minWidth: "unset",
-                    width: "auto",
-                    lineHeight: "1.2",
-                  }}
-                >
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
-              </>
-            )}
-          </div>
+          )}
         </div>
 
         {loading && <p className="products-status">Loading job…</p>}
@@ -246,125 +244,160 @@ export default function JobDetailPage() {
         )}
 
         {!loading && !loadError && job && (
-          <div className="product-detail-card">
-            {/* Main top section */}
-            <div className="product-detail-top">
-              <div className="product-detail-main">
-                <h1 className="product-detail-title">
-                  {job.title || "Untitled job"}
-                </h1>
+          <div className="job-card">
+            {/* header / hero */}
+            <div className="hero">
+              <div className="heroLeft">
+                <div className="heroKicker">Job</div>
+                <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-                {/* ✅ Clickable company name if org slug available */}
                 {job.company_name &&
                   (job.org_slug ? (
                     <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
-                      <span
-                        className="product-detail-company"
-                        style={{ textDecoration: "underline", cursor: "pointer" }}
-                      >
-                        {job.company_name}
-                      </span>
+                      <span className="heroCompanyLink">{job.company_name}</span>
                     </Link>
                   ) : (
-                    <div className="product-detail-company">
-                      {job.company_name}
-                    </div>
+                    <div className="heroCompany">{job.company_name}</div>
                   ))}
 
                 {(job.location || job.employment_type || job.remote_type) && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      fontSize: 13,
-                      color: "rgba(148,163,184,0.95)",
-                    }}
-                  >
+                  <div className="heroMeta">
                     {[job.location, job.employment_type, job.remote_type]
                       .filter(Boolean)
                       .join(" · ")}
                   </div>
                 )}
 
-                {formattedDate && (
-                  <div
-                    style={{
-                      marginTop: 4,
-                      fontSize: 12,
-                      color: "rgba(148,163,184,0.75)",
-                    }}
-                  >
-                    Posted on {formattedDate}
+                {(formattedDate || job.salary_display) && (
+                  <div className="heroMeta2">
+                    {formattedDate ? `Posted on ${formattedDate}` : ""}
+                    {formattedDate && job.salary_display ? " · " : ""}
+                    {job.salary_display ? job.salary_display : ""}
                   </div>
                 )}
 
-                {job.salary_display && (
-                  <div className="product-detail-price">
-                    {job.salary_display}
-                  </div>
-                )}
-
-                {job.apply_url && (
-                  <div style={{ marginTop: 14 }}>
+                <div className="heroCtas">
+                  {job.apply_url && (
                     <a
                       href={job.apply_url}
                       target="_blank"
                       rel="noreferrer"
                       className="nav-cta"
-                      style={{
-                        padding: "6px 12px",
-                        minWidth: "unset",
-                        width: "fit-content",
-                      }}
+                      style={{ padding: "6px 12px", minWidth: "unset", width: "fit-content" }}
                     >
                       Apply / learn more
                     </a>
-                  </div>
-                )}
-              </div>
+                  )}
 
-              {/* Summary / short description */}
-              <div className="product-detail-body">
-                {job.short_description && (
-                  <div className="product-detail-section">
-                    <div className="profile-section-label">Summary</div>
-                    <div className="profile-summary-text">
-                      {job.short_description}
-                    </div>
-                  </div>
-                )}
-
-                {keywordList.length > 0 && (
-                  <div className="product-detail-section">
-                    <div className="profile-section-label">Keywords</div>
-                    <div className="profile-tags">
-                      {keywordList.map((k) => (
-                        <span key={k} className="profile-tag-chip">
+                  {keywordList.length > 0 && (
+                    <div className="heroTags" aria-label="Keywords">
+                      {keywordList.slice(0, 6).map((k) => (
+                        <span key={k} className="tagChip">
                           {k}
                         </span>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                {job.short_description && (
+                  <div className="heroSummary">
+                    {job.short_description}
                   </div>
                 )}
               </div>
+
+              {/* decorative banner (matches screenshot vibe) */}
+              <div className="heroRight" aria-hidden="true">
+                <div className="heroImg" />
+                <div className="heroOverlay" />
+                <div className="heroGrid" />
+              </div>
             </div>
 
-            {/* ✅ Structured blocks */}
-            {renderBlock("The role", job.role)}
-            {renderBlock("Key responsibilities", job.key_responsibilities)}
-            {renderBlock("Must-have qualifications", job.must_have_qualifications)}
-            {renderBlock("Ideal qualifications", job.ideal_qualifications)}
-            {renderBlock("What we offer", job.what_we_offer)}
+            {/* body like screenshot */}
+            {hasAnyStructured ? (
+              <div className="jobBody">
+                {/* The Role (full width like screenshot) */}
+                {!!(job.role || "").trim() && (
+                  <div className="block blockRole">
+                    <h2 className="hRole">The Role</h2>
+                    <p className="pText">{(job.role || "").trim()}</p>
+                  </div>
+                )}
 
-            {/* Full description (keep existing) */}
-            {job.description && (
-              <div style={{ marginTop: 24 }}>
-                <div className="profile-section-label">Full description</div>
-                <p
-                  className="profile-summary-text"
-                  style={{ whiteSpace: "pre-wrap", fontSize: 13 }}
-                >
-                  {job.description}
-                </p>
+                {/* 2-column blocks */}
+                <div className="twoCol">
+                  <div className="col">
+                    {responsibilities.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">Key Responsibilities</h3>
+                        <ul className="bullets">
+                          {responsibilities.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {mustHave.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">Must-Have Qualifications</h3>
+                        <ul className="bullets">
+                          {mustHave.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="col">
+                    {ideal.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">Ideal Qualifications</h3>
+                        <ul className="bullets">
+                          {ideal.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {offer.length > 0 && (
+                      <div className="block">
+                        <h3 className="hTeal">What We Offer</h3>
+                        <ul className="bullets">
+                          {offer.map((x, i) => (
+                            <li key={i}>{x}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* optional long description under */}
+                {!!(job.description || "").trim() && (
+                  <div className="block">
+                    <h3 className="hTeal">Full Description</h3>
+                    <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
+                      {(job.description || "").trim()}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // fallback if older jobs have only description
+              <div className="jobBody">
+                {!!(job.description || "").trim() && (
+                  <div className="block">
+                    <h3 className="hTeal">Full Description</h3>
+                    <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
+                      {(job.description || "").trim()}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -372,124 +405,256 @@ export default function JobDetailPage() {
       </div>
 
       <style jsx>{`
-        /* Match homepage & product detail max width */
-        .job-detail-shell {
+        .job-shell {
           width: 100%;
           max-width: 1320px;
           margin: 0 auto;
         }
 
-        .job-detail-header {
-          margin-bottom: 18px;
+        .top-actions {
+          margin-bottom: 12px;
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-
-        /* Container for back + owner actions */
-        .header-actions {
-          display: flex;
-          gap: 8px;
+          gap: 10px;
           flex-wrap: wrap;
           align-items: center;
         }
 
-        .product-detail-card {
-          width: 100%;
-          padding: 24px 22px 28px;
-          border-radius: 18px;
-          background: radial-gradient(
-              circle at top left,
-              rgba(56, 189, 248, 0.06),
-              transparent 55%
-            ),
-            rgba(15, 23, 42, 0.95);
-          border: 1px solid rgba(148, 163, 184, 0.25);
-        }
-
-        .product-detail-top {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 32px;
-        }
-
-        @media (max-width: 900px) {
-          .product-detail-top {
-            grid-template-columns: minmax(0, 1fr);
-          }
-        }
-
-        .product-detail-main {
+        .top-actions-right {
           display: flex;
-          flex-direction: column;
           gap: 8px;
-        }
-
-        .product-detail-title {
-          margin: 0;
-          font-size: 24px;
-          font-weight: 600;
-        }
-
-        .product-detail-company {
-          font-size: 14px;
-          font-weight: 500;
-          color: #7dd3fc;
-        }
-
-        .product-detail-price {
-          margin-top: 10px;
-          font-size: 15px;
-          font-weight: 600;
-          color: #22d3ee;
-        }
-
-        .product-detail-body {
-          margin-top: 22px;
-          padding-top: 16px;
-          border-top: 1px solid rgba(31, 41, 55, 0.9);
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .product-detail-section {
-          max-width: 800px;
-        }
-
-        .profile-section-label {
-          font-size: 13px;
-          font-weight: 700;
-          color: rgba(148, 163, 184, 0.9);
-          margin-bottom: 4px;
-        }
-
-        .profile-summary-text {
-          font-size: 14px;
-          color: rgba(226, 232, 240, 0.92);
-          line-height: 1.5;
-        }
-
-        .profile-tags {
-          display: flex;
           flex-wrap: wrap;
-          gap: 6px;
-        }
-
-        .profile-tag-chip {
-          font-size: 12px;
-          padding: 4px 8px;
-          border-radius: 999px;
-          border: 1px solid rgba(148, 163, 184, 0.4);
-          background: rgba(15, 23, 42, 0.9);
-          color: #cbd5f5;
+          align-items: center;
         }
 
         .delete-btn {
           border-color: rgba(248, 113, 113, 0.7);
           color: #fecaca;
+        }
+
+        .job-card {
+          width: 100%;
+          border-radius: 18px;
+          background: rgba(15, 23, 42, 0.95);
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          overflow: hidden;
+        }
+
+        /* Hero header */
+        .hero {
+          display: grid;
+          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+          gap: 18px;
+          padding: 18px;
+          border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+          background: radial-gradient(
+              circle at 0% 0%,
+              rgba(56, 189, 248, 0.12),
+              transparent 55%
+            ),
+            rgba(15, 23, 42, 0.95);
+        }
+
+        @media (max-width: 900px) {
+          .hero {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .heroRight {
+            display: none;
+          }
+        }
+
+        .heroLeft {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          padding: 4px 2px;
+        }
+
+        .heroKicker {
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(148, 163, 184, 0.9);
+        }
+
+        .heroTitle {
+          margin: 0;
+          font-size: 28px;
+          line-height: 1.15;
+          font-weight: 750;
+          color: rgba(226, 232, 240, 0.98);
+        }
+
+        .heroCompany {
+          font-size: 14px;
+          font-weight: 650;
+          color: #7dd3fc;
+        }
+
+        .heroCompanyLink {
+          font-size: 14px;
+          font-weight: 650;
+          color: #7dd3fc;
+          text-decoration: underline;
+          cursor: pointer;
+          width: fit-content;
+        }
+
+        .heroMeta {
+          margin-top: 2px;
+          font-size: 13px;
+          color: rgba(148, 163, 184, 0.95);
+        }
+
+        .heroMeta2 {
+          font-size: 12px;
+          color: rgba(148, 163, 184, 0.75);
+        }
+
+        .heroCtas {
+          margin-top: 8px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+
+        .heroTags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .tagChip {
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(148, 163, 184, 0.35);
+          background: rgba(2, 6, 23, 0.55);
+          color: rgba(226, 232, 240, 0.9);
+        }
+
+        .heroSummary {
+          margin-top: 10px;
+          max-width: 860px;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.55;
+        }
+
+        .heroRight {
+          position: relative;
+          border-radius: 14px;
+          overflow: hidden;
+          min-height: 190px;
+          border: 1px solid rgba(148, 163, 184, 0.22);
+          background: rgba(2, 6, 23, 0.35);
+        }
+
+        .heroImg {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            135deg,
+            rgba(245, 158, 11, 0.35),
+            rgba(249, 115, 22, 0.18),
+            rgba(15, 23, 42, 0.1)
+          );
+          filter: saturate(1.15);
+        }
+
+        .heroOverlay {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.10), transparent 55%);
+          mix-blend-mode: screen;
+          pointer-events: none;
+        }
+
+        .heroGrid {
+          position: absolute;
+          inset: 0;
+          background-image: linear-gradient(
+              rgba(255, 255, 255, 0.06) 1px,
+              transparent 1px
+            ),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+          background-size: 34px 34px;
+          opacity: 0.18;
+        }
+
+        /* Body blocks like screenshot */
+        .jobBody {
+          padding: 18px 20px 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        .block {
+          max-width: 1100px;
+        }
+
+        .blockRole {
+          max-width: 920px;
+        }
+
+        .hRole {
+          margin: 0 0 8px;
+          font-size: 26px;
+          font-weight: 800;
+          color: #7c3aed; /* purple like screenshot */
+          letter-spacing: -0.01em;
+        }
+
+        .hTeal {
+          margin: 0 0 10px;
+          font-size: 22px;
+          font-weight: 800;
+          color: #2dd4bf; /* teal like screenshot */
+          letter-spacing: -0.01em;
+        }
+
+        .pText {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.65;
+          white-space: pre-wrap;
+        }
+
+        .twoCol {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 24px;
+          align-items: start;
+        }
+
+        @media (max-width: 900px) {
+          .twoCol {
+            grid-template-columns: minmax(0, 1fr);
+          }
+        }
+
+        .col {
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
+        }
+
+        .bullets {
+          margin: 0;
+          padding-left: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .bullets li {
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.92);
+          line-height: 1.6;
         }
       `}</style>
     </section>
