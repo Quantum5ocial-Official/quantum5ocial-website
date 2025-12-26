@@ -258,14 +258,14 @@ export default function JobDetailPage() {
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
               {/* ✅ truly clickable */}
-              {job.company_name &&
-                (job.org_slug ? (
-                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} legacyBehavior>
-                    <a className="heroCompanyLink">{job.company_name}</a>
-                  </Link>
-                ) : (
-                  <div className="heroCompany">{job.company_name}</div>
-                ))}
+              {{job.company_name &&
+  (job.org_slug ? (
+    <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
+      <a className="heroCompanyLink">{job.company_name}</a>
+    </Link>
+  ) : (
+    <div className="heroCompany">{job.company_name}</div>
+  ))}
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
