@@ -563,14 +563,7 @@ export default function LeftSidebar() {
                 <div>
                   Views: <span>0</span>
                 </div>
-                <div
-                  style={{
-                    marginTop: 4,
-                    color: "#38bdf8", // bluish Analytics link
-                  }}
-                >
-                  Analytics →
-                </div>
+                
               </div>
             </div>
           </div>
