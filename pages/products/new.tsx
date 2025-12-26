@@ -70,7 +70,7 @@ export default function NewProductPage() {
   const router = useRouter();
 
   const id = firstQueryValue(router.query.id as any);
-  const orgParam = firstQueryValue(router.query.org as any); // ✅ optional: slug OR uuid (when coming from org page)
+  const orgParam = firstQueryValue(router.query.org as any);
 
   const isEditMode = !!id;
 
@@ -91,34 +91,29 @@ export default function NewProductPage() {
 
     product_url: "",
     keywords: "",
-    price_type: "contact", // 'fixed' | 'contact'
+    price_type: "contact",
     price_value: "",
-    in_stock: "yes", // 'yes' | 'no'
+    in_stock: "yes",
     stock_quantity: "",
   });
 
-  // existing file URLs when editing
   const [existingImages, setExistingImages] = useState<(string | null)[]>([null, null, null]);
   const [existingDatasheetUrl, setExistingDatasheetUrl] = useState<string | null>(null);
 
-  // new files chosen in the form
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [datasheetFile, setDatasheetFile] = useState<File | null>(null);
 
   const [loadingExisting, setLoadingExisting] = useState(false);
 
-  // ✅ Org context (required for creating)
   const [org, setOrg] = useState<Org | null>(null);
   const [loadingOrg, setLoadingOrg] = useState(false);
   const [canListForOrg, setCanListForOrg] = useState(false);
 
-  // ✅ Marketplace mode support: auto-pick eligible org(s)
   const [eligibleOrgs, setEligibleOrgs] = useState<Org[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
 
   const isMarketplaceCreate = !isEditMode && !orgParam;
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) {
       router.replace(
@@ -129,7 +124,6 @@ export default function NewProductPage() {
     }
   }, [loading, user, router, isEditMode, id]);
 
-  // ✅ Load eligible orgs if user opens /products/new from marketplace (no org param)
   useEffect(() => {
     const loadEligibleOrgs = async () => {
       if (!router.isReady) return;
@@ -140,7 +134,6 @@ export default function NewProductPage() {
       setCreateError(null);
 
       try {
-        // 1) Orgs where user is creator
         const { data: created, error: createdErr } = await supabase
           .from("organizations")
           .select("id,name,slug,created_by,is_active")
@@ -149,7 +142,6 @@ export default function NewProductPage() {
 
         if (createdErr) throw createdErr;
 
-        // 2) Orgs where user is owner/co_owner member
         const { data: memberRows, error: memberErr } = await supabase
           .from("org_members")
           .select("org_id, role")
@@ -172,14 +164,12 @@ export default function NewProductPage() {
 
         if (memberOrgsErr) throw memberOrgsErr;
 
-        // Merge unique
         const merged = [...(created || []), ...(memberOrgs || [])] as Org[];
         const uniq = Array.from(new Map(merged.map((o) => [o.id, o])).values());
 
         setEligibleOrgs(uniq);
 
         if (uniq.length === 1) {
-          // Auto-pick single org
           const only = uniq[0];
           setOrg(only);
           setSelectedOrgId(only.id);
@@ -187,12 +177,10 @@ export default function NewProductPage() {
           setForm((prev) => ({ ...prev, company_name: only.name || prev.company_name }));
           setCreateError(null);
         } else if (uniq.length > 1) {
-          // Require explicit selection
           setOrg(null);
           setCanListForOrg(false);
           setCreateError("Choose an organization to publish under.");
         } else {
-          // None
           setOrg(null);
           setCanListForOrg(false);
           setCreateError("You need an organization to publish a product.");
@@ -211,7 +199,6 @@ export default function NewProductPage() {
     loadEligibleOrgs();
   }, [router.isReady, user, isMarketplaceCreate]);
 
-  // ✅ When user selects org in marketplace mode
   const onPickOrg = (orgId: string) => {
     setSelectedOrgId(orgId);
     const found = eligibleOrgs.find((o) => o.id === orgId) || null;
@@ -230,15 +217,11 @@ export default function NewProductPage() {
     setForm((prev) => ({ ...prev, company_name: found.name || prev.company_name }));
   };
 
-  // ✅ Load org context when orgParam is provided (coming from org page)
   useEffect(() => {
     const loadOrgContextFromParam = async () => {
       if (!router.isReady) return;
       if (!user) return;
-
-      // Only run this effect when orgParam is present (org page flow)
       if (!orgParam) return;
-      if (isEditMode && !orgParam) return;
 
       setLoadingOrg(true);
       setCreateError(null);
@@ -276,7 +259,6 @@ export default function NewProductPage() {
         setOrg(foundOrg);
         setSelectedOrgId(foundOrg.id);
 
-        // ✅ Permission: creator OR owner/co_owner can list
         let allowed = false;
 
         if (foundOrg.created_by && foundOrg.created_by === user.id) {
@@ -296,7 +278,6 @@ export default function NewProductPage() {
 
         setCanListForOrg(allowed);
 
-        // ✅ Auto-fill & lock company_name
         setForm((prev) => ({
           ...prev,
           company_name: foundOrg!.name || prev.company_name,
@@ -318,7 +299,6 @@ export default function NewProductPage() {
     loadOrgContextFromParam();
   }, [router.isReady, user, isEditMode, orgParam]);
 
-  // If edit mode: load existing product & prefill
   useEffect(() => {
     const loadExisting = async () => {
       if (!router.isReady) return;
@@ -327,11 +307,7 @@ export default function NewProductPage() {
       setLoadingExisting(true);
       setCreateError(null);
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
+      const { data, error } = await supabase.from("products").select("*").eq("id", id).maybeSingle();
 
       if (error || !data) {
         console.error("Error loading product for edit", error);
@@ -342,26 +318,19 @@ export default function NewProductPage() {
 
       const product = data as ProductRow;
 
-      // Only allow owner to edit
       if (product.owner_id && product.owner_id !== user.id) {
         setCreateError("You are not allowed to edit this product.");
         setLoadingExisting(false);
         return;
       }
 
-      // Prefill form
       setForm({
         name: product.name || "",
         company_name: product.company_name || "",
         category: product.category || "",
         short_description: product.short_description || "",
-
-        // ✅ NEW
         full_description: (product as any).full_description || "",
-
-        // ✅ one-liner
         specifications: product.specifications || "",
-
         product_url: product.product_url || "",
         keywords: product.keywords || "",
         price_type: product.price_type === "fixed" ? "fixed" : "contact",
@@ -373,7 +342,6 @@ export default function NewProductPage() {
       setExistingImages([product.image1_url, product.image2_url, product.image3_url]);
       setExistingDatasheetUrl(product.datasheet_url);
 
-      // ✅ If product has org_id, load org + lock company_name
       if (product.org_id && !org) {
         setLoadingOrg(true);
 
@@ -444,7 +412,6 @@ export default function NewProductPage() {
     e.preventDefault();
     if (!user) return;
 
-    // ✅ enforce org requirement in create mode
     if (!isEditMode) {
       if (!org) {
         setCreateError(
@@ -486,7 +453,6 @@ export default function NewProductPage() {
       let productId: string;
 
       if (isEditMode && id) {
-        // UPDATE existing product
         const { error: updateBaseError } = await supabase
           .from("products")
           .update({
@@ -494,13 +460,8 @@ export default function NewProductPage() {
             company_name: form.company_name.trim() || null,
             category: form.category || null,
             short_description: form.short_description.trim() || null,
-
-            // ✅ NEW
             full_description: form.full_description.trim() || null,
-
-            // ✅ one-liner
             specifications: form.specifications.trim() || null,
-
             product_url: form.product_url.trim() || null,
             keywords: form.keywords.trim() || null,
             price_type: priceType,
@@ -520,20 +481,16 @@ export default function NewProductPage() {
 
         productId = id;
       } else {
-        // INSERT new product (✅ requires org)
         const { data: inserted, error: insertError } = await supabase
           .from("products")
           .insert({
             owner_id: user.id,
-            org_id: org!.id, // ✅ required linkage
+            org_id: org!.id,
             name: form.name.trim(),
-            company_name: org!.name, // ✅ force org name
+            company_name: org!.name,
             category: form.category || null,
             short_description: form.short_description.trim() || null,
-
-            // ✅ NEW
             full_description: form.full_description.trim() || null,
-
             specifications: form.specifications.trim() || null,
             product_url: form.product_url.trim() || null,
             keywords: form.keywords.trim() || null,
@@ -555,11 +512,9 @@ export default function NewProductPage() {
         productId = (inserted as any).id as string;
       }
 
-      // --- FILES ---
       let imageUrls: (string | null)[] = isEditMode ? [...existingImages] : [null, null, null];
       let datasheetUrl: string | null = isEditMode ? existingDatasheetUrl : null;
 
-      // Overwrite images if new ones provided
       if (imageFiles.length > 0) {
         imageUrls = [null, null, null];
         for (let i = 0; i < imageFiles.length; i++) {
@@ -571,7 +526,6 @@ export default function NewProductPage() {
         }
       }
 
-      // Overwrite datasheet if new one provided
       if (datasheetFile) {
         const ext = datasheetFile.name.split(".").pop() || "pdf";
         const path = `${user.id}/${productId}/datasheet-${Date.now()}.${ext}`;
@@ -579,7 +533,6 @@ export default function NewProductPage() {
         datasheetUrl = url;
       }
 
-      // Update URLs
       const { error: updateFilesError } = await supabase
         .from("products")
         .update({
@@ -623,7 +576,8 @@ export default function NewProductPage() {
       <div className="page">
         <Navbar />
 
-        <section className="section">
+        {/* ✅ negative top offset like jobs/new */}
+        <section className="section" style={{ marginTop: -60 }}>
           <div className="section-header" style={{ alignItems: "flex-start" }}>
             <div>
               <div className="section-title">{title}</div>
@@ -662,13 +616,12 @@ export default function NewProductPage() {
             <p className="profile-muted">Loading product data…</p>
           ) : (
             <div className="products-create-layout">
-              {/* ✅ span full width since tips removed */}
               <div className="products-create-main" style={{ gridColumn: "1 / -1" }}>
                 <div className="products-create-card">
                   <h3 className="products-create-title">Product details</h3>
 
                   <form onSubmit={handleSubmit} className="products-create-form">
-                    {/* SECTION: Basic info */}
+                    {/* Basics */}
                     <div className="products-section">
                       <div className="products-section-header">
                         <h4 className="products-section-title">Basics</h4>
@@ -691,7 +644,10 @@ export default function NewProductPage() {
                         {showPublishAsPicker && (
                           <div className="products-field">
                             <label>Publish as *</label>
-                            <select value={selectedOrgId} onChange={(e) => onPickOrg(e.target.value)}>
+                            <select
+                              value={selectedOrgId}
+                              onChange={(e) => onPickOrg(e.target.value)}
+                            >
                               <option value="">Select…</option>
                               {eligibleOrgs.map((o) => (
                                 <option key={o.id} value={o.id}>
@@ -755,7 +711,7 @@ export default function NewProductPage() {
                       </div>
                     </div>
 
-                    {/* SECTION: Technical details */}
+                    {/* Technical details */}
                     <div className="products-section">
                       <div className="products-section-header">
                         <h4 className="products-section-title">Technical details</h4>
@@ -765,7 +721,6 @@ export default function NewProductPage() {
                       </div>
 
                       <div className="products-grid">
-                        {/* ✅ one-liner */}
                         <div className="products-field products-field-full">
                           <label>Technical details (one line)</label>
                           <input
@@ -776,7 +731,6 @@ export default function NewProductPage() {
                           />
                         </div>
 
-                        {/* ✅ new full description */}
                         <div className="products-field products-field-full">
                           <label>Full description</label>
                           <textarea
@@ -799,7 +753,7 @@ export default function NewProductPage() {
                       </div>
                     </div>
 
-                    {/* SECTION: Price & stock */}
+                    {/* Price & stock */}
                     <div className="products-section">
                       <div className="products-section-header">
                         <h4 className="products-section-title">Price & stock</h4>
@@ -870,7 +824,7 @@ export default function NewProductPage() {
                       </div>
                     </div>
 
-                    {/* SECTION: Media */}
+                    {/* Media */}
                     <div className="products-section">
                       <div className="products-section-header">
                         <h4 className="products-section-title">Media</h4>
