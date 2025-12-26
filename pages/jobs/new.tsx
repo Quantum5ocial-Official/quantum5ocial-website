@@ -44,7 +44,6 @@ type JobRow = {
   remote_type: string | null;
   short_description: string | null;
 
-  // ✅ NEW long-form field name
   additional_description: string | null;
 
   keywords: string | null;
@@ -103,7 +102,6 @@ export default function NewJobPage() {
     must_have_qualifications: "",
     what_we_offer: "",
 
-    // ✅ rename: description -> additional_description
     additional_description: "",
 
     keywords: "",
@@ -335,7 +333,11 @@ export default function NewJobPage() {
       if (!jobId || !user) return;
       setLoadError(null);
 
-      const { data, error } = await supabase.from("jobs").select("*").eq("id", jobId).maybeSingle();
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("id", jobId)
+        .maybeSingle();
 
       if (error) {
         console.error("Error loading job to edit", error);
@@ -353,7 +355,6 @@ export default function NewJobPage() {
 
       const job = data as JobRow;
 
-      // if job already has org_id, load that org to lock company_name and keep consistent behavior
       if (job.org_id) {
         const { data: orgRow } = await supabase
           .from("organizations")
@@ -364,8 +365,6 @@ export default function NewJobPage() {
         if (orgRow) {
           setOrg(orgRow as Org);
           setSelectedOrgId((orgRow as any).id || "");
-          // NOTE: permission is still enforced by owner_id check above for editing;
-          // but keep canPostAsOrg true for UX (button enable).
           setCanPostAsOrg(true);
         }
       }
@@ -384,11 +383,8 @@ export default function NewJobPage() {
         must_have_qualifications: job.must_have_qualifications || "",
         what_we_offer: job.what_we_offer || "",
 
-        // ✅ load additional_description (and keep a fallback for legacy rows if any)
         additional_description:
-          (job as any).additional_description ||
-          (job as any).description ||
-          "",
+          (job as any).additional_description || (job as any).description || "",
 
         keywords: job.keywords || "",
         salary_display: job.salary_display || "",
@@ -454,14 +450,12 @@ export default function NewJobPage() {
       must_have_qualifications: form.must_have_qualifications.trim() || null,
       what_we_offer: form.what_we_offer.trim() || null,
 
-      // ✅ write correct column name
       additional_description: form.additional_description.trim() || null,
 
       keywords: form.keywords.trim() || null,
       salary_display: form.salary_display.trim() || null,
       apply_url: form.apply_url.trim() || null,
 
-      // ✅ always write org_id
       org_id: org ? org.id : null,
     };
 
@@ -521,8 +515,8 @@ export default function NewJobPage() {
       <div className="page">
         <Navbar />
 
-        {/* ✅ reduce big top gap */}
-        <section className="section" style={{ paddingTop: 10 }}>
+        {/* ✅ remove top space */}
+        <section className="section" style={{ paddingTop: 0, marginTop: 0 }}>
           <div className="section-header" style={{ alignItems: "flex-start", marginTop: 0 }}>
             <div>
               <div className="section-title">{isEditing ? "Edit job" : "Post a job"}</div>
@@ -551,9 +545,12 @@ export default function NewJobPage() {
           {!isEditing && loadingOrg && <p className="profile-muted">Loading organization…</p>}
 
           <div className="products-create-layout">
-            <div className="products-create-main">
+            {/* ✅ span full width since we removed tips */}
+            <div className="products-create-main" style={{ gridColumn: "1 / -1" }}>
               <div className="products-create-card">
-                <h3 className="products-create-title">{isEditing ? "Job details" : "New job listing"}</h3>
+                <h3 className="products-create-title">
+                  {isEditing ? "Job details" : "New job listing"}
+                </h3>
 
                 {loadError && (
                   <p className="products-status error" style={{ marginBottom: 10 }}>
@@ -566,19 +563,29 @@ export default function NewJobPage() {
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Basics</h4>
-                      <p className="products-section-sub">Role title, organisation, and where it&apos;s based.</p>
+                      <p className="products-section-sub">
+                        Role title, organisation, and where it&apos;s based.
+                      </p>
                     </div>
 
                     <div className="products-grid">
                       <div className="products-field">
                         <label>Job title *</label>
-                        <input type="text" value={form.title} onChange={handleChange("title")} required />
+                        <input
+                          type="text"
+                          value={form.title}
+                          onChange={handleChange("title")}
+                          required
+                        />
                       </div>
 
                       {showPublishAsPicker && (
                         <div className="products-field">
                           <label>Publish as *</label>
-                          <select value={selectedOrgId} onChange={(e) => onPickOrg(e.target.value)}>
+                          <select
+                            value={selectedOrgId}
+                            onChange={(e) => onPickOrg(e.target.value)}
+                          >
                             <option value="">Select…</option>
                             {eligibleOrgs.map((o) => (
                               <option key={o.id} value={o.id}>
@@ -620,7 +627,10 @@ export default function NewJobPage() {
 
                       <div className="products-field">
                         <label>Employment type</label>
-                        <select value={form.employment_type} onChange={handleChange("employment_type")}>
+                        <select
+                          value={form.employment_type}
+                          onChange={handleChange("employment_type")}
+                        >
                           <option value="">Select…</option>
                           {EMPLOYMENT_TYPES.map((t) => (
                             <option key={t} value={t}>
@@ -658,7 +668,9 @@ export default function NewJobPage() {
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Role details</h4>
-                      <p className="products-section-sub">Structured fields help candidates scan fast.</p>
+                      <p className="products-section-sub">
+                        Structured fields help candidates scan fast.
+                      </p>
                     </div>
 
                     <div className="products-grid">
@@ -714,7 +726,7 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
-                  {/* ✅ Additional description (fixed column) */}
+                  {/* Additional description */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Additional description</h4>
@@ -750,7 +762,9 @@ export default function NewJobPage() {
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Salary & application</h4>
-                      <p className="products-section-sub">Optional salary information and where to apply.</p>
+                      <p className="products-section-sub">
+                        Optional salary information and where to apply.
+                      </p>
                     </div>
 
                     <div className="products-grid">
@@ -780,9 +794,20 @@ export default function NewJobPage() {
                     <button
                       type="submit"
                       className="nav-cta"
-                      disabled={saving || (!isEditing && (!org || !canPostAsOrg)) || loadingOrg || loading}
+                      disabled={
+                        saving ||
+                        (!isEditing && (!org || !canPostAsOrg)) ||
+                        loadingOrg ||
+                        loading
+                      }
                     >
-                      {saving ? (isEditing ? "Updating…" : "Publishing…") : isEditing ? "Save changes" : "Publish job"}
+                      {saving
+                        ? isEditing
+                          ? "Updating…"
+                          : "Publishing…"
+                        : isEditing
+                        ? "Save changes"
+                        : "Publish job"}
                     </button>
 
                     {saveError && <span className="products-status error">{saveError}</span>}
@@ -791,18 +816,8 @@ export default function NewJobPage() {
               </div>
             </div>
 
-            <aside className="products-create-aside">
-              <div className="products-tips-card">
-                <h4 className="products-tips-title">Tips for a strong job post</h4>
-                <ul className="products-tips-list">
-                  <li>Use a specific title (e.g. “Spin qubit postdoc”).</li>
-                  <li>Mention the main platform (superconducting, ion trap, …).</li>
-                  <li>Include key requirements and location clearly.</li>
-                  <li>Add salary range if possible.</li>
-                  <li>Link to a lab or company page for more context.</li>
-                </ul>
-              </div>
-            </aside>
+            {/* ✅ tips removed */}
+            <aside className="products-create-aside" style={{ display: "none" }} />
           </div>
         </section>
       </div>
