@@ -18,7 +18,6 @@ type Job = {
   remote_type: string | null;
   short_description: string | null;
 
-  // ✅ renamed
   additional_description: string | null;
 
   role?: string | null;
@@ -99,7 +98,6 @@ export default function JobDetailPage() {
             remote_type: jobRow.remote_type,
             short_description: jobRow.short_description,
 
-            // ✅ renamed field (DB column)
             additional_description: jobRow.additional_description ?? null,
 
             role: jobRow.role ?? null,
@@ -197,7 +195,6 @@ export default function JobDetailPage() {
   return (
     <section className="section">
       <div className="job-shell">
-        {/* top actions */}
         <div className="top-actions">
           <button
             type="button"
@@ -256,15 +253,15 @@ export default function JobDetailPage() {
 
         {!loading && !loadError && job && (
           <div className="job-card">
-            {/* ✅ HERO (single-column) */}
             <div className="hero">
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
+              {/* ✅ truly clickable */}
               {job.company_name &&
                 (job.org_slug ? (
-                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
-                    <span className="heroCompanyLink">{job.company_name}</span>
+                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} legacyBehavior>
+                    <a className="heroCompanyLink">{job.company_name}</a>
                   </Link>
                 ) : (
                   <div className="heroCompany">{job.company_name}</div>
@@ -321,7 +318,6 @@ export default function JobDetailPage() {
 
             <div className="divider" />
 
-            {/* body */}
             {hasAnyStructured ? (
               <div className="jobBody">
                 {!!(job.role || "").trim() && (
@@ -489,6 +485,10 @@ export default function JobDetailPage() {
           text-decoration: underline;
           cursor: pointer;
           width: fit-content;
+        }
+
+        .heroCompanyLink:hover {
+          opacity: 0.95;
         }
 
         .heroMeta {
