@@ -564,9 +564,15 @@ export default function NewProductPage() {
   const lockCompanyField = !!org;
 
   const backTarget = useMemo(() => {
-    if (org?.slug) return `/orgs/${org.slug}?tab=products`;
-    return isEditMode ? (id ? `/products/${id}` : "/products") : "/products";
-  }, [org?.slug, isEditMode, id]);
+  // ✅ If editing: always go back to the product detail page
+  if (isEditMode) return id ? `/products/${id}` : "/products";
+
+  // ✅ If creating from an org page: go back to org products tab
+  if (org?.slug) return `/orgs/${org.slug}?tab=products`;
+
+  // ✅ If creating from marketplace: go back to products list
+  return "/products";
+}, [isEditMode, id, org?.slug]);
 
   const showPublishAsPicker = !isEditMode && isMarketplaceCreate && eligibleOrgs.length > 1;
 
