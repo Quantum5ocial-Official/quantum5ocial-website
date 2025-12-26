@@ -516,7 +516,7 @@ export default function NewJobPage() {
         <Navbar />
 
         {/* ✅ remove top space */}
-        <section className="section" style={{ paddingTop: 0, marginTop: -50 }}>
+        <section className="section" style={{ paddingTop: 0, marginTop: -60 }}>
           <div className="section-header" style={{ alignItems: "flex-start", marginTop: -32 }}>
             <div>
               <div className="section-title">{isEditing ? "Edit job" : "Post a job"}</div>
