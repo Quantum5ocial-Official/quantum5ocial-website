@@ -258,7 +258,7 @@ export default function JobDetailPage() {
         )}
 
         {!loading && !loadError && job && (
-          <div className="job-card">
+          <div className="job-detail-card">
             <div className="hero">
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
@@ -433,7 +433,7 @@ export default function JobDetailPage() {
         }
 
         /* ✅ force normal cursor across card */
-        .job-card,
+        .job-detail-card,
         .hero,
         .jobBody,
         .block,
@@ -442,7 +442,7 @@ export default function JobDetailPage() {
           cursor: default;
         }
 
-        .job-card {
+        .job-detail-card {
           width: 100%;
           border-radius: 18px;
           background: rgba(15, 23, 42, 0.95);
