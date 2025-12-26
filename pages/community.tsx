@@ -517,9 +517,9 @@ function CommunityMiddle() {
                 )}
               </div>
               <div className="section-sub" style={{ maxWidth: 520, lineHeight: 1.45 }}>
-                Discover members, labs, and companies in the quantum ecosystem{" "}
+                Discover people, labs, and companies in the quantum ecosystem{" "}
                 <span style={{ color: "#7dd3fc" }}>
-                  – entangle with people and follow organizations that matter to you.
+                  – entangle and follow.
                 </span>
               </div>
             </div>
@@ -535,9 +535,6 @@ function CommunityMiddle() {
             >
               <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
                 View my ecosystem →
-              </Link>
-              <Link href="/orgs" className="section-link" style={{ fontSize: 13 }}>
-                Browse organizations →
               </Link>
             </div>
           </div>
