@@ -8,12 +8,16 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 type Product = {
   id: string;
   owner_id: string | null;
-  org_id: string | null;          // <-- new: link to organization
+  org_id: string | null; // link to organization
   name: string;
   company_name: string | null;
   category: string | null;
   short_description: string | null;
   specifications: string | null;
+
+  // ✅ NEW
+  full_description?: string | null;
+
   product_url: string | null;
   keywords: string | null;
   price_type: string | null;
@@ -33,15 +37,13 @@ export default function ProductDetailPage() {
 
   const { user, loading: userLoading } = useSupabaseUser();
   const [product, setProduct] = useState<Product | null>(null);
-  const [orgSlug, setOrgSlug] = useState<string | null>(null); // slug of linked org
+  const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // active image index for carousel
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Load product
   useEffect(() => {
     if (!id) return;
 
@@ -62,19 +64,14 @@ export default function ProductDetailPage() {
       } else {
         setProduct(data as Product);
 
-        // if product has an org_id, fetch org slug for linking
-        if (data && data.org_id) {
+        if (data && (data as any).org_id) {
           const { data: orgData, error: orgErr } = await supabase
             .from("organizations")
             .select("slug")
-            .eq("id", data.org_id)
+            .eq("id", (data as any).org_id)
             .maybeSingle<{ slug: string }>();
 
-          if (!orgErr && orgData) {
-            setOrgSlug(orgData.slug);
-          } else {
-            // optional: keep orgSlug null; linking disabled
-          }
+          if (!orgErr && orgData) setOrgSlug(orgData.slug);
         }
       }
 
@@ -84,7 +81,6 @@ export default function ProductDetailPage() {
     load();
   }, [id]);
 
-  // Reset carousel index whenever product images change
   useEffect(() => {
     setActiveIndex(0);
   }, [product?.image1_url, product?.image2_url, product?.image3_url]);
@@ -103,10 +99,7 @@ export default function ProductDetailPage() {
     setDeleting(true);
     setErrorMsg(null);
 
-    const { error } = await supabase
-      .from("products")
-      .delete()
-      .eq("id", product.id);
+    const { error } = await supabase.from("products").delete().eq("id", product.id);
 
     if (error) {
       console.error("Error deleting product", error);
@@ -135,13 +128,8 @@ export default function ProductDetailPage() {
     );
   }
 
-  // 💰 Price label
-  const hasFixedPrice =
-    product.price_type === "fixed" && product.price_value !== null;
-
-  const priceLabel = hasFixedPrice
-    ? String(product.price_value)
-    : "Contact for price";
+  const hasFixedPrice = product.price_type === "fixed" && product.price_value !== null;
+  const priceLabel = hasFixedPrice ? String(product.price_value) : "Contact for price";
 
   const stockLabel =
     product.in_stock === false
@@ -175,21 +163,18 @@ export default function ProductDetailPage() {
   return (
     <section className="section">
       <div className="product-detail-shell">
-        {/* Header with actions – aligned to same width as card */}
         <div className="section-header product-detail-header">
           <div>
             <div className="section-title">{product.name}</div>
             <div className="section-sub">
               {product.company_name ? (
                 orgSlug ? (
-                  // clickable link to org page
                   <Link href={`/orgs/${encodeURIComponent(orgSlug)}`}>
                     <a style={{ color: "#7dd3fc", textDecoration: "underline" }}>
                       Listed by {product.company_name}
                     </a>
                   </Link>
                 ) : (
-                  // org slug not available; fallback plain text
                   <>Listed by {product.company_name}</>
                 )
               ) : (
@@ -198,9 +183,10 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Link href="/products" className="nav-ghost-btn">
-              ← Back to products
+          {/* ✅ single-row actions */}
+          <div className="product-actions">
+            <Link href="/products">
+              <a className="nav-ghost-btn">← Back to products</a>
             </Link>
 
             {isOwner && (
@@ -227,10 +213,8 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Main card */}
         <div className="product-detail-card">
           <div className="product-detail-top">
-            {/* LEFT: image carousel */}
             <div className="product-detail-images">
               {images.length > 0 ? (
                 <div className="product-detail-carousel">
@@ -280,7 +264,6 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* RIGHT: main info */}
             <div className="product-detail-main">
               {product.category && (
                 <div className="product-detail-category">{product.category}</div>
@@ -343,12 +326,23 @@ export default function ProductDetailPage() {
             </div>
           </div>
 
-          {/* Bottom: specifications */}
           <div className="product-detail-body">
             {product.specifications && (
               <div className="product-detail-section">
                 <div className="profile-section-label">Specifications</div>
-                <p className="profile-summary-text">{product.specifications}</p>
+                <p className="profile-summary-text" style={{ whiteSpace: "pre-wrap" }}>
+                  {product.specifications}
+                </p>
+              </div>
+            )}
+
+            {/* ✅ NEW: Full description below specs */}
+            {!!(product.full_description || "").trim() && (
+              <div className="product-detail-section">
+                <div className="profile-section-label">Full description</div>
+                <p className="profile-summary-text" style={{ whiteSpace: "pre-wrap" }}>
+                  {(product.full_description || "").trim()}
+                </p>
               </div>
             )}
           </div>
@@ -358,7 +352,6 @@ export default function ProductDetailPage() {
           )}
         </div>
 
-        {/* Optional debug */}
         {process.env.NODE_ENV === "development" && (
           <div style={{ marginTop: 20, fontSize: 11, color: "#64748b" }}>
             <div>Debug:</div>
@@ -371,7 +364,6 @@ export default function ProductDetailPage() {
       </div>
 
       <style jsx>{`
-        /* Outer shell -> same width as homepage layout-3col (1320px) */
         .product-detail-shell {
           width: 100%;
           max-width: 1320px;
@@ -381,6 +373,21 @@ export default function ProductDetailPage() {
         .product-detail-header {
           margin-bottom: 18px;
           align-items: flex-start;
+        }
+
+        /* ✅ keep actions on one row */
+        .product-actions {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: nowrap;
+          white-space: nowrap;
+        }
+
+        @media (max-width: 700px) {
+          .product-actions {
+            flex-wrap: wrap; /* allow wrap only on small screens */
+          }
         }
 
         .product-detail-card {
@@ -505,8 +512,11 @@ export default function ProductDetailPage() {
           gap: 8px;
         }
 
+        /* ✅ category pill fits text */
         .product-detail-category {
-          display: inline-block;
+          display: inline-flex;
+          width: fit-content;
+          align-self: flex-start;
           margin-bottom: 4px;
           font-size: 11px;
           padding: 2px 8px;
@@ -546,7 +556,6 @@ export default function ProductDetailPage() {
   );
 }
 
-// ✅ global layout: left sidebar + middle only, no right column
 (ProductDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
