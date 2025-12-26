@@ -283,32 +283,34 @@ export default function JobDetailPage() {
         {!loading && !loadError && job && (
           <div className="job-detail-card">
             <div className="hero">
-              {/* ✅ top row: JOB (left) + org/company (right) */}
+              {/* ✅ JOB BY: ... (same row), posted stays top-right under it */}
               <div className="heroTopRow">
-                <div className="heroKicker">JOB</div>
+                <div className="heroByRow">
+                  <div className="heroKicker">JOB BY:</div>
 
-                {job.company_name ? (
-                  job.org_slug ? (
-                    <Link
-                      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
-                      legacyBehavior
-                      passHref
-                    >
-                      <a className="heroCompanyLink heroTopOrg">{job.company_name}</a>
-                    </Link>
+                  {job.company_name ? (
+                    job.org_slug ? (
+                      <Link
+                        href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+                        legacyBehavior
+                        passHref
+                      >
+                        <a className="heroCompanyLink">{job.company_name}</a>
+                      </Link>
+                    ) : (
+                      <div className="heroCompany">{job.company_name}</div>
+                    )
                   ) : (
-                    <div className="heroCompany heroTopOrg">{job.company_name}</div>
-                  )
-                ) : (
-                  <div />
-                )}
-              </div>
+                    <div className="heroCompany" style={{ opacity: 0.6 }}>
+                      —
+                    </div>
+                  )}
+                </div>
 
-              {/* title left + posted ago top-right */}
-              <div className="heroTitleRow">
-                <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
                 {postedAgo && <div className="heroPosted">Posted — {postedAgo}</div>}
               </div>
+
+              <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
@@ -320,7 +322,6 @@ export default function JobDetailPage() {
 
               {job.salary_display && <div className="heroMeta2">{job.salary_display}</div>}
 
-              {/* Apply first row, keywords below */}
               <div className="heroCtas">
                 {job.apply_url && (
                   <div className="heroApplyRow">
@@ -497,9 +498,17 @@ export default function JobDetailPage() {
 
         .heroTopRow {
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: space-between;
-          gap: 10px;
+          gap: 14px;
+        }
+
+        .heroByRow {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          min-width: 0;
         }
 
         .heroKicker {
@@ -507,19 +516,14 @@ export default function JobDetailPage() {
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(148, 163, 184, 0.9);
+          white-space: nowrap;
         }
 
-        .heroTopOrg {
+        .heroPosted {
+          margin-top: 2px;
           font-size: 12px;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-        }
-
-        .heroTitleRow {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 14px;
+          color: rgba(148, 163, 184, 0.85);
+          white-space: nowrap;
         }
 
         .heroTitle {
@@ -528,13 +532,6 @@ export default function JobDetailPage() {
           line-height: 1.15;
           font-weight: 750;
           color: rgba(226, 232, 240, 0.98);
-        }
-
-        .heroPosted {
-          margin-top: 4px;
-          font-size: 12px;
-          color: rgba(148, 163, 184, 0.85);
-          white-space: nowrap;
         }
 
         .heroCompany {
@@ -551,6 +548,7 @@ export default function JobDetailPage() {
           cursor: pointer;
           width: fit-content;
           display: inline-block;
+          white-space: nowrap;
         }
         .heroCompanyLink:hover {
           opacity: 0.95;
@@ -655,15 +653,12 @@ export default function JobDetailPage() {
           .twoCol {
             grid-template-columns: minmax(0, 1fr);
           }
-          .heroTitleRow {
+          .heroTopRow {
             flex-direction: column;
             align-items: flex-start;
           }
           .heroPosted {
-            margin-top: 2px;
-          }
-          .heroTopRow {
-            align-items: flex-start;
+            margin-top: 0;
           }
         }
 
