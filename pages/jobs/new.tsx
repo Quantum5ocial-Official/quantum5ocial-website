@@ -44,13 +44,11 @@ type JobRow = {
   remote_type: string | null;
   short_description: string | null;
 
-  // existing
   description: string | null;
   keywords: string | null;
   salary_display: string | null;
   apply_url: string | null;
 
-  // ✅ new structured fields
   role: string | null;
   key_responsibilities: string | null;
   ideal_qualifications: string | null;
@@ -151,7 +149,6 @@ export default function NewJobPage() {
       setLoadError(null);
 
       try {
-        // 1) Orgs where user is creator
         const { data: created, error: createdErr } = await supabase
           .from("organizations")
           .select("id,name,slug,created_by,is_active")
@@ -160,7 +157,6 @@ export default function NewJobPage() {
 
         if (createdErr) throw createdErr;
 
-        // 2) Orgs where user is owner/co_owner member
         const { data: memberRows, error: memberErr } = await supabase
           .from("org_members")
           .select("org_id, role")
@@ -183,7 +179,6 @@ export default function NewJobPage() {
 
         if (memberOrgsErr) throw memberOrgsErr;
 
-        // Merge unique
         const merged = [...(created || []), ...(memberOrgs || [])] as Org[];
         const uniq = Array.from(new Map(merged.map((o) => [o.id, o])).values());
 
@@ -194,10 +189,7 @@ export default function NewJobPage() {
           setOrg(only);
           setSelectedOrgId(only.id);
           setCanPostAsOrg(true);
-          setForm((prev) => ({
-            ...prev,
-            company_name: only.name || prev.company_name,
-          }));
+          setForm((prev) => ({ ...prev, company_name: only.name || prev.company_name }));
           setLoadError(null);
         } else if (uniq.length > 1) {
           setOrg(null);
@@ -237,10 +229,7 @@ export default function NewJobPage() {
     setOrg(found);
     setCanPostAsOrg(true);
     setLoadError(null);
-    setForm((prev) => ({
-      ...prev,
-      company_name: found.name || prev.company_name,
-    }));
+    setForm((prev) => ({ ...prev, company_name: found.name || prev.company_name }));
   };
 
   /* ---------------------------------------------------------------------- */
@@ -289,7 +278,6 @@ export default function NewJobPage() {
         setOrg(foundOrg);
         setSelectedOrgId(foundOrg.id);
 
-        // Permission: creator OR owner/co_owner can post
         let allowed = false;
 
         if (foundOrg.created_by && foundOrg.created_by === user.id) {
@@ -309,7 +297,6 @@ export default function NewJobPage() {
 
         setCanPostAsOrg(allowed);
 
-        // Auto-fill & lock company_name
         setForm((prev) => ({
           ...prev,
           company_name: foundOrg!.name || prev.company_name,
@@ -340,11 +327,7 @@ export default function NewJobPage() {
       if (!jobId || !user) return;
       setLoadError(null);
 
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("id", jobId)
-        .maybeSingle();
+      const { data, error } = await supabase.from("jobs").select("*").eq("id", jobId).maybeSingle();
 
       if (error) {
         console.error("Error loading job to edit", error);
@@ -400,7 +383,6 @@ export default function NewJobPage() {
     e.preventDefault();
     if (!user) return;
 
-    // enforce org requirement if we are in org-style post
     if (!isEditing) {
       if (!org) {
         setSaveError(
@@ -436,14 +418,12 @@ export default function NewJobPage() {
       remote_type: form.remote_type || null,
       short_description: form.short_description.trim() || null,
 
-      // ✅ structured fields
       role: form.role.trim() || null,
       key_responsibilities: form.key_responsibilities.trim() || null,
       ideal_qualifications: form.ideal_qualifications.trim() || null,
       must_have_qualifications: form.must_have_qualifications.trim() || null,
       what_we_offer: form.what_we_offer.trim() || null,
 
-      // existing
       description: form.description.trim() || null,
       keywords: form.keywords.trim() || null,
       salary_display: form.salary_display.trim() || null,
@@ -454,11 +434,7 @@ export default function NewJobPage() {
 
     try {
       if (isEditing && jobId) {
-        const { error } = await supabase
-          .from("jobs")
-          .update(payload)
-          .eq("id", jobId)
-          .eq("owner_id", user.id);
+        const { error } = await supabase.from("jobs").update(payload).eq("id", jobId).eq("owner_id", user.id);
 
         if (error) {
           console.error("Error updating job", error);
@@ -496,8 +472,7 @@ export default function NewJobPage() {
     return isEditing ? (jobId ? `/jobs/${jobId}` : "/jobs") : "/jobs";
   }, [org?.slug, isEditing, jobId]);
 
-  const showPublishAsPicker =
-    !isEditing && isMarketplaceCreate && eligibleOrgs.length > 1;
+  const showPublishAsPicker = !isEditing && isMarketplaceCreate && eligibleOrgs.length > 1;
 
   /* ---------------------------------------------------------------------- */
   /*  Render                                                                 */
@@ -509,8 +484,9 @@ export default function NewJobPage() {
       <div className="page">
         <Navbar />
 
-        <section className="section">
-          <div className="section-header" style={{ alignItems: "flex-start" }}>
+        {/* ✅ reduce big top gap */}
+        <section className="section" style={{ paddingTop: 10 }}>
+          <div className="section-header" style={{ alignItems: "flex-start", marginTop: 0 }}>
             <div>
               <div className="section-title">{isEditing ? "Edit job" : "Post a job"}</div>
               <div className="section-sub">
@@ -520,7 +496,6 @@ export default function NewJobPage() {
               </div>
             </div>
 
-            {/* ✅ tight pill width */}
             <button
               type="button"
               className="nav-ghost-btn"
@@ -554,9 +529,7 @@ export default function NewJobPage() {
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Basics</h4>
-                      <p className="products-section-sub">
-                        Role title, organisation, and where it&apos;s based.
-                      </p>
+                      <p className="products-section-sub">Role title, organisation, and where it&apos;s based.</p>
                     </div>
 
                     <div className="products-grid">
@@ -648,9 +621,7 @@ export default function NewJobPage() {
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Role details</h4>
-                      <p className="products-section-sub">
-                        Structured fields help candidates scan fast.
-                      </p>
+                      <p className="products-section-sub">Structured fields help candidates scan fast.</p>
                     </div>
 
                     <div className="products-grid">
@@ -706,23 +677,23 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
-                  {/* Long-form description */}
+                  {/* ✅ renamed section */}
                   <div className="products-section">
                     <div className="products-section-header">
-                      <h4 className="products-section-title">Long-form description</h4>
+                      <h4 className="products-section-title">Additional description</h4>
                       <p className="products-section-sub">
-                        Optional: add extra detail beyond the structured fields.
+                        Optional: add anything not covered by the structured fields.
                       </p>
                     </div>
 
                     <div className="products-grid">
                       <div className="products-field products-field-full">
-                        <label>Full description</label>
+                        <label>Additional description</label>
                         <textarea
                           rows={6}
                           value={form.description}
                           onChange={handleChange("description")}
-                          placeholder="Responsibilities, requirements, project context, etc."
+                          placeholder="Extra context, team, project details, process, timeline, etc."
                         />
                       </div>
 
@@ -742,9 +713,7 @@ export default function NewJobPage() {
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Salary & application</h4>
-                      <p className="products-section-sub">
-                        Optional salary information and where to apply.
-                      </p>
+                      <p className="products-section-sub">Optional salary information and where to apply.</p>
                     </div>
 
                     <div className="products-grid">
@@ -774,20 +743,9 @@ export default function NewJobPage() {
                     <button
                       type="submit"
                       className="nav-cta"
-                      disabled={
-                        saving ||
-                        (!isEditing && (!org || !canPostAsOrg)) ||
-                        loadingOrg ||
-                        loading
-                      }
+                      disabled={saving || (!isEditing && (!org || !canPostAsOrg)) || loadingOrg || loading}
                     >
-                      {saving
-                        ? isEditing
-                          ? "Updating…"
-                          : "Publishing…"
-                        : isEditing
-                        ? "Save changes"
-                        : "Publish job"}
+                      {saving ? (isEditing ? "Updating…" : "Publishing…") : isEditing ? "Save changes" : "Publish job"}
                     </button>
 
                     {saveError && <span className="products-status error">{saveError}</span>}
@@ -796,7 +754,6 @@ export default function NewJobPage() {
               </div>
             </div>
 
-            {/* Right-hand tips panel */}
             <aside className="products-create-aside">
               <div className="products-tips-card">
                 <h4 className="products-tips-title">Tips for a strong job post</h4>
@@ -816,7 +773,6 @@ export default function NewJobPage() {
   );
 }
 
-// ✅ global layout: left sidebar + middle only, no right column
 (NewJobPage as any).layoutProps = {
   variant: "two-left",
   right: null,
