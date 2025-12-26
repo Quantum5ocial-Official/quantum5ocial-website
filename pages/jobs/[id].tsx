@@ -44,6 +44,32 @@ function cleanLinesToList(value?: string | null) {
     .filter(Boolean);
 }
 
+function timeAgoFromISO(iso?: string | null) {
+  if (!iso) return null;
+  const created = new Date(iso).getTime();
+  if (!Number.isFinite(created)) return null;
+
+  const now = Date.now();
+  const diffMs = Math.max(0, now - created);
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 1) return "today";
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 7) return `${diffDays} days ago`;
+
+  const weeks = Math.floor(diffDays / 7);
+  if (weeks === 1) return "1 week ago";
+  if (weeks < 5) return `${weeks} weeks ago`;
+
+  const months = Math.floor(diffDays / 30);
+  if (months === 1) return "1 month ago";
+  if (months < 12) return `${months} months ago`;
+
+  const years = Math.floor(diffDays / 365);
+  if (years === 1) return "1 year ago";
+  return `${years} years ago`;
+}
+
 export default function JobDetailPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -99,7 +125,6 @@ export default function JobDetailPage() {
             remote_type: jobRow.remote_type,
             short_description: jobRow.short_description,
 
-            // ✅ new long-form field
             additional_description:
               jobRow.additional_description ?? jobRow.description ?? null,
 
@@ -160,9 +185,7 @@ export default function JobDetailPage() {
     router.push("/jobs");
   };
 
-  const formattedDate = job?.created_at
-    ? new Date(job.created_at).toLocaleDateString()
-    : null;
+  const postedAgo = useMemo(() => timeAgoFromISO(job?.created_at), [job?.created_at]);
 
   const keywordList =
     job?.keywords
@@ -261,20 +284,31 @@ export default function JobDetailPage() {
           <div className="job-detail-card">
             <div className="hero">
               <div className="heroKicker">JOB</div>
-              <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-              {/* ✅ EXACTLY like Products page: Link + <a> */}
+              {/* title left + posted ago top-right */}
+              <div className="heroTitleRow">
+                <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
+                {postedAgo && <div className="heroPosted">Posted — {postedAgo}</div>}
+              </div>
+
+              {/* Job by: ... */}
               {job.company_name ? (
                 job.org_slug ? (
-                  <Link
-                    href={`/orgs/${encodeURIComponent(job.org_slug)}`}
-                    legacyBehavior
-                    passHref
-                  >
-                    <a className="heroCompanyLink">{job.company_name}</a>
-                  </Link>
+                  <div className="heroCompanyRow">
+                    <span className="heroCompanyPrefix">Job by:</span>
+                    <Link
+                      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+                      legacyBehavior
+                      passHref
+                    >
+                      <a className="heroCompanyLink">{job.company_name}</a>
+                    </Link>
+                  </div>
                 ) : (
-                  <div className="heroCompany">{job.company_name}</div>
+                  <div className="heroCompanyRow">
+                    <span className="heroCompanyPrefix">Job by:</span>
+                    <div className="heroCompany">{job.company_name}</div>
+                  </div>
                 )
               ) : null}
 
@@ -286,30 +320,29 @@ export default function JobDetailPage() {
                 </div>
               )}
 
-              {(formattedDate || job.salary_display) && (
-                <div className="heroMeta2">
-                  {formattedDate ? `Posted on ${formattedDate}` : ""}
-                  {formattedDate && job.salary_display ? " · " : ""}
-                  {job.salary_display ? job.salary_display : ""}
-                </div>
+              {job.salary_display && (
+                <div className="heroMeta2">{job.salary_display}</div>
               )}
 
+              {/* Apply first row, keywords below */}
               <div className="heroCtas">
                 {job.apply_url && (
-                  <a
-                    href={job.apply_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="nav-cta"
-                    style={{
-                      padding: "6px 12px",
-                      minWidth: "unset",
-                      width: "fit-content",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Apply / learn more
-                  </a>
+                  <div className="heroApplyRow">
+                    <a
+                      href={job.apply_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="nav-cta"
+                      style={{
+                        padding: "6px 12px",
+                        minWidth: "unset",
+                        width: "fit-content",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Apply / learn more
+                    </a>
+                  </div>
                 )}
 
                 {keywordList.length > 0 && (
@@ -408,7 +441,7 @@ export default function JobDetailPage() {
           width: 100%;
           max-width: 1320px;
           margin: 0 auto;
-          padding-top: 4px; /* ✅ reduces the “huge gap” a bit */
+          padding-top: 4px;
         }
 
         .top-actions {
@@ -432,7 +465,6 @@ export default function JobDetailPage() {
           color: #fecaca;
         }
 
-        /* ✅ force normal cursor across card */
         .job-detail-card,
         .hero,
         .jobBody,
@@ -476,6 +508,13 @@ export default function JobDetailPage() {
           color: rgba(148, 163, 184, 0.9);
         }
 
+        .heroTitleRow {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+        }
+
         .heroTitle {
           margin: 0;
           font-size: 28px;
@@ -484,13 +523,33 @@ export default function JobDetailPage() {
           color: rgba(226, 232, 240, 0.98);
         }
 
+        .heroPosted {
+          margin-top: 4px;
+          font-size: 12px;
+          color: rgba(148, 163, 184, 0.85);
+          white-space: nowrap;
+        }
+
+        .heroCompanyRow {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .heroCompanyPrefix {
+          font-size: 12px;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: rgba(148, 163, 184, 0.9);
+        }
+
         .heroCompany {
           font-size: 14px;
           font-weight: 650;
           color: #7dd3fc;
         }
 
-        /* ✅ ONLY this is “hand cursor” */
         .heroCompanyLink {
           font-size: 14px;
           font-weight: 650;
@@ -518,9 +577,16 @@ export default function JobDetailPage() {
         .heroCtas {
           margin-top: 8px;
           display: flex;
+          flex-direction: column; /* ✅ keywords below apply */
+          gap: 10px;
+          align-items: flex-start;
+        }
+
+        .heroApplyRow {
+          display: flex;
+          align-items: center;
           gap: 10px;
           flex-wrap: wrap;
-          align-items: center;
         }
 
         .heroTags {
@@ -595,6 +661,13 @@ export default function JobDetailPage() {
         @media (max-width: 900px) {
           .twoCol {
             grid-template-columns: minmax(0, 1fr);
+          }
+          .heroTitleRow {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .heroPosted {
+            margin-top: 2px;
           }
         }
 
