@@ -519,7 +519,7 @@ function CommunityMiddle() {
               <div className="section-sub" style={{ maxWidth: 520, lineHeight: 1.45 }}>
                 Discover people, labs, and companies in our ecosystem{" "}
                 <span style={{ color: "#7dd3fc" }}>
-                  – entangle and follow to stay updated.
+                  – Entangle/Follow/Interact
                 </span>
               </div>
             </div>
