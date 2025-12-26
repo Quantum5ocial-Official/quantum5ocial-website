@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
-import Q5BadgeChips from "../../components/Q5BadgeChips";
 
 type EntangledProfile = {
   id: string;
@@ -17,11 +16,6 @@ type EntangledProfile = {
   affiliation: string | null;
   city: string | null;
   country: string | null;
-
-  q5_badge_level?: number | null;
-  q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null;
-  q5_badge_claimed_at?: string | null;
 };
 
 export default function EcosystemEntangledPage() {
@@ -73,11 +67,10 @@ export default function EcosystemEntangledPage() {
           return;
         }
 
-        // ✅ select fields needed to mirror Community card UI (wrapped text + location + badge)
         const { data: profData, error: profError } = await supabase
           .from("profiles")
           .select(
-            "id, full_name, avatar_url, role, current_title, affiliation, city, country, q5_badge_level, q5_badge_label, q5_badge_review_status, q5_badge_claimed_at"
+            "id, full_name, avatar_url, role, current_title, affiliation, city, country"
           )
           .in("id", otherIds);
 
@@ -116,8 +109,6 @@ export default function EcosystemEntangledPage() {
 
   if (!user && !loading) return null;
 
-  if (!user) return null;
-
   return (
     <section className="section">
       {/* Header */}
@@ -141,10 +132,7 @@ export default function EcosystemEntangledPage() {
           }}
         >
           <div>
-            <div
-              className="section-title"
-              style={{ display: "flex", gap: 10, alignItems: "center" }}
-            >
+            <div className="section-title" style={{ display: "flex", gap: 10, alignItems: "center" }}>
               🧬 Entangled members
               {!mainLoading && !errorMsg && (
                 <span
@@ -163,18 +151,11 @@ export default function EcosystemEntangledPage() {
               )}
             </div>
             <div className="section-sub" style={{ maxWidth: 560, lineHeight: 1.45 }}>
-              Your accepted entanglements — same card style as Community.
+              Your accepted entanglements — community-style cards.
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 6,
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
               ← Back to ecosystem
             </Link>
@@ -221,7 +202,6 @@ export default function EcosystemEntangledPage() {
         </div>
       </div>
 
-      {/* Status */}
       {mainLoading && <div className="products-status">Loading entangled members…</div>}
       {errorMsg && !mainLoading && (
         <div className="products-status" style={{ color: "#f87171" }}>
@@ -239,13 +219,13 @@ export default function EcosystemEntangledPage() {
         </div>
       )}
 
-      {!mainLoading && !errorMsg && total > 0 && filtered.length === 0 && (
+      {!mainLoading && !errorMsg && filtered.length === 0 && total > 0 && (
         <div className="products-empty">
-          No matches for <span style={{ fontWeight: 700 }}>"{search.trim()}"</span>.
+          No matches for <strong>"{search.trim()}"</strong>.
         </div>
       )}
 
-      {/* ✅ Community-style cards, ✅ 4-column grid */}
+      {/* 4-column community-style grid */}
       {!mainLoading && !errorMsg && filtered.length > 0 && (
         <div
           className="q5-community-grid"
@@ -256,47 +236,26 @@ export default function EcosystemEntangledPage() {
           }}
         >
           {filtered.map((p) => {
-            const key = `person-${p.id}`;
             const name = p.full_name || "Quantum5ocial member";
             const initial = name.charAt(0).toUpperCase();
-
-            const headline = (p.current_title || p.role || "").trim() || null;
+            const headline = (p.current_title || p.role || "").trim() || "—";
             const affiliationLine = p.affiliation?.trim() || null;
             const locationLine = [p.city, p.country].filter(Boolean).join(", ") || null;
 
-            const hasBadge = !!(p.q5_badge_label || p.q5_badge_level != null);
-            const badgeLabel =
-              (p.q5_badge_label && p.q5_badge_label.trim()) ||
-              (p.q5_badge_level != null ? `Q5-Level ${p.q5_badge_level}` : "");
-
             return (
               <div
-                key={key}
+                key={p.id}
                 className="card"
                 style={{
-                  position: "relative",
-                  textDecoration: "none",
                   padding: 14,
+                  minHeight: 210,
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
-                  minHeight: 210,
                   cursor: "pointer",
                 }}
                 onClick={() => router.push(`/profile/${p.id}`)}
               >
-                {/* badge (same behavior as community) */}
-                <div className="community-badge-pill" onClick={(e) => e.stopPropagation()}>
-                  {hasBadge ? (
-                    <Q5BadgeChips
-                      label={badgeLabel}
-                      reviewStatus={p.q5_badge_review_status ?? null}
-                      size="sm"
-                    />
-                  ) : null}
-                </div>
-
-                {/* avatar centered + text BELOW (same structure as community) */}
                 <div className="card-inner community-card-top">
                   <div
                     style={{
@@ -314,7 +273,6 @@ export default function EcosystemEntangledPage() {
                         height: 62,
                         borderRadius: 999,
                         overflow: "hidden",
-                        flexShrink: 0,
                         border: "1px solid rgba(148,163,184,0.4)",
                         background: "rgba(15,23,42,0.9)",
                         display: "flex",
@@ -326,46 +284,27 @@ export default function EcosystemEntangledPage() {
                       }}
                     >
                       {p.avatar_url ? (
-                        <img
-                          src={p.avatar_url}
-                          alt={name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
+                        <img src={p.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
-                        <span>{initial}</span>
+                        initial
                       )}
                     </div>
 
-                    {/* Name */}
-                    <div className="community-card-name" title={name}>
-                      {name}
-                    </div>
+                    <div className="community-card-name">{name}</div>
 
-                    {/* title/role + affiliation */}
-                    <div className="community-card-meta" title={affiliationLine || ""}>
-                      {headline ? headline : "—"}
+                    <div className="community-card-meta">
+                      {headline}
                       {affiliationLine ? ` · ${affiliationLine}` : ""}
                     </div>
 
-                    {/* location line */}
                     {locationLine && (
-                      <div
-                        className="community-card-meta"
-                        title={locationLine}
-                        style={{ fontSize: 11, opacity: 0.85 }}
-                      >
+                      <div className="community-card-meta" style={{ fontSize: 11, opacity: 0.85 }}>
                         {locationLine}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* footer: Message button (instead of entangle), no "Open →" anywhere */}
                 <div style={{ marginTop: 14 }}>
                   <button
                     type="button"
@@ -382,11 +321,6 @@ export default function EcosystemEntangledPage() {
                       color: "#0f172a",
                       fontSize: 12,
                       fontWeight: 800,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 6,
                     }}
                   >
                     Message
