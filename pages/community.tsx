@@ -604,22 +604,10 @@ function CommunityMiddle() {
             }}
           >
             <div>
-              <div
-                style={{
-                  fontSize: 11,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  color: "rgba(148,163,184,0.9)",
-                  marginBottom: 3,
-                }}
-              >
-                Browse community
-              </div>
+              
               <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>Members &amp; organizations</div>
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-              Showing {communityItems.length} match{communityItems.length === 1 ? "" : "es"}
-            </div>
+           
           </div>
 
           {/* ✅ 3-column grid */}
