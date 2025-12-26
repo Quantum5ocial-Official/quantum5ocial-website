@@ -583,7 +583,7 @@ export default function NewProductPage() {
         <Navbar />
 
         {/* ✅ negative top offset like jobs/new */}
-        <section className="section" style={{ marginTop: -60 }}>
+        <section className="section" style={{ marginTop: -70 }}>
           <div className="section-header" style={{ alignItems: "flex-start" }}>
             <div>
               <div className="section-title">{title}</div>
