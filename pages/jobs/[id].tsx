@@ -196,56 +196,78 @@ export default function JobDetailPage() {
   return (
     <section className="section">
       <div className="job-shell">
-        <div className="top-actions">
-          <button
-            type="button"
-            className="nav-ghost-btn"
-            onClick={() => router.push("/jobs")}
-            style={{
-              padding: "4px 10px",
-              minWidth: "unset",
-              width: "auto",
-              lineHeight: "1.2",
-              cursor: "pointer",
-            }}
-          >
-            ← Back to jobs
-          </button>
-
-          {isOwner && (
-            <div className="top-actions-right">
-              <button
-                type="button"
-                className="nav-ghost-btn"
-                onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
-                style={{
-                  padding: "4px 10px",
-                  minWidth: "unset",
-                  width: "auto",
-                  lineHeight: "1.2",
-                  cursor: "pointer",
-                }}
-              >
-                Edit
-              </button>
-
-              <button
-                type="button"
-                className="nav-cta delete-btn"
-                onClick={handleDelete}
-                disabled={deleting}
-                style={{
-                  padding: "4px 10px",
-                  minWidth: "unset",
-                  width: "auto",
-                  lineHeight: "1.2",
-                  cursor: "pointer",
-                }}
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
+        {/* ✅ HEADER AREA (outside the card) — test clickable here */}
+        <div className="section-header job-header">
+          <div>
+            <div className="section-title">{job?.title || "Job details"}</div>
+            <div className="section-sub">
+              {job?.company_name ? (
+                job?.org_slug ? (
+                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} passHref>
+                    <a className="jobCompanyHeaderLink">
+                      Listed by {job.company_name}
+                    </a>
+                  </Link>
+                ) : (
+                  <>Listed by {job.company_name}</>
+                )
+              ) : (
+                "Listed by unknown organization"
+              )}
             </div>
-          )}
+          </div>
+
+          <div className="header-actions">
+            <button
+              type="button"
+              className="nav-ghost-btn"
+              onClick={() => router.push("/jobs")}
+              style={{
+                padding: "4px 10px",
+                minWidth: "unset",
+                width: "auto",
+                lineHeight: "1.2",
+                cursor: "pointer",
+              }}
+            >
+              ← Back to jobs
+            </button>
+
+            {isOwner && (
+              <>
+                <button
+                  type="button"
+                  className="nav-ghost-btn"
+                  onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
+                  style={{
+                    padding: "4px 10px",
+                    minWidth: "unset",
+                    width: "auto",
+                    lineHeight: "1.2",
+                    cursor: "pointer",
+                  }}
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  className="nav-cta delete-btn"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  style={{
+                    padding: "4px 10px",
+                    minWidth: "unset",
+                    width: "auto",
+                    lineHeight: "1.2",
+                    cursor: "pointer",
+                  }}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {loading && <p className="products-status">Loading job…</p>}
@@ -261,14 +283,9 @@ export default function JobDetailPage() {
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
+              {/* inside card: plain text only (for debugging click interception) */}
               {job.company_name ? (
-                job.org_slug ? (
-                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} passHref>
-                    <a className="heroCompanyLink">{job.company_name}</a>
-                  </Link>
-                ) : (
-                  <div className="heroCompany">{job.company_name}</div>
-                )
+                <div className="heroCompany">{job.company_name}</div>
               ) : null}
 
               {(job.location || job.employment_type || job.remote_type) && (
@@ -323,15 +340,15 @@ export default function JobDetailPage() {
 
             <div className="divider" />
 
-            {hasAnyStructured ? (
-              <div className="jobBody">
-                {!!(job.role || "").trim() && (
-                  <div className="block blockRole">
-                    <h2 className="hRole">The Role</h2>
-                    <p className="pText">{(job.role || "").trim()}</p>
-                  </div>
-                )}
+            <div className="jobBody">
+              {!!(job.role || "").trim() && (
+                <div className="block blockRole">
+                  <h2 className="hRole">The Role</h2>
+                  <p className="pText">{(job.role || "").trim()}</p>
+                </div>
+              )}
 
+              {hasAnyStructured && (
                 <div className="twoCol">
                   <div className="col">
                     {responsibilities.length > 0 && (
@@ -381,28 +398,17 @@ export default function JobDetailPage() {
                     )}
                   </div>
                 </div>
+              )}
 
-                {!!(job.additional_description || "").trim() && (
-                  <div className="block">
-                    <h3 className="hTeal">Additional description</h3>
-                    <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
-                      {(job.additional_description || "").trim()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="jobBody">
-                {!!(job.additional_description || "").trim() && (
-                  <div className="block">
-                    <h3 className="hTeal">Additional description</h3>
-                    <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
-                      {(job.additional_description || "").trim()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+              {!!(job.additional_description || "").trim() && (
+                <div className="block">
+                  <h3 className="hTeal">Additional description</h3>
+                  <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
+                    {(job.additional_description || "").trim()}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -414,21 +420,23 @@ export default function JobDetailPage() {
           margin: 0 auto;
         }
 
-        .top-actions {
-          margin-bottom: 12px;
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-          align-items: center;
-          cursor: default;
+        .job-header {
+          margin-bottom: 14px;
+          align-items: flex-start;
         }
 
-        .top-actions-right {
+        .header-actions {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
           align-items: center;
+        }
+
+        .jobCompanyHeaderLink {
+          color: #7dd3fc;
+          text-decoration: underline;
+          cursor: pointer;
+          display: inline-block;
         }
 
         .delete-btn {
@@ -442,7 +450,7 @@ export default function JobDetailPage() {
           background: rgba(15, 23, 42, 0.95);
           border: 1px solid rgba(148, 163, 184, 0.25);
           overflow: hidden;
-          cursor: default; /* ✅ normal cursor on card */
+          cursor: default;
         }
 
         .hero {
@@ -456,7 +464,6 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          cursor: default;
         }
 
         .divider {
@@ -486,20 +493,6 @@ export default function JobDetailPage() {
           color: #7dd3fc;
         }
 
-        /* ✅ clickable only here */
-        .heroCompanyLink {
-          font-size: 14px;
-          font-weight: 650;
-          color: #7dd3fc;
-          text-decoration: underline;
-          cursor: pointer;
-          width: fit-content;
-        }
-
-        .heroCompanyLink:hover {
-          opacity: 0.95;
-        }
-
         .heroMeta {
           margin-top: 2px;
           font-size: 13px;
@@ -517,14 +510,12 @@ export default function JobDetailPage() {
           gap: 10px;
           flex-wrap: wrap;
           align-items: center;
-          cursor: default;
         }
 
         .heroTags {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
-          cursor: default;
         }
 
         .tagChip {
@@ -534,7 +525,7 @@ export default function JobDetailPage() {
           border: 1px solid rgba(148, 163, 184, 0.35);
           background: rgba(2, 6, 23, 0.55);
           color: rgba(226, 232, 240, 0.9);
-          cursor: default; /* ✅ chips not clickable */
+          cursor: default;
         }
 
         .heroSummary {
@@ -543,7 +534,6 @@ export default function JobDetailPage() {
           font-size: 14px;
           color: rgba(226, 232, 240, 0.92);
           line-height: 1.55;
-          cursor: default;
         }
 
         .jobBody {
@@ -551,12 +541,10 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 20px;
-          cursor: default;
         }
 
         .block {
           max-width: 1100px;
-          cursor: default;
         }
 
         .blockRole {
@@ -585,7 +573,6 @@ export default function JobDetailPage() {
           color: rgba(226, 232, 240, 0.92);
           line-height: 1.65;
           white-space: pre-wrap;
-          cursor: default;
         }
 
         .twoCol {
@@ -593,7 +580,6 @@ export default function JobDetailPage() {
           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
           gap: 24px;
           align-items: start;
-          cursor: default;
         }
 
         @media (max-width: 900px) {
@@ -606,7 +592,6 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 18px;
-          cursor: default;
         }
 
         .bullets {
@@ -615,14 +600,12 @@ export default function JobDetailPage() {
           display: flex;
           flex-direction: column;
           gap: 10px;
-          cursor: default;
         }
 
         .bullets li {
           font-size: 14px;
           color: rgba(226, 232, 240, 0.92);
           line-height: 1.6;
-          cursor: default;
         }
       `}</style>
     </section>
