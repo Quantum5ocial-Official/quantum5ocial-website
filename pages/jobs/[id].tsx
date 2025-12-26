@@ -17,7 +17,9 @@ type Job = {
   employment_type: string | null;
   remote_type: string | null;
   short_description: string | null;
-  description: string | null;
+
+  // ✅ renamed
+  additional_description: string | null;
 
   role?: string | null;
   key_responsibilities?: string | null;
@@ -96,7 +98,9 @@ export default function JobDetailPage() {
             employment_type: jobRow.employment_type,
             remote_type: jobRow.remote_type,
             short_description: jobRow.short_description,
-            description: jobRow.description,
+
+            // ✅ renamed field (DB column)
+            additional_description: jobRow.additional_description ?? null,
 
             role: jobRow.role ?? null,
             key_responsibilities: jobRow.key_responsibilities ?? null,
@@ -182,8 +186,13 @@ export default function JobDetailPage() {
     [job?.what_we_offer]
   );
 
-  const hasAnyStructured =
-    !!(job?.role || responsibilities.length || mustHave.length || ideal.length || offer.length);
+  const hasAnyStructured = !!(
+    (job?.role || "").trim() ||
+    responsibilities.length ||
+    mustHave.length ||
+    ideal.length ||
+    offer.length
+  );
 
   return (
     <section className="section">
@@ -247,7 +256,7 @@ export default function JobDetailPage() {
 
         {!loading && !loadError && job && (
           <div className="job-card">
-            {/* ✅ HERO (single-column, no right placeholder) */}
+            {/* ✅ HERO (single-column) */}
             <div className="hero">
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
@@ -372,22 +381,22 @@ export default function JobDetailPage() {
                   </div>
                 </div>
 
-                {!!(job.description || "").trim() && (
+                {!!(job.additional_description || "").trim() && (
                   <div className="block">
-                    <h3 className="hTeal">Full Description</h3>
+                    <h3 className="hTeal">Additional description</h3>
                     <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
-                      {(job.description || "").trim()}
+                      {(job.additional_description || "").trim()}
                     </p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="jobBody">
-                {!!(job.description || "").trim() && (
+                {!!(job.additional_description || "").trim() && (
                   <div className="block">
-                    <h3 className="hTeal">Full Description</h3>
+                    <h3 className="hTeal">Additional description</h3>
                     <p className="pText" style={{ whiteSpace: "pre-wrap" }}>
-                      {(job.description || "").trim()}
+                      {(job.additional_description || "").trim()}
                     </p>
                   </div>
                 )}
@@ -433,7 +442,6 @@ export default function JobDetailPage() {
           overflow: hidden;
         }
 
-        /* ✅ single-column hero */
         .hero {
           padding: 18px;
           background: radial-gradient(
