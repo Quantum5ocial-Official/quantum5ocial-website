@@ -148,7 +148,7 @@ useEffect(() => {
 
   return (
     <>
-      <div className="bg-layer" />
+      <div className="bg-layer" style={{ pointerEvents: "none" }} />
       <div className="page">
         {showNavbar && <Navbar />}
 
