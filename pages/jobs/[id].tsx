@@ -141,6 +141,7 @@ export default function JobDetailPage() {
     if (!confirmed) return;
 
     setDeleting(true);
+
     const { error } = await supabase
       .from("jobs")
       .delete()
@@ -196,23 +197,23 @@ export default function JobDetailPage() {
   return (
     <section className="section">
       <div className="job-shell">
-        {/* ✅ HEADER AREA (outside the card) — test clickable here */}
-        <div className="section-header job-header">
+        {/* ✅ OUTSIDE-CARD HEADER (company link lives here) */}
+        <div className="section-header job-detail-header">
           <div>
-            <div className="section-title">{job?.title || "Job details"}</div>
+            <div className="section-title">Job details</div>
             <div className="section-sub">
               {job?.company_name ? (
                 job?.org_slug ? (
                   <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} passHref>
-                    <a className="jobCompanyHeaderLink">
-                      Listed by {job.company_name}
+                    <a className="job-company-link">
+                      {job.company_name}
                     </a>
                   </Link>
                 ) : (
-                  <>Listed by {job.company_name}</>
+                  <span>{job.company_name}</span>
                 )
               ) : (
-                "Listed by unknown organization"
+                <span>Unknown organization</span>
               )}
             </div>
           </div>
@@ -283,7 +284,7 @@ export default function JobDetailPage() {
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-              {/* inside card: plain text only (for debugging click interception) */}
+              {/* inside card: NOT a link (on purpose) */}
               {job.company_name ? (
                 <div className="heroCompany">{job.company_name}</div>
               ) : null}
@@ -420,9 +421,13 @@ export default function JobDetailPage() {
           margin: 0 auto;
         }
 
-        .job-header {
+        .job-detail-header {
           margin-bottom: 14px;
+          display: flex;
+          justify-content: space-between;
           align-items: flex-start;
+          flex-wrap: wrap;
+          gap: 10px;
         }
 
         .header-actions {
@@ -432,7 +437,7 @@ export default function JobDetailPage() {
           align-items: center;
         }
 
-        .jobCompanyHeaderLink {
+        .job-company-link {
           color: #7dd3fc;
           text-decoration: underline;
           cursor: pointer;
