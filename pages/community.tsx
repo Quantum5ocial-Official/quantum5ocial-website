@@ -534,7 +534,7 @@ function CommunityMiddle() {
               }}
             >
               <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
-                View my ecosystem →
+                My ecosystem →
               </Link>
             </div>
           </div>
