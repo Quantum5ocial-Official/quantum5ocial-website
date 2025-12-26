@@ -334,7 +334,11 @@ export default function NewJobPage() {
       if (!jobId || !user) return;
       setLoadError(null);
 
-      const { data, error } = await supabase.from("jobs").select("*").eq("id", jobId).maybeSingle();
+      const { data, error } = await supabase
+        .from("jobs")
+        .select("*")
+        .eq("id", jobId)
+        .maybeSingle();
 
       if (error) {
         console.error("Error loading job to edit", error);
@@ -360,14 +364,12 @@ export default function NewJobPage() {
         remote_type: job.remote_type || "",
         short_description: job.short_description || "",
 
-        // ✅ new structured fields
         role: job.role || "",
         key_responsibilities: job.key_responsibilities || "",
         ideal_qualifications: job.ideal_qualifications || "",
         must_have_qualifications: job.must_have_qualifications || "",
         what_we_offer: job.what_we_offer || "",
 
-        // existing
         description: job.description || "",
         keywords: job.keywords || "",
         salary_display: job.salary_display || "",
@@ -384,9 +386,7 @@ export default function NewJobPage() {
 
   const handleChange =
     (field: keyof typeof form) =>
-    (
-      e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) => {
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       setForm((prev) => ({ ...prev, [field]: e.target.value }));
     };
 
@@ -429,14 +429,12 @@ export default function NewJobPage() {
       remote_type: form.remote_type || null,
       short_description: form.short_description.trim() || null,
 
-      // ✅ new structured fields
       role: form.role.trim() || null,
       key_responsibilities: form.key_responsibilities.trim() || null,
       ideal_qualifications: form.ideal_qualifications.trim() || null,
       must_have_qualifications: form.must_have_qualifications.trim() || null,
       what_we_offer: form.what_we_offer.trim() || null,
 
-      // existing
       description: form.description.trim() || null,
       keywords: form.keywords.trim() || null,
       salary_display: form.salary_display.trim() || null,
@@ -447,7 +445,11 @@ export default function NewJobPage() {
 
     try {
       if (isEditing && jobId) {
-        const { error } = await supabase.from("jobs").update(payload).eq("id", jobId).eq("owner_id", user.id);
+        const { error } = await supabase
+          .from("jobs")
+          .update(payload)
+          .eq("id", jobId)
+          .eq("owner_id", user.id);
 
         if (error) {
           console.error("Error updating job", error);
@@ -508,7 +510,18 @@ export default function NewJobPage() {
               </div>
             </div>
 
-            <button type="button" className="nav-ghost-btn" onClick={() => router.push(backTarget)}>
+            {/* ✅ tight pill width (fix) */}
+            <button
+              type="button"
+              className="nav-ghost-btn"
+              onClick={() => router.push(backTarget)}
+              style={{
+                padding: "4px 10px",
+                minWidth: "unset",
+                width: "auto",
+                lineHeight: "1.2",
+              }}
+            >
               ← Back
             </button>
           </div>
@@ -743,9 +756,11 @@ export default function NewJobPage() {
                     <button
                       type="submit"
                       className="nav-cta"
-                      disabled={
-                        saving || (!isEditing && (!org || !canPostAsOrg)) || loadingOrg || loading
-                      }
+                      disabled={saving || (!isEditing && (!org || !canPostAsOrg)) || loadingOrg || loading}
+                      style={{
+                        minWidth: "unset",
+                        width: "fit-content",
+                      }}
                     >
                       {saving ? (isEditing ? "Updating…" : "Publishing…") : isEditing ? "Save changes" : "Publish job"}
                     </button>
