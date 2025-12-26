@@ -78,46 +78,52 @@ export default function JobDetailPage() {
           console.error("Error loading job", error);
           setLoadError("Could not load this job.");
           setJob(null);
-        } else if (data) {
-          const jobRow: any = data;
-          const orgSlug = jobRow.organizations?.slug ?? null;
+          setLoading(false);
+          return;
+        }
 
-          const jobWithOrg: Job = {
-            id: jobRow.id,
-            title: jobRow.title,
-            company_name: jobRow.company_name,
-            org_id:
-              jobRow.org_id ??
-              jobRow.organisation_id ??
-              jobRow.organisations_id ??
-              null,
-            org_slug: orgSlug,
-
-            location: jobRow.location,
-            employment_type: jobRow.employment_type,
-            remote_type: jobRow.remote_type,
-            short_description: jobRow.short_description,
-
-            additional_description: jobRow.additional_description ?? null,
-
-            role: jobRow.role ?? null,
-            key_responsibilities: jobRow.key_responsibilities ?? null,
-            must_have_qualifications: jobRow.must_have_qualifications ?? null,
-            ideal_qualifications: jobRow.ideal_qualifications ?? null,
-            what_we_offer: jobRow.what_we_offer ?? null,
-
-            keywords: jobRow.keywords,
-            salary_display: jobRow.salary_display,
-            apply_url: jobRow.apply_url,
-            owner_id: jobRow.owner_id,
-            created_at: jobRow.created_at,
-          };
-
-          setJob(jobWithOrg);
-        } else {
+        if (!data) {
           setJob(null);
           setLoadError("Job not found.");
+          setLoading(false);
+          return;
         }
+
+        const jobRow: any = data;
+        const orgSlug = jobRow.organizations?.slug ?? null;
+
+        const jobWithOrg: Job = {
+          id: jobRow.id,
+          title: jobRow.title ?? null,
+          company_name: jobRow.company_name ?? null,
+          org_id:
+            jobRow.org_id ??
+            jobRow.organisation_id ??
+            jobRow.organisations_id ??
+            null,
+          org_slug: orgSlug,
+
+          location: jobRow.location ?? null,
+          employment_type: jobRow.employment_type ?? null,
+          remote_type: jobRow.remote_type ?? null,
+          short_description: jobRow.short_description ?? null,
+
+          additional_description: jobRow.additional_description ?? null,
+
+          role: jobRow.role ?? null,
+          key_responsibilities: jobRow.key_responsibilities ?? null,
+          must_have_qualifications: jobRow.must_have_qualifications ?? null,
+          ideal_qualifications: jobRow.ideal_qualifications ?? null,
+          what_we_offer: jobRow.what_we_offer ?? null,
+
+          keywords: jobRow.keywords ?? null,
+          salary_display: jobRow.salary_display ?? null,
+          apply_url: jobRow.apply_url ?? null,
+          owner_id: jobRow.owner_id ?? null,
+          created_at: jobRow.created_at ?? null,
+        };
+
+        setJob(jobWithOrg);
       } catch (e) {
         console.error("Unexpected fetch error", e);
         setLoadError("Could not load this job.");
@@ -257,15 +263,15 @@ export default function JobDetailPage() {
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-              {/* ✅ truly clickable */}
-              {{job.company_name &&
-  (job.org_slug ? (
-    <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
-      <a className="heroCompanyLink">{job.company_name}</a>
-    </Link>
-  ) : (
-    <div className="heroCompany">{job.company_name}</div>
-  ))}
+              {/* ✅ company name clickable (same pattern as products) */}
+              {job.company_name &&
+                (job.org_slug ? (
+                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
+                    <a className="heroCompanyLink">{job.company_name}</a>
+                  </Link>
+                ) : (
+                  <div className="heroCompany">{job.company_name}</div>
+                ))}
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
@@ -334,7 +340,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">Key Responsibilities</h3>
                         <ul className="bullets">
                           {responsibilities.map((x, i) => (
-                            <li key={i}>{x}</li>
+                            <li key={`${x}-${i}`}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -345,7 +351,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">Must-Have Qualifications</h3>
                         <ul className="bullets">
                           {mustHave.map((x, i) => (
-                            <li key={i}>{x}</li>
+                            <li key={`${x}-${i}`}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -358,7 +364,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">Ideal Qualifications</h3>
                         <ul className="bullets">
                           {ideal.map((x, i) => (
-                            <li key={i}>{x}</li>
+                            <li key={`${x}-${i}`}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -369,7 +375,7 @@ export default function JobDetailPage() {
                         <h3 className="hTeal">What We Offer</h3>
                         <ul className="bullets">
                           {offer.map((x, i) => (
-                            <li key={i}>{x}</li>
+                            <li key={`${x}-${i}`}>{x}</li>
                           ))}
                         </ul>
                       </div>
@@ -478,7 +484,9 @@ export default function JobDetailPage() {
           color: #7dd3fc;
         }
 
+        /* anchor styling (clickable) */
         .heroCompanyLink {
+          display: inline-block;
           font-size: 14px;
           font-weight: 650;
           color: #7dd3fc;
