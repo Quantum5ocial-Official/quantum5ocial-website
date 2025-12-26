@@ -69,9 +69,7 @@ export default function EcosystemEntangledPage() {
 
         const { data: profData, error: profError } = await supabase
           .from("profiles")
-          .select(
-            "id, full_name, avatar_url, role, current_title, affiliation, city, country"
-          )
+          .select("id, full_name, avatar_url, role, current_title, affiliation, city, country")
           .in("id", otherIds);
 
         if (profError) throw profError;
@@ -106,6 +104,50 @@ export default function EcosystemEntangledPage() {
   }, [profiles, search]);
 
   const total = profiles.length;
+
+  // ✅ same behavior as pages/profile/[id].tsx
+  const openOrCreateThread = async (otherUserId: string) => {
+    if (!user) {
+      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+
+    try {
+      const { data: existing, error: findErr } = await supabase
+        .from("dm_threads")
+        .select("id, user1, user2, created_at")
+        .or(
+          `and(user1.eq.${user.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${user.id})`
+        )
+        .limit(1)
+        .maybeSingle();
+
+      if (findErr) throw findErr;
+
+      if (existing?.id) {
+        router.push(`/messages/${existing.id}`);
+        return;
+      }
+
+      const { data: created, error: createErr } = await supabase
+        .from("dm_threads")
+        .insert({ user1: user.id, user2: otherUserId })
+        .select("id")
+        .maybeSingle();
+
+      if (createErr) throw createErr;
+
+      if (created?.id) {
+        router.push(`/messages/${created.id}`);
+        return;
+      }
+
+      throw new Error("Could not create thread.");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Could not open messages.");
+    }
+  };
 
   if (!user && !loading) return null;
 
@@ -284,7 +326,11 @@ export default function EcosystemEntangledPage() {
                       }}
                     >
                       {p.avatar_url ? (
-                        <img src={p.avatar_url} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img
+                          src={p.avatar_url}
+                          alt={name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
                       ) : (
                         initial
                       )}
@@ -310,7 +356,7 @@ export default function EcosystemEntangledPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      router.push(`/messages?to=${p.id}`);
+                      openOrCreateThread(p.id);
                     }}
                     style={{
                       width: "100%",
@@ -321,6 +367,7 @@ export default function EcosystemEntangledPage() {
                       color: "#0f172a",
                       fontSize: 12,
                       fontWeight: 800,
+                      cursor: "pointer",
                     }}
                   >
                     Message
