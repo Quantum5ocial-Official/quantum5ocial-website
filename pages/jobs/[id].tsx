@@ -265,18 +265,20 @@ export default function JobDetailPage() {
 
               {/* ✅ clickable company name (forced like products page) */}
               {job.company_name ? (
-                job.org_slug ? (
-                  <Link
-                    href={`/orgs/${encodeURIComponent(job.org_slug)}`}
-                    legacyBehavior
-                    passHref
-                  >
-                    <a className="heroCompanyLink">{job.company_name}</a>
-                  </Link>
-                ) : (
-                  <div className="heroCompany">{job.company_name}</div>
-                )
-              ) : null}
+  job.org_slug ? (
+    <a
+      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+      className="heroCompanyLink"
+      onClick={(e) => {
+        e.stopPropagation();
+      }}
+    >
+      {job.company_name}
+    </a>
+  ) : (
+    <div className="heroCompany">{job.company_name}</div>
+  )
+) : null}
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
