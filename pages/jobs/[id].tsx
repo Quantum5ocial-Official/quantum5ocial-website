@@ -86,6 +86,7 @@ export default function JobDetailPage() {
             id: jobRow.id,
             title: jobRow.title,
             company_name: jobRow.company_name,
+
             org_id:
               jobRow.org_id ??
               jobRow.organisation_id ??
@@ -98,7 +99,9 @@ export default function JobDetailPage() {
             remote_type: jobRow.remote_type,
             short_description: jobRow.short_description,
 
-            additional_description: jobRow.additional_description ?? null,
+            // ✅ new long-form field
+            additional_description:
+              jobRow.additional_description ?? jobRow.description ?? null,
 
             role: jobRow.role ?? null,
             key_responsibilities: jobRow.key_responsibilities ?? null,
@@ -134,14 +137,12 @@ export default function JobDetailPage() {
 
   const handleDelete = async () => {
     if (!job || !user) return;
-
     const confirmed = window.confirm(
       "Are you sure you want to delete this job? This cannot be undone."
     );
     if (!confirmed) return;
 
     setDeleting(true);
-
     const { error } = await supabase
       .from("jobs")
       .delete()
@@ -197,78 +198,56 @@ export default function JobDetailPage() {
   return (
     <section className="section">
       <div className="job-shell">
-        {/* ✅ OUTSIDE-CARD HEADER (company link lives here) */}
-        <div className="section-header job-detail-header">
-          <div>
-            <div className="section-title">Job details</div>
-            <div className="section-sub">
-              {job?.company_name ? (
-                job?.org_slug ? (
-                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`} passHref>
-                    <a className="job-company-link">
-                      {job.company_name}
-                    </a>
-                  </Link>
-                ) : (
-                  <span>{job.company_name}</span>
-                )
-              ) : (
-                <span>Unknown organization</span>
-              )}
+        <div className="top-actions">
+          <button
+            type="button"
+            className="nav-ghost-btn"
+            onClick={() => router.push("/jobs")}
+            style={{
+              padding: "4px 10px",
+              minWidth: "unset",
+              width: "auto",
+              lineHeight: "1.2",
+              cursor: "pointer",
+            }}
+          >
+            ← Back to jobs
+          </button>
+
+          {isOwner && (
+            <div className="top-actions-right">
+              <button
+                type="button"
+                className="nav-ghost-btn"
+                onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
+                style={{
+                  padding: "4px 10px",
+                  minWidth: "unset",
+                  width: "auto",
+                  lineHeight: "1.2",
+                  cursor: "pointer",
+                }}
+              >
+                Edit
+              </button>
+
+              <button
+                type="button"
+                className="nav-cta delete-btn"
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  padding: "4px 10px",
+                  minWidth: "unset",
+                  width: "auto",
+                  lineHeight: "1.2",
+                  cursor: deleting ? "default" : "pointer",
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
             </div>
-          </div>
-
-          <div className="header-actions">
-            <button
-              type="button"
-              className="nav-ghost-btn"
-              onClick={() => router.push("/jobs")}
-              style={{
-                padding: "4px 10px",
-                minWidth: "unset",
-                width: "auto",
-                lineHeight: "1.2",
-                cursor: "pointer",
-              }}
-            >
-              ← Back to jobs
-            </button>
-
-            {isOwner && (
-              <>
-                <button
-                  type="button"
-                  className="nav-ghost-btn"
-                  onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
-                  style={{
-                    padding: "4px 10px",
-                    minWidth: "unset",
-                    width: "auto",
-                    lineHeight: "1.2",
-                    cursor: "pointer",
-                  }}
-                >
-                  Edit
-                </button>
-
-                <button
-                  type="button"
-                  className="nav-cta delete-btn"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  style={{
-                    padding: "4px 10px",
-                    minWidth: "unset",
-                    width: "auto",
-                    lineHeight: "1.2",
-                    cursor: "pointer",
-                  }}
-                >
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
-              </>
-            )}
-          </div>
+          )}
         </div>
 
         {loading && <p className="products-status">Loading job…</p>}
@@ -284,9 +263,19 @@ export default function JobDetailPage() {
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-              {/* inside card: NOT a link (on purpose) */}
+              {/* ✅ EXACTLY like Products page: Link + <a> */}
               {job.company_name ? (
-                <div className="heroCompany">{job.company_name}</div>
+                job.org_slug ? (
+                  <Link
+                    href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+                    legacyBehavior
+                    passHref
+                  >
+                    <a className="heroCompanyLink">{job.company_name}</a>
+                  </Link>
+                ) : (
+                  <div className="heroCompany">{job.company_name}</div>
+                )
               ) : null}
 
               {(job.location || job.employment_type || job.remote_type) && (
@@ -342,7 +331,7 @@ export default function JobDetailPage() {
             <div className="divider" />
 
             <div className="jobBody">
-              {!!(job.role || "").trim() && (
+              {hasAnyStructured && !!(job.role || "").trim() && (
                 <div className="block blockRole">
                   <h2 className="hRole">The Role</h2>
                   <p className="pText">{(job.role || "").trim()}</p>
@@ -419,34 +408,38 @@ export default function JobDetailPage() {
           width: 100%;
           max-width: 1320px;
           margin: 0 auto;
+          padding-top: 4px; /* ✅ reduces the “huge gap” a bit */
         }
 
-        .job-detail-header {
-          margin-bottom: 14px;
+        .top-actions {
+          margin-bottom: 10px;
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          flex-wrap: wrap;
           gap: 10px;
+          flex-wrap: wrap;
+          align-items: center;
         }
 
-        .header-actions {
+        .top-actions-right {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
           align-items: center;
         }
 
-        .job-company-link {
-          color: #7dd3fc;
-          text-decoration: underline;
-          cursor: pointer;
-          display: inline-block;
-        }
-
         .delete-btn {
           border-color: rgba(248, 113, 113, 0.7);
           color: #fecaca;
+        }
+
+        /* ✅ force normal cursor across card */
+        .job-card,
+        .hero,
+        .jobBody,
+        .block,
+        .twoCol,
+        .col {
+          cursor: default;
         }
 
         .job-card {
@@ -455,7 +448,6 @@ export default function JobDetailPage() {
           background: rgba(15, 23, 42, 0.95);
           border: 1px solid rgba(148, 163, 184, 0.25);
           overflow: hidden;
-          cursor: default;
         }
 
         .hero {
@@ -498,6 +490,20 @@ export default function JobDetailPage() {
           color: #7dd3fc;
         }
 
+        /* ✅ ONLY this is “hand cursor” */
+        .heroCompanyLink {
+          font-size: 14px;
+          font-weight: 650;
+          color: #7dd3fc;
+          text-decoration: underline;
+          cursor: pointer;
+          width: fit-content;
+          display: inline-block;
+        }
+        .heroCompanyLink:hover {
+          opacity: 0.95;
+        }
+
         .heroMeta {
           margin-top: 2px;
           font-size: 13px;
@@ -530,7 +536,6 @@ export default function JobDetailPage() {
           border: 1px solid rgba(148, 163, 184, 0.35);
           background: rgba(2, 6, 23, 0.55);
           color: rgba(226, 232, 240, 0.9);
-          cursor: default;
         }
 
         .heroSummary {
