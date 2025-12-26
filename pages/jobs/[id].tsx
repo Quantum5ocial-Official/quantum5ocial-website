@@ -1,15 +1,21 @@
 // pages/jobs/[id].tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
+function firstQueryValue(v: string | string[] | undefined) {
+  if (!v) return "";
+  return Array.isArray(v) ? v[0] : v;
+}
+
 type Job = {
   id: string;
   title: string | null;
   company_name: string | null;
-  // Optional org linkage (if you add org_id and join)
+
+  // org linkage
   org_id?: string | null;
   org_slug?: string | null;
 
@@ -18,6 +24,14 @@ type Job = {
   remote_type: string | null;
   short_description: string | null;
   description: string | null;
+
+  // new fields
+  role?: string | null;
+  key_responsibilities?: string | null;
+  ideal_qualifications?: string | null;
+  must_have_qualifications?: string | null;
+  what_we_offer?: string | null;
+
   keywords: string | null;
   salary_display: string | null;
   apply_url: string | null;
@@ -27,37 +41,54 @@ type Job = {
 
 export default function JobDetailPage() {
   const router = useRouter();
-  const { id } = router.query;
   const { user } = useSupabaseUser();
+
+  const jobId = firstQueryValue(router.query.id as any);
 
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Load job
   useEffect(() => {
     const fetchJob = async () => {
-      if (!id) return;
+      if (!router.isReady) return;
+      if (!jobId) return;
+
       setLoading(true);
       setLoadError(null);
 
       try {
-        // If you add an org relationship in the DB, select the slug too.
-        // Example assumes jobs has org_id, and organizations table has slug.
-        // Adjust to your exact schema / column names.
+        // LEFT join org slug via jobs_org_id_fkey (do not require org_id)
         const { data, error } = await supabase
           .from("jobs")
-          // Fetch everything from jobs, plus org slug if exists
           .select(
             `
-              *,
-              organizations!inner(
+              id,
+              title,
+              company_name,
+              org_id,
+              location,
+              employment_type,
+              remote_type,
+              short_description,
+              description,
+              role,
+              key_responsibilities,
+              ideal_qualifications,
+              must_have_qualifications,
+              what_we_offer,
+              keywords,
+              salary_display,
+              apply_url,
+              owner_id,
+              created_at,
+              organizations:organizations!jobs_org_id_fkey(
                 slug
               )
             `
           )
-          .eq("id", id)
+          .eq("id", jobId)
           .maybeSingle();
 
         if (error) {
@@ -65,26 +96,32 @@ export default function JobDetailPage() {
           setLoadError("Could not load this job.");
           setJob(null);
         } else if (data) {
-          // Map the joined org slug into job object if present
-          const jobRow: any = data;
-          const orgSlug = jobRow.organizations?.slug ?? null;
+          const row: any = data;
 
           const jobWithOrg: Job = {
-            id: jobRow.id,
-            title: jobRow.title,
-            company_name: jobRow.company_name,
-            org_id: jobRow.organisations_id ?? jobRow.org_id ?? null,
-            org_slug: orgSlug,
-            location: jobRow.location,
-            employment_type: jobRow.employment_type,
-            remote_type: jobRow.remote_type,
-            short_description: jobRow.short_description,
-            description: jobRow.description,
-            keywords: jobRow.keywords,
-            salary_display: jobRow.salary_display,
-            apply_url: jobRow.apply_url,
-            owner_id: jobRow.owner_id,
-            created_at: jobRow.created_at,
+            id: row.id,
+            title: row.title,
+            company_name: row.company_name,
+            org_id: row.org_id ?? null,
+            org_slug: row.organizations?.slug ?? null,
+
+            location: row.location,
+            employment_type: row.employment_type,
+            remote_type: row.remote_type,
+            short_description: row.short_description,
+            description: row.description,
+
+            role: row.role ?? null,
+            key_responsibilities: row.key_responsibilities ?? null,
+            ideal_qualifications: row.ideal_qualifications ?? null,
+            must_have_qualifications: row.must_have_qualifications ?? null,
+            what_we_offer: row.what_we_offer ?? null,
+
+            keywords: row.keywords,
+            salary_display: row.salary_display,
+            apply_url: row.apply_url,
+            owner_id: row.owner_id,
+            created_at: row.created_at,
           };
 
           setJob(jobWithOrg);
@@ -96,13 +133,13 @@ export default function JobDetailPage() {
         console.error("Unexpected fetch error", e);
         setLoadError("Could not load this job.");
         setJob(null);
+      } finally {
+        setLoading(false);
       }
-
-      setLoading(false);
     };
 
     fetchJob();
-  }, [id]);
+  }, [router.isReady, jobId]);
 
   const isOwner = !!user && job?.owner_id === user.id;
 
@@ -141,6 +178,37 @@ export default function JobDetailPage() {
       .map((k) => k.trim())
       .filter(Boolean) || [];
 
+  const showAnyStructured =
+    !!job &&
+    !!(
+      job.role ||
+      job.key_responsibilities ||
+      job.must_have_qualifications ||
+      job.ideal_qualifications ||
+      job.what_we_offer
+    );
+
+  const Block = ({
+    label,
+    value,
+  }: {
+    label: string;
+    value: string | null | undefined;
+  }) => {
+    if (!value || !String(value).trim()) return null;
+    return (
+      <div style={{ marginTop: 18 }}>
+        <div className="profile-section-label">{label}</div>
+        <p
+          className="profile-summary-text"
+          style={{ whiteSpace: "pre-wrap", fontSize: 13 }}
+        >
+          {String(value).trim()}
+        </p>
+      </div>
+    );
+  };
+
   return (
     <section className="section">
       <div className="job-detail-shell">
@@ -153,7 +221,6 @@ export default function JobDetailPage() {
             </div>
           </div>
 
-          {/* Back + owner actions in one row */}
           <div className="header-actions">
             <button
               type="button"
@@ -168,7 +235,7 @@ export default function JobDetailPage() {
                 <button
                   type="button"
                   className="nav-ghost-btn"
-                  onClick={() => router.push(`/jobs/new?id=${job?.id}`)}
+                  onClick={() => router.push(`/jobs/new?id=${job?.id || ""}`)}
                 >
                   Edit
                 </button>
@@ -194,27 +261,26 @@ export default function JobDetailPage() {
 
         {!loading && !loadError && job && (
           <div className="product-detail-card">
-            {/* Main top section */}
             <div className="product-detail-top">
               <div className="product-detail-main">
                 <h1 className="product-detail-title">
                   {job.title || "Untitled job"}
                 </h1>
 
-                {/* Clickable company name if org slug available */}
-                {job.company_name && (
-                  job.org_slug ? (
-                    <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
-                      <a className="product-detail-company" style={{ textDecoration: "underline" }}>
-                        {job.company_name}
-                      </a>
+                {job.company_name &&
+                  (job.org_slug ? (
+                    <Link
+                      href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+                      className="product-detail-company"
+                      style={{ textDecoration: "underline" }}
+                    >
+                      {job.company_name}
                     </Link>
                   ) : (
                     <div className="product-detail-company">
                       {job.company_name}
                     </div>
-                  )
-                )}
+                  ))}
 
                 {(job.location || job.employment_type || job.remote_type) && (
                   <div
@@ -243,9 +309,7 @@ export default function JobDetailPage() {
                 )}
 
                 {job.salary_display && (
-                  <div className="product-detail-price">
-                    {job.salary_display}
-                  </div>
+                  <div className="product-detail-price">{job.salary_display}</div>
                 )}
 
                 {job.apply_url && (
@@ -262,7 +326,6 @@ export default function JobDetailPage() {
                 )}
               </div>
 
-              {/* Summary / short description */}
               <div className="product-detail-body">
                 {job.short_description && (
                   <div className="product-detail-section">
@@ -300,12 +363,31 @@ export default function JobDetailPage() {
                 </p>
               </div>
             )}
+
+            {/* New structured sections */}
+            {showAnyStructured && (
+              <div style={{ marginTop: 10 }}>
+                <Block label="The role" value={job.role ?? null} />
+                <Block
+                  label="Key responsibilities"
+                  value={job.key_responsibilities ?? null}
+                />
+                <Block
+                  label="Must-have qualifications"
+                  value={job.must_have_qualifications ?? null}
+                />
+                <Block
+                  label="Ideal qualifications"
+                  value={job.ideal_qualifications ?? null}
+                />
+                <Block label="What we offer" value={job.what_we_offer ?? null} />
+              </div>
+            )}
           </div>
         )}
       </div>
 
       <style jsx>{`
-        /* Match homepage & product detail max width */
         .job-detail-shell {
           width: 100%;
           max-width: 1320px;
@@ -321,14 +403,12 @@ export default function JobDetailPage() {
           gap: 8px;
         }
 
-        /* Container for back + owner actions */
         .header-actions {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
         }
 
-        /* Reuse styles from products page */
         .product-detail-card {
           width: 100%;
           padding: 24px 22px 28px;
@@ -420,15 +500,14 @@ export default function JobDetailPage() {
           color: #cbd5f5;
         }
 
-        /* Tight pill styles: remove extra min-width or flex-grow if any */
         .nav-ghost-btn,
         .nav-cta {
           padding: 6px 12px;
-          min-width: auto; /* ensure tight width */
+          min-width: auto;
         }
 
         .delete-btn {
-          border-color: rgba(248,113,113,0.7);
+          border-color: rgba(248, 113, 113, 0.7);
           color: #fecaca;
         }
       `}</style>
@@ -436,7 +515,6 @@ export default function JobDetailPage() {
   );
 }
 
-// ✅ global layout: left sidebar + middle only, no right column
 (JobDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
