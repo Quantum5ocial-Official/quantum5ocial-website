@@ -19,7 +19,6 @@ type Job = {
   short_description: string | null;
   description: string | null;
 
-  // structured fields
   role?: string | null;
   key_responsibilities?: string | null;
   must_have_qualifications?: string | null;
@@ -87,7 +86,10 @@ export default function JobDetailPage() {
             title: jobRow.title,
             company_name: jobRow.company_name,
             org_id:
-              jobRow.org_id ?? jobRow.organisation_id ?? jobRow.organisations_id ?? null,
+              jobRow.org_id ??
+              jobRow.organisation_id ??
+              jobRow.organisations_id ??
+              null,
             org_slug: orgSlug,
 
             location: jobRow.location,
@@ -245,80 +247,74 @@ export default function JobDetailPage() {
 
         {!loading && !loadError && job && (
           <div className="job-card">
-            {/* header / hero */}
+            {/* ✅ HERO (single-column, no right placeholder) */}
             <div className="hero">
-              <div className="heroLeft">
-                <div className="heroKicker">Job</div>
-                <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
+              <div className="heroKicker">JOB</div>
+              <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-                {job.company_name &&
-                  (job.org_slug ? (
-                    <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
-                      <span className="heroCompanyLink">{job.company_name}</span>
-                    </Link>
-                  ) : (
-                    <div className="heroCompany">{job.company_name}</div>
-                  ))}
+              {job.company_name &&
+                (job.org_slug ? (
+                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
+                    <span className="heroCompanyLink">{job.company_name}</span>
+                  </Link>
+                ) : (
+                  <div className="heroCompany">{job.company_name}</div>
+                ))}
 
-                {(job.location || job.employment_type || job.remote_type) && (
-                  <div className="heroMeta">
-                    {[job.location, job.employment_type, job.remote_type]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </div>
-                )}
-
-                {(formattedDate || job.salary_display) && (
-                  <div className="heroMeta2">
-                    {formattedDate ? `Posted on ${formattedDate}` : ""}
-                    {formattedDate && job.salary_display ? " · " : ""}
-                    {job.salary_display ? job.salary_display : ""}
-                  </div>
-                )}
-
-                <div className="heroCtas">
-                  {job.apply_url && (
-                    <a
-                      href={job.apply_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="nav-cta"
-                      style={{ padding: "6px 12px", minWidth: "unset", width: "fit-content" }}
-                    >
-                      Apply / learn more
-                    </a>
-                  )}
-
-                  {keywordList.length > 0 && (
-                    <div className="heroTags" aria-label="Keywords">
-                      {keywordList.slice(0, 6).map((k) => (
-                        <span key={k} className="tagChip">
-                          {k}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+              {(job.location || job.employment_type || job.remote_type) && (
+                <div className="heroMeta">
+                  {[job.location, job.employment_type, job.remote_type]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
+              )}
 
-                {job.short_description && (
-                  <div className="heroSummary">
-                    {job.short_description}
+              {(formattedDate || job.salary_display) && (
+                <div className="heroMeta2">
+                  {formattedDate ? `Posted on ${formattedDate}` : ""}
+                  {formattedDate && job.salary_display ? " · " : ""}
+                  {job.salary_display ? job.salary_display : ""}
+                </div>
+              )}
+
+              <div className="heroCtas">
+                {job.apply_url && (
+                  <a
+                    href={job.apply_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="nav-cta"
+                    style={{
+                      padding: "6px 12px",
+                      minWidth: "unset",
+                      width: "fit-content",
+                    }}
+                  >
+                    Apply / learn more
+                  </a>
+                )}
+
+                {keywordList.length > 0 && (
+                  <div className="heroTags" aria-label="Keywords">
+                    {keywordList.slice(0, 8).map((k) => (
+                      <span key={k} className="tagChip">
+                        {k}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* decorative banner (matches screenshot vibe) */}
-              <div className="heroRight" aria-hidden="true">
-                <div className="heroImg" />
-                <div className="heroOverlay" />
-                <div className="heroGrid" />
-              </div>
+              {job.short_description && (
+                <div className="heroSummary">{job.short_description}</div>
+              )}
             </div>
 
-            {/* body like screenshot */}
+            <div className="divider" />
+
+            {/* body */}
             {hasAnyStructured ? (
               <div className="jobBody">
-                {/* The Role (full width like screenshot) */}
                 {!!(job.role || "").trim() && (
                   <div className="block blockRole">
                     <h2 className="hRole">The Role</h2>
@@ -326,7 +322,6 @@ export default function JobDetailPage() {
                   </div>
                 )}
 
-                {/* 2-column blocks */}
                 <div className="twoCol">
                   <div className="col">
                     {responsibilities.length > 0 && (
@@ -377,7 +372,6 @@ export default function JobDetailPage() {
                   </div>
                 </div>
 
-                {/* optional long description under */}
                 {!!(job.description || "").trim() && (
                   <div className="block">
                     <h3 className="hTeal">Full Description</h3>
@@ -388,7 +382,6 @@ export default function JobDetailPage() {
                 )}
               </div>
             ) : (
-              // fallback if older jobs have only description
               <div className="jobBody">
                 {!!(job.description || "").trim() && (
                   <div className="block">
@@ -440,35 +433,24 @@ export default function JobDetailPage() {
           overflow: hidden;
         }
 
-        /* Hero header */
+        /* ✅ single-column hero */
         .hero {
-          display: grid;
-          grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-          gap: 18px;
           padding: 18px;
-          border-bottom: 1px solid rgba(148, 163, 184, 0.18);
           background: radial-gradient(
               circle at 0% 0%,
               rgba(56, 189, 248, 0.12),
               transparent 55%
             ),
             rgba(15, 23, 42, 0.95);
-        }
-
-        @media (max-width: 900px) {
-          .hero {
-            grid-template-columns: minmax(0, 1fr);
-          }
-          .heroRight {
-            display: none;
-          }
-        }
-
-        .heroLeft {
           display: flex;
           flex-direction: column;
           gap: 8px;
-          padding: 4px 2px;
+        }
+
+        .divider {
+          height: 1px;
+          width: 100%;
+          background: rgba(148, 163, 184, 0.18);
         }
 
         .heroKicker {
@@ -543,48 +525,6 @@ export default function JobDetailPage() {
           line-height: 1.55;
         }
 
-        .heroRight {
-          position: relative;
-          border-radius: 14px;
-          overflow: hidden;
-          min-height: 190px;
-          border: 1px solid rgba(148, 163, 184, 0.22);
-          background: rgba(2, 6, 23, 0.35);
-        }
-
-        .heroImg {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            135deg,
-            rgba(245, 158, 11, 0.35),
-            rgba(249, 115, 22, 0.18),
-            rgba(15, 23, 42, 0.1)
-          );
-          filter: saturate(1.15);
-        }
-
-        .heroOverlay {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.10), transparent 55%);
-          mix-blend-mode: screen;
-          pointer-events: none;
-        }
-
-        .heroGrid {
-          position: absolute;
-          inset: 0;
-          background-image: linear-gradient(
-              rgba(255, 255, 255, 0.06) 1px,
-              transparent 1px
-            ),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-          background-size: 34px 34px;
-          opacity: 0.18;
-        }
-
-        /* Body blocks like screenshot */
         .jobBody {
           padding: 18px 20px 22px;
           display: flex;
@@ -604,7 +544,7 @@ export default function JobDetailPage() {
           margin: 0 0 8px;
           font-size: 26px;
           font-weight: 800;
-          color: #7c3aed; /* purple like screenshot */
+          color: #7c3aed;
           letter-spacing: -0.01em;
         }
 
@@ -612,7 +552,7 @@ export default function JobDetailPage() {
           margin: 0 0 10px;
           font-size: 22px;
           font-weight: 800;
-          color: #2dd4bf; /* teal like screenshot */
+          color: #2dd4bf;
           letter-spacing: -0.01em;
         }
 
@@ -661,7 +601,6 @@ export default function JobDetailPage() {
   );
 }
 
-// ✅ global layout: left sidebar + middle only, no right column
 (JobDetailPage as any).layoutProps = {
   variant: "two-left",
   right: null,
