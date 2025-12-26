@@ -263,15 +263,20 @@ export default function JobDetailPage() {
               <div className="heroKicker">JOB</div>
               <h1 className="heroTitle">{job.title || "Untitled job"}</h1>
 
-              {/* ✅ company name clickable (same pattern as products) */}
-              {job.company_name &&
-                (job.org_slug ? (
-                  <Link href={`/orgs/${encodeURIComponent(job.org_slug)}`}>
+              {/* ✅ clickable company name (forced like products page) */}
+              {job.company_name ? (
+                job.org_slug ? (
+                  <Link
+                    href={`/orgs/${encodeURIComponent(job.org_slug)}`}
+                    legacyBehavior
+                    passHref
+                  >
                     <a className="heroCompanyLink">{job.company_name}</a>
                   </Link>
                 ) : (
                   <div className="heroCompany">{job.company_name}</div>
-                ))}
+                )
+              ) : null}
 
               {(job.location || job.employment_type || job.remote_type) && (
                 <div className="heroMeta">
@@ -413,6 +418,20 @@ export default function JobDetailPage() {
           width: 100%;
           max-width: 1320px;
           margin: 0 auto;
+          cursor: default;
+        }
+
+        /* ✅ ensure normal cursor everywhere by default */
+        .job-card,
+        .hero,
+        .jobBody,
+        .block,
+        .col,
+        .twoCol,
+        .heroTags,
+        .tagChip,
+        .heroSummary {
+          cursor: default;
         }
 
         .top-actions {
@@ -484,18 +503,18 @@ export default function JobDetailPage() {
           color: #7dd3fc;
         }
 
-        /* anchor styling (clickable) */
+        /* ✅ only show hand on hover */
         .heroCompanyLink {
           display: inline-block;
           font-size: 14px;
           font-weight: 650;
           color: #7dd3fc;
           text-decoration: underline;
-          cursor: pointer;
           width: fit-content;
+          cursor: default;
         }
-
         .heroCompanyLink:hover {
+          cursor: pointer;
           opacity: 0.95;
         }
 
