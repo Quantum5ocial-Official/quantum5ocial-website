@@ -58,10 +58,16 @@ type CommunityItem = {
   name: string;
   avatar_url: string | null;
 
+  // only for person
   role?: string | null;
   current_title?: string | null;
   affiliation?: string | null;
 
+  // location
+  city?: string | null;
+  country?: string | null;
+
+  // org only
   typeLabel: string; // org only (Company/Research group)
   roleLabel: string; // org meta label
 
@@ -347,6 +353,9 @@ function CommunityProvider({ children }: { children: ReactNode }) {
       role: p.role || null,
       current_title: p.current_title || null,
       affiliation: p.affiliation || null,
+      // carry location
+      city: p.city || null,
+      country: p.country || null,
       typeLabel: "Member",
       roleLabel: p.role || "Quantum5ocial member",
       created_at: p.created_at || null,
@@ -635,10 +644,10 @@ function CommunityMiddle() {
                 item.kind === "person" || (item.kind === "organization" && item.slug);
 
               const headline = (item.current_title || item.role || "").trim() || null;
-              const metaLine =
-                item.kind === "person"
-                  ? ([headline, item.affiliation].filter(Boolean).join(" · ") || "—")
-                  : item.roleLabel;
+              const affiliationLine = item.affiliation?.trim() || null;
+
+              // For location line
+              const locationLine = [item.city, item.country].filter(Boolean).join(", ") || null;
 
               const hasBadge =
                 item.kind === "person" && !!(item.q5_badge_label || item.q5_badge_level != null);
@@ -672,81 +681,93 @@ function CommunityMiddle() {
                   }
                 >
                   {/* ✅ top badge (we will move it to centered-above-avatar on MOBILE via CSS) */}
-<div
-  className="community-badge-pill"
-  onClick={(e) => e.stopPropagation()}
->
-  {item.kind === "person" ? (
-    hasBadge ? (
-      <Q5BadgeChips
-        label={badgeLabel}
-        reviewStatus={item.q5_badge_review_status ?? null}
-        size="sm"
-      />
-    ) : null
-  ) : (
-    <span style={orgTypePill}>{item.typeLabel}</span>
-  )}
-</div>
+                  <div
+                    className="community-badge-pill"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {item.kind === "person" ? (
+                      hasBadge ? (
+                        <Q5BadgeChips
+                          label={badgeLabel}
+                          reviewStatus={item.q5_badge_review_status ?? null}
+                          size="sm"
+                        />
+                      ) : null
+                    ) : (
+                      <span style={orgTypePill}>{item.typeLabel}</span>
+                    )}
+                  </div>
 
-{/* TOP: avatar centered + text BELOW */}
-<div className="card-inner community-card-top">
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      textAlign: "center",
-      gap: 10,
-      paddingTop: 6,
-    }}
-  >
-    <div
-      style={{
-        width: 62,
-        height: 62,
-        borderRadius: isOrganization ? 16 : 999,
-        overflow: "hidden",
-        flexShrink: 0,
-        border: "1px solid rgba(148,163,184,0.4)",
-        background: isOrganization
-          ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-          : "rgba(15,23,42,0.9)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: 20,
-        fontWeight: 800,
-        color: isOrganization ? "#0f172a" : "#e5e7eb",
-      }}
-    >
-      {item.avatar_url ? (
-        <img
-          src={item.avatar_url}
-          alt={item.name}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-        />
-      ) : (
-        <span>{initial}</span>
-      )}
-    </div>
+                  {/* TOP: avatar centered + text BELOW */}
+                  <div className="card-inner community-card-top">
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        textAlign: "center",
+                        gap: 10,
+                        paddingTop: 6,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 62,
+                          height: 62,
+                          borderRadius: isOrganization ? 16 : 999,
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          border: "1px solid rgba(148,163,184,0.4)",
+                          background: isOrganization
+                            ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+                            : "rgba(15,23,42,0.9)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 20,
+                          fontWeight: 800,
+                          color: isOrganization ? "#0f172a" : "#e5e7eb",
+                        }}
+                      >
+                        {item.avatar_url ? (
+                          <img
+                            src={item.avatar_url}
+                            alt={item.name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                          />
+                        ) : (
+                          <span>{initial}</span>
+                        )}
+                      </div>
 
-    {/* Name */}
-    <div className="community-card-name" title={item.name}>
-      {item.name}
-    </div>
+                      {/* Name */}
+                      <div className="community-card-name" title={item.name}>
+                        {item.name}
+                      </div>
 
-    {/* title/role + affiliation */}
-    <div className="community-card-meta" title={metaLine}>
-      {metaLine}
-    </div>
-  </div>
-</div>
+                      {/* title/role + affiliation */}
+                      <div className="community-card-meta" title={affiliationLine || ""}>
+                        {headline ? headline : "—"}
+                        {affiliationLine ? ` · ${affiliationLine}` : ""}
+                      </div>
+
+                      {/* location line: only for person and if present */}
+                      {item.kind === "person" && locationLine && (
+                        <div
+                          className="community-card-meta"
+                          title={locationLine}
+                          style={{ fontSize: 11, opacity: 0.85 }}
+                        >
+                          {locationLine}
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   {/* FOOTER ACTIONS */}
                   <div style={{ marginTop: 14 }}>
@@ -937,7 +958,8 @@ function CommunityMiddle() {
 
 /* =========================
    PAGE
-   ========================= */
+   =========================
+   */
 
 export default function CommunityPage() {
   return <CommunityMiddle />;
