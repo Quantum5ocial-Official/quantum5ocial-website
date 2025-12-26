@@ -44,7 +44,9 @@ type JobRow = {
   remote_type: string | null;
   short_description: string | null;
 
-  description: string | null;
+  // ✅ NEW long-form field name
+  additional_description: string | null;
+
   keywords: string | null;
   salary_display: string | null;
   apply_url: string | null;
@@ -101,7 +103,9 @@ export default function NewJobPage() {
     must_have_qualifications: "",
     what_we_offer: "",
 
-    description: "",
+    // ✅ rename: description -> additional_description
+    additional_description: "",
+
     keywords: "",
     salary_display: "",
     apply_url: "",
@@ -118,9 +122,6 @@ export default function NewJobPage() {
 
   const [eligibleOrgs, setEligibleOrgs] = useState<Org[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
-
-  // ✅ NEW: keep the job’s existing org_id during edit, even if org state isn’t loaded yet
-  const [jobOrgId, setJobOrgId] = useState<string | null>(null);
 
   const isMarketplaceCreate = !isEditing && !orgParam;
   const lockCompanyField = !!org;
@@ -326,7 +327,7 @@ export default function NewJobPage() {
   }, [router.isReady, user, orgParam]);
 
   /* ---------------------------------------------------------------------- */
-  /*  If editing: load existing job + its org context                        */
+  /*  If editing: load existing job                                          */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -334,11 +335,7 @@ export default function NewJobPage() {
       if (!jobId || !user) return;
       setLoadError(null);
 
-      const { data, error } = await supabase
-        .from("jobs")
-        .select("*")
-        .eq("id", jobId)
-        .maybeSingle();
+      const { data, error } = await supabase.from("jobs").select("*").eq("id", jobId).maybeSingle();
 
       if (error) {
         console.error("Error loading job to edit", error);
@@ -356,14 +353,22 @@ export default function NewJobPage() {
 
       const job = data as JobRow;
 
-      // ✅ keep existing org_id safe so updates don't wipe it
-      const existingOrgId =
-        (job as any).org_id ??
-        (job as any).organisation_id ??
-        (job as any).organisations_id ??
-        null;
+      // if job already has org_id, load that org to lock company_name and keep consistent behavior
+      if (job.org_id) {
+        const { data: orgRow } = await supabase
+          .from("organizations")
+          .select("id,name,slug,created_by,is_active")
+          .eq("id", job.org_id)
+          .maybeSingle();
 
-      setJobOrgId(existingOrgId ? String(existingOrgId) : null);
+        if (orgRow) {
+          setOrg(orgRow as Org);
+          setSelectedOrgId((orgRow as any).id || "");
+          // NOTE: permission is still enforced by owner_id check above for editing;
+          // but keep canPostAsOrg true for UX (button enable).
+          setCanPostAsOrg(true);
+        }
+      }
 
       setForm({
         title: job.title || "",
@@ -379,43 +384,16 @@ export default function NewJobPage() {
         must_have_qualifications: job.must_have_qualifications || "",
         what_we_offer: job.what_we_offer || "",
 
-        description: job.description || "",
+        // ✅ load additional_description (and keep a fallback for legacy rows if any)
+        additional_description:
+          (job as any).additional_description ||
+          (job as any).description ||
+          "",
+
         keywords: job.keywords || "",
         salary_display: job.salary_display || "",
         apply_url: job.apply_url || "",
       });
-
-      // ✅ If job has org_id, load the org so detail page linking works
-      if (existingOrgId) {
-        setLoadingOrg(true);
-        try {
-          const { data: orgData, error: orgErr } = await supabase
-            .from("organizations")
-            .select("id,name,slug,created_by,is_active")
-            .eq("id", existingOrgId)
-            .eq("is_active", true)
-            .maybeSingle();
-
-          if (!orgErr && orgData) {
-            const foundOrg = orgData as Org;
-            setOrg(foundOrg);
-            setSelectedOrgId(foundOrg.id);
-
-            // if you're the job owner, let edit proceed; org permission is for create flow
-            setCanPostAsOrg(true);
-
-            // keep company_name aligned with org name (if it exists)
-            setForm((prev) => ({
-              ...prev,
-              company_name: foundOrg.name || prev.company_name,
-            }));
-          }
-        } catch (e) {
-          console.error("Error loading org for job edit", e);
-        } finally {
-          setLoadingOrg(false);
-        }
-      }
     };
 
     if (isEditing && user) loadJob();
@@ -462,9 +440,6 @@ export default function NewJobPage() {
     setSaving(true);
     setSaveError(null);
 
-    // ✅ IMPORTANT: during edit, don't wipe org_id if org state isn't loaded
-    const resolvedOrgId = org?.id ?? jobOrgId ?? null;
-
     const payload = {
       title: form.title.trim(),
       company_name: form.company_name.trim(),
@@ -479,12 +454,15 @@ export default function NewJobPage() {
       must_have_qualifications: form.must_have_qualifications.trim() || null,
       what_we_offer: form.what_we_offer.trim() || null,
 
-      description: form.description.trim() || null,
+      // ✅ write correct column name
+      additional_description: form.additional_description.trim() || null,
+
       keywords: form.keywords.trim() || null,
       salary_display: form.salary_display.trim() || null,
       apply_url: form.apply_url.trim() || null,
 
-      org_id: resolvedOrgId,
+      // ✅ always write org_id
+      org_id: org ? org.id : null,
     };
 
     try {
@@ -543,6 +521,7 @@ export default function NewJobPage() {
       <div className="page">
         <Navbar />
 
+        {/* ✅ reduce big top gap */}
         <section className="section" style={{ paddingTop: 10 }}>
           <div className="section-header" style={{ alignItems: "flex-start", marginTop: 0 }}>
             <div>
@@ -583,6 +562,7 @@ export default function NewJobPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="products-create-form">
+                  {/* Basics */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Basics</h4>
@@ -674,6 +654,7 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
+                  {/* Structured role details */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Role details</h4>
@@ -733,6 +714,7 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
+                  {/* ✅ Additional description (fixed column) */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Additional description</h4>
@@ -746,8 +728,8 @@ export default function NewJobPage() {
                         <label>Additional description</label>
                         <textarea
                           rows={6}
-                          value={form.description}
-                          onChange={handleChange("description")}
+                          value={form.additional_description}
+                          onChange={handleChange("additional_description")}
                           placeholder="Extra context, team, project details, process, timeline, etc."
                         />
                       </div>
@@ -764,6 +746,7 @@ export default function NewJobPage() {
                     </div>
                   </div>
 
+                  {/* Salary & apply link */}
                   <div className="products-section">
                     <div className="products-section-header">
                       <h4 className="products-section-title">Salary & application</h4>
