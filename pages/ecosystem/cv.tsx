@@ -41,7 +41,7 @@ export default function EcosystemMyCvPage() {
           <div>
             <div className="section-title">📄 My CV</div>
             <div className="section-sub" style={{ maxWidth: 560 }}>
-              Your resume/CV hub — upload, version, and share. (Mock page for now.)
+              Your CV hub — always up to date, and easy to share.
             </div>
           </div>
 
@@ -63,8 +63,23 @@ export default function EcosystemMyCvPage() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
-        <div className="profile-muted">Coming soon.</div>
+      {/* Placeholder card */}
+      <div className="card" style={{ padding: 18 }}>
+        <div className="section-title" style={{ fontSize: 16 }}>
+          Your CV, always up to date
+        </div>
+
+        <div className="section-sub" style={{ maxWidth: 620, marginTop: 6 }}>
+          We’ll help you build and maintain a clean, up-to-date CV directly from your
+          Quantum5ocial profile — including experience, publications, skills, and projects.
+        </div>
+
+        <div className="section-sub" style={{ maxWidth: 620, marginTop: 10 }}>
+          Your CV will be easily shareable with hiring managers, collaborators, and
+          organizations — always reflecting your latest work.
+        </div>
+
+        <div style={{ marginTop: 14, fontSize: 13, color: "#94a3b8" }}>Coming soon.</div>
       </div>
     </section>
   );
