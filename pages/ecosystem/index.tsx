@@ -242,6 +242,26 @@ export default function EcosystemIndexPage() {
             color="#34d399"
             description="Q&A threads where you replied."
           />
+
+          {/* ✅ NEW: My publications */}
+          <Tile
+            href="/ecosystem/publications"
+            label="My publications"
+            count={0}
+            icon="📚"
+            color="#f472b6"
+            description="Your papers, preprints, and publication links."
+          />
+
+          {/* ✅ NEW: My CV */}
+          <Tile
+            href="/ecosystem/cv"
+            label="My CV"
+            count={0}
+            icon="📄"
+            color="#f97316"
+            description="Your CV / resume, editable and shareable."
+          />
         </div>
       )}
     </section>
