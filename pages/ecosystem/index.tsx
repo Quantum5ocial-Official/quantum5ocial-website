@@ -140,8 +140,7 @@ export default function EcosystemIndexPage() {
           <div>
             <div className="section-title">My ecosystem</div>
             <div className="section-sub" style={{ maxWidth: 680 }}>
-              Your personal quantum dashboard. This will evolve into a rich 4×4
-              ecosystem view over time.
+              Your personal quantum5ocial dashboard. This would be customize-able soon.
             </div>
           </div>
 
