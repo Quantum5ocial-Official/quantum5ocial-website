@@ -78,10 +78,7 @@ function pickBestEmail(user: any): string | null {
 
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
-    const email =
-      ident?.identity_data?.email ||
-      ident?.identity_data?.preferred_email ||
-      null;
+    const email = ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
@@ -94,12 +91,7 @@ function pickBestEmail(user: any): string | null {
 
 function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
   const meta = user?.user_metadata || {};
-  const v =
-    overrides?.full_name ||
-    meta.full_name ||
-    meta.name ||
-    meta.preferred_username ||
-    null;
+  const v = overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
@@ -107,6 +99,60 @@ function pickBestAvatar(user: any): string | null {
   const meta = user?.user_metadata || {};
   const v = meta.avatar_url || meta.picture || null;
   return v && String(v).trim() ? String(v).trim() : null;
+}
+
+/* ---------- Inline SVG Icons (no broken <img>) ---------- */
+function MailVerifyIcon({ size = 30 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 7.5C4 6.12 5.12 5 6.5 5h11C18.88 5 20 6.12 20 7.5v9c0 1.38-1.12 2.5-2.5 2.5h-11C5.12 19 4 17.88 4 16.5v-9Z"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.2 7.7 11.2 12.1c.5.37 1.18.37 1.68 0l6-4.4"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M13 9h6m0 0-2-2m2 2-2 2"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function OpenInIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M10 6H6.8A2.8 2.8 0 0 0 4 8.8v8.4A2.8 2.8 0 0 0 6.8 20h8.4A2.8 2.8 0 0 0 18 17.2V14"
+        stroke="rgba(226,232,240,0.95)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <path
+        d="M14 4h6v6"
+        stroke="rgba(34,211,238,0.95)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M20 4 11 13"
+        stroke="rgba(34,211,238,0.95)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 export default function AuthPage() {
@@ -271,11 +317,7 @@ export default function AuthPage() {
 
     // If you have RLS enabled, make sure profiles has a policy allowing
     // select email for anon/auth users OR replace this with an RPC.
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("email", e)
-      .limit(1);
+    const { data, error } = await supabase.from("profiles").select("id").eq("email", e).limit(1);
 
     if (error) {
       // Don’t block signup if RLS prevents it; treat as unknown
@@ -296,8 +338,6 @@ export default function AuthPage() {
     setResendStatus(null);
 
     try {
-      // Supabase: resend signup confirmation
-      // Works when "Confirm email" is enabled.
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: e,
@@ -334,7 +374,6 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // Signup UX: warn if email already exists
         const exists = await checkEmailExistsInProfiles(eNorm);
         if (exists) {
           setError("An account with this email already exists. Please log in instead.");
@@ -368,7 +407,6 @@ export default function AuthPage() {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.replace(redirectPath);
         } else if (data.user) {
-          // profile insert is ok even before confirmation
           await ensureProfile(data.user, { full_name: fullName.trim() });
         }
       } else {
@@ -470,35 +508,11 @@ export default function AuthPage() {
                     boxShadow: "0 0 0 6px rgba(34,211,238,0.06)",
                   }}
                 >
-                  {/* white envelope + arrow */}
-                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M4 7.5C4 6.12 5.12 5 6.5 5h11C18.88 5 20 6.12 20 7.5v9c0 1.38-1.12 2.5-2.5 2.5h-11C5.12 19 4 17.88 4 16.5v-9Z"
-                      stroke="#ffffff"
-                      strokeWidth="1.6"
-                      opacity="0.9"
-                    />
-                    <path
-                      d="M5.2 7.7 11.2 12.1c.5.37 1.18.37 1.68 0l6-4.4"
-                      stroke="#ffffff"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      opacity="0.9"
-                    />
-                    <path
-                      d="M13 9h6m0 0-2-2m2 2-2 2"
-                      stroke="#ffffff"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <MailVerifyIcon size={30} />
                 </div>
               </div>
 
-              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
-                Check your email
-              </div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Check your email</div>
 
               <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
                 We sent a verification link to{" "}
@@ -527,7 +541,7 @@ export default function AuthPage() {
                   cursor: "pointer",
                 }}
               >
-                <img src="/email.svg" style={{ width: 18, height: 18 }} />
+                <OpenInIcon size={18} />
                 Open email
               </a>
 
@@ -548,9 +562,7 @@ export default function AuthPage() {
               </div>
 
               {resendStatus && (
-                <div style={{ marginTop: 10, fontSize: 12, color: "#86efac" }}>
-                  {resendStatus}
-                </div>
+                <div style={{ marginTop: 10, fontSize: 12, color: "#86efac" }}>{resendStatus}</div>
               )}
 
               {error && <div style={{ ...errorBox, marginTop: 12 }}>{error}</div>}
