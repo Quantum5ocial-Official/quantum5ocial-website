@@ -92,7 +92,7 @@ function getInboxTarget(email: string): InboxTarget {
       webInboxUrl: "https://mail.google.com/mail/u/0/#inbox",
       iosScheme: "googlegmail://",
       androidIntent:
-        "intent://mail.google.com/mail/u/0/#inbox#Intent;scheme=https;package=com.google.android.gm;end",
+        "intent://co#Intent;scheme=googlegmail;package=com.google.android.gm;end",
     };
   }
 
