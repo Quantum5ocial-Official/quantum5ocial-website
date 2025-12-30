@@ -1,13 +1,10 @@
 // pages/auth.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 
 type OAuthProvider = "google" | "github" | "linkedin_oidc";
-
-const GMAIL_URL = "https://mail.google.com/";
-const OUTLOOK_URL = "https://outlook.live.com/mail/";
 
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
@@ -29,8 +26,7 @@ function pickBestEmail(user: any): string | null {
 
 function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
   const meta = user?.user_metadata || {};
-  const v =
-    overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
+  const v = overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
@@ -38,6 +34,162 @@ function pickBestAvatar(user: any): string | null {
   const meta = user?.user_metadata || {};
   const v = meta.avatar_url || meta.picture || null;
   return v && String(v).trim() ? String(v).trim() : null;
+}
+
+function getDeviceKind() {
+  if (typeof window === "undefined") return { isMobile: false, os: "desktop" as const };
+
+  const ua = navigator.userAgent || "";
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isMobile = isAndroid || isIOS;
+
+  return { isMobile, os: isAndroid ? ("android" as const) : isIOS ? ("ios" as const) : ("desktop" as const) };
+}
+
+/**
+ * We return BOTH:
+ * - appUrl (deep link) for mobile attempt
+ * - webUrl fallback
+ */
+function getInboxTarget(email: string): {
+  label: string;
+  appUrl?: string | null;
+  webUrl: string;
+  fallbackLabel?: string;
+} {
+  const e = String(email || "").trim().toLowerCase();
+  const domain = e.includes("@") ? e.split("@").pop() || "" : "";
+
+  // Gmail
+  const gmailDomains = new Set(["gmail.com", "googlemail.com"]);
+  if (gmailDomains.has(domain)) {
+    return {
+      label: "Open email",
+      // Android intent deep link is the most reliable for app open.
+      // iOS: googlegmail:// is supported when Gmail app is installed.
+      appUrl: "googlegmail://",
+      webUrl: "https://mail.google.com/",
+      fallbackLabel: "Open Gmail on web",
+    };
+  }
+
+  // Outlook (consumer). Many work/school accounts still use Outlook app too.
+  const outlookDomains = new Set(["outlook.com", "hotmail.com", "live.com", "msn.com"]);
+  if (outlookDomains.has(domain)) {
+    return {
+      label: "Open email",
+      appUrl: "ms-outlook://",
+      webUrl: "https://outlook.live.com/mail/",
+      fallbackLabel: "Open Outlook on web",
+    };
+  }
+
+  // Yahoo
+  const yahooDomains = new Set(["yahoo.com", "yahoo.co.uk", "yahoo.in", "ymail.com"]);
+  if (yahooDomains.has(domain)) {
+    return {
+      label: "Open email",
+      // Yahoo deep links are inconsistent across OS/browser → use web.
+      appUrl: null,
+      webUrl: "https://mail.yahoo.com/",
+      fallbackLabel: "Open Yahoo Mail on web",
+    };
+  }
+
+  // iCloud
+  const icloudDomains = new Set(["icloud.com", "me.com", "mac.com"]);
+  if (icloudDomains.has(domain)) {
+    return {
+      label: "Open email",
+      // iCloud Mail app deep link not reliable → use web.
+      appUrl: null,
+      webUrl: "https://www.icloud.com/mail",
+      fallbackLabel: "Open iCloud Mail on web",
+    };
+  }
+
+  // Proton
+  const protonDomains = new Set(["proton.me", "protonmail.com"]);
+  if (protonDomains.has(domain)) {
+    return {
+      label: "Open email",
+      appUrl: null,
+      webUrl: "https://mail.proton.me/",
+      fallbackLabel: "Open Proton Mail on web",
+    };
+  }
+
+  // Fastmail
+  const fastmailDomains = new Set(["fastmail.com"]);
+  if (fastmailDomains.has(domain)) {
+    return {
+      label: "Open email",
+      appUrl: null,
+      webUrl: "https://www.fastmail.com/mail/",
+      fallbackLabel: "Open Fastmail on web",
+    };
+  }
+
+  // Default: open user's mail app
+  return {
+    label: "Open email",
+    appUrl: "mailto:",
+    webUrl: "mailto:",
+    fallbackLabel: "Open your mail app",
+  };
+}
+
+/**
+ * Attempt to open native email app on mobile.
+ * If it doesn't open, fallback to web after a short delay.
+ */
+function openInboxSmart(target: { appUrl?: string | null; webUrl: string }, os: "android" | "ios" | "desktop") {
+  const openWeb = () => {
+    // Use same tab for auth UX consistency, but you can switch to window.open if you prefer.
+    window.location.href = target.webUrl;
+  };
+
+  if (os === "desktop") {
+    openWeb();
+    return;
+  }
+
+  // If no app url (or mailto), just open web/mailto
+  if (!target.appUrl) {
+    openWeb();
+    return;
+  }
+
+  // Android: prefer intent for Gmail/Outlook if we can
+  const isGmail = target.appUrl === "googlegmail://";
+  const isOutlook = target.appUrl === "ms-outlook://";
+
+  if (os === "android") {
+    if (isGmail) {
+      // Chrome/Android intent to open Gmail app (best-effort)
+      const intentUrl = "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
+      window.location.href = intentUrl;
+      // fallback
+      setTimeout(openWeb, 900);
+      return;
+    }
+    if (isOutlook) {
+      const intentUrl = "intent://#Intent;scheme=ms-outlook;package=com.microsoft.office.outlook;end";
+      window.location.href = intentUrl;
+      setTimeout(openWeb, 900);
+      return;
+    }
+
+    // Generic deep link attempt
+    window.location.href = target.appUrl;
+    setTimeout(openWeb, 900);
+    return;
+  }
+
+  // iOS: direct scheme deep link attempt, then fallback
+  window.location.href = target.appUrl;
+  setTimeout(openWeb, 900);
 }
 
 export default function AuthPage() {
@@ -53,13 +205,9 @@ export default function AuthPage() {
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Signup "check your email" UX
   const [signupPending, setSignupPending] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string>("");
 
-  // -------------------------------------------------
-  // Ensure profile exists AND email is stored in DB
-  // -------------------------------------------------
   async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
 
@@ -94,7 +242,6 @@ export default function AuthPage() {
     }
 
     const patch: any = {};
-
     if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
       patch.email = String(bestEmail).trim().toLowerCase();
     }
@@ -114,16 +261,10 @@ export default function AuthPage() {
     if (upErr) console.error("ensureProfile: update error", upErr);
   }
 
-  // -------------------------------------------------
-  // ✅ Signup email existence check (client-side)
-  // Uses profiles.email as the source of truth.
-  // -------------------------------------------------
   async function emailAlreadyExists(inputEmail: string): Promise<boolean> {
     const normalized = String(inputEmail || "").trim().toLowerCase();
     if (!normalized) return false;
 
-    // If you always store lowercased emails, you can use eq().
-    // If you’re not 100% sure yet, ilike() is safer.
     const { data, error } = await supabase
       .from("profiles")
       .select("id")
@@ -131,18 +272,12 @@ export default function AuthPage() {
       .limit(1);
 
     if (error) {
-      // Don’t block signup if lookup fails — just log and proceed.
       console.error("emailAlreadyExists check failed", error);
       return false;
     }
-
     return (data || []).length > 0;
   }
 
-  // -------------------------------------------------
-  // After OAuth redirect or normal login:
-  // wait for session, ensure profile, then redirect
-  // -------------------------------------------------
   useEffect(() => {
     let unsub: any = null;
 
@@ -178,9 +313,6 @@ export default function AuthPage() {
     };
   }, [router, redirectPath]);
 
-  // ------------------------------
-  // OAuth login handler
-  // ------------------------------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
 
@@ -192,9 +324,6 @@ export default function AuthPage() {
     if (error) setError(error.message);
   };
 
-  // ------------------------------
-  // Email login / signup
-  // ------------------------------
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -214,7 +343,6 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // ✅ Pre-check: if email exists in profiles, block signup with a nice message
         setCheckingEmail(true);
         const exists = await emailAlreadyExists(normalizedEmail);
         setCheckingEmail(false);
@@ -236,7 +364,6 @@ export default function AuthPage() {
         });
 
         if (error) {
-          // Some projects return a generic message for existing users — keep UX clean.
           const msg = String(error.message || "");
           if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("registered")) {
             setError("An account with this email already exists. Please log in instead.");
@@ -248,7 +375,6 @@ export default function AuthPage() {
         setPendingEmail(normalizedEmail);
         setSignupPending(true);
 
-        // If confirmations are OFF, session might exist immediately:
         if (data?.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.push(redirectPath);
@@ -257,7 +383,6 @@ export default function AuthPage() {
         return;
       }
 
-      // Login mode
       const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
@@ -276,10 +401,11 @@ export default function AuthPage() {
     }
   };
 
-  // ------------------------------
-  // "Check your email" screen
-  // ------------------------------
+  // ✅ “Check your email” screen with smart app open
   if (signupPending) {
+    const device = useMemo(() => getDeviceKind(), []);
+    const target = useMemo(() => getInboxTarget(pendingEmail), [pendingEmail]);
+
     return (
       <div
         style={{
@@ -319,8 +445,15 @@ export default function AuthPage() {
             Please verify your email address to activate your Quantum5ocial account.
           </div>
 
-          <a
-            href="mailto:"
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window === "undefined") return;
+              openInboxSmart(
+                { appUrl: target.appUrl ?? null, webUrl: target.webUrl },
+                device.os
+              );
+            }}
             style={{
               display: "inline-block",
               padding: "10px 18px",
@@ -331,28 +464,29 @@ export default function AuthPage() {
               fontSize: 14,
               fontWeight: 600,
               textDecoration: "none",
-              marginBottom: 12,
+              marginBottom: 10,
+              cursor: "pointer",
             }}
           >
-            Open email
-          </a>
+            {target.label}
+          </button>
 
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              justifyContent: "center",
-              gap: 14,
-              fontSize: 13,
-            }}
-          >
-            <a href={GMAIL_URL} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
-              Open Gmail
-            </a>
-            <a href={OUTLOOK_URL} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
-              Open Outlook
-            </a>
+          <div style={{ marginTop: 6, fontSize: 12, color: "#9ca3af" }}>
+            If the app doesn’t open, we’ll take you to the web inbox automatically.
           </div>
+
+          {target.fallbackLabel && (
+            <div style={{ marginTop: 10, fontSize: 12 }}>
+              <a
+                href={target.webUrl}
+                target={target.webUrl.startsWith("http") ? "_blank" : undefined}
+                rel={target.webUrl.startsWith("http") ? "noreferrer" : undefined}
+                style={{ color: "#7dd3fc", textDecoration: "none" }}
+              >
+                {target.fallbackLabel} →
+              </a>
+            </div>
+          )}
 
           <button
             type="button"
@@ -378,9 +512,6 @@ export default function AuthPage() {
     );
   }
 
-  // ------------------------------
-  // UI RENDER
-  // ------------------------------
   return (
     <div
       style={{
@@ -533,11 +664,7 @@ export default function AuthPage() {
 
             {error && <div style={errorBox}>{error}</div>}
 
-            <button
-              type="submit"
-              disabled={loading || checkingEmail}
-              style={submitBtn}
-            >
+            <button type="submit" disabled={loading || checkingEmail} style={submitBtn}>
               {loading || checkingEmail
                 ? checkingEmail
                   ? "Checking email…"
