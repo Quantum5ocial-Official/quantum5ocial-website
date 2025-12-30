@@ -12,17 +12,14 @@ const OUTLOOK_URL = "https://outlook.live.com/mail/";
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
 
-  // 1) Primary
   if (user.email && String(user.email).trim()) return String(user.email).trim();
 
-  // 2) Identities (OAuth often stores email here)
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
     const email = ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
-  // 3) User metadata fallback
   const meta = user.user_metadata || {};
   const metaEmail = meta.email || meta.preferred_email || null;
   if (metaEmail && String(metaEmail).trim()) return String(metaEmail).trim();
@@ -53,6 +50,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ✅ Signup "check your email" UX
@@ -72,39 +70,33 @@ export default function AuthPage() {
     const provider = user?.app_metadata?.provider || null;
     const meta = user?.user_metadata || {};
 
-    // Read existing profile (need email too so we can backfill it)
     const { data: existing, error: existingErr } = await supabase
       .from("profiles")
       .select("id,email,full_name,avatar_url,provider")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingErr) {
-      console.error("ensureProfile: read profile error", existingErr);
-    }
+    if (existingErr) console.error("ensureProfile: read profile error", existingErr);
 
     if (!existing) {
-      // Insert new profile
       const { error: insErr } = await supabase.from("profiles").insert([
         {
           id: user.id,
-          email: bestEmail,
+          email: bestEmail ? String(bestEmail).trim().toLowerCase() : null,
           full_name: bestName,
           avatar_url: bestAvatar,
           provider,
           raw_metadata: meta || {},
         },
       ]);
-
       if (insErr) console.error("ensureProfile: insert error", insErr);
       return;
     }
 
-    // Profile exists: backfill missing fields (especially email!)
     const patch: any = {};
 
     if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
-      patch.email = bestEmail;
+      patch.email = String(bestEmail).trim().toLowerCase();
     }
     if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) {
       patch.full_name = bestName;
@@ -119,8 +111,32 @@ export default function AuthPage() {
     if (Object.keys(patch).length === 0) return;
 
     const { error: upErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
-
     if (upErr) console.error("ensureProfile: update error", upErr);
+  }
+
+  // -------------------------------------------------
+  // ✅ Signup email existence check (client-side)
+  // Uses profiles.email as the source of truth.
+  // -------------------------------------------------
+  async function emailAlreadyExists(inputEmail: string): Promise<boolean> {
+    const normalized = String(inputEmail || "").trim().toLowerCase();
+    if (!normalized) return false;
+
+    // If you always store lowercased emails, you can use eq().
+    // If you’re not 100% sure yet, ilike() is safer.
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("email", normalized)
+      .limit(1);
+
+    if (error) {
+      // Don’t block signup if lookup fails — just log and proceed.
+      console.error("emailAlreadyExists check failed", error);
+      return false;
+    }
+
+    return (data || []).length > 0;
   }
 
   // -------------------------------------------------
@@ -170,9 +186,7 @@ export default function AuthPage() {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth` },
     });
 
     if (error) setError(error.message);
@@ -187,7 +201,9 @@ export default function AuthPage() {
     setError(null);
 
     try {
-      if (!email || !password) {
+      const normalizedEmail = String(email || "").trim().toLowerCase();
+
+      if (!normalizedEmail || !password) {
         setError("Email and password are required.");
         return;
       }
@@ -198,50 +214,65 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        const signupEmail = email.trim();
+        // ✅ Pre-check: if email exists in profiles, block signup with a nice message
+        setCheckingEmail(true);
+        const exists = await emailAlreadyExists(normalizedEmail);
+        setCheckingEmail(false);
+
+        if (exists) {
+          setError("An account with this email already exists. Please log in instead.");
+          return;
+        }
 
         const { data, error } = await supabase.auth.signUp({
-          email: signupEmail,
+          email: normalizedEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
               redirectPath
             )}`,
-            data: {
-              full_name: fullName.trim(),
-            },
+            data: { full_name: fullName.trim() },
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          // Some projects return a generic message for existing users — keep UX clean.
+          const msg = String(error.message || "");
+          if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("registered")) {
+            setError("An account with this email already exists. Please log in instead.");
+            return;
+          }
+          throw error;
+        }
 
-        // If email confirmations are enabled: no session is created yet.
-        // Show "Check your email" message instead of redirecting / refreshing.
-        setPendingEmail(signupEmail);
+        setPendingEmail(normalizedEmail);
         setSignupPending(true);
 
-        // If confirmations are OFF, Supabase may create a session immediately.
-        // In that case, we can ensureProfile + redirect right away.
+        // If confirmations are OFF, session might exist immediately:
         if (data?.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.push(redirectPath);
         }
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-        if (error) throw error;
 
-        if (data.user) {
-          await ensureProfile(data.user);
-          router.push(redirectPath);
-        }
+        return;
+      }
+
+      // Login mode
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+      if (error) throw error;
+
+      if (data.user) {
+        await ensureProfile(data.user);
+        router.push(redirectPath);
       }
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
+      setCheckingEmail(false);
     }
   };
 
@@ -288,7 +319,6 @@ export default function AuthPage() {
             Please verify your email address to activate your Quantum5ocial account.
           </div>
 
-          {/* ✅ Primary CTA: open default mail client */}
           <a
             href="mailto:"
             style={{
@@ -307,7 +337,6 @@ export default function AuthPage() {
             Open email
           </a>
 
-          {/* ✅ Convenience links */}
           <div
             style={{
               marginTop: 10,
@@ -373,7 +402,6 @@ export default function AuthPage() {
           gap: 14,
         }}
       >
-        {/* AUTH CARD */}
         <div
           style={{
             width: "100%",
@@ -384,7 +412,6 @@ export default function AuthPage() {
               "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
           }}
         >
-          {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <img
               src="/Q5_white_bg.png"
@@ -410,7 +437,6 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* OAuth Buttons */}
           <div
             style={{
               display: "flex",
@@ -440,14 +466,12 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Divider */}
           <div style={dividerRow}>
             <div style={dividerLine} />
             <span>or continue with email</span>
             <div style={dividerLine} />
           </div>
 
-          {/* Toggle */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
               type="button"
@@ -471,7 +495,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Email Form */}
           <form onSubmit={handleEmailAuth}>
             {mode === "signup" && (
               <div style={{ marginBottom: 10 }}>
@@ -510,9 +533,15 @@ export default function AuthPage() {
 
             {error && <div style={errorBox}>{error}</div>}
 
-            <button type="submit" disabled={loading} style={submitBtn}>
-              {loading
-                ? "Please wait…"
+            <button
+              type="submit"
+              disabled={loading || checkingEmail}
+              style={submitBtn}
+            >
+              {loading || checkingEmail
+                ? checkingEmail
+                  ? "Checking email…"
+                  : "Please wait…"
                 : mode === "signup"
                 ? "Sign up with email"
                 : "Log in with email"}
@@ -520,7 +549,6 @@ export default function AuthPage() {
           </form>
         </div>
 
-        {/* FOOTER */}
         <div
           style={{
             borderRadius: 16,
