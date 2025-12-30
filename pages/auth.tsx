@@ -6,6 +6,47 @@ import { supabase } from "../lib/supabaseClient";
 
 type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
+function pickBestEmail(user: any): string | null {
+  if (!user) return null;
+
+  // 1) Primary
+  if (user.email && String(user.email).trim()) return String(user.email).trim();
+
+  // 2) Identities (OAuth often stores email here)
+  const identities = Array.isArray(user.identities) ? user.identities : [];
+  for (const ident of identities) {
+    const email =
+      ident?.identity_data?.email ||
+      ident?.identity_data?.preferred_email ||
+      null;
+    if (email && String(email).trim()) return String(email).trim();
+  }
+
+  // 3) User metadata fallback
+  const meta = user.user_metadata || {};
+  const metaEmail = meta.email || meta.preferred_email || null;
+  if (metaEmail && String(metaEmail).trim()) return String(metaEmail).trim();
+
+  return null;
+}
+
+function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
+  const meta = user?.user_metadata || {};
+  const v =
+    overrides?.full_name ||
+    meta.full_name ||
+    meta.name ||
+    meta.preferred_username ||
+    null;
+  return v && String(v).trim() ? String(v).trim() : null;
+}
+
+function pickBestAvatar(user: any): string | null {
+  const meta = user?.user_metadata || {};
+  const v = meta.avatar_url || meta.picture || null;
+  return v && String(v).trim() ? String(v).trim() : null;
+}
+
 export default function AuthPage() {
   const router = useRouter();
   const redirectPath = (router.query.redirect as string) || "/";
@@ -18,98 +59,118 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ------------------------------
-  // Ensure profile exists (and ensure email is saved)
-  // ------------------------------
+  // -------------------------------------------------
+  // Ensure profile exists AND email is stored in DB
+  // -------------------------------------------------
   async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
 
-    const meta = user.user_metadata || {};
-    const full_name_from_meta =
-      overrides?.full_name ||
-      meta.full_name ||
-      meta.name ||
-      meta.preferred_username ||
-      null;
+    const bestEmail = pickBestEmail(user);
+    const bestName = pickBestName(user, overrides);
+    const bestAvatar = pickBestAvatar(user);
 
-    const avatar_from_meta = meta.avatar_url || meta.picture || null;
+    const provider = user?.app_metadata?.provider || null;
+    const meta = user?.user_metadata || {};
 
-    // Prefer auth email (should exist after code exchange)
-    const authEmail: string | null = user.email ?? null;
-
-    const { data: existing, error: readErr } = await supabase
+    // Read existing profile (need email too so we can backfill it)
+    const { data: existing, error: existingErr } = await supabase
       .from("profiles")
-      .select("id,email,full_name,avatar_url")
+      .select("id,email,full_name,avatar_url,provider")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (readErr) {
-      console.error("Error reading profile", readErr);
-      return;
+    if (existingErr) {
+      // Don’t hard-fail auth redirect, but do log it
+      console.error("ensureProfile: read profile error", existingErr);
     }
 
     if (!existing) {
+      // Insert new profile
       const { error: insErr } = await supabase.from("profiles").insert([
         {
           id: user.id,
-          email: authEmail, // ✅ save on first insert
-          full_name: full_name_from_meta,
-          avatar_url: avatar_from_meta,
-          provider: user.app_metadata?.provider || null,
+          email: bestEmail,
+          full_name: bestName,
+          avatar_url: bestAvatar,
+          provider,
           raw_metadata: meta || {},
         },
       ]);
 
-      if (insErr) console.error("Error inserting profile", insErr);
+      if (insErr) {
+        console.error("ensureProfile: insert error", insErr);
+      }
       return;
     }
 
-    // ✅ If first insert happened earlier with null email (race), patch only the email
-    if (!existing.email && authEmail) {
-      const { error: updErr } = await supabase
-        .from("profiles")
-        .update({ email: authEmail })
-        .eq("id", user.id);
+    // Profile exists: backfill missing fields (especially email!)
+    const patch: any = {};
 
-      if (updErr) console.error("Error patching profile email", updErr);
+    if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
+      patch.email = bestEmail;
+    }
+    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) {
+      patch.full_name = bestName;
+    }
+    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) {
+      patch.avatar_url = bestAvatar;
+    }
+    if ((!existing.provider || !String(existing.provider).trim()) && provider) {
+      patch.provider = provider;
+    }
+
+    // If nothing to patch, done
+    if (Object.keys(patch).length === 0) return;
+
+    const { error: upErr } = await supabase
+      .from("profiles")
+      .update(patch)
+      .eq("id", user.id);
+
+    if (upErr) {
+      console.error("ensureProfile: update error", upErr);
     }
   }
 
-  // ------------------------------
-  // After OAuth redirect:
-  // Exchange ?code=... for a session, then ensure profile
-  // ------------------------------
+  // -------------------------------------------------
+  // After OAuth redirect or normal login:
+  // wait for session, ensure profile, then redirect
+  // -------------------------------------------------
   useEffect(() => {
-    if (!router.isReady) return;
+    let unsub: any = null;
 
     const run = async () => {
-      try {
-        // If we're returning from OAuth, exchange the code first.
-        // This removes the race where getUser() can be incomplete.
-        if (typeof window !== "undefined") {
-          const sp = new URLSearchParams(window.location.search);
-          const code = sp.get("code");
-          if (code) {
-            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-            if (exErr) console.error("exchangeCodeForSession error", exErr);
+      // 1) If session already exists, handle immediately
+      const { data: sess } = await supabase.auth.getSession();
+      const user = sess?.session?.user;
+      if (user) {
+        await ensureProfile(user);
+        router.replace(redirectPath);
+        return;
+      }
+
+      // 2) Otherwise listen for SIGNED_IN after OAuth redirect
+      const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+          const u = session?.user;
+          if (u) {
+            await ensureProfile(u);
+            router.replace(redirectPath);
           }
         }
+      });
 
-        // Now get a fully populated user
-        const { data } = await supabase.auth.getUser();
-        const user = data.user;
-
-        if (user) {
-          await ensureProfile(user);
-          router.replace(redirectPath);
-        }
-      } catch (e: any) {
-        console.error("Auth redirect handling error", e);
-      }
+      unsub = sub?.subscription;
     };
 
     run();
-  }, [router.isReady, router, redirectPath]);
+
+    return () => {
+      try {
+        unsub?.unsubscribe?.();
+      } catch {}
+    };
+  }, [router, redirectPath]);
 
   // ------------------------------
   // OAuth login handler
@@ -117,19 +178,10 @@ export default function AuthPage() {
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
 
-    // Important: request email scopes where needed
-    const scopes =
-      provider === "github"
-        ? "read:user user:email"
-        : provider === "linkedin_oidc"
-        ? "openid profile email"
-        : "openid email profile";
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirectPath)}`,
-        scopes,
+        redirectTo: `${window.location.origin}/auth`,
       },
     });
 
@@ -165,9 +217,9 @@ export default function AuthPage() {
             },
           },
         });
-
         if (error) throw error;
 
+        // NOTE: if email confirmations are enabled, user may exist but session may not.
         if (data.user) {
           await ensureProfile(data.user, { full_name: fullName.trim() });
           router.push(redirectPath);
@@ -177,7 +229,6 @@ export default function AuthPage() {
           email,
           password,
         });
-
         if (error) throw error;
 
         if (data.user) {
@@ -354,7 +405,11 @@ export default function AuthPage() {
             {error && <div style={errorBox}>{error}</div>}
 
             <button type="submit" disabled={loading} style={submitBtn}>
-              {loading ? "Please wait…" : mode === "signup" ? "Sign up with email" : "Log in with email"}
+              {loading
+                ? "Please wait…"
+                : mode === "signup"
+                ? "Sign up with email"
+                : "Log in with email"}
             </button>
           </form>
         </div>
