@@ -1,5 +1,5 @@
 // pages/auth.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type React from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -44,14 +44,12 @@ function getDeviceKind() {
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
   const isMobile = isAndroid || isIOS;
 
-  return { isMobile, os: isAndroid ? ("android" as const) : isIOS ? ("ios" as const) : ("desktop" as const) };
+  return {
+    isMobile,
+    os: isAndroid ? ("android" as const) : isIOS ? ("ios" as const) : ("desktop" as const),
+  };
 }
 
-/**
- * We return BOTH:
- * - appUrl (deep link) for mobile attempt
- * - webUrl fallback
- */
 function getInboxTarget(email: string): {
   label: string;
   appUrl?: string | null;
@@ -61,20 +59,16 @@ function getInboxTarget(email: string): {
   const e = String(email || "").trim().toLowerCase();
   const domain = e.includes("@") ? e.split("@").pop() || "" : "";
 
-  // Gmail
   const gmailDomains = new Set(["gmail.com", "googlemail.com"]);
   if (gmailDomains.has(domain)) {
     return {
       label: "Open email",
-      // Android intent deep link is the most reliable for app open.
-      // iOS: googlegmail:// is supported when Gmail app is installed.
       appUrl: "googlegmail://",
       webUrl: "https://mail.google.com/",
       fallbackLabel: "Open Gmail on web",
     };
   }
 
-  // Outlook (consumer). Many work/school accounts still use Outlook app too.
   const outlookDomains = new Set(["outlook.com", "hotmail.com", "live.com", "msn.com"]);
   if (outlookDomains.has(domain)) {
     return {
@@ -85,31 +79,26 @@ function getInboxTarget(email: string): {
     };
   }
 
-  // Yahoo
   const yahooDomains = new Set(["yahoo.com", "yahoo.co.uk", "yahoo.in", "ymail.com"]);
   if (yahooDomains.has(domain)) {
     return {
       label: "Open email",
-      // Yahoo deep links are inconsistent across OS/browser → use web.
       appUrl: null,
       webUrl: "https://mail.yahoo.com/",
       fallbackLabel: "Open Yahoo Mail on web",
     };
   }
 
-  // iCloud
   const icloudDomains = new Set(["icloud.com", "me.com", "mac.com"]);
   if (icloudDomains.has(domain)) {
     return {
       label: "Open email",
-      // iCloud Mail app deep link not reliable → use web.
       appUrl: null,
       webUrl: "https://www.icloud.com/mail",
       fallbackLabel: "Open iCloud Mail on web",
     };
   }
 
-  // Proton
   const protonDomains = new Set(["proton.me", "protonmail.com"]);
   if (protonDomains.has(domain)) {
     return {
@@ -120,18 +109,6 @@ function getInboxTarget(email: string): {
     };
   }
 
-  // Fastmail
-  const fastmailDomains = new Set(["fastmail.com"]);
-  if (fastmailDomains.has(domain)) {
-    return {
-      label: "Open email",
-      appUrl: null,
-      webUrl: "https://www.fastmail.com/mail/",
-      fallbackLabel: "Open Fastmail on web",
-    };
-  }
-
-  // Default: open user's mail app
   return {
     label: "Open email",
     appUrl: "mailto:",
@@ -140,13 +117,11 @@ function getInboxTarget(email: string): {
   };
 }
 
-/**
- * Attempt to open native email app on mobile.
- * If it doesn't open, fallback to web after a short delay.
- */
-function openInboxSmart(target: { appUrl?: string | null; webUrl: string }, os: "android" | "ios" | "desktop") {
+function openInboxSmart(
+  target: { appUrl?: string | null; webUrl: string },
+  os: "android" | "ios" | "desktop"
+) {
   const openWeb = () => {
-    // Use same tab for auth UX consistency, but you can switch to window.open if you prefer.
     window.location.href = target.webUrl;
   };
 
@@ -155,39 +130,35 @@ function openInboxSmart(target: { appUrl?: string | null; webUrl: string }, os: 
     return;
   }
 
-  // If no app url (or mailto), just open web/mailto
   if (!target.appUrl) {
     openWeb();
     return;
   }
 
-  // Android: prefer intent for Gmail/Outlook if we can
   const isGmail = target.appUrl === "googlegmail://";
   const isOutlook = target.appUrl === "ms-outlook://";
 
   if (os === "android") {
     if (isGmail) {
-      // Chrome/Android intent to open Gmail app (best-effort)
       const intentUrl = "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
       window.location.href = intentUrl;
-      // fallback
       setTimeout(openWeb, 900);
       return;
     }
     if (isOutlook) {
-      const intentUrl = "intent://#Intent;scheme=ms-outlook;package=com.microsoft.office.outlook;end";
+      const intentUrl =
+        "intent://#Intent;scheme=ms-outlook;package=com.microsoft.office.outlook;end";
       window.location.href = intentUrl;
       setTimeout(openWeb, 900);
       return;
     }
 
-    // Generic deep link attempt
     window.location.href = target.appUrl;
     setTimeout(openWeb, 900);
     return;
   }
 
-  // iOS: direct scheme deep link attempt, then fallback
+  // iOS
   window.location.href = target.appUrl;
   setTimeout(openWeb, 900);
 }
@@ -224,7 +195,7 @@ export default function AuthPage() {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingErr) console.error("ensureProfile: read profile error", existingErr);
+    if (existingErr) console.error("ensureProfile: read error", existingErr);
 
     if (!existing) {
       const { error: insErr } = await supabase.from("profiles").insert([
@@ -364,8 +335,8 @@ export default function AuthPage() {
         });
 
         if (error) {
-          const msg = String(error.message || "");
-          if (msg.toLowerCase().includes("already") || msg.toLowerCase().includes("registered")) {
+          const msg = String(error.message || "").toLowerCase();
+          if (msg.includes("already") || msg.includes("registered")) {
             setError("An account with this email already exists. Please log in instead.");
             return;
           }
@@ -401,10 +372,10 @@ export default function AuthPage() {
     }
   };
 
-  // ✅ “Check your email” screen with smart app open
+  // ✅ Check-email screen
   if (signupPending) {
-    const device = useMemo(() => getDeviceKind(), []);
-    const target = useMemo(() => getInboxTarget(pendingEmail), [pendingEmail]);
+    const device = getDeviceKind();
+    const target = getInboxTarget(pendingEmail);
 
     return (
       <div
@@ -449,10 +420,7 @@ export default function AuthPage() {
             type="button"
             onClick={() => {
               if (typeof window === "undefined") return;
-              openInboxSmart(
-                { appUrl: target.appUrl ?? null, webUrl: target.webUrl },
-                device.os
-              );
+              openInboxSmart({ appUrl: target.appUrl ?? null, webUrl: target.webUrl }, device.os);
             }}
             style={{
               display: "inline-block",
@@ -463,7 +431,6 @@ export default function AuthPage() {
               color: "#e5e7eb",
               fontSize: 14,
               fontWeight: 600,
-              textDecoration: "none",
               marginBottom: 10,
               cursor: "pointer",
             }}
@@ -546,11 +513,7 @@ export default function AuthPage() {
           <div style={{ textAlign: "center", marginBottom: 28 }}>
             <img
               src="/Q5_white_bg.png"
-              style={{
-                width: 90,
-                height: 90,
-                margin: "0 auto 12px",
-              }}
+              style={{ width: 90, height: 90, margin: "0 auto 12px" }}
             />
             <div
               style={{
