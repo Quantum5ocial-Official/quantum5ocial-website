@@ -40,7 +40,7 @@ function emailProviderFromEmail(email: string) {
 /**
  * "Open email" link behavior:
  * - Desktop: open provider webmail when known, otherwise open mailto:
- * - iOS: prefer native mail app via message: scheme (opens inbox-ish)
+ * - iOS: open Gmail/Outlook app when possible, else fall back to Apple Mail (message://)
  * - Android: best-effort gmail app (may open Play Store on some devices; user accepted)
  */
 function buildOpenEmailHref(email: string) {
@@ -58,7 +58,10 @@ function buildOpenEmailHref(email: string) {
 
   // Mobile targets
   if (isIOS()) {
-    // iOS: best general "open Mail" behavior
+    // Prefer provider app if known; otherwise Apple Mail
+    if (provider === "gmail") return "googlegmail://";
+    if (provider === "outlook") return "ms-outlook://";
+    // Yahoo/iCloud don't have universally reliable schemes; fall back
     return "message://";
   }
 
@@ -181,11 +184,13 @@ export default function AuthPage() {
 
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
+  // (normalize email to avoid case mismatches)
   // -------------------------------------------------
   async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
 
-    const bestEmail = pickBestEmail(user);
+    const bestEmailRaw = pickBestEmail(user);
+    const bestEmail = bestEmailRaw ? normalizeEmail(bestEmailRaw) : null;
     const bestName = pickBestName(user, overrides);
     const bestAvatar = pickBestAvatar(user);
 
@@ -234,6 +239,7 @@ export default function AuthPage() {
   // -------------------------------------------------
   // After OAuth redirect or normal login:
   // wait for session, ensure profile, then redirect
+  // (do NOT auto-redirect while verifyMode is active)
   // -------------------------------------------------
   useEffect(() => {
     let unsub: any = null;
@@ -241,9 +247,10 @@ export default function AuthPage() {
     const run = async () => {
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
+
       if (user) {
         await ensureProfile(user);
-        router.replace(redirectPath);
+        if (!verifyMode) router.replace(redirectPath);
         return;
       }
 
@@ -252,7 +259,7 @@ export default function AuthPage() {
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
-            router.replace(redirectPath);
+            if (!verifyMode) router.replace(redirectPath);
           }
         }
       });
@@ -267,23 +274,29 @@ export default function AuthPage() {
         unsub?.unsubscribe?.();
       } catch {}
     };
-  }, [router, redirectPath]);
+    // include verifyMode so redirect logic updates correctly
+  }, [router, redirectPath, verifyMode]);
 
   // -------------------------------------------------
   // Sync verify mode from query (deep-linkable)
-  // and start countdown immediately on load if verify=1
+  // Gate behind router.isReady to avoid mobile flicker.
   // -------------------------------------------------
   useEffect(() => {
-    if (verifyFromQuery) setVerifyMode(true);
-    if (emailFromQuery) setVerifyEmail(emailFromQuery);
+    if (!router.isReady) return;
 
-    if (verifyFromQuery) {
+    const vq = firstQueryValue(router.query.verify as any) === "1";
+    const eq = normalizeEmail(firstQueryValue(router.query.email as any));
+
+    if (vq) setVerifyMode(true);
+    if (eq) setVerifyEmail(eq);
+
+    if (vq) {
       setResendCooldown((c) => (c > 0 ? c : 60));
       setResendStatus(null);
       setError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verifyFromQuery, emailFromQuery]);
+  }, [router.isReady, router.query.verify, router.query.email]);
 
   // Countdown tick
   useEffect(() => {
@@ -300,9 +313,7 @@ export default function AuthPage() {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth` },
     });
 
     if (error) setError(error.message);
@@ -315,12 +326,9 @@ export default function AuthPage() {
     const e = normalizeEmail(emailToCheck);
     if (!e) return false;
 
-    // If you have RLS enabled, make sure profiles has a policy allowing
-    // select email for anon/auth users OR replace this with an RPC.
     const { data, error } = await supabase.from("profiles").select("id").eq("email", e).limit(1);
 
     if (error) {
-      // Don’t block signup if RLS prevents it; treat as unknown
       console.warn("checkEmailExistsInProfiles: cannot check (RLS?)", error);
       return false;
     }
@@ -383,13 +391,11 @@ export default function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email: eNorm,
           password,
-          options: {
-            data: { full_name: fullName.trim() },
-          },
+          options: { data: { full_name: fullName.trim() } },
         });
         if (error) throw error;
 
-        // ✅ Immediately show "check your email" screen (no refresh needed)
+        // Immediately show verify UI (no refresh)
         setVerifyEmail(eNorm);
         setVerifyMode(true);
         setResendStatus(null);
@@ -443,15 +449,7 @@ export default function AuthPage() {
         padding: 24,
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 460,
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-        }}
-      >
+      <div style={{ width: "100%", maxWidth: 460, display: "flex", flexDirection: "column", gap: 14 }}>
         {/* AUTH CARD */}
         <div
           style={{
@@ -465,14 +463,7 @@ export default function AuthPage() {
         >
           {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 22 }}>
-            <img
-              src="/Q5_white_bg.png"
-              style={{
-                width: 90,
-                height: 90,
-                margin: "0 auto 12px",
-              }}
-            />
+            <img src="/Q5_white_bg.png" style={{ width: 90, height: 90, margin: "0 auto 12px" }} />
             <div
               style={{
                 fontSize: 28,
@@ -484,15 +475,12 @@ export default function AuthPage() {
             >
               Quantum5ocial
             </div>
-            <div style={{ fontSize: 14, color: "#9ca3af" }}>
-              Sign in to join the quantum ecosystem.
-            </div>
+            <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
-          {/* ✅ Verify mode UI */}
+          {/* Verify mode UI */}
           {verifyMode ? (
             <div style={{ textAlign: "center" }}>
-              {/* Nice “check email” icon */}
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
                 <div
                   style={{
@@ -516,13 +504,10 @@ export default function AuthPage() {
 
               <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
                 We sent a verification link to{" "}
-                <span style={{ color: "rgba(226,232,240,0.95)" }}>
-                  {verifyEmail || "your inbox"}
-                </span>
-                . Please open it to confirm your account.
+                <span style={{ color: "rgba(226,232,240,0.95)" }}>{verifyEmail || "your inbox"}</span>.
+                Please open it to confirm your account.
               </div>
 
-              {/* Open email button (domain + mobile aware) */}
               <a
                 href={openEmailHref}
                 target="_blank"
@@ -545,7 +530,6 @@ export default function AuthPage() {
                 Open email
               </a>
 
-              {/* Resend */}
               <div style={{ marginTop: 14 }}>
                 <button
                   type="button"
@@ -608,11 +592,7 @@ export default function AuthPage() {
                   Google
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleOAuthLogin("linkedin_oidc")}
-                  style={oauthBtn}
-                >
+                <button type="button" onClick={() => handleOAuthLogin("linkedin_oidc")} style={oauthBtn}>
                   <img src="/linkedin.svg" style={icon} />
                   LinkedIn
                 </button>
@@ -694,11 +674,7 @@ export default function AuthPage() {
                 {error && <div style={errorBox}>{error}</div>}
 
                 <button type="submit" disabled={loading} style={submitBtn}>
-                  {loading
-                    ? "Please wait…"
-                    : mode === "signup"
-                    ? "Sign up with email"
-                    : "Log in with email"}
+                  {loading ? "Please wait…" : mode === "signup" ? "Sign up with email" : "Log in with email"}
                 </button>
               </form>
             </>
