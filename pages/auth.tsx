@@ -10,15 +10,11 @@ const PENDING_KEY = "q5_auth_pending_email_v1";
 
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
-
   if (user.email && String(user.email).trim()) return String(user.email).trim();
 
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
-    const email =
-      ident?.identity_data?.email ||
-      ident?.identity_data?.preferred_email ||
-      null;
+    const email = ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
@@ -31,12 +27,7 @@ function pickBestEmail(user: any): string | null {
 
 function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
   const meta = user?.user_metadata || {};
-  const v =
-    overrides?.full_name ||
-    meta.full_name ||
-    meta.name ||
-    meta.preferred_username ||
-    null;
+  const v = overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
@@ -48,14 +39,10 @@ function pickBestAvatar(user: any): string | null {
 
 function getDeviceKind() {
   if (typeof window === "undefined") return { os: "desktop" as const };
-
   const ua = navigator.userAgent || "";
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
-
-  return {
-    os: isAndroid ? ("android" as const) : isIOS ? ("ios" as const) : ("desktop" as const),
-  };
+  return { os: isAndroid ? ("android" as const) : isIOS ? ("ios" as const) : ("desktop" as const) };
 }
 
 function getInboxTarget(email: string): {
@@ -69,61 +56,30 @@ function getInboxTarget(email: string): {
 
   const gmailDomains = new Set(["gmail.com", "googlemail.com"]);
   if (gmailDomains.has(domain)) {
-    return {
-      label: "Open email",
-      appUrl: "googlegmail://",
-      webUrl: "https://mail.google.com/",
-      fallbackLabel: "Open Gmail on web",
-    };
+    return { label: "Open email", appUrl: "googlegmail://", webUrl: "https://mail.google.com/", fallbackLabel: "Open Gmail on web" };
   }
 
   const outlookDomains = new Set(["outlook.com", "hotmail.com", "live.com", "msn.com"]);
   if (outlookDomains.has(domain)) {
-    return {
-      label: "Open email",
-      appUrl: "ms-outlook://",
-      webUrl: "https://outlook.live.com/mail/",
-      fallbackLabel: "Open Outlook on web",
-    };
+    return { label: "Open email", appUrl: "ms-outlook://", webUrl: "https://outlook.live.com/mail/", fallbackLabel: "Open Outlook on web" };
   }
 
   const yahooDomains = new Set(["yahoo.com", "yahoo.co.uk", "yahoo.in", "ymail.com"]);
   if (yahooDomains.has(domain)) {
-    return {
-      label: "Open email",
-      appUrl: null,
-      webUrl: "https://mail.yahoo.com/",
-      fallbackLabel: "Open Yahoo Mail on web",
-    };
+    return { label: "Open email", appUrl: null, webUrl: "https://mail.yahoo.com/", fallbackLabel: "Open Yahoo Mail on web" };
   }
 
   const icloudDomains = new Set(["icloud.com", "me.com", "mac.com"]);
   if (icloudDomains.has(domain)) {
-    return {
-      label: "Open email",
-      appUrl: null,
-      webUrl: "https://www.icloud.com/mail",
-      fallbackLabel: "Open iCloud Mail on web",
-    };
+    return { label: "Open email", appUrl: null, webUrl: "https://www.icloud.com/mail", fallbackLabel: "Open iCloud Mail on web" };
   }
 
   const protonDomains = new Set(["proton.me", "protonmail.com"]);
   if (protonDomains.has(domain)) {
-    return {
-      label: "Open email",
-      appUrl: null,
-      webUrl: "https://mail.proton.me/",
-      fallbackLabel: "Open Proton Mail on web",
-    };
+    return { label: "Open email", appUrl: null, webUrl: "https://mail.proton.me/", fallbackLabel: "Open Proton Mail on web" };
   }
 
-  // generic fallback
-  return {
-    label: "Open email",
-    appUrl: "mailto:",
-    webUrl: "mailto:",
-    fallbackLabel: "Open your mail app",
-  };
+  return { label: "Open email", appUrl: "mailto:", webUrl: "mailto:", fallbackLabel: "Open your mail app" };
 }
 
 function openInboxSmart(
@@ -149,20 +105,17 @@ function openInboxSmart(
 
   if (os === "android") {
     if (isGmail) {
-      const intentUrl =
-        "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
+      const intentUrl = "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
       window.location.href = intentUrl;
       setTimeout(openWeb, 900);
       return;
     }
     if (isOutlook) {
-      const intentUrl =
-        "intent://#Intent;scheme=ms-outlook;package=com.microsoft.office.outlook;end";
+      const intentUrl = "intent://#Intent;scheme=ms-outlook;package=com.microsoft.office.outlook;end";
       window.location.href = intentUrl;
       setTimeout(openWeb, 900);
       return;
     }
-
     window.location.href = target.appUrl;
     setTimeout(openWeb, 900);
     return;
@@ -189,9 +142,6 @@ export default function AuthPage() {
   const [signupPending, setSignupPending] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string>("");
 
-  // -------------------------------------------------
-  // Ensure profile exists AND email is stored in DB
-  // -------------------------------------------------
   async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
 
@@ -223,21 +173,12 @@ export default function AuthPage() {
     }
 
     const patch: any = {};
-    if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
-      patch.email = String(bestEmail).trim().toLowerCase();
-    }
-    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) {
-      patch.full_name = bestName;
-    }
-    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) {
-      patch.avatar_url = bestAvatar;
-    }
-    if ((!existing.provider || !String(existing.provider).trim()) && provider) {
-      patch.provider = provider;
-    }
+    if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = String(bestEmail).trim().toLowerCase();
+    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) patch.full_name = bestName;
+    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) patch.avatar_url = bestAvatar;
+    if ((!existing.provider || !String(existing.provider).trim()) && provider) patch.provider = provider;
 
     if (Object.keys(patch).length === 0) return;
-
     await supabase.from("profiles").update(patch).eq("id", user.id);
   }
 
@@ -258,23 +199,34 @@ export default function AuthPage() {
     return (data || []).length > 0;
   }
 
-  // -------------------------------------------------
-  // Restore "pending signup" screen after refresh
-  // -------------------------------------------------
+  // ✅ NEW: restore pending state from URL first (mobile-safe), then sessionStorage
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!router.isReady) return;
 
-    const saved = window.sessionStorage.getItem(PENDING_KEY);
-    if (saved && String(saved).trim()) {
-      setPendingEmail(String(saved).trim());
+    const pending = String(router.query.pending || "");
+    const qEmail = String(router.query.email || "").trim();
+
+    if (pending === "1" && qEmail) {
+      const normalized = qEmail.toLowerCase();
+      setPendingEmail(normalized);
       setSignupPending(true);
+      try {
+        window.sessionStorage.setItem(PENDING_KEY, normalized);
+      } catch {}
+      return;
     }
-  }, []);
 
-  // -------------------------------------------------
-  // After OAuth redirect or normal login:
-  // wait for session, ensure profile, then redirect
-  // -------------------------------------------------
+    // fallback: sessionStorage
+    try {
+      const saved = window.sessionStorage.getItem(PENDING_KEY);
+      if (saved && String(saved).trim()) {
+        setPendingEmail(String(saved).trim());
+        setSignupPending(true);
+      }
+    } catch {}
+  }, [router.isReady, router.query.pending, router.query.email]);
+
+  // After OAuth redirect or normal login
   useEffect(() => {
     let unsub: any = null;
 
@@ -283,8 +235,9 @@ export default function AuthPage() {
       const user = sess?.session?.user;
 
       if (user) {
-        // Signed in: clear pending state and proceed
-        if (typeof window !== "undefined") window.sessionStorage.removeItem(PENDING_KEY);
+        try {
+          window.sessionStorage.removeItem(PENDING_KEY);
+        } catch {}
         setSignupPending(false);
         setPendingEmail("");
 
@@ -297,7 +250,9 @@ export default function AuthPage() {
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           const u = session?.user;
           if (u) {
-            if (typeof window !== "undefined") window.sessionStorage.removeItem(PENDING_KEY);
+            try {
+              window.sessionStorage.removeItem(PENDING_KEY);
+            } catch {}
             setSignupPending(false);
             setPendingEmail("");
 
@@ -321,12 +276,10 @@ export default function AuthPage() {
 
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
-
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth` },
     });
-
     if (error) setError(error.message);
   };
 
@@ -362,26 +315,39 @@ export default function AuthPage() {
           email: normalizedEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
-              redirectPath
-            )}`,
+            emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirectPath)}`,
             data: { full_name: fullName.trim() },
           },
         });
 
         if (error) throw error;
 
-        // ✅ Always show the "check your email" UI for email signups
-        if (typeof window !== "undefined") {
+        // ✅ CRITICAL: persist pending state BOTH in sessionStorage and in URL (mobile-safe)
+        try {
           window.sessionStorage.setItem(PENDING_KEY, normalizedEmail);
-        }
+        } catch {}
+
         setPendingEmail(normalizedEmail);
         setSignupPending(true);
 
-        // If confirmations are OFF, we may already have a session
+        // Shallow replace to keep the "pending" screen even if mobile refreshes
+        router.replace(
+          {
+            pathname: "/auth",
+            query: {
+              redirect: redirectPath,
+              pending: "1",
+              email: normalizedEmail,
+            },
+          },
+          undefined,
+          { shallow: true }
+        );
+
+        // If confirmations are OFF, we might already have a session:
         if (data?.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
-          router.push(redirectPath);
+          router.replace(redirectPath);
         }
 
         return;
@@ -395,7 +361,7 @@ export default function AuthPage() {
 
       if (data.user) {
         await ensureProfile(data.user);
-        router.push(redirectPath);
+        router.replace(redirectPath);
       }
     } catch (err: any) {
       setError(err.message || "Something went wrong.");
@@ -454,11 +420,7 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={() => {
-              if (typeof window === "undefined") return;
-              openInboxSmart(
-                { appUrl: target.appUrl ?? null, webUrl: target.webUrl },
-                device.os
-              );
+              openInboxSmart({ appUrl: target.appUrl ?? null, webUrl: target.webUrl }, device.os);
             }}
             style={{
               display: "inline-block",
@@ -496,10 +458,15 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={() => {
-              if (typeof window !== "undefined") window.sessionStorage.removeItem(PENDING_KEY);
+              try {
+                window.sessionStorage.removeItem(PENDING_KEY);
+              } catch {}
               setSignupPending(false);
               setPendingEmail("");
               setMode("login");
+              router.replace({ pathname: "/auth", query: { redirect: redirectPath } }, undefined, {
+                shallow: true,
+              });
             }}
             style={{
               marginTop: 18,
@@ -519,9 +486,7 @@ export default function AuthPage() {
     );
   }
 
-  // ------------------------------
-  // UI RENDER (normal auth card)
-  // ------------------------------
+  // Normal auth UI
   return (
     <div
       style={{
@@ -554,10 +519,7 @@ export default function AuthPage() {
           }}
         >
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <img
-              src="/Q5_white_bg.png"
-              style={{ width: 90, height: 90, margin: "0 auto 12px" }}
-            />
+            <img src="/Q5_white_bg.png" style={{ width: 90, height: 90, margin: "0 auto 12px" }} />
             <div
               style={{
                 fontSize: 28,
@@ -574,25 +536,13 @@ export default function AuthPage() {
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              marginBottom: 18,
-              flexWrap: "wrap",
-            }}
-          >
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 18, flexWrap: "wrap" }}>
             <button type="button" onClick={() => handleOAuthLogin("google")} style={oauthBtn}>
               <img src="/google.svg" style={icon} />
               Google
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin("linkedin_oidc")}
-              style={oauthBtn}
-            >
+            <button type="button" onClick={() => handleOAuthLogin("linkedin_oidc")} style={oauthBtn}>
               <img src="/linkedin.svg" style={icon} />
               LinkedIn
             </button>
@@ -613,20 +563,14 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => setMode("login")}
-              style={{
-                ...toggleBtn,
-                border: mode === "login" ? "1px solid #22d3ee" : "1px solid #374151",
-              }}
+              style={{ ...toggleBtn, border: mode === "login" ? "1px solid #22d3ee" : "1px solid #374151" }}
             >
               Log in
             </button>
             <button
               type="button"
               onClick={() => setMode("signup")}
-              style={{
-                ...toggleBtn,
-                border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
-              }}
+              style={{ ...toggleBtn, border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151" }}
             >
               Sign up
             </button>
@@ -680,36 +624,6 @@ export default function AuthPage() {
                 : "Log in with email"}
             </button>
           </form>
-        </div>
-
-        <div
-          style={{
-            borderRadius: 16,
-            border: "1px solid rgba(148,163,184,0.25)",
-            padding: "8px 14px",
-            background:
-              "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 11,
-            color: "rgba(148,163,184,0.9)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src="/Q5_white_bg.png" style={{ width: 24 }} />
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 500,
-                background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              Quantum5ocial
-            </span>
-          </div>
-          <div>© 2025 Quantum5ocial</div>
         </div>
       </div>
     </div>
