@@ -7,11 +7,6 @@ import { supabase } from "../lib/supabaseClient";
 
 type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
-function isMobileUA() {
-  if (typeof navigator === "undefined") return false;
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
-}
-
 function getOS(): "android" | "ios" | "other" {
   if (typeof navigator === "undefined") return "other";
   const ua = navigator.userAgent || "";
@@ -20,13 +15,27 @@ function getOS(): "android" | "ios" | "other" {
   return "other";
 }
 
+function isMobile(): boolean {
+  const os = getOS();
+  return os === "android" || os === "ios";
+}
+
+function normalizeEmail(v: string) {
+  return (v || "").trim().toLowerCase();
+}
+
+function emailDomain(v: string) {
+  const s = normalizeEmail(v);
+  const at = s.lastIndexOf("@");
+  if (at <= 0) return "";
+  return s.slice(at + 1);
+}
+
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
 
-  // 1) Primary
   if (user.email && String(user.email).trim()) return String(user.email).trim();
 
-  // 2) Identities (OAuth often stores email here)
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
     const email =
@@ -36,7 +45,6 @@ function pickBestEmail(user: any): string | null {
     if (email && String(email).trim()) return String(email).trim();
   }
 
-  // 3) User metadata fallback
   const meta = user.user_metadata || {};
   const metaEmail = meta.email || meta.preferred_email || null;
   if (metaEmail && String(metaEmail).trim()) return String(metaEmail).trim();
@@ -61,63 +69,48 @@ function pickBestAvatar(user: any): string | null {
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
-function normalizeEmail(v: string) {
-  return (v || "").trim().toLowerCase();
-}
-
-function emailDomain(v: string) {
-  const s = normalizeEmail(v);
-  const at = s.lastIndexOf("@");
-  if (at <= 0) return "";
-  return s.slice(at + 1);
-}
-
 type InboxTarget = {
+  kind: "gmail" | "outlook" | "generic";
   label: string;
-  // appUrl is used mainly for iOS deep-links; android uses webUrl for Gmail to avoid Play Store redirects
-  appUrl: string;
-  webUrl: string;
-  fallbackLabel?: string;
+  webInboxUrl: string;     // desktop + fallback
+  iosScheme?: string;      // best-effort iOS deep-link
+  androidIntent?: string;  // best-effort Android deep-link
 };
 
 function getInboxTarget(email: string): InboxTarget {
   const domain = emailDomain(email);
 
   const gmailDomains = new Set(["gmail.com", "googlemail.com"]);
-  const outlookDomains = new Set([
-    "outlook.com",
-    "hotmail.com",
-    "live.com",
-    "msn.com",
-  ]);
+  const outlookDomains = new Set(["outlook.com", "hotmail.com", "live.com", "msn.com"]);
 
   if (gmailDomains.has(domain)) {
+    // Android: intent opens Gmail if installed, otherwise browser fallback
+    // iOS: googlegmail:// is best-effort (will fallback to web if not installed)
     return {
+      kind: "gmail",
       label: "Open email",
-      // iOS: can try gmail scheme; Android: we will use webUrl first
-      appUrl: "googlegmail://",
-      // ✅ IMPORTANT: Android will open Gmail app if installed; otherwise browser inbox; avoids Play Store.
-      webUrl: "https://mail.google.com/mail/u/0/#inbox",
-      fallbackLabel: "Open Gmail on web",
+      webInboxUrl: "https://mail.google.com/mail/u/0/#inbox",
+      iosScheme: "googlegmail://",
+      androidIntent:
+        "intent://mail.google.com/mail/u/0/#inbox#Intent;scheme=https;package=com.google.android.gm;end",
     };
   }
 
   if (outlookDomains.has(domain)) {
     return {
+      kind: "outlook",
       label: "Open email",
-      // iOS deep link (best-effort)
-      appUrl: "ms-outlook://",
-      webUrl: "https://outlook.live.com/mail/0/inbox",
-      fallbackLabel: "Open Outlook on web",
+      webInboxUrl: "https://outlook.live.com/mail/0/inbox",
+      iosScheme: "ms-outlook://",
+      androidIntent:
+        "intent://outlook.live.com/mail/0/inbox#Intent;scheme=https;package=com.microsoft.office.outlook;end",
     };
   }
 
-  // Generic: open default mail apps / web fallback
   return {
+    kind: "generic",
     label: "Open email",
-    appUrl: "mailto:",
-    webUrl: "mailto:",
-    fallbackLabel: "Open email app",
+    webInboxUrl: `mailto:${email}`,
   };
 }
 
@@ -133,14 +126,16 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [emailExists, setEmailExists] = useState<boolean | null>(null);
-
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ New: post-signup verify screen
+  // Verify screen state
   const [awaitingVerify, setAwaitingVerify] = useState(false);
   const [verifyEmail, setVerifyEmail] = useState("");
 
-  const inboxTarget = useMemo(() => getInboxTarget(verifyEmail || email), [verifyEmail, email]);
+  const inboxTarget = useMemo(
+    () => getInboxTarget(verifyEmail || email),
+    [verifyEmail, email]
+  );
 
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
@@ -161,9 +156,7 @@ export default function AuthPage() {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingErr) {
-      console.error("ensureProfile: read profile error", existingErr);
-    }
+    if (existingErr) console.error("ensureProfile: read profile error", existingErr);
 
     if (!existing) {
       const { error: insErr } = await supabase.from("profiles").insert([
@@ -176,15 +169,11 @@ export default function AuthPage() {
           raw_metadata: meta || {},
         },
       ]);
-
-      if (insErr) {
-        console.error("ensureProfile: insert error", insErr);
-      }
+      if (insErr) console.error("ensureProfile: insert error", insErr);
       return;
     }
 
     const patch: any = {};
-
     if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = bestEmail;
     if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) patch.full_name = bestName;
     if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) patch.avatar_url = bestAvatar;
@@ -193,7 +182,6 @@ export default function AuthPage() {
     if (Object.keys(patch).length === 0) return;
 
     const { error: upErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
-
     if (upErr) console.error("ensureProfile: update error", upErr);
   }
 
@@ -205,7 +193,6 @@ export default function AuthPage() {
     let unsub: any = null;
 
     const run = async () => {
-      // If user already signed in, go straight through
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
       if (user) {
@@ -214,7 +201,6 @@ export default function AuthPage() {
         return;
       }
 
-      // Otherwise listen for auth events
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           const u = session?.user;
@@ -245,9 +231,7 @@ export default function AuthPage() {
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth`,
-      },
+      options: { redirectTo: `${window.location.origin}/auth` },
     });
 
     if (error) setError(error.message);
@@ -275,7 +259,6 @@ export default function AuthPage() {
       setEmailExists((data || []).length > 0);
     } catch (err) {
       console.error("checkEmailExists error", err);
-      // If check fails, don't block signup—just show nothing.
       setEmailExists(null);
     } finally {
       setCheckingEmail(false);
@@ -284,65 +267,52 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (mode !== "signup") return;
-    const t = setTimeout(() => {
-      checkEmailExists(email);
-    }, 350);
+    const t = setTimeout(() => checkEmailExists(email), 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email, mode]);
 
   // ------------------------------
-  // Open inbox (domain-aware + mobile/desktop aware)
+  // Open inbox: desktop -> web, mobile -> app attempt -> fallback web
   // ------------------------------
   const openInboxSmart = () => {
-    const e = verifyEmail || email;
+    const e = normalizeEmail(verifyEmail || email);
     const target = getInboxTarget(e);
     const os = getOS();
-    const domain = emailDomain(e);
-    const isGmail = domain === "gmail.com" || domain === "googlemail.com";
-    const isOutlook =
-      domain === "outlook.com" || domain === "hotmail.com" || domain === "live.com" || domain === "msn.com";
 
-    // Always have a safe web fallback
     const openWeb = () => {
-      const url = target.webUrl.startsWith("mailto:") ? `mailto:${e}` : target.webUrl;
-      window.location.href = url;
+      window.location.href = target.webInboxUrl || `mailto:${e}`;
     };
 
-    // ✅ Android: use Gmail web inbox link first to avoid Play Store
+    // Desktop: always web
+    if (!isMobile()) {
+      openWeb();
+      return;
+    }
+
+    // Mobile: try app first if known provider
     if (os === "android") {
-      if (isGmail) {
-        window.location.href = target.webUrl; // opens Gmail app if installed via app links; else web inbox
+      if (target.androidIntent) {
+        window.location.href = target.androidIntent;
+        // If intent fails, Android typically falls back automatically,
+        // but we still do a timed web fallback.
+        setTimeout(openWeb, 900);
         return;
       }
-      if (isOutlook) {
-        // Outlook web inbox is safest too
-        window.location.href = target.webUrl;
-        return;
-      }
-      // Generic: mailto
-      window.location.href = `mailto:${e}`;
+      openWeb();
       return;
     }
 
-    // iOS: try scheme first, then fallback
     if (os === "ios") {
-      if (isGmail) {
-        // try gmail app; fallback to web
-        window.location.href = target.appUrl;
+      if (target.iosScheme) {
+        window.location.href = target.iosScheme;
         setTimeout(openWeb, 900);
         return;
       }
-      if (isOutlook) {
-        window.location.href = target.appUrl;
-        setTimeout(openWeb, 900);
-        return;
-      }
-      window.location.href = `mailto:${e}`;
+      openWeb();
       return;
     }
 
-    // Desktop: just open web inbox where possible
     openWeb();
   };
 
@@ -374,17 +344,12 @@ export default function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email: normalizeEmail(email),
           password,
-          options: {
-            data: { full_name: fullName.trim() },
-          },
+          options: { data: { full_name: fullName.trim() } },
         });
         if (error) throw error;
 
-        // If email confirmations are enabled, session may be null.
-        // ✅ Show verify screen instead of redirecting to login.
         if (data.user) {
           await ensureProfile(data.user, { full_name: fullName.trim() });
-
           setVerifyEmail(normalizeEmail(email));
           setAwaitingVerify(true);
           return;
@@ -409,32 +374,13 @@ export default function AuthPage() {
   };
 
   // ------------------------------
-  // UI RENDER
+  // Verify screen
   // ------------------------------
   if (awaitingVerify) {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#020617",
-          color: "#e5e7eb",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-        }}
-      >
+      <div style={pageWrap}>
         <div style={{ width: "100%", maxWidth: 520 }}>
-          <div
-            style={{
-              width: "100%",
-              borderRadius: 20,
-              border: "1px solid #1f2937",
-              padding: "22px 22px 20px",
-              background:
-                "radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 55%), rgba(15,23,42,0.96)",
-            }}
-          >
+          <div style={cardWrap}>
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 10 }}>
               <img src="/Q5_white_bg.png" style={{ width: 40, height: 40 }} />
               <div>
@@ -464,7 +410,7 @@ export default function AuthPage() {
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
               <button type="button" onClick={openInboxSmart} style={submitBtn}>
-                {inboxTarget.label}
+                Open email
               </button>
 
               <button
@@ -517,84 +463,26 @@ export default function AuthPage() {
     );
   }
 
+  // ------------------------------
+  // Main auth UI
+  // ------------------------------
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#020617",
-        color: "#e5e7eb",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 460,
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-        }}
-      >
-        {/* AUTH CARD */}
-        <div
-          style={{
-            width: "100%",
-            borderRadius: 20,
-            border: "1px solid #1f2937",
-            padding: "20px 22px 22px",
-            background:
-              "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
-          }}
-        >
-          {/* Header */}
+    <div style={pageWrap}>
+      <div style={{ width: "100%", maxWidth: 460, display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={authCard}>
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <img
-              src="/Q5_white_bg.png"
-              style={{
-                width: 90,
-                height: 90,
-                margin: "0 auto 12px",
-              }}
-            />
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 700,
-                background: "linear-gradient(90deg, #22d3ee, #a855f7)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              Quantum5ocial
-            </div>
-            <div style={{ fontSize: 14, color: "#9ca3af" }}>
-              Sign in to join the quantum ecosystem.
-            </div>
+            <img src="/Q5_white_bg.png" style={{ width: 90, height: 90, margin: "0 auto 12px" }} />
+            <div style={brandTitle}>Quantum5ocial</div>
+            <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
-          {/* OAuth Buttons */}
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              justifyContent: "center",
-              marginBottom: 18,
-              flexWrap: "wrap",
-            }}
-          >
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginBottom: 18, flexWrap: "wrap" }}>
             <button type="button" onClick={() => handleOAuthLogin("google")} style={oauthBtn}>
               <img src="/google.svg" style={icon} />
               Google
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin("linkedin_oidc")}
-              style={oauthBtn}
-            >
+            <button type="button" onClick={() => handleOAuthLogin("linkedin_oidc")} style={oauthBtn}>
               <img src="/linkedin.svg" style={icon} />
               LinkedIn
             </button>
@@ -605,14 +493,12 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Divider */}
           <div style={dividerRow}>
             <div style={dividerLine} />
             <span>or continue with email</span>
             <div style={dividerLine} />
           </div>
 
-          {/* Toggle */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
               type="button"
@@ -642,7 +528,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Email Form */}
           <form onSubmit={handleEmailAuth}>
             {mode === "signup" && (
               <div style={{ marginBottom: 10 }}>
@@ -696,41 +581,15 @@ export default function AuthPage() {
             {error && <div style={errorBox}>{error}</div>}
 
             <button type="submit" disabled={loading || checkingEmail} style={submitBtn}>
-              {loading
-                ? "Please wait…"
-                : mode === "signup"
-                ? "Sign up with email"
-                : "Log in with email"}
+              {loading ? "Please wait…" : mode === "signup" ? "Sign up with email" : "Log in with email"}
             </button>
           </form>
         </div>
 
-        {/* FOOTER */}
-        <div
-          style={{
-            borderRadius: 16,
-            border: "1px solid rgba(148,163,184,0.25)",
-            padding: "8px 14px",
-            background: "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 11,
-            color: "rgba(148,163,184,0.9)",
-          }}
-        >
+        <div style={footer}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <img src="/Q5_white_bg.png" style={{ width: 24 }} />
-            <span
-              style={{
-                fontSize: 13,
-                fontWeight: 500,
-                background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              Quantum5ocial
-            </span>
+            <span style={footerBrand}>Quantum5ocial</span>
           </div>
           <div>© 2025 Quantum5ocial</div>
         </div>
@@ -740,6 +599,42 @@ export default function AuthPage() {
 }
 
 /* Styles */
+const pageWrap: React.CSSProperties = {
+  minHeight: "100vh",
+  background: "#020617",
+  color: "#e5e7eb",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 24,
+};
+
+const authCard: React.CSSProperties = {
+  width: "100%",
+  borderRadius: 20,
+  border: "1px solid #1f2937",
+  padding: "20px 22px 22px",
+  background:
+    "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
+};
+
+const cardWrap: React.CSSProperties = {
+  width: "100%",
+  borderRadius: 20,
+  border: "1px solid #1f2937",
+  padding: "22px 22px 20px",
+  background:
+    "radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 55%), rgba(15,23,42,0.96)",
+};
+
+const brandTitle: React.CSSProperties = {
+  fontSize: 28,
+  fontWeight: 700,
+  background: "linear-gradient(90deg, #22d3ee, #a855f7)",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
+};
+
 const oauthBtn: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -807,4 +702,23 @@ const submitBtn: React.CSSProperties = {
   color: "#e5e7eb",
   cursor: "pointer",
   fontSize: 14,
+};
+
+const footer: React.CSSProperties = {
+  borderRadius: 16,
+  border: "1px solid rgba(148,163,184,0.25)",
+  padding: "8px 14px",
+  background: "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
+  display: "flex",
+  justifyContent: "space-between",
+  fontSize: 11,
+  color: "rgba(148,163,184,0.9)",
+};
+
+const footerBrand: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 500,
+  background: "linear-gradient(90deg,#3bc7f3,#8468ff)",
+  WebkitBackgroundClip: "text",
+  WebkitTextFillColor: "transparent",
 };
