@@ -1,5 +1,5 @@
 // pages/auth.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -16,21 +16,28 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Optional: show a "check email" hint after signup
+  const showCheckEmail = useMemo(() => router.query.check_email === "1", [router.query.check_email]);
+
   // ------------------------------
-  // Create profile if not exists
+  // Create profile if missing (or patch missing email later)
   // ------------------------------
-  async function createProfileIfMissing(user: any, overrides?: { full_name?: string | null }) {
+  async function upsertProfileFromUser(user: any, overrides?: { full_name?: string | null }) {
     if (!user) return;
 
-    const { data: existing } = await supabase
+    const { data: existing, error: existingErr } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id,email,full_name,avatar_url")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existing) return; // profile already exists
+    if (existingErr) {
+      // not fatal, but log it
+      console.error("Error checking existing profile", existingErr);
+    }
 
     const meta = user.user_metadata || {};
 
@@ -41,12 +48,31 @@ export default function AuthPage() {
       meta.preferred_username ||
       null;
 
-    const avatar_from_meta =
-      meta.avatar_url ||
-      meta.picture ||
-      null;
+    const avatar_from_meta = meta.avatar_url || meta.picture || null;
 
-    await supabase.from("profiles").insert([
+    // ✅ If profile exists, patch missing fields (especially email)
+    if (existing) {
+      const patch: any = {};
+
+      if (!existing.email && user.email) patch.email = user.email;
+
+      // Nice-to-have: fill name/avatar only if missing (won't overwrite user edits)
+      if (!existing.full_name && full_name_from_meta) patch.full_name = full_name_from_meta;
+      if (!existing.avatar_url && avatar_from_meta) patch.avatar_url = avatar_from_meta;
+
+      // Keep provider/metadata reasonably up to date
+      patch.provider = user.app_metadata?.provider || null;
+      patch.raw_metadata = meta || {};
+
+      if (Object.keys(patch).length > 0) {
+        const { error: updErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
+        if (updErr) console.error("Error patching profile", updErr);
+      }
+      return;
+    }
+
+    // ✅ Otherwise insert new profile
+    const { error: insErr } = await supabase.from("profiles").insert([
       {
         id: user.id,
         email: user.email || null,
@@ -56,21 +82,31 @@ export default function AuthPage() {
         raw_metadata: meta || {},
       },
     ]);
+
+    if (insErr) console.error("Error inserting profile", insErr);
   }
 
   // ------------------------------
-  // After OAuth redirect (Google/GitHub/LinkedIn)
+  // After OAuth redirect OR email login session
   // ------------------------------
   useEffect(() => {
     const checkSession = async () => {
-      const { data } = await supabase.auth.getUser();
-      const user = data.user;
-      if (user) {
-        await createProfileIfMissing(user);
-        router.replace(redirectPath);
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data.user;
+
+        if (user) {
+          await upsertProfileFromUser(user);
+          router.replace(redirectPath);
+          return;
+        }
+      } finally {
+        setCheckingSession(false);
       }
     };
+
     checkSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, redirectPath]);
 
   // ------------------------------
@@ -82,7 +118,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirectPath)}`,
       },
     });
 
@@ -109,31 +145,39 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // pass full_name into user_metadata so it is available on user.user_metadata.full_name
+        // pass full_name into user_metadata
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: {
-              full_name: fullName.trim(),
-            },
+            data: { full_name: fullName.trim() },
           },
         });
         if (error) throw error;
+
+        // ✅ Create profile now (email may still be null depending on confirmation settings)
         if (data.user) {
-          await createProfileIfMissing(data.user, {
-            full_name: fullName.trim(),
-          });
-          router.push(redirectPath);
+          await upsertProfileFromUser(data.user, { full_name: fullName.trim() });
         }
+
+        // ✅ If email confirmations are ON, session will be null here.
+        if (!data.session) {
+          router.push(
+            `/auth?redirect=${encodeURIComponent(redirectPath)}&check_email=1`
+          );
+          return;
+        }
+
+        router.push(redirectPath);
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+
         if (data.user) {
-          await createProfileIfMissing(data.user);
+          await upsertProfileFromUser(data.user);
           router.push(redirectPath);
         }
       }
@@ -180,7 +224,7 @@ export default function AuthPage() {
           }}
         >
           {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ textAlign: "center", marginBottom: 18 }}>
             <img
               src="/Q5_white_bg.png"
               style={{
@@ -205,6 +249,24 @@ export default function AuthPage() {
             </div>
           </div>
 
+          {/* ✅ Check email hint */}
+          {showCheckEmail && (
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid rgba(34,211,238,0.35)",
+                background:
+                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,0.75))",
+                color: "rgba(226,232,240,0.95)",
+                fontSize: 13,
+                marginBottom: 14,
+              }}
+            >
+              Please check your inbox to confirm your email. After confirming, come back and log in.
+            </div>
+          )}
+
           {/* OAuth Buttons */}
           <div
             style={{
@@ -215,11 +277,7 @@ export default function AuthPage() {
               flexWrap: "wrap",
             }}
           >
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin("google")}
-              style={oauthBtn}
-            >
+            <button type="button" onClick={() => handleOAuthLogin("google")} style={oauthBtn}>
               <img src="/google.svg" style={icon} />
               Google
             </button>
@@ -233,11 +291,7 @@ export default function AuthPage() {
               LinkedIn
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin("github")}
-              style={oauthBtn}
-            >
+            <button type="button" onClick={() => handleOAuthLogin("github")} style={oauthBtn}>
               <img src="/github.svg" style={icon} />
               GitHub
             </button>
@@ -257,10 +311,7 @@ export default function AuthPage() {
               onClick={() => setMode("login")}
               style={{
                 ...toggleBtn,
-                border:
-                  mode === "login"
-                    ? "1px solid #22d3ee"
-                    : "1px solid #374151",
+                border: mode === "login" ? "1px solid #22d3ee" : "1px solid #374151",
               }}
             >
               Log in
@@ -270,10 +321,7 @@ export default function AuthPage() {
               onClick={() => setMode("signup")}
               style={{
                 ...toggleBtn,
-                border:
-                  mode === "signup"
-                    ? "1px solid #22d3ee"
-                    : "1px solid #374151",
+                border: mode === "signup" ? "1px solid #22d3ee" : "1px solid #374151",
               }}
             >
               Sign up
@@ -319,12 +367,8 @@ export default function AuthPage() {
 
             {error && <div style={errorBox}>{error}</div>}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={submitBtn}
-            >
-              {loading
+            <button type="submit" disabled={loading || checkingSession} style={submitBtn}>
+              {loading || checkingSession
                 ? "Please wait…"
                 : mode === "signup"
                 ? "Sign up with email"
@@ -339,8 +383,7 @@ export default function AuthPage() {
             borderRadius: 16,
             border: "1px solid rgba(148,163,184,0.25)",
             padding: "8px 14px",
-            background:
-              "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
+            background: "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
             display: "flex",
             justifyContent: "space-between",
             fontSize: 11,
