@@ -16,9 +16,7 @@ function pickBestEmail(user: any): string | null {
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
     const email =
-      ident?.identity_data?.email ||
-      ident?.identity_data?.preferred_email ||
-      null;
+      ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
@@ -30,14 +28,13 @@ function pickBestEmail(user: any): string | null {
   return null;
 }
 
-function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
+function pickBestName(
+  user: any,
+  overrides?: { full_name?: string | null }
+): string | null {
   const meta = user?.user_metadata || {};
   const v =
-    overrides?.full_name ||
-    meta.full_name ||
-    meta.name ||
-    meta.preferred_username ||
-    null;
+    overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
@@ -58,6 +55,10 @@ export default function AuthPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ✅ NEW: show a "check your email" state after signup (email confirmation)
+  const [signupPending, setSignupPending] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
 
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
@@ -80,7 +81,6 @@ export default function AuthPage() {
       .maybeSingle();
 
     if (existingErr) {
-      // Don’t hard-fail auth redirect, but do log it
       console.error("ensureProfile: read profile error", existingErr);
     }
 
@@ -97,39 +97,25 @@ export default function AuthPage() {
         },
       ]);
 
-      if (insErr) {
-        console.error("ensureProfile: insert error", insErr);
-      }
+      if (insErr) console.error("ensureProfile: insert error", insErr);
       return;
     }
 
-    // Profile exists: backfill missing fields (especially email!)
+    // Profile exists: backfill missing fields (especially email)
     const patch: any = {};
 
-    if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
-      patch.email = bestEmail;
-    }
-    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) {
+    if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = bestEmail;
+    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName)
       patch.full_name = bestName;
-    }
-    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) {
+    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar)
       patch.avatar_url = bestAvatar;
-    }
-    if ((!existing.provider || !String(existing.provider).trim()) && provider) {
+    if ((!existing.provider || !String(existing.provider).trim()) && provider)
       patch.provider = provider;
-    }
 
-    // If nothing to patch, done
     if (Object.keys(patch).length === 0) return;
 
-    const { error: upErr } = await supabase
-      .from("profiles")
-      .update(patch)
-      .eq("id", user.id);
-
-    if (upErr) {
-      console.error("ensureProfile: update error", upErr);
-    }
+    const { error: upErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
+    if (upErr) console.error("ensureProfile: update error", upErr);
   }
 
   // -------------------------------------------------
@@ -140,7 +126,7 @@ export default function AuthPage() {
     let unsub: any = null;
 
     const run = async () => {
-      // 1) If session already exists, handle immediately
+      // If session already exists, handle immediately
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
       if (user) {
@@ -149,9 +135,13 @@ export default function AuthPage() {
         return;
       }
 
-      // 2) Otherwise listen for SIGNED_IN after OAuth redirect
+      // Otherwise listen for SIGNED_IN after OAuth redirect
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        if (
+          event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "USER_UPDATED"
+        ) {
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
@@ -181,7 +171,9 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
+          redirectPath
+        )}`,
       },
     });
 
@@ -215,13 +207,25 @@ export default function AuthPage() {
             data: {
               full_name: fullName.trim(),
             },
+            // ✅ makes the email verification link return to /auth and continue redirect
+            emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
+              redirectPath
+            )}`,
           },
         });
         if (error) throw error;
 
-        // NOTE: if email confirmations are enabled, user may exist but session may not.
-        if (data.user) {
-          await ensureProfile(data.user, { full_name: fullName.trim() });
+        // ✅ If confirmations are enabled, there is usually NO session yet.
+        // Show a friendly "check your email" state and do NOT redirect.
+        if (!data.session) {
+          setSignupPending(true);
+          setPendingEmail(email.trim());
+          return;
+        }
+
+        // Edge case: confirmations disabled -> session exists
+        if (data.session?.user) {
+          await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.push(redirectPath);
         }
       } else {
@@ -242,6 +246,72 @@ export default function AuthPage() {
       setLoading(false);
     }
   };
+
+  // ✅ "Check your email" screen (professional)
+  if (signupPending) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "#020617",
+          color: "#e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 440,
+            borderRadius: 20,
+            border: "1px solid rgba(148,163,184,0.25)",
+            padding: "24px 26px",
+            background:
+              "radial-gradient(circle at top left, rgba(34,211,238,0.12), transparent 55%), rgba(15,23,42,0.96)",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: 44, marginBottom: 10 }}>📩</div>
+
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+            Check your email
+          </div>
+
+          <div style={{ fontSize: 14, color: "#9ca3af", marginBottom: 14 }}>
+            We sent a confirmation link to
+            <div style={{ marginTop: 6, color: "#e5e7eb", fontWeight: 600 }}>
+              {pendingEmail || "your email address"}
+            </div>
+          </div>
+
+          <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 18 }}>
+            Please verify your email address to activate your Quantum5ocial account.
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSignupPending(false);
+              setMode("login");
+            }}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 999,
+              border: "1px solid #374151",
+              background: "#020617",
+              color: "#e5e7eb",
+              cursor: "pointer",
+              fontSize: 13,
+            }}
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ------------------------------
   // UI RENDER
@@ -287,6 +357,7 @@ export default function AuthPage() {
                 height: 90,
                 margin: "0 auto 12px",
               }}
+              alt="Quantum5ocial"
             />
             <div
               style={{
@@ -315,7 +386,7 @@ export default function AuthPage() {
             }}
           >
             <button type="button" onClick={() => handleOAuthLogin("google")} style={oauthBtn}>
-              <img src="/google.svg" style={icon} />
+              <img src="/google.svg" style={icon} alt="" />
               Google
             </button>
 
@@ -324,12 +395,12 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("linkedin_oidc")}
               style={oauthBtn}
             >
-              <img src="/linkedin.svg" style={icon} />
+              <img src="/linkedin.svg" style={icon} alt="" />
               LinkedIn
             </button>
 
             <button type="button" onClick={() => handleOAuthLogin("github")} style={oauthBtn}>
-              <img src="/github.svg" style={icon} />
+              <img src="/github.svg" style={icon} alt="" />
               GitHub
             </button>
           </div>
@@ -428,7 +499,7 @@ export default function AuthPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src="/Q5_white_bg.png" style={{ width: 24 }} />
+            <img src="/Q5_white_bg.png" style={{ width: 24 }} alt="" />
             <span
               style={{
                 fontSize: 13,
