@@ -67,6 +67,7 @@ function buildOpenEmailHref(email: string) {
     // Opens Gmail (or Play Store if not installed / blocked)
     return "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
   }
+
   // Generic email apps
   return `mailto:${encodeURIComponent(email)}`;
 }
@@ -169,6 +170,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Verify UI state
@@ -204,7 +206,7 @@ export default function AuthPage() {
       const { error: insErr } = await supabase.from("profiles").insert([
         {
           id: user.id,
-          email: bestEmail,
+          email: bestEmail ? normalizeEmail(bestEmail) : null,
           full_name: bestName,
           avatar_url: bestAvatar,
           provider,
@@ -217,7 +219,8 @@ export default function AuthPage() {
     }
 
     const patch: any = {};
-    if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = bestEmail;
+    if ((!existing.email || !String(existing.email).trim()) && bestEmail)
+      patch.email = normalizeEmail(bestEmail);
     if ((!existing.full_name || !String(existing.full_name).trim()) && bestName)
       patch.full_name = bestName;
     if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar)
@@ -320,7 +323,6 @@ export default function AuthPage() {
     const { data, error } = await supabase.from("profiles").select("id").eq("email", e).limit(1);
 
     if (error) {
-      // Don’t block signup if RLS prevents it; treat as unknown
       console.warn("checkEmailExistsInProfiles: cannot check (RLS?)", error);
       return false;
     }
@@ -374,7 +376,10 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
+        setCheckingEmail(true);
         const exists = await checkEmailExistsInProfiles(eNorm);
+        setCheckingEmail(false);
+
         if (exists) {
           setError("An account with this email already exists. Please log in instead.");
           return;
@@ -389,20 +394,17 @@ export default function AuthPage() {
         });
         if (error) throw error;
 
-        // ✅ Immediately show "check your email" screen (no refresh needed)
         setVerifyEmail(eNorm);
         setVerifyMode(true);
         setResendStatus(null);
         setError(null);
         setResendCooldown(60);
 
-        // keep URL shareable/deep-linkable
         router.replace({
           pathname: "/auth",
           query: { redirect: redirectPath, verify: "1", email: eNorm },
         });
 
-        // If session exists (email confirmation OFF), create profile + redirect
         if (data.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.replace(redirectPath);
@@ -425,6 +427,7 @@ export default function AuthPage() {
       setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
+      setCheckingEmail(false);
     }
   };
 
@@ -522,7 +525,7 @@ export default function AuthPage() {
                 . Please open it to confirm your account.
               </div>
 
-              {/* Open email button (domain + mobile aware) */}
+              {/* Open email button */}
               <a
                 href={openEmailHref}
                 target="_blank"
@@ -693,9 +696,11 @@ export default function AuthPage() {
 
                 {error && <div style={errorBox}>{error}</div>}
 
-                <button type="submit" disabled={loading} style={submitBtn}>
-                  {loading
-                    ? "Please wait…"
+                <button type="submit" disabled={loading || checkingEmail} style={submitBtn}>
+                  {loading || checkingEmail
+                    ? checkingEmail
+                      ? "Checking email…"
+                      : "Please wait…"
                     : mode === "signup"
                     ? "Sign up with email"
                     : "Log in with email"}
