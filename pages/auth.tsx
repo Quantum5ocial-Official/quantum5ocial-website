@@ -18,9 +18,7 @@ function pickBestEmail(user: any): string | null {
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
     const email =
-      ident?.identity_data?.email ||
-      ident?.identity_data?.preferred_email ||
-      null;
+      ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
@@ -31,7 +29,10 @@ function pickBestEmail(user: any): string | null {
   return null;
 }
 
-function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
+function pickBestName(
+  user: any,
+  overrides?: { full_name?: string | null }
+): string | null {
   const meta = user?.user_metadata || {};
   const v =
     overrides?.full_name ||
@@ -52,12 +53,10 @@ function isProbablyMobile() {
   if (typeof navigator === "undefined") return false;
   return /android|iphone|ipad|ipod/i.test(navigator.userAgent || "");
 }
-
 function isAndroid() {
   if (typeof navigator === "undefined") return false;
   return /android/i.test(navigator.userAgent || "");
 }
-
 function isIOS() {
   if (typeof navigator === "undefined") return false;
   return /iphone|ipad|ipod/i.test(navigator.userAgent || "");
@@ -73,7 +72,6 @@ function getInboxTarget(emailAddr: string) {
   const icloudDomains = new Set(["icloud.com", "me.com", "mac.com"]);
   const protonDomains = new Set(["proton.me", "protonmail.com"]);
 
-  // Fallback
   const fallback = {
     label: "Open email",
     webInboxUrl: "https://mail.google.com/mail/u/0/#inbox",
@@ -86,7 +84,7 @@ function getInboxTarget(emailAddr: string) {
       label: "Open email",
       webInboxUrl: "https://mail.google.com/mail/u/0/#inbox",
       iosScheme: "googlegmail://",
-      // ✅ Android: go to Play Store (your request)
+      // Android: Play Store (as requested)
       androidPlayStoreUrl: "market://details?id=com.google.android.gm",
     };
   }
@@ -113,7 +111,7 @@ function getInboxTarget(emailAddr: string) {
     return {
       label: "Open email",
       webInboxUrl: "https://www.icloud.com/mail",
-      iosScheme: "message://", // opens iOS Mail
+      iosScheme: "message://",
       androidPlayStoreUrl: null,
     };
   }
@@ -157,6 +155,10 @@ export default function AuthPage() {
   const [verifyMode, setVerifyMode] = useState<boolean>(verifyFromQuery);
   const [verifyEmail, setVerifyEmail] = useState<string>(emailFromQuery || "");
 
+  // Resend UX
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [resendStatus, setResendStatus] = useState<string | null>(null);
+
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
   // -------------------------------------------------
@@ -194,7 +196,6 @@ export default function AuthPage() {
     }
 
     const patch: any = {};
-
     if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = bestEmail;
     if ((!existing.full_name || !String(existing.full_name).trim()) && bestName)
       patch.full_name = bestName;
@@ -254,6 +255,22 @@ export default function AuthPage() {
     if (emailFromQuery) setVerifyEmail(emailFromQuery);
   }, [verifyFromQuery, emailFromQuery]);
 
+  // Start / maintain countdown when verify screen is active
+  useEffect(() => {
+    if (!(verifyMode || verifyFromQuery)) return;
+
+    // On first entry, start at 60 seconds if not running already
+    setResendStatus(null);
+    setError(null);
+    setResendCooldown((prev) => (prev > 0 ? prev : 60));
+  }, [verifyMode, verifyFromQuery]);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setTimeout(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [resendCooldown]);
+
   // ------------------------------
   // OAuth login handler
   // ------------------------------
@@ -300,13 +317,11 @@ export default function AuthPage() {
 
     const target = getInboxTarget(inboxEmail);
 
-    // Desktop -> web inbox
     if (!isProbablyMobile()) {
       window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
       return;
     }
 
-    // iOS -> try app scheme, else web
     if (isIOS()) {
       if (target.iosScheme) {
         const t0 = Date.now();
@@ -322,7 +337,6 @@ export default function AuthPage() {
       return;
     }
 
-    // Android -> Play Store (as requested) if we have it, else web
     if (isAndroid()) {
       if (target.androidPlayStoreUrl) {
         window.location.href = target.androidPlayStoreUrl;
@@ -332,8 +346,42 @@ export default function AuthPage() {
       return;
     }
 
-    // Other mobile -> web
     window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
+  };
+
+  // ------------------------------
+  // Resend verification email
+  // ------------------------------
+  const handleResend = async () => {
+    const e = normalizeEmail(verifyEmail || email);
+    if (!e) return;
+
+    if (resendCooldown > 0) return;
+
+    setResendStatus(null);
+    setError(null);
+
+    try {
+      // Supabase v2: resend signup confirmation
+      // If your TypeScript types complain, keep the "as any".
+      const { error } = await (supabase.auth as any).resend({
+        type: "signup",
+        email: e,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
+            redirectPath
+          )}`,
+        },
+      });
+
+      if (error) throw error;
+
+      setResendStatus("Verification email sent. Please check your inbox.");
+      setResendCooldown(60);
+    } catch (err: any) {
+      console.error("resend error", err);
+      setError(err?.message || "Could not resend the email. Please try again.");
+    }
   };
 
   // ------------------------------
@@ -368,25 +416,24 @@ export default function AuthPage() {
           password,
           options: {
             data: { full_name: fullName.trim() },
+            emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
+              redirectPath
+            )}`,
           },
         });
 
         if (error) throw error;
 
-        // Show verify screen
         setVerifyEmail(eNorm);
         setVerifyMode(true);
+        setResendCooldown(60);
+        setResendStatus(null);
 
         router.replace({
           pathname: "/auth",
-          query: {
-            redirect: redirectPath,
-            verify: "1",
-            email: eNorm,
-          },
+          query: { redirect: redirectPath, verify: "1", email: eNorm },
         });
 
-        // If user exists immediately, backfill profile (safe)
         if (data?.user) {
           await ensureProfile(data.user, { full_name: fullName.trim() });
         }
@@ -394,7 +441,6 @@ export default function AuthPage() {
         return;
       }
 
-      // login
       const { data, error } = await supabase.auth.signInWithPassword({
         email: eNorm,
         password,
@@ -446,9 +492,9 @@ export default function AuthPage() {
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14 }}>
               <div
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
                   border: "1px solid rgba(148,163,184,0.35)",
                   background: "rgba(2,6,23,0.6)",
                   display: "flex",
@@ -457,7 +503,7 @@ export default function AuthPage() {
                 }}
                 aria-hidden
               >
-                <EmailIcon />
+                <CheckEmailIcon />
               </div>
 
               <div>
@@ -480,7 +526,13 @@ export default function AuthPage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
+            {/* Status */}
+            {resendStatus && (
+              <div style={{ ...successBox, marginTop: 12 }}>{resendStatus}</div>
+            )}
+            {error && <div style={{ ...errorBox, marginTop: 12 }}>{error}</div>}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={openEmailInbox}
@@ -492,18 +544,31 @@ export default function AuthPage() {
                   gap: 8,
                 }}
               >
-                <EmailIcon small />
+                <MiniMailIcon />
                 {target?.label || "Open email"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendCooldown > 0}
+                style={{
+                  ...oauthBtn,
+                  padding: "8px 14px",
+                  opacity: resendCooldown > 0 ? 0.65 : 1,
+                  cursor: resendCooldown > 0 ? "not-allowed" : "pointer",
+                }}
+              >
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend email"}
               </button>
 
               <button
                 type="button"
                 onClick={() => {
                   setVerifyMode(false);
-                  router.replace({
-                    pathname: "/auth",
-                    query: { redirect: redirectPath },
-                  });
+                  setResendCooldown(0);
+                  setResendStatus(null);
+                  router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
                 }}
                 style={{ ...oauthBtn, padding: "8px 14px" }}
               >
@@ -751,18 +816,54 @@ export default function AuthPage() {
   );
 }
 
-function EmailIcon({ small }: { small?: boolean }) {
-  const size = small ? 16 : 18;
+/* Better “check your email” icon: envelope + incoming arrow */
+function CheckEmailIcon() {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+      {/* envelope */}
       <path
-        d="M4 6.5h16c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5H4c-.83 0-1.5-.67-1.5-1.5V8c0-.83.67-1.5 1.5-1.5Z"
+        d="M4.25 7.25h15.5c.97 0 1.75.78 1.75 1.75v8.75c0 .97-.78 1.75-1.75 1.75H4.25c-.97 0-1.75-.78-1.75-1.75V9c0-.97.78-1.75 1.75-1.75Z"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.6 8.75 12 13.35l6.4-4.6"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      {/* incoming arrow */}
+      <path
+        d="M18.25 4.25v4.25H14"
+        stroke="rgba(34,211,238,0.95)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M18.25 8.5 13.5 3.75"
+        stroke="rgba(34,211,238,0.95)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/* Small email icon used inside the “Open email” button */
+function MiniMailIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
+      <path
+        d="M4 6.7h16c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5H4c-.83 0-1.5-.67-1.5-1.5v-9c0-.83.67-1.5 1.5-1.5Z"
         stroke="rgba(226,232,240,0.95)"
         strokeWidth="1.7"
         strokeLinejoin="round"
       />
       <path
-        d="M5.2 8.2 12 13.1l6.8-4.9"
+        d="M5.2 8.4 12 13.3l6.8-4.9"
         stroke="rgba(34,211,238,0.95)"
         strokeWidth="1.7"
         strokeLinejoin="round"
@@ -828,6 +929,15 @@ const errorBox: React.CSSProperties = {
   borderRadius: 9,
   fontSize: 12,
   marginBottom: 10,
+};
+
+const successBox: React.CSSProperties = {
+  padding: "8px 10px",
+  background: "rgba(34,197,94,0.18)",
+  color: "rgba(187,247,208,0.95)",
+  border: "1px solid rgba(34,197,94,0.35)",
+  borderRadius: 9,
+  fontSize: 12,
 };
 
 const submitBtn: React.CSSProperties = {
