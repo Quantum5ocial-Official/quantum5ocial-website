@@ -6,6 +6,9 @@ import { supabase } from "../lib/supabaseClient";
 
 type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
+const GMAIL_URL = "https://mail.google.com/";
+const OUTLOOK_URL = "https://outlook.live.com/mail/";
+
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
 
@@ -15,8 +18,7 @@ function pickBestEmail(user: any): string | null {
   // 2) Identities (OAuth often stores email here)
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
-    const email =
-      ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
+    const email = ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
@@ -28,10 +30,7 @@ function pickBestEmail(user: any): string | null {
   return null;
 }
 
-function pickBestName(
-  user: any,
-  overrides?: { full_name?: string | null }
-): string | null {
+function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
   const meta = user?.user_metadata || {};
   const v =
     overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
@@ -56,9 +55,9 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ NEW: show a "check your email" state after signup (email confirmation)
+  // ✅ Signup "check your email" UX
   const [signupPending, setSignupPending] = useState(false);
-  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingEmail, setPendingEmail] = useState<string>("");
 
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
@@ -101,20 +100,26 @@ export default function AuthPage() {
       return;
     }
 
-    // Profile exists: backfill missing fields (especially email)
+    // Profile exists: backfill missing fields (especially email!)
     const patch: any = {};
 
-    if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = bestEmail;
-    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName)
+    if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
+      patch.email = bestEmail;
+    }
+    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) {
       patch.full_name = bestName;
-    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar)
+    }
+    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) {
       patch.avatar_url = bestAvatar;
-    if ((!existing.provider || !String(existing.provider).trim()) && provider)
+    }
+    if ((!existing.provider || !String(existing.provider).trim()) && provider) {
       patch.provider = provider;
+    }
 
     if (Object.keys(patch).length === 0) return;
 
     const { error: upErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
+
     if (upErr) console.error("ensureProfile: update error", upErr);
   }
 
@@ -126,22 +131,17 @@ export default function AuthPage() {
     let unsub: any = null;
 
     const run = async () => {
-      // If session already exists, handle immediately
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
+
       if (user) {
         await ensureProfile(user);
         router.replace(redirectPath);
         return;
       }
 
-      // Otherwise listen for SIGNED_IN after OAuth redirect
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (
-          event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED" ||
-          event === "USER_UPDATED"
-        ) {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
@@ -171,9 +171,7 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
-          redirectPath
-        )}`,
+        redirectTo: `${window.location.origin}/auth`,
       },
     });
 
@@ -200,37 +198,37 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
+        const signupEmail = email.trim();
+
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: signupEmail,
           password,
           options: {
-            data: {
-              full_name: fullName.trim(),
-            },
-            // ✅ makes the email verification link return to /auth and continue redirect
             emailRedirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(
               redirectPath
             )}`,
+            data: {
+              full_name: fullName.trim(),
+            },
           },
         });
+
         if (error) throw error;
 
-        // ✅ If confirmations are enabled, there is usually NO session yet.
-        // Show a friendly "check your email" state and do NOT redirect.
-        if (!data.session) {
-          setSignupPending(true);
-          setPendingEmail(email.trim());
-          return;
-        }
+        // If email confirmations are enabled: no session is created yet.
+        // Show "Check your email" message instead of redirecting / refreshing.
+        setPendingEmail(signupEmail);
+        setSignupPending(true);
 
-        // Edge case: confirmations disabled -> session exists
-        if (data.session?.user) {
+        // If confirmations are OFF, Supabase may create a session immediately.
+        // In that case, we can ensureProfile + redirect right away.
+        if (data?.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.push(redirectPath);
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
         if (error) throw error;
@@ -247,7 +245,9 @@ export default function AuthPage() {
     }
   };
 
-  // ✅ "Check your email" screen (professional)
+  // ------------------------------
+  // "Check your email" screen
+  // ------------------------------
   if (signupPending) {
     return (
       <div
@@ -275,9 +275,7 @@ export default function AuthPage() {
         >
           <div style={{ fontSize: 44, marginBottom: 10 }}>📩</div>
 
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
-            Check your email
-          </div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Check your email</div>
 
           <div style={{ fontSize: 14, color: "#9ca3af", marginBottom: 14 }}>
             We sent a confirmation link to
@@ -290,6 +288,43 @@ export default function AuthPage() {
             Please verify your email address to activate your Quantum5ocial account.
           </div>
 
+          {/* ✅ Primary CTA: open default mail client */}
+          <a
+            href="mailto:"
+            style={{
+              display: "inline-block",
+              padding: "10px 18px",
+              borderRadius: 999,
+              border: "1px solid #22d3ee",
+              background: "#020617",
+              color: "#e5e7eb",
+              fontSize: 14,
+              fontWeight: 600,
+              textDecoration: "none",
+              marginBottom: 12,
+            }}
+          >
+            Open email
+          </a>
+
+          {/* ✅ Convenience links */}
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              justifyContent: "center",
+              gap: 14,
+              fontSize: 13,
+            }}
+          >
+            <a href={GMAIL_URL} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
+              Open Gmail
+            </a>
+            <a href={OUTLOOK_URL} target="_blank" rel="noreferrer" style={{ color: "#7dd3fc" }}>
+              Open Outlook
+            </a>
+          </div>
+
           <button
             type="button"
             onClick={() => {
@@ -297,6 +332,7 @@ export default function AuthPage() {
               setMode("login");
             }}
             style={{
+              marginTop: 18,
               padding: "8px 16px",
               borderRadius: 999,
               border: "1px solid #374151",
@@ -357,7 +393,6 @@ export default function AuthPage() {
                 height: 90,
                 margin: "0 auto 12px",
               }}
-              alt="Quantum5ocial"
             />
             <div
               style={{
@@ -386,7 +421,7 @@ export default function AuthPage() {
             }}
           >
             <button type="button" onClick={() => handleOAuthLogin("google")} style={oauthBtn}>
-              <img src="/google.svg" style={icon} alt="" />
+              <img src="/google.svg" style={icon} />
               Google
             </button>
 
@@ -395,12 +430,12 @@ export default function AuthPage() {
               onClick={() => handleOAuthLogin("linkedin_oidc")}
               style={oauthBtn}
             >
-              <img src="/linkedin.svg" style={icon} alt="" />
+              <img src="/linkedin.svg" style={icon} />
               LinkedIn
             </button>
 
             <button type="button" onClick={() => handleOAuthLogin("github")} style={oauthBtn}>
-              <img src="/github.svg" style={icon} alt="" />
+              <img src="/github.svg" style={icon} />
               GitHub
             </button>
           </div>
@@ -499,7 +534,7 @@ export default function AuthPage() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src="/Q5_white_bg.png" style={{ width: 24 }} alt="" />
+            <img src="/Q5_white_bg.png" style={{ width: 24 }} />
             <span
               style={{
                 fontSize: 13,
