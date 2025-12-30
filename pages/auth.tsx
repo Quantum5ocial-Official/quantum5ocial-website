@@ -1,5 +1,5 @@
 // pages/auth.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type React from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -16,22 +16,13 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const showCheckEmail = useMemo(() => router.query.check_email === "1", [router.query.check_email]);
-
-  // ---------------------------------------------
-  // ✅ Ensure profile exists AND email is stored
-  // ---------------------------------------------
-  async function ensureProfileUpToDate(
-    user: any,
-    overrides?: { full_name?: string | null }
-  ) {
+  // ------------------------------
+  // Ensure profile exists (and ensure email is saved)
+  // ------------------------------
+  async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
-
-    // Always prefer user.email when available
-    const authEmail: string | null = user.email ?? null;
 
     const meta = user.user_metadata || {};
     const full_name_from_meta =
@@ -43,22 +34,25 @@ export default function AuthPage() {
 
     const avatar_from_meta = meta.avatar_url || meta.picture || null;
 
-    const { data: existing, error: existingErr } = await supabase
+    // Prefer auth email (should exist after code exchange)
+    const authEmail: string | null = user.email ?? null;
+
+    const { data: existing, error: readErr } = await supabase
       .from("profiles")
       .select("id,email,full_name,avatar_url")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingErr) {
-      console.error("Error reading profile", existingErr);
-      // Still attempt insert as fallback
+    if (readErr) {
+      console.error("Error reading profile", readErr);
+      return;
     }
 
     if (!existing) {
       const { error: insErr } = await supabase.from("profiles").insert([
         {
           id: user.id,
-          email: authEmail, // ✅ store
+          email: authEmail, // ✅ save on first insert
           full_name: full_name_from_meta,
           avatar_url: avatar_from_meta,
           provider: user.app_metadata?.provider || null,
@@ -70,71 +64,81 @@ export default function AuthPage() {
       return;
     }
 
-    // ✅ Patch missing email (or changed email)
-    // If you want to NEVER overwrite existing non-null email, use:
-    // const shouldUpdateEmail = !existing.email && authEmail;
-    const shouldUpdateEmail = (!!authEmail && existing.email !== authEmail);
+    // ✅ If first insert happened earlier with null email (race), patch only the email
+    if (!existing.email && authEmail) {
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .update({ email: authEmail })
+        .eq("id", user.id);
 
-    const patch: any = {};
-
-    if (shouldUpdateEmail) patch.email = authEmail;
-
-    // nice-to-have: only fill name/avatar if missing (don’t overwrite user edits)
-    if (!existing.full_name && full_name_from_meta) patch.full_name = full_name_from_meta;
-    if (!existing.avatar_url && avatar_from_meta) patch.avatar_url = avatar_from_meta;
-
-    // keep provider & metadata updated
-    patch.provider = user.app_metadata?.provider || null;
-    patch.raw_metadata = meta || {};
-
-    if (Object.keys(patch).length > 0) {
-      const { error: updErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
-      if (updErr) console.error("Error updating profile", updErr);
+      if (updErr) console.error("Error patching profile email", updErr);
     }
   }
 
-  // ---------------------------------------------
-  // After OAuth redirect / existing session
-  // ---------------------------------------------
+  // ------------------------------
+  // After OAuth redirect:
+  // Exchange ?code=... for a session, then ensure profile
+  // ------------------------------
   useEffect(() => {
-    const checkSession = async () => {
+    if (!router.isReady) return;
+
+    const run = async () => {
       try {
+        // If we're returning from OAuth, exchange the code first.
+        // This removes the race where getUser() can be incomplete.
+        if (typeof window !== "undefined") {
+          const sp = new URLSearchParams(window.location.search);
+          const code = sp.get("code");
+          if (code) {
+            const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exErr) console.error("exchangeCodeForSession error", exErr);
+          }
+        }
+
+        // Now get a fully populated user
         const { data } = await supabase.auth.getUser();
         const user = data.user;
 
         if (user) {
-          await ensureProfileUpToDate(user);
+          await ensureProfile(user);
           router.replace(redirectPath);
-          return;
         }
-      } finally {
-        setCheckingSession(false);
+      } catch (e: any) {
+        console.error("Auth redirect handling error", e);
       }
     };
 
-    checkSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, redirectPath]);
+    run();
+  }, [router.isReady, router, redirectPath]);
 
-  // ---------------------------------------------
+  // ------------------------------
   // OAuth login handler
-  // ---------------------------------------------
+  // ------------------------------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
+
+    // Important: request email scopes where needed
+    const scopes =
+      provider === "github"
+        ? "read:user user:email"
+        : provider === "linkedin_oidc"
+        ? "openid profile email"
+        : "openid email profile";
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirectPath)}`,
+        scopes,
       },
     });
 
     if (error) setError(error.message);
   };
 
-  // ---------------------------------------------
+  // ------------------------------
   // Email login / signup
-  // ---------------------------------------------
+  // ------------------------------
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -156,31 +160,28 @@ export default function AuthPage() {
           email,
           password,
           options: {
-            data: { full_name: fullName.trim() },
+            data: {
+              full_name: fullName.trim(),
+            },
           },
         });
+
         if (error) throw error;
 
         if (data.user) {
-          await ensureProfileUpToDate(data.user, { full_name: fullName.trim() });
+          await ensureProfile(data.user, { full_name: fullName.trim() });
+          router.push(redirectPath);
         }
-
-        // If confirm-email is enabled, session can be null here
-        if (!data.session) {
-          router.push(`/auth?redirect=${encodeURIComponent(redirectPath)}&check_email=1`);
-          return;
-        }
-
-        router.push(redirectPath);
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+
         if (error) throw error;
 
         if (data.user) {
-          await ensureProfileUpToDate(data.user);
+          await ensureProfile(data.user);
           router.push(redirectPath);
         }
       }
@@ -191,9 +192,9 @@ export default function AuthPage() {
     }
   };
 
-  // ---------------------------------------------
-  // UI
-  // ---------------------------------------------
+  // ------------------------------
+  // UI RENDER
+  // ------------------------------
   return (
     <div
       style={{
@@ -215,6 +216,7 @@ export default function AuthPage() {
           gap: 14,
         }}
       >
+        {/* AUTH CARD */}
         <div
           style={{
             width: "100%",
@@ -225,7 +227,8 @@ export default function AuthPage() {
               "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
           }}
         >
-          <div style={{ textAlign: "center", marginBottom: 18 }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
             <img
               src="/Q5_white_bg.png"
               style={{
@@ -250,23 +253,7 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {showCheckEmail && (
-            <div
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid rgba(34,211,238,0.35)",
-                background:
-                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,0.75))",
-                color: "rgba(226,232,240,0.95)",
-                fontSize: 13,
-                marginBottom: 14,
-              }}
-            >
-              Please check your inbox to confirm your email. After confirming, come back and log in.
-            </div>
-          )}
-
+          {/* OAuth Buttons */}
           <div
             style={{
               display: "flex",
@@ -296,12 +283,14 @@ export default function AuthPage() {
             </button>
           </div>
 
+          {/* Divider */}
           <div style={dividerRow}>
             <div style={dividerLine} />
             <span>or continue with email</span>
             <div style={dividerLine} />
           </div>
 
+          {/* Toggle */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
               type="button"
@@ -325,6 +314,7 @@ export default function AuthPage() {
             </button>
           </div>
 
+          {/* Email Form */}
           <form onSubmit={handleEmailAuth}>
             {mode === "signup" && (
               <div style={{ marginBottom: 10 }}>
@@ -363,16 +353,13 @@ export default function AuthPage() {
 
             {error && <div style={errorBox}>{error}</div>}
 
-            <button type="submit" disabled={loading || checkingSession} style={submitBtn}>
-              {loading || checkingSession
-                ? "Please wait…"
-                : mode === "signup"
-                ? "Sign up with email"
-                : "Log in with email"}
+            <button type="submit" disabled={loading} style={submitBtn}>
+              {loading ? "Please wait…" : mode === "signup" ? "Sign up with email" : "Log in with email"}
             </button>
           </form>
         </div>
 
+        {/* FOOTER */}
         <div
           style={{
             borderRadius: 16,
