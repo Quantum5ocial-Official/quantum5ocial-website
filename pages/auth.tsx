@@ -13,10 +13,8 @@ function normalizeEmail(v: string) {
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
 
-  // 1) Primary
   if (user.email && String(user.email).trim()) return String(user.email).trim();
 
-  // 2) Identities (OAuth often stores email here)
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
     const email =
@@ -26,7 +24,6 @@ function pickBestEmail(user: any): string | null {
     if (email && String(email).trim()) return String(email).trim();
   }
 
-  // 3) User metadata fallback
   const meta = user.user_metadata || {};
   const metaEmail = meta.email || meta.preferred_email || null;
   if (metaEmail && String(metaEmail).trim()) return String(metaEmail).trim();
@@ -53,8 +50,17 @@ function pickBestAvatar(user: any): string | null {
 
 function isProbablyMobile() {
   if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  return /android|iphone|ipad|ipod/i.test(ua);
+  return /android|iphone|ipad|ipod/i.test(navigator.userAgent || "");
+}
+
+function isAndroid() {
+  if (typeof navigator === "undefined") return false;
+  return /android/i.test(navigator.userAgent || "");
+}
+
+function isIOS() {
+  if (typeof navigator === "undefined") return false;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent || "");
 }
 
 function getInboxTarget(emailAddr: string) {
@@ -62,34 +68,26 @@ function getInboxTarget(emailAddr: string) {
   const domain = email.split("@")[1] || "";
 
   const gmailDomains = new Set(["gmail.com", "googlemail.com"]);
-  const outlookDomains = new Set([
-    "outlook.com",
-    "hotmail.com",
-    "live.com",
-    "msn.com",
-    "office365.com",
-    "microsoft.com",
-  ]);
+  const outlookDomains = new Set(["outlook.com", "hotmail.com", "live.com", "msn.com"]);
   const yahooDomains = new Set(["yahoo.com", "ymail.com"]);
   const icloudDomains = new Set(["icloud.com", "me.com", "mac.com"]);
   const protonDomains = new Set(["proton.me", "protonmail.com"]);
-  const zohoDomains = new Set(["zoho.com", "zohomail.com"]);
 
-  // Defaults
+  // Fallback
   const fallback = {
     label: "Open email",
     webInboxUrl: "https://mail.google.com/mail/u/0/#inbox",
     iosScheme: null as string | null,
-    androidScheme: null as string | null,
+    androidPlayStoreUrl: null as string | null,
   };
 
   if (gmailDomains.has(domain)) {
     return {
       label: "Open email",
       webInboxUrl: "https://mail.google.com/mail/u/0/#inbox",
-      // ✅ works on iOS, and often works on Android without Play Store
       iosScheme: "googlegmail://",
-      androidScheme: "googlegmail://",
+      // ✅ Android: go to Play Store (your request)
+      androidPlayStoreUrl: "market://details?id=com.google.android.gm",
     };
   }
 
@@ -98,7 +96,7 @@ function getInboxTarget(emailAddr: string) {
       label: "Open email",
       webInboxUrl: "https://outlook.live.com/mail/0/inbox",
       iosScheme: "ms-outlook://",
-      androidScheme: "ms-outlook://",
+      androidPlayStoreUrl: "market://details?id=com.microsoft.office.outlook",
     };
   }
 
@@ -107,7 +105,7 @@ function getInboxTarget(emailAddr: string) {
       label: "Open email",
       webInboxUrl: "https://mail.yahoo.com/",
       iosScheme: "ymail://",
-      androidScheme: "ymail://",
+      androidPlayStoreUrl: "market://details?id=com.yahoo.mobile.client.android.mail",
     };
   }
 
@@ -115,9 +113,8 @@ function getInboxTarget(emailAddr: string) {
     return {
       label: "Open email",
       webInboxUrl: "https://www.icloud.com/mail",
-      // iOS Mail app
-      iosScheme: "message://",
-      androidScheme: null,
+      iosScheme: "message://", // opens iOS Mail
+      androidPlayStoreUrl: null,
     };
   }
 
@@ -126,20 +123,10 @@ function getInboxTarget(emailAddr: string) {
       label: "Open email",
       webInboxUrl: "https://mail.proton.me/",
       iosScheme: "protonmail://",
-      androidScheme: "protonmail://",
+      androidPlayStoreUrl: "market://details?id=ch.protonmail.android",
     };
   }
 
-  if (zohoDomains.has(domain)) {
-    return {
-      label: "Open email",
-      webInboxUrl: "https://mail.zoho.com/",
-      iosScheme: null,
-      androidScheme: null,
-    };
-  }
-
-  // Unknown provider -> just open web (generic)
   return fallback;
 }
 
@@ -147,19 +134,16 @@ export default function AuthPage() {
   const router = useRouter();
 
   const redirectPath = useMemo(() => {
-    const raw = (router.query.redirect as string) || "/";
-    return raw;
+    return (router.query.redirect as string) || "/";
   }, [router.query.redirect]);
 
-  // “verify” mode: after email signup we show “check inbox” page
   const verifyFromQuery = useMemo(() => {
     const v = router.query.verify as string | undefined;
     return v === "1";
   }, [router.query.verify]);
 
   const emailFromQuery = useMemo(() => {
-    const e = (router.query.email as string) || "";
-    return e;
+    return (router.query.email as string) || "";
   }, [router.query.email]);
 
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -170,7 +154,6 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Local state for verify screen (in case we trigger it without query)
   const [verifyMode, setVerifyMode] = useState<boolean>(verifyFromQuery);
   const [verifyEmail, setVerifyEmail] = useState<string>(emailFromQuery || "");
 
@@ -187,16 +170,13 @@ export default function AuthPage() {
     const provider = user?.app_metadata?.provider || null;
     const meta = user?.user_metadata || {};
 
-    // Read existing profile (need email too so we can backfill it)
     const { data: existing, error: existingErr } = await supabase
       .from("profiles")
       .select("id,email,full_name,avatar_url,provider")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingErr) {
-      console.error("ensureProfile: read profile error", existingErr);
-    }
+    if (existingErr) console.error("ensureProfile: read profile error", existingErr);
 
     if (!existing) {
       const { error: insErr } = await supabase.from("profiles").insert([
@@ -209,26 +189,19 @@ export default function AuthPage() {
           raw_metadata: meta || {},
         },
       ]);
-
       if (insErr) console.error("ensureProfile: insert error", insErr);
       return;
     }
 
-    // Backfill missing fields (especially email!)
     const patch: any = {};
 
-    if ((!existing.email || !String(existing.email).trim()) && bestEmail) {
-      patch.email = bestEmail;
-    }
-    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName) {
+    if ((!existing.email || !String(existing.email).trim()) && bestEmail) patch.email = bestEmail;
+    if ((!existing.full_name || !String(existing.full_name).trim()) && bestName)
       patch.full_name = bestName;
-    }
-    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar) {
+    if ((!existing.avatar_url || !String(existing.avatar_url).trim()) && bestAvatar)
       patch.avatar_url = bestAvatar;
-    }
-    if ((!existing.provider || !String(existing.provider).trim()) && provider) {
+    if ((!existing.provider || !String(existing.provider).trim()) && provider)
       patch.provider = provider;
-    }
 
     if (Object.keys(patch).length === 0) return;
 
@@ -244,7 +217,6 @@ export default function AuthPage() {
     let unsub: any = null;
 
     const run = async () => {
-      // If we're on verify screen, do not auto-redirect
       if (verifyMode || verifyFromQuery) return;
 
       const { data: sess } = await supabase.auth.getSession();
@@ -256,11 +228,7 @@ export default function AuthPage() {
       }
 
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (
-          event === "SIGNED_IN" ||
-          event === "TOKEN_REFRESHED" ||
-          event === "USER_UPDATED"
-        ) {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
@@ -281,7 +249,6 @@ export default function AuthPage() {
     };
   }, [router, redirectPath, verifyMode, verifyFromQuery]);
 
-  // keep internal verify state in sync with query
   useEffect(() => {
     if (verifyFromQuery) setVerifyMode(true);
     if (emailFromQuery) setVerifyEmail(emailFromQuery);
@@ -296,7 +263,6 @@ export default function AuthPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        // comes back to /auth then our onAuthStateChange handles ensureProfile + redirectPath
         redirectTo: `${window.location.origin}/auth?redirect=${encodeURIComponent(redirectPath)}`,
       },
     });
@@ -311,7 +277,6 @@ export default function AuthPage() {
     const e = normalizeEmail(emailToCheck);
     if (!e) return false;
 
-    // If you ever decide to allow multiple accounts per email, change this logic.
     const { data, error } = await supabase
       .from("profiles")
       .select("id")
@@ -319,7 +284,6 @@ export default function AuthPage() {
       .maybeSingle();
 
     if (error) {
-      // Don’t block signup on a read error — but report it.
       console.error("checkEmailAlreadyExists error", error);
       return false;
     }
@@ -331,41 +295,45 @@ export default function AuthPage() {
   // “Open email” action (domain-aware)
   // ------------------------------
   const openEmailInbox = () => {
-    const emailForVerify = verifyEmail || email;
-    if (!emailForVerify) return;
+    const inboxEmail = verifyEmail || email;
+    if (!inboxEmail) return;
 
-    const target = getInboxTarget(emailForVerify);
-    const isMobile = isProbablyMobile();
-    const isAndroid = typeof navigator !== "undefined" && /android/i.test(navigator.userAgent);
-    const isIOS =
-      typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent);
-
-    const openWeb = () => {
-      window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
-    };
+    const target = getInboxTarget(inboxEmail);
 
     // Desktop -> web inbox
-    if (!isMobile) {
-      openWeb();
+    if (!isProbablyMobile()) {
+      window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
       return;
     }
 
-    // Mobile -> try scheme first, then fallback to web
-    const scheme = isIOS ? target.iosScheme : target.androidScheme;
-
-    if (!scheme) {
-      openWeb();
+    // iOS -> try app scheme, else web
+    if (isIOS()) {
+      if (target.iosScheme) {
+        const t0 = Date.now();
+        window.location.href = target.iosScheme;
+        setTimeout(() => {
+          if (Date.now() - t0 < 1600) {
+            window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
+          }
+        }, 1200);
+        return;
+      }
+      window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
       return;
     }
 
-    const t0 = Date.now();
-    window.location.href = scheme;
+    // Android -> Play Store (as requested) if we have it, else web
+    if (isAndroid()) {
+      if (target.androidPlayStoreUrl) {
+        window.location.href = target.androidPlayStoreUrl;
+        return;
+      }
+      window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
 
-    // Fallback if app doesn’t open
-    setTimeout(() => {
-      // if we’re still here very quickly, assume app didn’t open
-      if (Date.now() - t0 < 1600) openWeb();
-    }, 1200);
+    // Other mobile -> web
+    window.open(target.webInboxUrl, "_blank", "noopener,noreferrer");
   };
 
   // ------------------------------
@@ -389,7 +357,6 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // ✅ UX: prevent signing up if email already exists in profiles
         const exists = await checkEmailAlreadyExists(eNorm);
         if (exists) {
           setError("An account with this email already exists. Please log in instead.");
@@ -400,20 +367,16 @@ export default function AuthPage() {
           email: eNorm,
           password,
           options: {
-            data: {
-              full_name: fullName.trim(),
-            },
+            data: { full_name: fullName.trim() },
           },
         });
 
         if (error) throw error;
 
-        // If email confirmations are enabled, session may be null (expected).
-        // We should show “check your email” screen instead of redirecting away.
+        // Show verify screen
         setVerifyEmail(eNorm);
         setVerifyMode(true);
 
-        // Put it in the URL too (shareable/back-refresh safe)
         router.replace({
           pathname: "/auth",
           query: {
@@ -423,8 +386,7 @@ export default function AuthPage() {
           },
         });
 
-        // If Supabase returned a user immediately (sometimes it does),
-        // we can still ensure profile (it won’t hurt)
+        // If user exists immediately, backfill profile (safe)
         if (data?.user) {
           await ensureProfile(data.user, { full_name: fullName.trim() });
         }
@@ -432,7 +394,7 @@ export default function AuthPage() {
         return;
       }
 
-      // Login
+      // login
       const { data, error } = await supabase.auth.signInWithPassword({
         email: eNorm,
         password,
@@ -452,7 +414,7 @@ export default function AuthPage() {
   };
 
   // ------------------------------
-  // VERIFY SCREEN (after email signup)
+  // VERIFY SCREEN
   // ------------------------------
   if (verifyMode || verifyFromQuery) {
     const inboxEmail = verifyEmail || email || "";
@@ -495,7 +457,6 @@ export default function AuthPage() {
                 }}
                 aria-hidden
               >
-                {/* ✅ email icon restored */}
                 <EmailIcon />
               </div>
 
@@ -544,17 +505,13 @@ export default function AuthPage() {
                     query: { redirect: redirectPath },
                   });
                 }}
-                style={{
-                  ...oauthBtn,
-                  padding: "8px 14px",
-                }}
+                style={{ ...oauthBtn, padding: "8px 14px" }}
               >
                 Back to login
               </button>
             </div>
           </div>
 
-          {/* Footer */}
           <div
             style={{
               marginTop: 12,
@@ -794,18 +751,10 @@ export default function AuthPage() {
   );
 }
 
-/** Inline email icon (restores the missing icon you mentioned) */
 function EmailIcon({ small }: { small?: boolean }) {
   const size = small ? 16 : 18;
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      focusable="false"
-    >
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden focusable="false">
       <path
         d="M4 6.5h16c.83 0 1.5.67 1.5 1.5v9c0 .83-.67 1.5-1.5 1.5H4c-.83 0-1.5-.67-1.5-1.5V8c0-.83.67-1.5 1.5-1.5Z"
         stroke="rgba(226,232,240,0.95)"
