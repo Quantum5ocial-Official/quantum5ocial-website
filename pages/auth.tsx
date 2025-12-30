@@ -6,6 +6,8 @@ import { supabase } from "../lib/supabaseClient";
 
 type OAuthProvider = "google" | "github" | "linkedin_oidc";
 
+const PENDING_KEY = "q5_auth_pending_email_v1";
+
 function pickBestEmail(user: any): string | null {
   if (!user) return null;
 
@@ -13,7 +15,10 @@ function pickBestEmail(user: any): string | null {
 
   const identities = Array.isArray(user.identities) ? user.identities : [];
   for (const ident of identities) {
-    const email = ident?.identity_data?.email || ident?.identity_data?.preferred_email || null;
+    const email =
+      ident?.identity_data?.email ||
+      ident?.identity_data?.preferred_email ||
+      null;
     if (email && String(email).trim()) return String(email).trim();
   }
 
@@ -26,7 +31,12 @@ function pickBestEmail(user: any): string | null {
 
 function pickBestName(user: any, overrides?: { full_name?: string | null }): string | null {
   const meta = user?.user_metadata || {};
-  const v = overrides?.full_name || meta.full_name || meta.name || meta.preferred_username || null;
+  const v =
+    overrides?.full_name ||
+    meta.full_name ||
+    meta.name ||
+    meta.preferred_username ||
+    null;
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
@@ -37,15 +47,13 @@ function pickBestAvatar(user: any): string | null {
 }
 
 function getDeviceKind() {
-  if (typeof window === "undefined") return { isMobile: false, os: "desktop" as const };
+  if (typeof window === "undefined") return { os: "desktop" as const };
 
   const ua = navigator.userAgent || "";
   const isAndroid = /Android/i.test(ua);
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
-  const isMobile = isAndroid || isIOS;
 
   return {
-    isMobile,
     os: isAndroid ? ("android" as const) : isIOS ? ("ios" as const) : ("desktop" as const),
   };
 }
@@ -109,6 +117,7 @@ function getInboxTarget(email: string): {
     };
   }
 
+  // generic fallback
   return {
     label: "Open email",
     appUrl: "mailto:",
@@ -140,7 +149,8 @@ function openInboxSmart(
 
   if (os === "android") {
     if (isGmail) {
-      const intentUrl = "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
+      const intentUrl =
+        "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
       window.location.href = intentUrl;
       setTimeout(openWeb, 900);
       return;
@@ -179,6 +189,9 @@ export default function AuthPage() {
   const [signupPending, setSignupPending] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string>("");
 
+  // -------------------------------------------------
+  // Ensure profile exists AND email is stored in DB
+  // -------------------------------------------------
   async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
 
@@ -189,16 +202,14 @@ export default function AuthPage() {
     const provider = user?.app_metadata?.provider || null;
     const meta = user?.user_metadata || {};
 
-    const { data: existing, error: existingErr } = await supabase
+    const { data: existing } = await supabase
       .from("profiles")
       .select("id,email,full_name,avatar_url,provider")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (existingErr) console.error("ensureProfile: read error", existingErr);
-
     if (!existing) {
-      const { error: insErr } = await supabase.from("profiles").insert([
+      await supabase.from("profiles").insert([
         {
           id: user.id,
           email: bestEmail ? String(bestEmail).trim().toLowerCase() : null,
@@ -208,7 +219,6 @@ export default function AuthPage() {
           raw_metadata: meta || {},
         },
       ]);
-      if (insErr) console.error("ensureProfile: insert error", insErr);
       return;
     }
 
@@ -228,8 +238,7 @@ export default function AuthPage() {
 
     if (Object.keys(patch).length === 0) return;
 
-    const { error: upErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
-    if (upErr) console.error("ensureProfile: update error", upErr);
+    await supabase.from("profiles").update(patch).eq("id", user.id);
   }
 
   async function emailAlreadyExists(inputEmail: string): Promise<boolean> {
@@ -249,6 +258,23 @@ export default function AuthPage() {
     return (data || []).length > 0;
   }
 
+  // -------------------------------------------------
+  // Restore "pending signup" screen after refresh
+  // -------------------------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const saved = window.sessionStorage.getItem(PENDING_KEY);
+    if (saved && String(saved).trim()) {
+      setPendingEmail(String(saved).trim());
+      setSignupPending(true);
+    }
+  }, []);
+
+  // -------------------------------------------------
+  // After OAuth redirect or normal login:
+  // wait for session, ensure profile, then redirect
+  // -------------------------------------------------
   useEffect(() => {
     let unsub: any = null;
 
@@ -257,6 +283,11 @@ export default function AuthPage() {
       const user = sess?.session?.user;
 
       if (user) {
+        // Signed in: clear pending state and proceed
+        if (typeof window !== "undefined") window.sessionStorage.removeItem(PENDING_KEY);
+        setSignupPending(false);
+        setPendingEmail("");
+
         await ensureProfile(user);
         router.replace(redirectPath);
         return;
@@ -266,6 +297,10 @@ export default function AuthPage() {
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           const u = session?.user;
           if (u) {
+            if (typeof window !== "undefined") window.sessionStorage.removeItem(PENDING_KEY);
+            setSignupPending(false);
+            setPendingEmail("");
+
             await ensureProfile(u);
             router.replace(redirectPath);
           }
@@ -334,18 +369,16 @@ export default function AuthPage() {
           },
         });
 
-        if (error) {
-          const msg = String(error.message || "").toLowerCase();
-          if (msg.includes("already") || msg.includes("registered")) {
-            setError("An account with this email already exists. Please log in instead.");
-            return;
-          }
-          throw error;
-        }
+        if (error) throw error;
 
+        // ✅ Always show the "check your email" UI for email signups
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(PENDING_KEY, normalizedEmail);
+        }
         setPendingEmail(normalizedEmail);
         setSignupPending(true);
 
+        // If confirmations are OFF, we may already have a session
         if (data?.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.push(redirectPath);
@@ -375,7 +408,7 @@ export default function AuthPage() {
   // ✅ Check-email screen
   if (signupPending) {
     const device = getDeviceKind();
-    const target = getInboxTarget(pendingEmail);
+    const target = getInboxTarget(pendingEmail || "");
 
     return (
       <div
@@ -403,7 +436,9 @@ export default function AuthPage() {
         >
           <div style={{ fontSize: 44, marginBottom: 10 }}>📩</div>
 
-          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Check your email</div>
+          <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+            Check your email
+          </div>
 
           <div style={{ fontSize: 14, color: "#9ca3af", marginBottom: 14 }}>
             We sent a confirmation link to
@@ -420,7 +455,10 @@ export default function AuthPage() {
             type="button"
             onClick={() => {
               if (typeof window === "undefined") return;
-              openInboxSmart({ appUrl: target.appUrl ?? null, webUrl: target.webUrl }, device.os);
+              openInboxSmart(
+                { appUrl: target.appUrl ?? null, webUrl: target.webUrl },
+                device.os
+              );
             }}
             style={{
               display: "inline-block",
@@ -458,7 +496,9 @@ export default function AuthPage() {
           <button
             type="button"
             onClick={() => {
+              if (typeof window !== "undefined") window.sessionStorage.removeItem(PENDING_KEY);
               setSignupPending(false);
+              setPendingEmail("");
               setMode("login");
             }}
             style={{
@@ -479,6 +519,9 @@ export default function AuthPage() {
     );
   }
 
+  // ------------------------------
+  // UI RENDER (normal auth card)
+  // ------------------------------
   return (
     <div
       style={{
@@ -644,7 +687,8 @@ export default function AuthPage() {
             borderRadius: 16,
             border: "1px solid rgba(148,163,184,0.25)",
             padding: "8px 14px",
-            background: "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
+            background:
+              "radial-gradient(circle at top left, rgba(15,23,42,0.9), #020617)",
             display: "flex",
             justifyContent: "space-between",
             fontSize: 11,
