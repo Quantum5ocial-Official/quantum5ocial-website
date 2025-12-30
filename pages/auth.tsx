@@ -19,28 +19,21 @@ export default function AuthPage() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Optional: show a "check email" hint after signup
   const showCheckEmail = useMemo(() => router.query.check_email === "1", [router.query.check_email]);
 
-  // ------------------------------
-  // Create profile if missing (or patch missing email later)
-  // ------------------------------
-  async function upsertProfileFromUser(user: any, overrides?: { full_name?: string | null }) {
-    if (!user) return;
+  // ---------------------------------------------
+  // ✅ Ensure profile exists AND email is stored
+  // ---------------------------------------------
+  async function ensureProfileUpToDate(
+    user: any,
+    overrides?: { full_name?: string | null }
+  ) {
+    if (!user?.id) return;
 
-    const { data: existing, error: existingErr } = await supabase
-      .from("profiles")
-      .select("id,email,full_name,avatar_url")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (existingErr) {
-      // not fatal, but log it
-      console.error("Error checking existing profile", existingErr);
-    }
+    // Always prefer user.email when available
+    const authEmail: string | null = user.email ?? null;
 
     const meta = user.user_metadata || {};
-
     const full_name_from_meta =
       overrides?.full_name ||
       meta.full_name ||
@@ -50,45 +43,59 @@ export default function AuthPage() {
 
     const avatar_from_meta = meta.avatar_url || meta.picture || null;
 
-    // ✅ If profile exists, patch missing fields (especially email)
-    if (existing) {
-      const patch: any = {};
+    const { data: existing, error: existingErr } = await supabase
+      .from("profiles")
+      .select("id,email,full_name,avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
 
-      if (!existing.email && user.email) patch.email = user.email;
+    if (existingErr) {
+      console.error("Error reading profile", existingErr);
+      // Still attempt insert as fallback
+    }
 
-      // Nice-to-have: fill name/avatar only if missing (won't overwrite user edits)
-      if (!existing.full_name && full_name_from_meta) patch.full_name = full_name_from_meta;
-      if (!existing.avatar_url && avatar_from_meta) patch.avatar_url = avatar_from_meta;
+    if (!existing) {
+      const { error: insErr } = await supabase.from("profiles").insert([
+        {
+          id: user.id,
+          email: authEmail, // ✅ store
+          full_name: full_name_from_meta,
+          avatar_url: avatar_from_meta,
+          provider: user.app_metadata?.provider || null,
+          raw_metadata: meta || {},
+        },
+      ]);
 
-      // Keep provider/metadata reasonably up to date
-      patch.provider = user.app_metadata?.provider || null;
-      patch.raw_metadata = meta || {};
-
-      if (Object.keys(patch).length > 0) {
-        const { error: updErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
-        if (updErr) console.error("Error patching profile", updErr);
-      }
+      if (insErr) console.error("Error inserting profile", insErr);
       return;
     }
 
-    // ✅ Otherwise insert new profile
-    const { error: insErr } = await supabase.from("profiles").insert([
-      {
-        id: user.id,
-        email: user.email || null,
-        full_name: full_name_from_meta,
-        avatar_url: avatar_from_meta,
-        provider: user.app_metadata?.provider || null,
-        raw_metadata: meta || {},
-      },
-    ]);
+    // ✅ Patch missing email (or changed email)
+    // If you want to NEVER overwrite existing non-null email, use:
+    // const shouldUpdateEmail = !existing.email && authEmail;
+    const shouldUpdateEmail = (!!authEmail && existing.email !== authEmail);
 
-    if (insErr) console.error("Error inserting profile", insErr);
+    const patch: any = {};
+
+    if (shouldUpdateEmail) patch.email = authEmail;
+
+    // nice-to-have: only fill name/avatar if missing (don’t overwrite user edits)
+    if (!existing.full_name && full_name_from_meta) patch.full_name = full_name_from_meta;
+    if (!existing.avatar_url && avatar_from_meta) patch.avatar_url = avatar_from_meta;
+
+    // keep provider & metadata updated
+    patch.provider = user.app_metadata?.provider || null;
+    patch.raw_metadata = meta || {};
+
+    if (Object.keys(patch).length > 0) {
+      const { error: updErr } = await supabase.from("profiles").update(patch).eq("id", user.id);
+      if (updErr) console.error("Error updating profile", updErr);
+    }
   }
 
-  // ------------------------------
-  // After OAuth redirect OR email login session
-  // ------------------------------
+  // ---------------------------------------------
+  // After OAuth redirect / existing session
+  // ---------------------------------------------
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -96,7 +103,7 @@ export default function AuthPage() {
         const user = data.user;
 
         if (user) {
-          await upsertProfileFromUser(user);
+          await ensureProfileUpToDate(user);
           router.replace(redirectPath);
           return;
         }
@@ -109,9 +116,9 @@ export default function AuthPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, redirectPath]);
 
-  // ------------------------------
+  // ---------------------------------------------
   // OAuth login handler
-  // ------------------------------
+  // ---------------------------------------------
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     setError(null);
 
@@ -125,9 +132,9 @@ export default function AuthPage() {
     if (error) setError(error.message);
   };
 
-  // ------------------------------
+  // ---------------------------------------------
   // Email login / signup
-  // ------------------------------
+  // ---------------------------------------------
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -145,7 +152,6 @@ export default function AuthPage() {
       }
 
       if (mode === "signup") {
-        // pass full_name into user_metadata
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -155,16 +161,13 @@ export default function AuthPage() {
         });
         if (error) throw error;
 
-        // ✅ Create profile now (email may still be null depending on confirmation settings)
         if (data.user) {
-          await upsertProfileFromUser(data.user, { full_name: fullName.trim() });
+          await ensureProfileUpToDate(data.user, { full_name: fullName.trim() });
         }
 
-        // ✅ If email confirmations are ON, session will be null here.
+        // If confirm-email is enabled, session can be null here
         if (!data.session) {
-          router.push(
-            `/auth?redirect=${encodeURIComponent(redirectPath)}&check_email=1`
-          );
+          router.push(`/auth?redirect=${encodeURIComponent(redirectPath)}&check_email=1`);
           return;
         }
 
@@ -177,7 +180,7 @@ export default function AuthPage() {
         if (error) throw error;
 
         if (data.user) {
-          await upsertProfileFromUser(data.user);
+          await ensureProfileUpToDate(data.user);
           router.push(redirectPath);
         }
       }
@@ -188,9 +191,9 @@ export default function AuthPage() {
     }
   };
 
-  // ------------------------------
-  // UI RENDER
-  // ------------------------------
+  // ---------------------------------------------
+  // UI
+  // ---------------------------------------------
   return (
     <div
       style={{
@@ -212,7 +215,6 @@ export default function AuthPage() {
           gap: 14,
         }}
       >
-        {/* AUTH CARD */}
         <div
           style={{
             width: "100%",
@@ -223,7 +225,6 @@ export default function AuthPage() {
               "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 55%), rgba(15,23,42,0.96)",
           }}
         >
-          {/* Header */}
           <div style={{ textAlign: "center", marginBottom: 18 }}>
             <img
               src="/Q5_white_bg.png"
@@ -249,7 +250,6 @@ export default function AuthPage() {
             </div>
           </div>
 
-          {/* ✅ Check email hint */}
           {showCheckEmail && (
             <div
               style={{
@@ -267,7 +267,6 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* OAuth Buttons */}
           <div
             style={{
               display: "flex",
@@ -297,14 +296,12 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Divider */}
           <div style={dividerRow}>
             <div style={dividerLine} />
             <span>or continue with email</span>
             <div style={dividerLine} />
           </div>
 
-          {/* Toggle */}
           <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <button
               type="button"
@@ -328,7 +325,6 @@ export default function AuthPage() {
             </button>
           </div>
 
-          {/* Email Form */}
           <form onSubmit={handleEmailAuth}>
             {mode === "signup" && (
               <div style={{ marginBottom: 10 }}>
@@ -377,7 +373,6 @@ export default function AuthPage() {
           </form>
         </div>
 
-        {/* FOOTER */}
         <div
           style={{
             borderRadius: 16,
