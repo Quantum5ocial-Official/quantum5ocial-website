@@ -657,7 +657,7 @@ export default function AuthPage() {
             <div
   style={{
     display: "inline-block",
-    marginTop: 10,
+    margin: "10px 0",
     padding: "6px 14px",
     borderRadius: 999,
     fontSize: 13.5, // ⬅️ slightly bigger
