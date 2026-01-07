@@ -658,27 +658,14 @@ export default function AuthPage() {
   style={{
     marginTop: 6,
     fontSize: 12,
-    color: "#7dd3fc",
-    animation: "q5Pulse 2.8s ease-in-out infinite",
+    background: "linear-gradient(90deg, #7dd3fc, #c084fc)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    fontWeight: 500,
   }}
 >
-  (pronounced as <strong>“Quantum Social”</strong>)
-</div>
-
-<style jsx>{`
-  @keyframes q5Pulse {
-    0% {
-      opacity: 0.6;
-    }
-    50% {
-      opacity: 1;
-    }
-    100% {
-      opacity: 0.6;
-    }
-  }
-`}</style>
-            
+  (pronounced as “Quantum Social”)
+</div>            
             <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
