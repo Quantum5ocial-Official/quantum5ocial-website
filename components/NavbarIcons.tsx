@@ -607,6 +607,17 @@ export default function NavbarIcons() {
                         Create my organization page
                       </Link>
 
+                      {/* ✅ Change password (added above Logout) */}
+                      <Link
+                        href="/settings/security"
+                        className="nav-dropdown-item"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                        }}
+                      >
+                        Change password
+                      </Link>
+
                       <button
                         type="button"
                         className="nav-dropdown-item nav-dropdown-danger"
@@ -807,6 +818,21 @@ export default function NavbarIcons() {
               style={{ marginTop: 16 }}
             >
               Login / Sign up
+            </Link>
+          )}
+
+          {/* ✅ Change password link (added above Logout) */}
+          {!loading && user && (
+            <Link
+              href="/settings/security"
+              className="nav-item-with-icon"
+              onClick={closeMobileMenu}
+              style={{ marginTop: 14 }}
+            >
+              <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>
+                🔒
+              </span>
+              <span className="nav-icon-label">Change password</span>
             </Link>
           )}
 
