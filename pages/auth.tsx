@@ -41,13 +41,12 @@ function emailProviderFromEmail(email: string) {
  * "Open email" link behavior:
  * - Desktop: open provider webmail when known, otherwise open mailto:
  * - iOS: open Gmail/Outlook app when possible, else fall back to Apple Mail (message://)
- * - Android: best-effort gmail app (may open Play Store on some devices; user accepted)
+ * - Android: best-effort gmail app
  */
 function buildOpenEmailHref(email: string) {
   const provider = emailProviderFromEmail(email);
   const mobile = isProbablyMobileUA();
 
-  // Desktop webmail targets
   if (!mobile) {
     if (provider === "gmail") return "https://mail.google.com/mail/u/0/#inbox";
     if (provider === "outlook") return "https://outlook.live.com/mail/0/inbox";
@@ -56,21 +55,15 @@ function buildOpenEmailHref(email: string) {
     return `mailto:${encodeURIComponent(email)}`;
   }
 
-  // Mobile targets
   if (isIOS()) {
-    // Prefer provider app if known; otherwise Apple Mail
     if (provider === "gmail") return "googlegmail://";
     if (provider === "outlook") return "ms-outlook://";
-    // Yahoo/iCloud don't have universally reliable schemes; fall back
     return "message://";
   }
 
-  // Android:
   if (provider === "gmail") {
-    // Opens Gmail (or Play Store if not installed / blocked)
     return "intent://#Intent;scheme=googlegmail;package=com.google.android.gm;end";
   }
-  // Generic email apps
   return `mailto:${encodeURIComponent(email)}`;
 }
 
@@ -104,7 +97,7 @@ function pickBestAvatar(user: any): string | null {
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
-/* ---------- Inline SVG Icons (no broken <img>) ---------- */
+/* ---------- Inline SVG Icons ---------- */
 function MailVerifyIcon({ size = 30 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -158,6 +151,8 @@ function OpenInIcon({ size = 18 }: { size?: number }) {
   );
 }
 
+type Mode = "login" | "signup" | "forgot" | "reset";
+
 export default function AuthPage() {
   const router = useRouter();
   const redirectPath = (router.query.redirect as string) || "/";
@@ -166,10 +161,18 @@ export default function AuthPage() {
   const verifyFromQuery = firstQueryValue(router.query.verify as any) === "1";
   const emailFromQuery = normalizeEmail(firstQueryValue(router.query.email as any));
 
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  // reset flow via query
+  const resetFromQuery = firstQueryValue(router.query.reset as any) === "1";
+
+  const [mode, setMode] = useState<Mode>("login");
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState(""); // input email
   const [password, setPassword] = useState("");
+
+  // Reset password fields
+  const [newPassword, setNewPassword] = useState("");
+  const [newPassword2, setNewPassword2] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -180,11 +183,15 @@ export default function AuthPage() {
   const [resendCooldown, setResendCooldown] = useState<number>(verifyFromQuery ? 60 : 0);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
 
-  const openEmailHref = useMemo(() => buildOpenEmailHref(verifyEmail), [verifyEmail]);
+  // Forgot/reset UI state
+  const [forgotEmail, setForgotEmail] = useState<string>(emailFromQuery || "");
+  const [forgotCooldown, setForgotCooldown] = useState<number>(0);
+  const [forgotStatus, setForgotStatus] = useState<string | null>(null);
+
+  const openEmailHref = useMemo(() => buildOpenEmailHref(verifyEmail || forgotEmail), [verifyEmail, forgotEmail]);
 
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
-  // (normalize email to avoid case mismatches)
   // -------------------------------------------------
   async function ensureProfile(user: any, overrides?: { full_name?: string | null }) {
     if (!user?.id) return;
@@ -237,9 +244,9 @@ export default function AuthPage() {
   }
 
   // -------------------------------------------------
-  // After OAuth redirect or normal login:
-  // wait for session, ensure profile, then redirect
-  // (do NOT auto-redirect while verifyMode is active)
+  // Auth state handling
+  // - When PASSWORD_RECOVERY happens, show reset UI.
+  // - Don't auto-redirect while verify mode or reset/forgot is active.
   // -------------------------------------------------
   useEffect(() => {
     let unsub: any = null;
@@ -248,18 +255,33 @@ export default function AuthPage() {
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
 
+      // If URL says reset=1 and we already have a session, prefer reset UI.
+      if (resetFromQuery) {
+        setVerifyMode(false);
+        setMode("reset");
+        return;
+      }
+
       if (user) {
         await ensureProfile(user);
-        if (!verifyMode) router.replace(redirectPath);
+        // Don't redirect if user is intentionally in verify/forgot/reset flows
+        if (!verifyMode && mode !== "forgot" && mode !== "reset") router.replace(redirectPath);
         return;
       }
 
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setError(null);
+          setVerifyMode(false);
+          setMode("reset");
+          return;
+        }
+
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
-            if (!verifyMode) router.replace(redirectPath);
+            if (!verifyMode && mode !== "forgot" && mode !== "reset") router.replace(redirectPath);
           }
         }
       });
@@ -274,36 +296,51 @@ export default function AuthPage() {
         unsub?.unsubscribe?.();
       } catch {}
     };
-    // include verifyMode so redirect logic updates correctly
-  }, [router, redirectPath, verifyMode]);
+  }, [router, redirectPath, verifyMode, mode, resetFromQuery]);
 
   // -------------------------------------------------
-  // Sync verify mode from query (deep-linkable)
-  // Gate behind router.isReady to avoid mobile flicker.
+  // Sync verify/reset mode from query (deep-linkable)
   // -------------------------------------------------
   useEffect(() => {
     if (!router.isReady) return;
 
     const vq = firstQueryValue(router.query.verify as any) === "1";
     const eq = normalizeEmail(firstQueryValue(router.query.email as any));
-
-    if (vq) setVerifyMode(true);
-    if (eq) setVerifyEmail(eq);
+    const rq = firstQueryValue(router.query.reset as any) === "1";
 
     if (vq) {
+      setVerifyMode(true);
+      setMode("login");
+      setError(null);
       setResendCooldown((c) => (c > 0 ? c : 60));
       setResendStatus(null);
+    }
+
+    if (rq) {
+      setVerifyMode(false);
+      setMode("reset");
       setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.verify, router.query.email]);
 
-  // Countdown tick
+    if (eq) {
+      setVerifyEmail(eq);
+      setForgotEmail(eq);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.verify, router.query.email, router.query.reset]);
+
+  // Countdown ticks
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
     return () => clearTimeout(t);
   }, [resendCooldown]);
+
+  useEffect(() => {
+    if (forgotCooldown <= 0) return;
+    const t = setTimeout(() => setForgotCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [forgotCooldown]);
 
   // ------------------------------
   // OAuth login handler
@@ -361,6 +398,86 @@ export default function AuthPage() {
   };
 
   // ------------------------------
+  // Forgot password: send reset email
+  // ------------------------------
+  const handleForgot = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    setLoading(true);
+    setError(null);
+    setForgotStatus(null);
+
+    try {
+      const eNorm = normalizeEmail(forgotEmail);
+      if (!eNorm) {
+        setError("Please enter your email.");
+        return;
+      }
+
+      // Always show generic success message (do not reveal if account exists)
+      const { error } = await supabase.auth.resetPasswordForEmail(eNorm, {
+        redirectTo: `${window.location.origin}/auth?reset=1`,
+      });
+      if (error) throw error;
+
+      setForgotStatus("If an account exists for this email, we sent a reset link.");
+      setForgotCooldown(60);
+
+      // show "check your email" style UI using verifyMode visuals (reuse)
+      setVerifyMode(true);
+      setVerifyEmail(eNorm);
+      setResendStatus(null);
+      setResendCooldown(0);
+
+      router.replace({
+        pathname: "/auth",
+        query: { redirect: redirectPath, verify: "1", email: eNorm },
+      });
+    } catch (err: any) {
+      setError(err?.message || "Could not send reset email.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ------------------------------
+  // Reset password: update user password
+  // ------------------------------
+  const handleResetPassword = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!newPassword || newPassword.length < 8) {
+        setError("Please choose a password with at least 8 characters.");
+        return;
+      }
+      if (newPassword !== newPassword2) {
+        setError("Passwords do not match.");
+        return;
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+
+      // Optional: sign out and send to login for clarity
+      await supabase.auth.signOut();
+
+      setNewPassword("");
+      setNewPassword2("");
+      setMode("login");
+      setVerifyMode(false);
+      setError(null);
+
+      router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
+    } catch (err: any) {
+      setError(err?.message || "Could not update password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ------------------------------
   // Email login / signup
   // ------------------------------
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -402,13 +519,11 @@ export default function AuthPage() {
         setError(null);
         setResendCooldown(60);
 
-        // keep URL shareable/deep-linkable
         router.replace({
           pathname: "/auth",
           query: { redirect: redirectPath, verify: "1", email: eNorm },
         });
 
-        // If session exists (email confirmation OFF), create profile + redirect
         if (data.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.replace(redirectPath);
@@ -478,7 +593,7 @@ export default function AuthPage() {
             <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
-          {/* Verify mode UI */}
+          {/* Verify mode UI (used for signup verification AND forgot password "check email") */}
           {verifyMode ? (
             <div style={{ textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
@@ -503,9 +618,9 @@ export default function AuthPage() {
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Check your email</div>
 
               <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
-                We sent a verification link to{" "}
+                We sent a link to{" "}
                 <span style={{ color: "rgba(226,232,240,0.95)" }}>{verifyEmail || "your inbox"}</span>.
-                Please open it to confirm your account.
+                Please open it to continue.
               </div>
 
               <a
@@ -530,35 +645,51 @@ export default function AuthPage() {
                 Open email
               </a>
 
+              {/* For signup we keep resend; for forgot we show the same button but it’s okay */}
               <div style={{ marginTop: 14 }}>
                 <button
                   type="button"
-                  onClick={handleResend}
-                  disabled={resendCooldown > 0}
+                  onClick={async () => {
+                    // If user came here via forgot mode, resend reset email; otherwise resend signup verification.
+                    if (mode === "forgot") {
+                      await handleForgot({ preventDefault() {} } as any);
+                      return;
+                    }
+                    await handleResend();
+                  }}
+                  disabled={(mode === "forgot" ? forgotCooldown : resendCooldown) > 0}
                   style={{
                     ...oauthBtn,
-                    opacity: resendCooldown > 0 ? 0.6 : 1,
-                    cursor: resendCooldown > 0 ? "not-allowed" : "pointer",
+                    opacity: (mode === "forgot" ? forgotCooldown : resendCooldown) > 0 ? 0.6 : 1,
+                    cursor: (mode === "forgot" ? forgotCooldown : resendCooldown) > 0 ? "not-allowed" : "pointer",
                   }}
                 >
-                  Resend email{resendCooldown > 0 ? ` (${resendCooldown}s)` : ""}
+                  Resend email
+                  {(mode === "forgot" ? forgotCooldown : resendCooldown) > 0
+                    ? ` (${mode === "forgot" ? forgotCooldown : resendCooldown}s)`
+                    : ""}
                 </button>
               </div>
 
               {resendStatus && (
                 <div style={{ marginTop: 10, fontSize: 12, color: "#86efac" }}>{resendStatus}</div>
               )}
+              {forgotStatus && (
+                <div style={{ marginTop: 10, fontSize: 12, color: "#86efac" }}>{forgotStatus}</div>
+              )}
 
               {error && <div style={{ ...errorBox, marginTop: 12 }}>{error}</div>}
 
               <div style={{ marginTop: 14, fontSize: 12, color: "#94a3b8" }}>
-                Already verified?{" "}
                 <button
                   type="button"
                   onClick={() => {
                     setVerifyMode(false);
                     setResendCooldown(0);
+                    setForgotCooldown(0);
                     setResendStatus(null);
+                    setForgotStatus(null);
+                    setMode("login");
                     router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
                   }}
                   style={{
@@ -571,11 +702,128 @@ export default function AuthPage() {
                     fontSize: 12,
                   }}
                 >
-                  Go back to login
+                  Back to login
                 </button>
               </div>
             </div>
+          ) : mode === "reset" ? (
+            // RESET PASSWORD UI
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, textAlign: "center" }}>
+                Set a new password
+              </div>
+              <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16, textAlign: "center" }}>
+                Choose a new password for your account.
+              </div>
+
+              <form onSubmit={handleResetPassword}>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 12 }}>New password</label>
+                  <input
+                    type="password"
+                    style={input}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 12 }}>Confirm new password</label>
+                  <input
+                    type="password"
+                    style={input}
+                    value={newPassword2}
+                    onChange={(e) => setNewPassword2(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                {error && <div style={errorBox}>{error}</div>}
+
+                <button type="submit" disabled={loading} style={submitBtn}>
+                  {loading ? "Please wait…" : "Update password"}
+                </button>
+
+                <div style={{ marginTop: 12, textAlign: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("login");
+                      setError(null);
+                      setNewPassword("");
+                      setNewPassword2("");
+                      router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      color: "#7dd3fc",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontSize: 12,
+                    }}
+                  >
+                    Back to login
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : mode === "forgot" ? (
+            // FORGOT PASSWORD UI
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6, textAlign: "center" }}>
+                Reset your password
+              </div>
+              <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16, textAlign: "center" }}>
+                Enter your email and we’ll send you a reset link.
+              </div>
+
+              <form onSubmit={handleForgot}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12 }}>Email</label>
+                  <input
+                    type="email"
+                    style={input}
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                {error && <div style={errorBox}>{error}</div>}
+
+                <button type="submit" disabled={loading || forgotCooldown > 0} style={submitBtn}>
+                  {loading ? "Please wait…" : "Send reset link"}
+                </button>
+
+                <div style={{ marginTop: 12, textAlign: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode("login");
+                      setError(null);
+                      setForgotStatus(null);
+                      router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
+                    }}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      color: "#7dd3fc",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontSize: 12,
+                    }}
+                  >
+                    Back to login
+                  </button>
+                </div>
+              </form>
+            </div>
           ) : (
+            // NORMAL AUTH UI (LOGIN/SIGNUP)
             <>
               {/* OAuth Buttons */}
               <div
@@ -660,7 +908,7 @@ export default function AuthPage() {
                   />
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 10 }}>
                   <label style={{ fontSize: 12 }}>Password</label>
                   <input
                     type="password"
@@ -670,6 +918,33 @@ export default function AuthPage() {
                     placeholder="••••••••"
                   />
                 </div>
+
+                {/* Forgot password link (only in login mode) */}
+                {mode === "login" && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setForgotStatus(null);
+                        setForgotCooldown(0);
+                        setMode("forgot");
+                        setForgotEmail(email ? normalizeEmail(email) : forgotEmail);
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        color: "#7dd3fc",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        fontSize: 12,
+                      }}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
 
                 {error && <div style={errorBox}>{error}</div>}
 
