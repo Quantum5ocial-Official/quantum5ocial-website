@@ -656,16 +656,21 @@ export default function AuthPage() {
             </div>
             <div
   style={{
-    marginTop: 6,
-    fontSize: 12,
-    background: "linear-gradient(90deg, #7dd3fc, #c084fc)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-    fontWeight: 500,
+    display: "inline-block",
+    marginTop: 10,
+    padding: "6px 14px",
+    borderRadius: 999,
+    fontSize: 13.5, // ⬅️ slightly bigger
+    letterSpacing: "0.02em",
+    color: "#a5f3fc",
+    border: "1px solid rgba(34,211,238,0.45)",
+    background:
+      "linear-gradient(180deg, rgba(34,211,238,0.16), rgba(168,85,247,0.12))",
+    boxShadow: "0 0 0 4px rgba(34,211,238,0.06)",
   }}
 >
-  (pronounced as “Quantum Social”)
-</div>            
+  pronounced as <span style={{ fontWeight: 600 }}>"Quantum Social"</span>
+</div>       
             <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
