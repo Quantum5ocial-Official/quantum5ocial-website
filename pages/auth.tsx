@@ -5,6 +5,8 @@ import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 
 type OAuthProvider = "google" | "github" | "linkedin_oidc";
+type Mode = "login" | "signup" | "forgot" | "reset";
+type VerifyKind = "signup" | "reset";
 
 function firstQueryValue(v: string | string[] | undefined) {
   if (!v) return "";
@@ -151,23 +153,20 @@ function OpenInIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-type Mode = "login" | "signup" | "forgot" | "reset";
-
 export default function AuthPage() {
   const router = useRouter();
   const redirectPath = (router.query.redirect as string) || "/";
 
-  // verify flow via query
+  // Query flags
   const verifyFromQuery = firstQueryValue(router.query.verify as any) === "1";
-  const emailFromQuery = normalizeEmail(firstQueryValue(router.query.email as any));
-
-  // reset flow via query
+  const verifyKindFromQuery = (firstQueryValue(router.query.kind as any) as VerifyKind) || "signup";
   const resetFromQuery = firstQueryValue(router.query.reset as any) === "1";
+  const emailFromQuery = normalizeEmail(firstQueryValue(router.query.email as any));
 
   const [mode, setMode] = useState<Mode>("login");
 
   const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState(""); // input email
+  const [email, setEmail] = useState(""); // login/signup input
   const [password, setPassword] = useState("");
 
   // Reset password fields
@@ -177,18 +176,23 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Verify UI state
+  // Verify UI state (used for signup verification AND forgot password "check email")
   const [verifyMode, setVerifyMode] = useState<boolean>(verifyFromQuery);
+  const [verifyKind, setVerifyKind] = useState<VerifyKind>(verifyKindFromQuery);
   const [verifyEmail, setVerifyEmail] = useState<string>(emailFromQuery || "");
+
+  // Cooldowns/status
   const [resendCooldown, setResendCooldown] = useState<number>(verifyFromQuery ? 60 : 0);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
 
-  // Forgot/reset UI state
   const [forgotEmail, setForgotEmail] = useState<string>(emailFromQuery || "");
   const [forgotCooldown, setForgotCooldown] = useState<number>(0);
   const [forgotStatus, setForgotStatus] = useState<string | null>(null);
 
-  const openEmailHref = useMemo(() => buildOpenEmailHref(verifyEmail || forgotEmail), [verifyEmail, forgotEmail]);
+  const openEmailHref = useMemo(
+    () => buildOpenEmailHref(verifyEmail || forgotEmail),
+    [verifyEmail, forgotEmail]
+  );
 
   // -------------------------------------------------
   // Ensure profile exists AND email is stored in DB
@@ -246,7 +250,7 @@ export default function AuthPage() {
   // -------------------------------------------------
   // Auth state handling
   // - When PASSWORD_RECOVERY happens, show reset UI.
-  // - Don't auto-redirect while verify mode or reset/forgot is active.
+  // - Don't auto-redirect while verify mode or forgot/reset is active.
   // -------------------------------------------------
   useEffect(() => {
     let unsub: any = null;
@@ -255,7 +259,7 @@ export default function AuthPage() {
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
 
-      // If URL says reset=1 and we already have a session, prefer reset UI.
+      // If URL says reset=1, force reset UI (do not redirect)
       if (resetFromQuery) {
         setVerifyMode(false);
         setMode("reset");
@@ -264,8 +268,9 @@ export default function AuthPage() {
 
       if (user) {
         await ensureProfile(user);
-        // Don't redirect if user is intentionally in verify/forgot/reset flows
-        if (!verifyMode && mode !== "forgot" && mode !== "reset") router.replace(redirectPath);
+        if (!verifyMode && mode !== "forgot" && mode !== "reset") {
+          router.replace(redirectPath);
+        }
         return;
       }
 
@@ -281,7 +286,9 @@ export default function AuthPage() {
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
-            if (!verifyMode && mode !== "forgot" && mode !== "reset") router.replace(redirectPath);
+            if (!verifyMode && mode !== "forgot" && mode !== "reset") {
+              router.replace(redirectPath);
+            }
           }
         }
       });
@@ -305,29 +312,32 @@ export default function AuthPage() {
     if (!router.isReady) return;
 
     const vq = firstQueryValue(router.query.verify as any) === "1";
-    const eq = normalizeEmail(firstQueryValue(router.query.email as any));
     const rq = firstQueryValue(router.query.reset as any) === "1";
+    const eq = normalizeEmail(firstQueryValue(router.query.email as any));
+    const kq = (firstQueryValue(router.query.kind as any) as VerifyKind) || "signup";
 
-    if (vq) {
-      setVerifyMode(true);
-      setMode("login");
-      setError(null);
-      setResendCooldown((c) => (c > 0 ? c : 60));
-      setResendStatus(null);
+    if (eq) {
+      setVerifyEmail(eq);
+      setForgotEmail(eq);
     }
 
     if (rq) {
       setVerifyMode(false);
       setMode("reset");
       setError(null);
+      return;
     }
 
-    if (eq) {
-      setVerifyEmail(eq);
-      setForgotEmail(eq);
+    if (vq) {
+      setVerifyMode(true);
+      setVerifyKind(kq);
+      setMode("login"); // underlying mode doesn't matter while verifyMode is true
+      setError(null);
+      setResendStatus(null);
+      // If user lands here via link, allow resend after a short cooldown
+      setResendCooldown((c) => (c > 0 ? c : 30));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, router.query.verify, router.query.email, router.query.reset]);
+  }, [router.isReady, router.query.verify, router.query.reset, router.query.email, router.query.kind]);
 
   // Countdown ticks
   useEffect(() => {
@@ -373,9 +383,9 @@ export default function AuthPage() {
   };
 
   // ------------------------------
-  // Resend verification email
+  // Resend signup verification email
   // ------------------------------
-  const handleResend = async () => {
+  const resendSignupVerification = async () => {
     const e = normalizeEmail(verifyEmail);
     if (!e) return;
 
@@ -398,6 +408,29 @@ export default function AuthPage() {
   };
 
   // ------------------------------
+  // Resend reset password email
+  // ------------------------------
+  const resendResetEmail = async () => {
+    const e = normalizeEmail(verifyEmail || forgotEmail);
+    if (!e) return;
+
+    setError(null);
+    setResendStatus(null);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(e, {
+        redirectTo: `${window.location.origin}/auth?reset=1&redirect=${encodeURIComponent(redirectPath)}`,
+      });
+      if (error) throw error;
+
+      setResendStatus("Reset email sent again.");
+      setResendCooldown(60);
+    } catch (err: any) {
+      setError(err?.message || "Could not resend reset email.");
+    }
+  };
+
+  // ------------------------------
   // Forgot password: send reset email
   // ------------------------------
   const handleForgot = async (ev: React.FormEvent) => {
@@ -413,24 +446,24 @@ export default function AuthPage() {
         return;
       }
 
-      // Always show generic success message (do not reveal if account exists)
       const { error } = await supabase.auth.resetPasswordForEmail(eNorm, {
-        redirectTo: `${window.location.origin}/auth?reset=1`,
+        redirectTo: `${window.location.origin}/auth?reset=1&redirect=${encodeURIComponent(redirectPath)}`,
       });
       if (error) throw error;
 
       setForgotStatus("If an account exists for this email, we sent a reset link.");
       setForgotCooldown(60);
 
-      // show "check your email" style UI using verifyMode visuals (reuse)
+      // Show "check your email" screen
       setVerifyMode(true);
+      setVerifyKind("reset");
       setVerifyEmail(eNorm);
       setResendStatus(null);
-      setResendCooldown(0);
+      setResendCooldown(30);
 
       router.replace({
         pathname: "/auth",
-        query: { redirect: redirectPath, verify: "1", email: eNorm },
+        query: { redirect: redirectPath, verify: "1", kind: "reset", email: eNorm },
       });
     } catch (err: any) {
       setError(err?.message || "Could not send reset email.");
@@ -460,7 +493,7 @@ export default function AuthPage() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
-      // Optional: sign out and send to login for clarity
+      // For clarity: log out and go back to login
       await supabase.auth.signOut();
 
       setNewPassword("");
@@ -512,18 +545,20 @@ export default function AuthPage() {
         });
         if (error) throw error;
 
-        // Immediately show verify UI (no refresh)
+        // Show verify UI
         setVerifyEmail(eNorm);
         setVerifyMode(true);
+        setVerifyKind("signup");
         setResendStatus(null);
         setError(null);
         setResendCooldown(60);
 
         router.replace({
           pathname: "/auth",
-          query: { redirect: redirectPath, verify: "1", email: eNorm },
+          query: { redirect: redirectPath, verify: "1", kind: "signup", email: eNorm },
         });
 
+        // If session exists (email confirmation OFF), create profile + redirect
         if (data.session?.user) {
           await ensureProfile(data.session.user, { full_name: fullName.trim() });
           router.replace(redirectPath);
@@ -552,6 +587,8 @@ export default function AuthPage() {
   // ------------------------------
   // UI RENDER
   // ------------------------------
+  const activeCooldown = verifyKind === "reset" ? forgotCooldown : resendCooldown;
+
   return (
     <div
       style={{
@@ -593,7 +630,7 @@ export default function AuthPage() {
             <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
-          {/* Verify mode UI (used for signup verification AND forgot password "check email") */}
+          {/* VERIFY MODE UI */}
           {verifyMode ? (
             <div style={{ textAlign: "center" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
@@ -618,9 +655,19 @@ export default function AuthPage() {
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>Check your email</div>
 
               <div style={{ fontSize: 13, color: "#9ca3af", marginBottom: 16 }}>
-                We sent a link to{" "}
-                <span style={{ color: "rgba(226,232,240,0.95)" }}>{verifyEmail || "your inbox"}</span>.
-                Please open it to continue.
+                {verifyKind === "signup" ? (
+                  <>
+                    We sent a verification link to{" "}
+                    <span style={{ color: "rgba(226,232,240,0.95)" }}>{verifyEmail || "your inbox"}</span>.
+                    Please open it to confirm your account.
+                  </>
+                ) : (
+                  <>
+                    We sent a reset link to{" "}
+                    <span style={{ color: "rgba(226,232,240,0.95)" }}>{verifyEmail || "your inbox"}</span>.
+                    Please open it to set a new password.
+                  </>
+                )}
               </div>
 
               <a
@@ -645,29 +692,24 @@ export default function AuthPage() {
                 Open email
               </a>
 
-              {/* For signup we keep resend; for forgot we show the same button but it’s okay */}
               <div style={{ marginTop: 14 }}>
                 <button
                   type="button"
                   onClick={async () => {
-                    // If user came here via forgot mode, resend reset email; otherwise resend signup verification.
-                    if (mode === "forgot") {
-                      await handleForgot({ preventDefault() {} } as any);
-                      return;
+                    if (verifyKind === "reset") {
+                      await resendResetEmail();
+                    } else {
+                      await resendSignupVerification();
                     }
-                    await handleResend();
                   }}
-                  disabled={(mode === "forgot" ? forgotCooldown : resendCooldown) > 0}
+                  disabled={activeCooldown > 0}
                   style={{
                     ...oauthBtn,
-                    opacity: (mode === "forgot" ? forgotCooldown : resendCooldown) > 0 ? 0.6 : 1,
-                    cursor: (mode === "forgot" ? forgotCooldown : resendCooldown) > 0 ? "not-allowed" : "pointer",
+                    opacity: activeCooldown > 0 ? 0.6 : 1,
+                    cursor: activeCooldown > 0 ? "not-allowed" : "pointer",
                   }}
                 >
-                  Resend email
-                  {(mode === "forgot" ? forgotCooldown : resendCooldown) > 0
-                    ? ` (${mode === "forgot" ? forgotCooldown : resendCooldown}s)`
-                    : ""}
+                  Resend email{activeCooldown > 0 ? ` (${activeCooldown}s)` : ""}
                 </button>
               </div>
 
