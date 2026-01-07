@@ -99,6 +99,14 @@ function pickBestAvatar(user: any): string | null {
   return v && String(v).trim() ? String(v).trim() : null;
 }
 
+// Supabase often returns recovery context in URL hash: #type=recovery&access_token=...
+function getHashParam(name: string) {
+  if (typeof window === "undefined") return "";
+  const hash = window.location.hash?.replace(/^#/, "") || "";
+  const sp = new URLSearchParams(hash);
+  return sp.get(name) || "";
+}
+
 /* ---------- Inline SVG Icons ---------- */
 function MailVerifyIcon({ size = 30 }: { size?: number }) {
   return (
@@ -163,6 +171,11 @@ export default function AuthPage() {
   const resetFromQuery = firstQueryValue(router.query.reset as any) === "1";
   const emailFromQuery = normalizeEmail(firstQueryValue(router.query.email as any));
 
+  // Recovery is often signaled by: ?type=recovery OR #type=recovery
+  const queryType = firstQueryValue(router.query.type as any);
+  const hashType = getHashParam("type");
+  const isRecoveryContext = queryType === "recovery" || hashType === "recovery" || resetFromQuery;
+
   const [mode, setMode] = useState<Mode>("login");
 
   const [fullName, setFullName] = useState("");
@@ -176,10 +189,13 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Verify UI state (used for signup verification AND forgot password "check email")
+  // Verify UI state
   const [verifyMode, setVerifyMode] = useState<boolean>(verifyFromQuery);
   const [verifyKind, setVerifyKind] = useState<VerifyKind>(verifyKindFromQuery);
   const [verifyEmail, setVerifyEmail] = useState<string>(emailFromQuery || "");
+
+  // Recovery guard: prevents redirect while user is setting a new password
+  const [recoveryActive, setRecoveryActive] = useState<boolean>(false);
 
   // Cooldowns/status
   const [resendCooldown, setResendCooldown] = useState<number>(verifyFromQuery ? 60 : 0);
@@ -249,26 +265,28 @@ export default function AuthPage() {
 
   // -------------------------------------------------
   // Auth state handling
+  // - Detect recovery context (query/hash) => show reset UI and block redirect.
   // - When PASSWORD_RECOVERY happens, show reset UI.
-  // - Don't auto-redirect while verify mode or forgot/reset is active.
+  // - Don't auto-redirect while verify mode or forgot/reset or recovery is active.
   // -------------------------------------------------
   useEffect(() => {
     let unsub: any = null;
 
     const run = async () => {
+      // If we are in recovery context, force reset UI immediately
+      if (isRecoveryContext) {
+        setVerifyMode(false);
+        setMode("reset");
+        setRecoveryActive(true);
+      }
+
       const { data: sess } = await supabase.auth.getSession();
       const user = sess?.session?.user;
 
-      // If URL says reset=1, force reset UI (do not redirect)
-      if (resetFromQuery) {
-        setVerifyMode(false);
-        setMode("reset");
-        return;
-      }
-
+      // If we have a session but we're in recovery, do NOT redirect
       if (user) {
         await ensureProfile(user);
-        if (!verifyMode && mode !== "forgot" && mode !== "reset") {
+        if (!verifyMode && mode !== "forgot" && mode !== "reset" && !recoveryActive && !isRecoveryContext) {
           router.replace(redirectPath);
         }
         return;
@@ -279,10 +297,15 @@ export default function AuthPage() {
           setError(null);
           setVerifyMode(false);
           setMode("reset");
+          setRecoveryActive(true);
           return;
         }
 
         if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+          // IMPORTANT: Supabase recovery link will sign in a user.
+          // While recovering, we must not redirect away from reset screen.
+          if (recoveryActive || isRecoveryContext) return;
+
           const u = session?.user;
           if (u) {
             await ensureProfile(u);
@@ -303,7 +326,7 @@ export default function AuthPage() {
         unsub?.unsubscribe?.();
       } catch {}
     };
-  }, [router, redirectPath, verifyMode, mode, resetFromQuery]);
+  }, [router, redirectPath, verifyMode, mode, isRecoveryContext, recoveryActive]);
 
   // -------------------------------------------------
   // Sync verify/reset mode from query (deep-linkable)
@@ -321,9 +344,11 @@ export default function AuthPage() {
       setForgotEmail(eq);
     }
 
+    // If reset=1 explicitly, show reset UI and block redirects
     if (rq) {
       setVerifyMode(false);
       setMode("reset");
+      setRecoveryActive(true);
       setError(null);
       return;
     }
@@ -334,7 +359,6 @@ export default function AuthPage() {
       setMode("login"); // underlying mode doesn't matter while verifyMode is true
       setError(null);
       setResendStatus(null);
-      // If user lands here via link, allow resend after a short cooldown
       setResendCooldown((c) => (c > 0 ? c : 30));
     }
   }, [router.isReady, router.query.verify, router.query.reset, router.query.email, router.query.kind]);
@@ -419,6 +443,7 @@ export default function AuthPage() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(e, {
+        // NOTE: Supabase will append type=recovery (often in hash). We also detect hash now.
         redirectTo: `${window.location.origin}/auth?reset=1&redirect=${encodeURIComponent(redirectPath)}`,
       });
       if (error) throw error;
@@ -493,7 +518,8 @@ export default function AuthPage() {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
-      // For clarity: log out and go back to login
+      // Clear recovery guard and sign out for clarity
+      setRecoveryActive(false);
       await supabase.auth.signOut();
 
       setNewPassword("");
@@ -502,6 +528,7 @@ export default function AuthPage() {
       setVerifyMode(false);
       setError(null);
 
+      // Clear hash (it may contain tokens/type=recovery) by replacing URL
       router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
     } catch (err: any) {
       setError(err?.message || "Could not update password.");
@@ -795,6 +822,7 @@ export default function AuthPage() {
                       setError(null);
                       setNewPassword("");
                       setNewPassword2("");
+                      setRecoveryActive(false);
                       router.replace({ pathname: "/auth", query: { redirect: redirectPath } });
                     }}
                     style={{
