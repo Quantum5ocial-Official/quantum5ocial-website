@@ -669,7 +669,7 @@ export default function AuthPage() {
     boxShadow: "0 0 0 4px rgba(34,211,238,0.06)",
   }}
 >
-  pronounced as <span style={{ fontWeight: 600 }}>"Quantum Social"</span>
+  pronounced: <span style={{ fontWeight: 600 }}>"Quantum Social"</span>
 </div>       
             <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
