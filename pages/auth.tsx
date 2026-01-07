@@ -654,6 +654,10 @@ export default function AuthPage() {
             >
               Quantum5ocial
             </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>
+              (Pronounced as &quot;Quantum Social&quot;)
+            </div>
+            
             <div style={{ fontSize: 14, color: "#9ca3af" }}>Sign in to join the quantum ecosystem.</div>
           </div>
 
