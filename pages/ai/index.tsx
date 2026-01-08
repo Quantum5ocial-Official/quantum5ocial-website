@@ -23,13 +23,24 @@ const FIXED_REPLY =
   "Sorry — I’m still undergoing my training. I will be at your service soon.";
 
 function safeId() {
-  return Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36);
+  return (
+    Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36)
+  );
 }
 
 function firstNameOf(fullName: string | null | undefined) {
   const s = (fullName || "").trim();
   if (!s) return null;
   return s.split(/\s+/).filter(Boolean)[0] || null;
+}
+
+function lastPreviewOf(thread: ChatThread) {
+  const msgs = thread.msgs || [];
+  if (msgs.length === 0) return "—";
+  // prefer last message that isn't the initial greeting (m0)
+  const reversed = [...msgs].reverse();
+  const last = reversed.find((m) => (m.text || "").trim().length > 0);
+  return (last?.text || "—").trim();
 }
 
 export default function TattvaAIPage() {
@@ -41,7 +52,7 @@ export default function TattvaAIPage() {
     if (!loading && !user) router.replace("/auth?redirect=/ai");
   }, [loading, user, router]);
 
-  // get name from profiles (avoid email/handle)
+  // get name from profiles (avoid email)
   const [profileName, setProfileName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,11 +68,13 @@ export default function TattvaAIPage() {
         .maybeSingle();
 
       if (!alive) return;
+
       if (error) {
         console.warn("AI page: could not load profile name", error);
         setProfileName(null);
         return;
       }
+
       setProfileName((data as any)?.full_name ?? null);
     })();
 
@@ -82,13 +95,14 @@ export default function TattvaAIPage() {
     const fromMeta = firstNameOf(meta);
     if (fromMeta) return fromMeta;
 
+    // IMPORTANT: never fall back to email/handle
     return "there";
   }, [profileName, user?.id]);
 
   // history persistence per-user
   const storageKey = useMemo(() => {
     const uid = user?.id || "anon";
-    return `q5:tattva:threads:v1:${uid}`;
+    return `q5:tattva:threads:v2:${uid}`;
   }, [user?.id]);
 
   const greetingText = useMemo(
@@ -99,6 +113,7 @@ export default function TattvaAIPage() {
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+
   const activeThread = useMemo(
     () => threads.find((t) => t.id === activeId) || null,
     [threads, activeId]
@@ -106,6 +121,21 @@ export default function TattvaAIPage() {
 
   // drawer state
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // History search
+  const [threadQuery, setThreadQuery] = useState("");
+
+  const filteredThreads = useMemo(() => {
+    const q = threadQuery.trim().toLowerCase();
+    const list = [...(threads || [])].sort((a, b) => b.updatedAt - a.updatedAt);
+    if (!q) return list;
+
+    return list.filter((t) => {
+      const title = (t.title || "").toLowerCase();
+      const prev = lastPreviewOf(t).toLowerCase();
+      return title.includes(q) || prev.includes(q);
+    });
+  }, [threads, threadQuery]);
 
   // load threads
   useEffect(() => {
@@ -249,8 +279,10 @@ export default function TattvaAIPage() {
       className="section"
       style={{
         height: "calc(100vh - 120px)",
+        display: "flex",
+        flexDirection: "column",
         position: "relative",
-        overflow: "hidden",
+        overflow: "hidden", // no page scrolling
       }}
     >
       {/* Header card */}
@@ -262,6 +294,7 @@ export default function TattvaAIPage() {
           background:
             "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
           border: "1px solid rgba(148,163,184,0.35)",
+          flex: "0 0 auto",
         }}
       >
         <div
@@ -305,7 +338,7 @@ export default function TattvaAIPage() {
             type="button"
             onClick={openHistory}
             style={{
-              padding: "6px 12px",
+              padding: "8px 12px",
               borderRadius: 999,
               border: "1px solid rgba(148,163,184,0.45)",
               background: "rgba(2,6,23,0.35)",
@@ -313,6 +346,7 @@ export default function TattvaAIPage() {
               cursor: "pointer",
               fontSize: 13,
               whiteSpace: "nowrap",
+              fontWeight: 800,
             }}
           >
             History
@@ -324,7 +358,8 @@ export default function TattvaAIPage() {
       <div
         className="card"
         style={{
-          height: "calc(100% - 86px)",
+          flex: "1 1 auto",
+          minHeight: 0, // important: enables inner scroll without page scroll
           padding: 14,
           border: "1px solid rgba(148,163,184,0.22)",
           background: "rgba(15,23,42,0.72)",
@@ -339,6 +374,7 @@ export default function TattvaAIPage() {
           ref={scrollerRef}
           style={{
             flex: 1,
+            minHeight: 0,
             overflowY: "auto",
             padding: 8,
             display: "flex",
@@ -361,9 +397,12 @@ export default function TattvaAIPage() {
                     ? "1px solid rgba(34,211,238,0.40)"
                     : "1px solid rgba(148,163,184,0.22)",
                 background:
-                  m.role === "user" ? "rgba(2,6,23,0.55)" : "rgba(2,6,23,0.35)",
+                  m.role === "user"
+                    ? "rgba(2,6,23,0.55)"
+                    : "rgba(2,6,23,0.35)",
                 color: "rgba(226,232,240,0.95)",
                 whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
               }}
             >
               {m.text}
@@ -371,8 +410,12 @@ export default function TattvaAIPage() {
           ))}
         </div>
 
-        {/* composer */}
-        <div
+        {/* composer (no collision / no overflow) */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            send();
+          }}
           style={{
             marginTop: 10,
             display: "flex",
@@ -380,15 +423,13 @@ export default function TattvaAIPage() {
             alignItems: "center",
             paddingTop: 10,
             borderTop: "1px solid rgba(148,163,184,0.18)",
+            flex: "0 0 auto",
           }}
         >
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your question…"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") send();
-            }}
             style={{
               flex: 1,
               height: 44,
@@ -404,27 +445,26 @@ export default function TattvaAIPage() {
           />
 
           <button
-            type="button"
-            onClick={send}
+            type="submit"
             style={{
               height: 44,
               padding: "0 16px",
               borderRadius: 14,
-              border: "1px solid rgba(34,211,238,0.55)",
-              background: "rgba(2,6,23,0.55)",
-              color: "rgba(226,232,240,0.95)",
+              border: "1px solid rgba(34,211,238,0.60)",
+              background: "linear-gradient(90deg,#22d3ee,#6366f1)",
+              color: "#0f172a",
               cursor: "pointer",
               fontSize: 14,
-              fontWeight: 800,
+              fontWeight: 900,
               flexShrink: 0,
             }}
           >
             Send
           </button>
-        </div>
+        </form>
       </div>
 
-      {/* RIGHT DRAWER: History */}
+      {/* RIGHT DRAWER: History (with search, no time/date) */}
       {historyOpen && (
         <>
           {/* overlay */}
@@ -460,6 +500,7 @@ export default function TattvaAIPage() {
               overflow: "hidden",
             }}
           >
+            {/* header */}
             <div
               style={{
                 padding: 14,
@@ -470,7 +511,7 @@ export default function TattvaAIPage() {
               }}
             >
               <div style={{ fontWeight: 900, color: "rgba(226,232,240,0.95)" }}>
-                Chats
+                History
               </div>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -485,7 +526,7 @@ export default function TattvaAIPage() {
                     color: "rgba(226,232,240,0.95)",
                     cursor: "pointer",
                     fontSize: 12.5,
-                    fontWeight: 800,
+                    fontWeight: 900,
                   }}
                 >
                   + New
@@ -513,20 +554,45 @@ export default function TattvaAIPage() {
               </div>
             </div>
 
+            {/* search */}
+            <div style={{ padding: 14 }}>
+              <input
+                value={threadQuery}
+                onChange={(e) => setThreadQuery(e.target.value)}
+                placeholder="Search chats…"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(148,163,184,0.26)",
+                  background: "rgba(2,6,23,0.62)",
+                  color: "rgba(226,232,240,0.95)",
+                  fontSize: 13,
+                  outline: "none",
+                }}
+              />
+            </div>
+
+            {/* list */}
             <div
               style={{
-                padding: 12,
+                padding: "0 14px 14px 14px",
                 overflowY: "auto",
+                flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
               }}
             >
-              {threads
-                .slice()
-                .sort((a, b) => b.updatedAt - a.updatedAt)
-                .map((t) => {
+              {filteredThreads.length === 0 ? (
+                <div style={{ padding: 10, opacity: 0.75, fontSize: 13 }}>
+                  No chats found.
+                </div>
+              ) : (
+                filteredThreads.map((t) => {
                   const isActive = t.id === activeId;
+                  const preview = lastPreviewOf(t);
+
                   return (
                     <button
                       key={t.id}
@@ -541,7 +607,7 @@ export default function TattvaAIPage() {
                         padding: "10px 12px",
                         borderRadius: 14,
                         border: isActive
-                          ? "1px solid rgba(34,211,238,0.45)"
+                          ? "1px solid rgba(34,211,238,0.55)"
                           : "1px solid rgba(148,163,184,0.18)",
                         background: isActive
                           ? "rgba(2,6,23,0.72)"
@@ -550,10 +616,12 @@ export default function TattvaAIPage() {
                         cursor: "pointer",
                       }}
                     >
+                      {/* NO time/date */}
                       <div
                         style={{
                           fontWeight: 900,
                           fontSize: 13,
+                          lineHeight: 1.15,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -561,18 +629,26 @@ export default function TattvaAIPage() {
                       >
                         {t.title || "Chat"}
                       </div>
+
                       <div
                         style={{
-                          marginTop: 4,
-                          fontSize: 11.5,
-                          color: "rgba(148,163,184,0.95)",
+                          marginTop: 6,
+                          fontSize: 12,
+                          opacity: 0.78,
+                          lineHeight: 1.25,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          wordBreak: "break-word",
                         }}
                       >
-                        {new Date(t.updatedAt).toLocaleString()}
+                        {preview || "—"}
                       </div>
                     </button>
                   );
-                })}
+                })
+              )}
             </div>
           </aside>
         </>
