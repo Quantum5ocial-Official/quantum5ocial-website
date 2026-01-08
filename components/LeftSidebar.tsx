@@ -360,21 +360,50 @@ export default function LeftSidebar() {
         </div>
       </Link>
 
-      {/* DASHBOARD CARD (header changed: remove "Dashboard", make "My ecosystem" the header) */}
+      {/* MY ECOSYSTEM CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
-        {/* Header is now My ecosystem */}
+        {/* Header row: clickable + Open pill + hover effect */}
         <Link
           href="/ecosystem"
-          className="dashboard-sidebar-title"
+          className="dashboard-sidebar-link"
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 8,
+            justifyContent: "space-between",
+            gap: 10,
             textDecoration: "none",
-            color: "var(--text-primary)",
+            padding: "4px 2px",
+            borderRadius: 12,
           }}
         >
-          🌐 <span>My ecosystem</span>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "var(--text-primary)",
+              fontWeight: 700,
+            }}
+          >
+            🌐 <span className="dashboard-sidebar-title">My ecosystem</span>
+          </span>
+
+          {/* Open pill */}
+          <span
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(56,189,248,0.55)",
+              background: "rgba(56,189,248,0.10)",
+              color: "#38bdf8",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Open →
+          </span>
         </Link>
 
         <div
@@ -683,6 +712,14 @@ export default function LeftSidebar() {
           <span>© 2025 Quantum5ocial</span>
         </div>
       </div>
+
+      {/* Local hover styling (matches the feel of other sidebar links) */}
+      <style jsx>{`
+        .dashboard-sidebar-link:hover {
+          background: rgba(148, 163, 184, 0.12);
+          border-radius: 12px;
+        }
+      `}</style>
     </aside>
   );
 }
