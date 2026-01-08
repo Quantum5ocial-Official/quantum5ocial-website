@@ -83,6 +83,7 @@ export default function TattvaAIPage() {
     const fromMeta = firstNameOf(metaName);
     if (fromMeta) return fromMeta;
 
+    // last resort: neutral (NOT email)
     return "there";
   }, [profileName, user?.id]);
 
@@ -94,27 +95,13 @@ export default function TattvaAIPage() {
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const activeThread = useMemo(() => {
     return threads.find((t) => t.id === activeId) || null;
   }, [threads, activeId]);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-
-  // Right drawer state
-  const [historyOpen, setHistoryOpen] = useState(false);
-
-  // ESC closes drawer
-  useEffect(() => {
-    if (!historyOpen) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setHistoryOpen(false);
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [historyOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -153,7 +140,7 @@ export default function TattvaAIPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, user?.id]);
 
-  // keep greeting updated if name arrives later
+  // keep greeting updated if name arrives after first render
   useEffect(() => {
     if (!activeThread) return;
     if (activeThread.msgs.length === 0) return;
@@ -208,8 +195,7 @@ export default function TattvaAIPage() {
     };
     setThreads((prev) => [t, ...prev]);
     setActiveId(t.id);
-    // keep drawer open (nice UX), but you can change this:
-    // setHistoryOpen(false);
+    setHistoryOpen(false);
   };
 
   const renameIfNeeded = (threadId: string, userText: string) => {
@@ -248,10 +234,8 @@ export default function TattvaAIPage() {
 
   if (!user && !loading) return null;
 
-  const drawerW = 360;
-
   return (
-    <section className="section" style={{ height: "calc(100vh - 120px)", position: "relative" }}>
+    <section className="section" style={{ height: "calc(100vh - 120px)" }}>
       {/* Header card */}
       <div
         className="card"
@@ -372,7 +356,7 @@ export default function TattvaAIPage() {
           ))}
         </div>
 
-        {/* composer */}
+        {/* composer (no collision with send) */}
         <div
           style={{
             marginTop: 10,
@@ -425,10 +409,9 @@ export default function TattvaAIPage() {
         </div>
       </div>
 
-      {/* Right drawer: History */}
+      {/* History overlay (front) */}
       {historyOpen && (
         <>
-          {/* overlay */}
           <div
             onClick={() => setHistoryOpen(false)}
             aria-hidden
@@ -440,30 +423,28 @@ export default function TattvaAIPage() {
               zIndex: 1000,
             }}
           />
-
-          {/* drawer */}
-          <aside
+          <div
             className="card"
             style={{
               position: "fixed",
-              top: 0,
-              right: 0,
-              height: "100vh",
-              width: drawerW,
-              maxWidth: "calc(100vw - 56px)",
+              top: 110,
+              right: 22,
+              width: 340,
+              maxWidth: "calc(100vw - 44px)",
+              height: 420,
               zIndex: 1001,
-              borderRadius: 0,
-              borderLeft: "1px solid rgba(148,163,184,0.22)",
+              borderRadius: 18,
+              border: "1px solid rgba(148,163,184,0.28)",
               background: "rgba(2,6,23,0.92)",
-              boxShadow: "0 22px 70px rgba(0,0,0,0.55)",
+              overflow: "hidden",
               display: "flex",
               flexDirection: "column",
-              transform: "translateX(0)",
+              boxShadow: "0 22px 70px rgba(0,0,0,0.45)",
             }}
           >
             <div
               style={{
-                padding: 14,
+                padding: 12,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -512,7 +493,7 @@ export default function TattvaAIPage() {
               </div>
             </div>
 
-            <div style={{ padding: 12, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ padding: 10, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
               {threads.length === 0 ? (
                 <div style={{ color: "rgba(148,163,184,0.95)", fontSize: 13 }}>No chats yet.</div>
               ) : (
@@ -542,15 +523,7 @@ export default function TattvaAIPage() {
                           cursor: "pointer",
                         }}
                       >
-                        <div
-                          style={{
-                            fontWeight: 900,
-                            fontSize: 13,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
+                        <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {t.title || "Chat"}
                         </div>
                         <div style={{ marginTop: 4, fontSize: 11.5, color: "rgba(148,163,184,0.95)" }}>
@@ -561,7 +534,7 @@ export default function TattvaAIPage() {
                   })
               )}
             </div>
-          </aside>
+          </div>
         </>
       )}
     </section>
