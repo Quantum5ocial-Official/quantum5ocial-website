@@ -19,16 +19,17 @@ type ChatThread = {
   msgs: ChatMsg[];
 };
 
-const FIXED_REPLY = "Sorry — I’m still undergoing my training. I will be at your service soon.";
+const FIXED_REPLY =
+  "Sorry — I’m still undergoing my training. I will be at your service soon.";
+
+function safeId() {
+  return Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36);
+}
 
 function firstNameOf(fullName: string | null | undefined) {
   const s = (fullName || "").trim();
   if (!s) return null;
   return s.split(/\s+/).filter(Boolean)[0] || null;
-}
-
-function safeId() {
-  return Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36);
 }
 
 export default function TattvaAIPage() {
@@ -37,19 +38,17 @@ export default function TattvaAIPage() {
 
   // auth guard
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/auth?redirect=/ai");
-    }
+    if (!loading && !user) router.replace("/auth?redirect=/ai");
   }, [loading, user, router]);
 
-  // ---- Load profile full_name (avoid email) ----
+  // get name from profiles (avoid email/handle)
   const [profileName, setProfileName] = useState<string | null>(null);
 
   useEffect(() => {
     const uid = user?.id;
     if (!uid) return;
-
     let alive = true;
+
     (async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -75,34 +74,40 @@ export default function TattvaAIPage() {
     const fromProfile = firstNameOf(profileName);
     if (fromProfile) return fromProfile;
 
-    const metaName =
+    const meta =
       (user?.user_metadata?.full_name as string | undefined) ||
       (user?.user_metadata?.name as string | undefined) ||
       null;
 
-    const fromMeta = firstNameOf(metaName);
+    const fromMeta = firstNameOf(meta);
     if (fromMeta) return fromMeta;
 
-    // last resort: neutral (NOT email)
     return "there";
   }, [profileName, user?.id]);
 
-  // ---- localStorage history (per user) ----
+  // history persistence per-user
   const storageKey = useMemo(() => {
     const uid = user?.id || "anon";
     return `q5:tattva:threads:v1:${uid}`;
   }, [user?.id]);
 
+  const greetingText = useMemo(
+    () =>
+      `Hi ${displayFirstName} — I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`,
+    [displayFirstName]
+  );
+
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const activeThread = useMemo(
+    () => threads.find((t) => t.id === activeId) || null,
+    [threads, activeId]
+  );
+
+  // drawer state
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  const activeThread = useMemo(() => {
-    return threads.find((t) => t.id === activeId) || null;
-  }, [threads, activeId]);
-
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-
+  // load threads
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -120,48 +125,39 @@ export default function TattvaAIPage() {
       // ignore
     }
 
-    // create initial thread
     const t: ChatThread = {
       id: safeId(),
       title: "New chat",
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      msgs: [
-        {
-          id: "m0",
-          role: "ai",
-          text: `Hi ${displayFirstName} — I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`,
-          ts: Date.now(),
-        },
-      ],
+      msgs: [{ id: "m0", role: "ai", text: greetingText, ts: Date.now() }],
     };
     setThreads([t]);
     setActiveId(t.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, user?.id]);
 
-  // keep greeting updated if name arrives after first render
+  // update greeting when name resolves (only updates first AI message)
   useEffect(() => {
     if (!activeThread) return;
     if (activeThread.msgs.length === 0) return;
 
     const first = activeThread.msgs[0];
     if (first.role !== "ai") return;
-
-    const desired = `Hi ${displayFirstName} — I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`;
-    if (first.text === desired) return;
+    if (first.text === greetingText) return;
 
     setThreads((prev) =>
       prev.map((t) => {
         if (t.id !== activeThread.id) return t;
-        const nextMsgs = [...t.msgs];
-        nextMsgs[0] = { ...nextMsgs[0], text: desired };
-        return { ...t, msgs: nextMsgs, updatedAt: Date.now() };
+        const msgs = [...t.msgs];
+        msgs[0] = { ...msgs[0], text: greetingText };
+        return { ...t, msgs, updatedAt: Date.now() };
       })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayFirstName]);
+  }, [greetingText]);
 
+  // persist
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -171,36 +167,20 @@ export default function TattvaAIPage() {
     }
   }, [threads, storageKey]);
 
+  // scroller
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    // auto-scroll to bottom on new message
     const el = scrollerRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [activeId, activeThread?.msgs.length]);
 
-  const newThread = () => {
-    const t: ChatThread = {
-      id: safeId(),
-      title: "New chat",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      msgs: [
-        {
-          id: "m0",
-          role: "ai",
-          text: `Hi ${displayFirstName} — I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`,
-          ts: Date.now(),
-        },
-      ],
-    };
-    setThreads((prev) => [t, ...prev]);
-    setActiveId(t.id);
-    setHistoryOpen(false);
-  };
+  const [input, setInput] = useState("");
 
   const renameIfNeeded = (threadId: string, userText: string) => {
     const title = (userText || "").trim().slice(0, 42);
     if (!title) return;
+
     setThreads((prev) =>
       prev.map((t) =>
         t.id === threadId && (t.title === "New chat" || !t.title)
@@ -210,15 +190,18 @@ export default function TattvaAIPage() {
     );
   };
 
-  const [input, setInput] = useState("");
-
   const send = () => {
     const q = input.trim();
     if (!q || !activeThread) return;
 
     const now = Date.now();
     const userMsg: ChatMsg = { id: `u-${now}`, role: "user", text: q, ts: now };
-    const aiMsg: ChatMsg = { id: `a-${now + 1}`, role: "ai", text: FIXED_REPLY, ts: now + 1 };
+    const aiMsg: ChatMsg = {
+      id: `a-${now + 1}`,
+      role: "ai",
+      text: FIXED_REPLY,
+      ts: now + 1,
+    };
 
     renameIfNeeded(activeThread.id, q);
 
@@ -232,10 +215,44 @@ export default function TattvaAIPage() {
     setInput("");
   };
 
+  const newThread = () => {
+    const t: ChatThread = {
+      id: safeId(),
+      title: "New chat",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      msgs: [{ id: "m0", role: "ai", text: greetingText, ts: Date.now() }],
+    };
+    setThreads((prev) => [t, ...prev]);
+    setActiveId(t.id);
+  };
+
+  const closeHistory = () => setHistoryOpen(false);
+  const openHistory = () => setHistoryOpen(true);
+
+  // ESC closes history
+  useEffect(() => {
+    if (!historyOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeHistory();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [historyOpen]);
+
   if (!user && !loading) return null;
 
+  const drawerW = 360;
+
   return (
-    <section className="section" style={{ height: "calc(100vh - 120px)" }}>
+    <section
+      className="section"
+      style={{
+        height: "calc(100vh - 120px)",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
       {/* Header card */}
       <div
         className="card"
@@ -268,7 +285,6 @@ export default function TattvaAIPage() {
                 alignItems: "center",
                 justifyContent: "center",
                 boxShadow: "0 0 0 6px rgba(34,211,238,0.06)",
-                flexShrink: 0,
               }}
               aria-hidden
             >
@@ -285,32 +301,30 @@ export default function TattvaAIPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(true)}
-              className="nav-ghost-btn"
-              style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.45)",
-                background: "rgba(2,6,23,0.35)",
-                color: "rgba(226,232,240,0.95)",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              History
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={openHistory}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.45)",
+              background: "rgba(2,6,23,0.35)",
+              color: "rgba(226,232,240,0.95)",
+              cursor: "pointer",
+              fontSize: 13,
+              whiteSpace: "nowrap",
+            }}
+          >
+            History
+          </button>
         </div>
       </div>
 
-      {/* Main chat card (no page scroll) */}
+      {/* Main chat card */}
       <div
         className="card"
         style={{
-          height: "calc(100% - 86px)", // header space
+          height: "calc(100% - 86px)",
           padding: 14,
           border: "1px solid rgba(148,163,184,0.22)",
           background: "rgba(15,23,42,0.72)",
@@ -346,7 +360,8 @@ export default function TattvaAIPage() {
                   m.role === "user"
                     ? "1px solid rgba(34,211,238,0.40)"
                     : "1px solid rgba(148,163,184,0.22)",
-                background: m.role === "user" ? "rgba(2,6,23,0.55)" : "rgba(2,6,23,0.35)",
+                background:
+                  m.role === "user" ? "rgba(2,6,23,0.55)" : "rgba(2,6,23,0.35)",
                 color: "rgba(226,232,240,0.95)",
                 whiteSpace: "pre-wrap",
               }}
@@ -356,7 +371,7 @@ export default function TattvaAIPage() {
           ))}
         </div>
 
-        {/* composer (no collision with send) */}
+        {/* composer */}
         <div
           style={{
             marginTop: 10,
@@ -409,49 +424,54 @@ export default function TattvaAIPage() {
         </div>
       </div>
 
-      {/* History overlay (front) */}
+      {/* RIGHT DRAWER: History */}
       {historyOpen && (
         <>
+          {/* overlay */}
           <div
-            onClick={() => setHistoryOpen(false)}
+            onClick={closeHistory}
             aria-hidden
             style={{
               position: "fixed",
               inset: 0,
               background: "rgba(0,0,0,0.55)",
               backdropFilter: "blur(6px)",
-              zIndex: 1000,
+              zIndex: 2000,
             }}
           />
-          <div
+
+          {/* drawer */}
+          <aside
             className="card"
             style={{
               position: "fixed",
-              top: 110,
-              right: 22,
-              width: 340,
-              maxWidth: "calc(100vw - 44px)",
-              height: 420,
-              zIndex: 1001,
-              borderRadius: 18,
-              border: "1px solid rgba(148,163,184,0.28)",
+              top: 0,
+              right: 0,
+              height: "100vh",
+              width: drawerW,
+              maxWidth: "calc(100vw - 56px)",
+              zIndex: 2001,
+              borderRadius: 0,
+              borderLeft: "1px solid rgba(148,163,184,0.22)",
               background: "rgba(2,6,23,0.92)",
-              overflow: "hidden",
+              boxShadow: "0 22px 70px rgba(0,0,0,0.55)",
               display: "flex",
               flexDirection: "column",
-              boxShadow: "0 22px 70px rgba(0,0,0,0.45)",
+              overflow: "hidden",
             }}
           >
             <div
               style={{
-                padding: 12,
+                padding: 14,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 borderBottom: "1px solid rgba(148,163,184,0.18)",
               }}
             >
-              <div style={{ fontWeight: 900, color: "rgba(226,232,240,0.95)" }}>Chats</div>
+              <div style={{ fontWeight: 900, color: "rgba(226,232,240,0.95)" }}>
+                Chats
+              </div>
 
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
@@ -473,7 +493,7 @@ export default function TattvaAIPage() {
 
                 <button
                   type="button"
-                  onClick={() => setHistoryOpen(false)}
+                  onClick={closeHistory}
                   style={{
                     width: 34,
                     height: 34,
@@ -493,48 +513,68 @@ export default function TattvaAIPage() {
               </div>
             </div>
 
-            <div style={{ padding: 10, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-              {threads.length === 0 ? (
-                <div style={{ color: "rgba(148,163,184,0.95)", fontSize: 13 }}>No chats yet.</div>
-              ) : (
-                threads
-                  .slice()
-                  .sort((a, b) => b.updatedAt - a.updatedAt)
-                  .map((t) => {
-                    const isActive = t.id === activeId;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          setActiveId(t.id);
-                          setHistoryOpen(false);
-                        }}
+            <div
+              style={{
+                padding: 12,
+                overflowY: "auto",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              {threads
+                .slice()
+                .sort((a, b) => b.updatedAt - a.updatedAt)
+                .map((t) => {
+                  const isActive = t.id === activeId;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveId(t.id);
+                        closeHistory();
+                      }}
+                      style={{
+                        textAlign: "left",
+                        width: "100%",
+                        padding: "10px 12px",
+                        borderRadius: 14,
+                        border: isActive
+                          ? "1px solid rgba(34,211,238,0.45)"
+                          : "1px solid rgba(148,163,184,0.18)",
+                        background: isActive
+                          ? "rgba(2,6,23,0.72)"
+                          : "rgba(15,23,42,0.35)",
+                        color: "rgba(226,232,240,0.95)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div
                         style={{
-                          textAlign: "left",
-                          width: "100%",
-                          padding: "10px 12px",
-                          borderRadius: 14,
-                          border: isActive
-                            ? "1px solid rgba(34,211,238,0.45)"
-                            : "1px solid rgba(148,163,184,0.18)",
-                          background: isActive ? "rgba(2,6,23,0.72)" : "rgba(15,23,42,0.35)",
-                          color: "rgba(226,232,240,0.95)",
-                          cursor: "pointer",
+                          fontWeight: 900,
+                          fontSize: 13,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
-                        <div style={{ fontWeight: 900, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {t.title || "Chat"}
-                        </div>
-                        <div style={{ marginTop: 4, fontSize: 11.5, color: "rgba(148,163,184,0.95)" }}>
-                          {new Date(t.updatedAt).toLocaleString()}
-                        </div>
-                      </button>
-                    );
-                  })
-              )}
+                        {t.title || "Chat"}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 4,
+                          fontSize: 11.5,
+                          color: "rgba(148,163,184,0.95)",
+                        }}
+                      >
+                        {new Date(t.updatedAt).toLocaleString()}
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
-          </div>
+          </aside>
         </>
       )}
     </section>
