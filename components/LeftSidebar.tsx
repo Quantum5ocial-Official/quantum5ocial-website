@@ -203,7 +203,7 @@ export default function LeftSidebar() {
   const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
   // -------------------------------------------------
-  // Tattva AI (UI-only, fixed answer)
+  // Tattava AI (UI-only, fixed answer)
   // -------------------------------------------------
   const [aiOpen, setAiOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
@@ -211,7 +211,7 @@ export default function LeftSidebar() {
     {
       id: "m0",
       role: "ai",
-      text: "Namaste — I’m Tattva AI. Ask me anything about the Quantum5ocial ecosystem.",
+      text: "Hi — I’m Tattava AI. Ask anything.",
       ts: Date.now(),
     },
   ]);
@@ -237,15 +237,7 @@ export default function LeftSidebar() {
   };
 
   return (
-    <aside
-      className="layout-left sticky-col"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        position: "relative", // enables in-sidebar floating widget
-      }}
-    >
+    <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {/* PROFILE CARD */}
       <Link
         href={user ? "/profile" : "/auth"}
@@ -322,174 +314,81 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* -----------------------------------------
-          Tattva AI — floating expandable chat widget
-          (below profile card, above dashboard)
-         ----------------------------------------- */}
+      {/* Tattava AI (fixed, expandable) */}
       <div
+        className="sidebar-card"
         style={{
-          position: "sticky",
-          top: 86, // stays visible while scrolling (tuned for your sidebar)
-          zIndex: 20,
+          borderRadius: 20,
+          border: "1px solid rgba(148,163,184,0.25)",
+          background:
+            "radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 60%), rgba(15,23,42,0.78)",
+          padding: 12,
+          overflow: "hidden",
         }}
       >
-        {/* Collapsed pill */}
-        {!aiOpen && (
-          <button
-            type="button"
-            onClick={() => setAiOpen(true)}
-            style={{
-              width: "100%",
-              borderRadius: 999,
-              border: "1px solid rgba(34,211,238,0.45)",
-              background:
-                "radial-gradient(circle at top left, rgba(34,211,238,0.14), rgba(15,23,42,0.82))",
-              padding: "10px 12px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 10,
-              cursor: "pointer",
-              boxShadow: "0 10px 30px rgba(2,6,23,0.55)",
-            }}
-            title="Open Tattva AI"
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-              <span
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 10,
-                  border: "1px solid rgba(34,211,238,0.55)",
-                  background: "rgba(2,6,23,0.55)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 0 0 5px rgba(34,211,238,0.06)",
-                  flexShrink: 0,
-                }}
-                aria-hidden
-              >
-                🧠
-              </span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(226,232,240,0.95)" }}>
-                  Tattva AI
-                </span>
-                <span
-                  style={{
-                    display: "block",
-                    marginTop: 2,
-                    fontSize: 11.5,
-                    color: "rgba(148,163,184,0.95)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  Ask anything — jobs, products, people…
-                </span>
-              </span>
-            </span>
-
-            <span
+        {/* Header row (click to expand/collapse) */}
+        <button
+          type="button"
+          onClick={() => setAiOpen((v) => !v)}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            background: "transparent",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div
               style={{
-                fontSize: 12,
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.28)",
-                background: "rgba(2,6,23,0.45)",
-                color: "rgba(226,232,240,0.9)",
-                whiteSpace: "nowrap",
+                width: 28,
+                height: 28,
+                borderRadius: 10,
+                border: "1px solid rgba(34,211,238,0.55)",
+                background: "rgba(2,6,23,0.55)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 0 5px rgba(34,211,238,0.06)",
+                flexShrink: 0,
               }}
+              aria-hidden
             >
-              Chat →
-            </span>
-          </button>
-        )}
-
-        {/* Expanded chat panel */}
-        {aiOpen && (
-          <div
-            className="sidebar-card"
-            style={{
-              marginTop: 6,
-              borderRadius: 20,
-              border: "1px solid rgba(148,163,184,0.25)",
-              background:
-                "radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 60%), rgba(15,23,42,0.78)",
-              padding: 12,
-              boxShadow: "0 16px 40px rgba(2,6,23,0.55)",
-            }}
-          >
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 10,
-                    border: "1px solid rgba(34,211,238,0.55)",
-                    background: "rgba(2,6,23,0.55)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxShadow: "0 0 0 5px rgba(34,211,238,0.06)",
-                    flexShrink: 0,
-                  }}
-                  aria-hidden
-                >
-                  🧠
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(226,232,240,0.95)" }}>
-                    Tattva AI
-                  </div>
-                  <div style={{ fontSize: 11.5, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
-                    Under training (preview)
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => openFullAI()}
-                  style={{
-                    fontSize: 12,
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(34,211,238,0.55)",
-                    background: "rgba(2,6,23,0.45)",
-                    color: "rgba(226,232,240,0.95)",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                  title="Open full page"
-                >
-                  Open ↗
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAiOpen(false)}
-                  style={{
-                    fontSize: 12,
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    background: "rgba(2,6,23,0.45)",
-                    color: "rgba(226,232,240,0.9)",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                  title="Close"
-                >
-                  ✕
-                </button>
-              </div>
+              🧠
             </div>
 
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(226,232,240,0.95)" }}>
+                Tattava AI
+              </div>
+              <div style={{ fontSize: 11.5, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
+                Ask anything
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontSize: 12,
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.25)",
+              background: "rgba(2,6,23,0.35)",
+              color: "rgba(226,232,240,0.9)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {aiOpen ? "Collapse" : "Expand"}
+          </div>
+        </button>
+
+        {/* Expanded content */}
+        {aiOpen && (
+          <>
             {/* Messages */}
             <div
               style={{
@@ -516,8 +415,7 @@ export default function LeftSidebar() {
                       m.role === "user"
                         ? "1px solid rgba(34,211,238,0.45)"
                         : "1px solid rgba(148,163,184,0.22)",
-                    background:
-                      m.role === "user" ? "rgba(2,6,23,0.55)" : "rgba(2,6,23,0.35)",
+                    background: m.role === "user" ? "rgba(2,6,23,0.55)" : "rgba(2,6,23,0.35)",
                     color: "rgba(226,232,240,0.95)",
                     whiteSpace: "pre-wrap",
                   }}
@@ -567,7 +465,7 @@ export default function LeftSidebar() {
               </button>
             </form>
 
-            {/* Quick action row */}
+            {/* Actions */}
             <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", gap: 8 }}>
               <button
                 type="button"
@@ -596,12 +494,13 @@ export default function LeftSidebar() {
                   background: "rgba(2,6,23,0.35)",
                   color: "rgba(226,232,240,0.95)",
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
-                Continue on full page →
+                Open full page ↗
               </button>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -629,25 +528,10 @@ export default function LeftSidebar() {
               gap: 8,
             }}
           >
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "var(--text-primary)",
-              }}
-            >
+            <span style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
               🌐 <span>My ecosystem</span>
             </span>
-            <span
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                color: "#38bdf8",
-              }}
-            >
-              Open →
-            </span>
+            <span style={{ fontSize: 11, letterSpacing: "0.08em", color: "#38bdf8" }}>Open →</span>
           </Link>
 
           {/* Sub-menu group */}
