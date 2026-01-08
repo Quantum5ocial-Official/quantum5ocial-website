@@ -203,7 +203,7 @@ export default function LeftSidebar() {
   const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
   // -------------------------------------------------
-  // Tattava AI (UI-only, fixed answer)
+  // Tattva AI (UI-only, fixed answer)
   // -------------------------------------------------
   const [aiOpen, setAiOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
@@ -211,7 +211,7 @@ export default function LeftSidebar() {
     {
       id: "m0",
       role: "ai",
-      text: "Hi — I’m Tattava AI. Ask anything.",
+      text: "Hi — I’m Tattva AI. Ask anything.",
       ts: Date.now(),
     },
   ]);
@@ -314,7 +314,7 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* Tattava AI (fixed, expandable) */}
+      {/* Tattva AI (fixed, expandable) */}
       <div
         className="sidebar-card"
         style={{
@@ -363,7 +363,7 @@ export default function LeftSidebar() {
 
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(226,232,240,0.95)" }}>
-                Tattava AI
+                Tattva AI
               </div>
               <div style={{ fontSize: 11.5, color: "rgba(148,163,184,0.95)", marginTop: 2 }}>
                 Ask anything
