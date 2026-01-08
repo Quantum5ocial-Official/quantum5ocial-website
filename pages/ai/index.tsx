@@ -93,7 +93,8 @@ export default function TattvaAIPage() {
 
   const greetingText = useMemo(
     () =>
-      `Hi ${displayFirstName} — I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`,
+      `Hi ${displayFirstName} — I’m Tattva. 
+      Ask me anything from the Quantum5ocial ecosystem.`,
     [displayFirstName]
   );
 
@@ -296,7 +297,7 @@ export default function TattvaAIPage() {
                 Tattva AI
               </div>
               <div className="section-sub" style={{ maxWidth: 680 }}>
-                Your personal AI assistant for Quantum5ocial.
+                Explore careers, products, people, and collaborations with Tattva AI
               </div>
             </div>
           </div>
