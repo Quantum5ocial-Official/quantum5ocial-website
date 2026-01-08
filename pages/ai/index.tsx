@@ -94,7 +94,7 @@ export default function TattvaAIPage() {
   const greetingText = useMemo(
     () =>
       `Hi ${displayFirstName} — I’m Tattva. 
-      Ask me anything from the Quantum5ocial ecosystem.`,
+    How can I assist you?`,
     [displayFirstName]
   );
 
