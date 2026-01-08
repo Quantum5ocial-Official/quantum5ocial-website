@@ -45,6 +45,13 @@ type ChatMsg = {
   ts: number;
 };
 
+function firstNameFromFullName(name: string) {
+  const n = String(name || "").trim();
+  if (!n) return "there";
+  const first = n.split(/\s+/)[0] || "";
+  return first || "there";
+}
+
 export default function LeftSidebar() {
   const router = useRouter();
   const { user, loading: userLoading } = useSupabaseUser();
@@ -207,16 +214,35 @@ export default function LeftSidebar() {
   // -------------------------------------------------
   const [aiOpen, setAiOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
-  const [aiMsgs, setAiMsgs] = useState<ChatMsg[]>([
+
+  const firstName = useMemo(() => firstNameFromFullName(fullName), [fullName]);
+
+  const aiGreeting = useMemo(
+    () => `Hi ${firstName}, I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`,
+    [firstName]
+  );
+
+  const [aiMsgs, setAiMsgs] = useState<ChatMsg[]>(() => [
     {
       id: "m0",
       role: "ai",
-      text: "Hi — I’m Tattva AI. Ask anything.",
+      text: aiGreeting,
       ts: Date.now(),
     },
   ]);
 
-  const aiFixedReply = "Sorry — I’m under training and will be at your service shortly.";
+  // Keep the very first AI message in sync if the name changes after profile loads
+  useEffect(() => {
+    setAiMsgs((prev) => {
+      if (!prev.length) return prev;
+      const head = prev[0];
+      if (head.role !== "ai") return prev;
+      if (head.text === aiGreeting) return prev;
+      return [{ ...head, text: aiGreeting }, ...prev.slice(1)];
+    });
+  }, [aiGreeting]);
+
+  const aiFixedReply = "I’m still getting my thoughts in order — give me a moment, and I’ll be fully at your service.";
 
   const sendAi = (text: string) => {
     const q = (text || "").trim();
@@ -508,25 +534,11 @@ export default function LeftSidebar() {
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Dashboard</div>
 
-        <div
-          className="dashboard-sidebar-links"
-          style={{
-            marginTop: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-          }}
-        >
-          {/* Top-level: My ecosystem */}
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
           <Link
             href="/ecosystem"
             className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-primary)" }}>
               🌐 <span>My ecosystem</span>
@@ -534,7 +546,6 @@ export default function LeftSidebar() {
             <span style={{ fontSize: 11, letterSpacing: "0.08em", color: "#38bdf8" }}>Open →</span>
           </Link>
 
-          {/* Sub-menu group */}
           <div
             style={{
               marginTop: 4,
