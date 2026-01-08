@@ -1,6 +1,7 @@
 // components/LeftSidebar.tsx
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import Q5BadgeChips from "./Q5BadgeChips";
@@ -38,6 +39,7 @@ type SidebarData = {
 };
 
 export default function LeftSidebar() {
+  const router = useRouter();
   const { user, loading: userLoading } = useSupabaseUser();
 
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,18 @@ export default function LeftSidebar() {
     myOrg: null,
     myOrgFollowersCount: null,
   });
+
+  // -----------------------------
+  // Global AI (UI-only)
+  // -----------------------------
+  const [aiExpanded, setAiExpanded] = useState(false);
+  const [aiQuery, setAiQuery] = useState("");
+
+  const goToAI = (q: string) => {
+    const query = (q || "").trim();
+    if (!query) return;
+    router.push(`/ai?q=${encodeURIComponent(query)}`);
+  };
 
   const fallbackName = useMemo(() => {
     return (
@@ -83,11 +97,7 @@ export default function LeftSidebar() {
     const loadAll = async () => {
       setLoading(true);
       try {
-        const profileQ = supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", uid)
-          .maybeSingle();
+        const profileQ = supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
 
         const connectionsQ = supabase
           .from("connections")
@@ -95,10 +105,7 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", uid);
+        const savedJobsQ = supabase.from("saved_jobs").select("job_id").eq("user_id", uid);
 
         const savedProductsQ = supabase
           .from("saved_products")
@@ -200,17 +207,13 @@ export default function LeftSidebar() {
 
   const highestEducation = (profile?.highest_education || "").trim();
 
-  const currentTitle =
-    (profile?.current_title || "").trim() || (profile?.role || "").trim();
+  const currentTitle = (profile?.current_title || "").trim() || (profile?.role || "").trim();
   const affiliation = (profile?.affiliation || "").trim();
 
   const titleLine = [currentTitle, affiliation].filter(Boolean).join(" · ");
 
   return (
-    <aside
-      className="layout-left sticky-col"
-      style={{ display: "flex", flexDirection: "column", gap: 6 }}
-    >
+    <aside className="layout-left sticky-col" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {/* PROFILE CARD */}
       <Link
         href={user ? "/profile" : "/auth"}
@@ -243,11 +246,7 @@ export default function LeftSidebar() {
           >
             <div className="profile-sidebar-avatar-wrapper">
               {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={fullName}
-                  className="profile-sidebar-avatar"
-                />
+                <img src={avatarUrl} alt={fullName} className="profile-sidebar-avatar" />
               ) : (
                 <div className="profile-sidebar-avatar profile-sidebar-avatar-placeholder">
                   {(fullName || "Q").charAt(0).toUpperCase()}
@@ -256,51 +255,27 @@ export default function LeftSidebar() {
             </div>
 
             {!loading && badgeLabel && (
-              <div
-                className="profile-sidebar-badge-pill"
-                style={{
-                  flexShrink: 0,
-                }}
-              >
-                <Q5BadgeChips
-                  label={badgeLabel}
-                  reviewStatus={badgeStatus}
-                  size="sm"
-                />
+              <div className="profile-sidebar-badge-pill" style={{ flexShrink: 0 }}>
+                <Q5BadgeChips label={badgeLabel} reviewStatus={badgeStatus} size="sm" />
               </div>
             )}
           </div>
 
           {/* Name */}
-          <div
-            className="profile-sidebar-name"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <div className="profile-sidebar-name" style={{ color: "var(--text-primary)" }}>
             {loading ? "Loading…" : fullName}
           </div>
 
           {/* Highest education */}
           {!loading && highestEducation && (
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--text-primary)",
-                lineHeight: 1.2,
-              }}
-            >
+            <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.2 }}>
               {highestEducation}
             </div>
           )}
 
           {/* Title + affiliation */}
           {!loading && titleLine && (
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--text-primary)",
-                lineHeight: 1.2,
-              }}
-            >
+            <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.2 }}>
               {titleLine}
             </div>
           )}
@@ -309,17 +284,157 @@ export default function LeftSidebar() {
         {/* Skeleton */}
         {loading && (
           <div style={{ marginTop: 10, opacity: 0.7 }}>
-            <div
-              className="profile-sidebar-info-value"
-              style={{ height: 12 }}
-            />
-            <div
-              className="profile-sidebar-info-value"
-              style={{ height: 12, marginTop: 6 }}
-            />
+            <div className="profile-sidebar-info-value" style={{ height: 12 }} />
+            <div className="profile-sidebar-info-value" style={{ height: 12, marginTop: 6 }} />
           </div>
         )}
       </Link>
+
+      {/* -----------------------------------------
+          GLOBAL AI (mini panel) — Hybrid entry
+          placed BELOW profile and ABOVE dashboard
+         ----------------------------------------- */}
+      <div
+        className="sidebar-card"
+        style={{
+          borderRadius: 20,
+          border: "1px solid rgba(148,163,184,0.25)",
+          background:
+            "radial-gradient(circle at top left, rgba(34,211,238,0.14), transparent 60%), rgba(15,23,42,0.78)",
+          padding: "12px 12px",
+        }}
+      >
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 10,
+                border: "1px solid rgba(34,211,238,0.45)",
+                background: "rgba(2,6,23,0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 0 5px rgba(34,211,238,0.06)",
+                flexShrink: 0,
+              }}
+              aria-hidden
+            >
+              🧠
+            </div>
+
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
+                Quantum AI
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                Ask the ecosystem (jobs • products • people)
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setAiExpanded((v) => !v)}
+              style={{
+                fontSize: 12,
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.28)",
+                background: "rgba(2,6,23,0.55)",
+                color: "rgba(226,232,240,0.95)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title={aiExpanded ? "Collapse" : "Expand"}
+            >
+              {aiExpanded ? "Less" : "More"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => goToAI(aiQuery)}
+              style={{
+                fontSize: 12,
+                padding: "6px 10px",
+                borderRadius: 999,
+                border: "1px solid rgba(34,211,238,0.55)",
+                background: "rgba(2,6,23,0.55)",
+                color: "rgba(226,232,240,0.95)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="Open full AI"
+            >
+              ↗
+            </button>
+          </div>
+        </div>
+
+        {/* Input */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            goToAI(aiQuery);
+          }}
+          style={{ marginTop: 10 }}
+        >
+          <input
+            value={aiQuery}
+            onChange={(e) => setAiQuery(e.target.value)}
+            placeholder="Ask Quantum AI…"
+            style={{
+              width: "100%",
+              padding: "9px 10px",
+              borderRadius: 12,
+              border: "1px solid rgba(148,163,184,0.28)",
+              background: "rgba(2,6,23,0.62)",
+              color: "rgba(226,232,240,0.95)",
+              fontSize: 13,
+              outline: "none",
+            }}
+          />
+        </form>
+
+        {/* Expanded hints */}
+        {aiExpanded && (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginBottom: 8 }}>
+              Try:
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {[
+                "Find RF engineer jobs in Switzerland",
+                "Best cryo attenuators vendors",
+                "Top quantum startups in India",
+              ].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setAiQuery(s);
+                    goToAI(s);
+                  }}
+                  style={{
+                    fontSize: 12,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.25)",
+                    background: "rgba(2,6,23,0.45)",
+                    color: "rgba(226,232,240,0.9)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* DASHBOARD CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
@@ -359,7 +474,7 @@ export default function LeftSidebar() {
               style={{
                 fontSize: 11,
                 letterSpacing: "0.08em",
-                color: "#38bdf8", // bluish "Open" that works in both themes
+                color: "#38bdf8",
               }}
             >
               Open →
@@ -398,9 +513,7 @@ export default function LeftSidebar() {
               >
                 🧬 <span>Entanglements</span>
               </span>
-              <span style={{ opacity: 0.9, fontSize: 12 }}>
-                {data.entangledCount ?? "…"}
-              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>{data.entangledCount ?? "…"}</span>
             </Link>
 
             <Link
@@ -424,9 +537,7 @@ export default function LeftSidebar() {
               >
                 📝 <span>My posts</span>
               </span>
-              <span style={{ opacity: 0.9, fontSize: 12 }}>
-                {data.postsCount ?? "…"}
-              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>{data.postsCount ?? "…"}</span>
             </Link>
 
             <Link
@@ -450,9 +561,7 @@ export default function LeftSidebar() {
               >
                 💼 <span>Saved jobs</span>
               </span>
-              <span style={{ opacity: 0.9, fontSize: 12 }}>
-                {data.savedJobsCount ?? "…"}
-              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>{data.savedJobsCount ?? "…"}</span>
             </Link>
 
             <Link
@@ -476,9 +585,7 @@ export default function LeftSidebar() {
               >
                 🛒 <span>Saved products</span>
               </span>
-              <span style={{ opacity: 0.9, fontSize: 12 }}>
-                {data.savedProductsCount ?? "…"}
-              </span>
+              <span style={{ opacity: 0.9, fontSize: 12 }}>{data.savedProductsCount ?? "…"}</span>
             </Link>
           </div>
         </div>
@@ -493,14 +600,7 @@ export default function LeftSidebar() {
         >
           <div className="dashboard-sidebar-title">My organization</div>
 
-          <div
-            style={{
-              marginTop: 10,
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
+          <div style={{ marginTop: 10, display: "flex", gap: 12, alignItems: "center" }}>
             <div
               style={{
                 width: 48,
@@ -521,11 +621,7 @@ export default function LeftSidebar() {
                 <img
                   src={data.myOrg.logo_url}
                   alt={data.myOrg.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
                 data.myOrg.name.charAt(0).toUpperCase()
@@ -557,13 +653,11 @@ export default function LeftSidebar() {
                 }}
               >
                 <div>
-                  Followers:{" "}
-                  <span>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers: <span>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span>0</span>
                 </div>
-                
               </div>
             </div>
           </div>
@@ -577,8 +671,7 @@ export default function LeftSidebar() {
         style={{
           padding: "14px 16px",
           borderRadius: 20,
-          background:
-            "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
+          background: "linear-gradient(135deg, rgba(251,191,36,0.08), rgba(244,114,182,0.18))",
           border: "1px solid rgba(251,191,36,0.5)",
           boxShadow: "0 12px 30px rgba(15,23,42,0.7)",
           textDecoration: "none",
@@ -586,14 +679,7 @@ export default function LeftSidebar() {
           cursor: "pointer",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 18 }}>👑</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Go Premium</span>
@@ -628,35 +714,18 @@ export default function LeftSidebar() {
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a
-            href="mailto:info@quantum5ocial.com"
-            style={{ color: "var(--text-muted)" }}
-          >
+          <a href="mailto:info@quantum5ocial.com" style={{ color: "var(--text-muted)" }}>
             ✉️
           </a>
           <a href="#" style={{ color: "var(--text-muted)" }}>
             𝕏
           </a>
-          <a
-            href="#"
-            style={{
-              color: "var(--text-muted)",
-              fontWeight: 600,
-            }}
-          >
+          <a href="#" style={{ color: "var(--text-muted)", fontWeight: 600 }}>
             in
           </a>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontSize: 12,
-            color: "var(--text-muted)",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-muted)" }}>
           <img
             src="/Q5_white_bg.png"
             alt="Quantum5ocial logo"
