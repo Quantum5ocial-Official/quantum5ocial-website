@@ -20,7 +20,7 @@ type ChatThread = {
 };
 
 const FIXED_REPLY =
-  "Sorry — I’m still undergoing my training. I will be at your service soon.";
+  "Sorry — I’m still undergoing my training at Quantum5ocial. I will be at your service soon.";
 
 function safeId() {
   return (
@@ -112,7 +112,8 @@ export default function TattvaAIPage() {
 
   const greetingText = useMemo(
     () =>
-      `Hi ${displayFirstName} — I’m Tattva AI. Ask me anything from the Quantum5ocial ecosystem.`,
+      `Hi ${displayFirstName} — I’m Tattva.
+      How can I help you?`,
     [displayFirstName]
   );
 
@@ -339,7 +340,7 @@ export default function TattvaAIPage() {
                 Tattva AI
               </div>
               <div className="section-sub" style={{ maxWidth: 680 }}>
-                Your personal AI assistant for Quantum5ocial.
+                Explore careers, products, and people at Quantum5ocial with Tattva
               </div>
             </div>
           </div>
