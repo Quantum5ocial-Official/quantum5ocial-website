@@ -318,7 +318,7 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* TATTVA AI CARD (goes to /ai) */}
+            {/* TATTVA AI CARD (goes to /ai) */}
       <Link
         href="/ai"
         className="sidebar-card"
@@ -329,74 +329,41 @@ export default function LeftSidebar() {
           border: "1px solid rgba(148,163,184,0.25)",
           background:
             "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 60%), rgba(15,23,42,0.86)",
-          padding: "12px 12px",
+          padding: "12px 14px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
           gap: 10,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: 11,
-              border: "1px solid rgba(34,211,238,0.55)",
-              background: "rgba(2,6,23,0.55)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 0 0 6px rgba(34,211,238,0.06)",
-              flexShrink: 0,
-            }}
-            aria-hidden
-          >
-            🧠
-          </div>
-
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 800,
-                color: "rgba(226,232,240,0.95)",
-                lineHeight: 1.1,
-              }}
-            >
-              Tattva AI
-            </div>
-            <div
-              style={{
-                fontSize: 12.5,
-                color: "rgba(148,163,184,0.95)",
-                marginTop: 2,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              Ask anything
-            </div>
-          </div>
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 11,
+            border: "1px solid rgba(34,211,238,0.55)",
+            background: "rgba(2,6,23,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 0 0 6px rgba(34,211,238,0.06)",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          🧠
         </div>
 
         <div
           style={{
-            fontSize: 12,
-            padding: "6px 10px",
-            borderRadius: 999,
-            border: "1px solid rgba(34,211,238,0.55)",
-            background: "rgba(2,6,23,0.35)",
+            fontSize: 14,
+            fontWeight: 800,
             color: "rgba(226,232,240,0.95)",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
+            lineHeight: 1.1,
           }}
         >
-          Open ↗
+          Tattva AI
         </div>
       </Link>
-
       {/* DASHBOARD CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
         <div className="dashboard-sidebar-title">Dashboard</div>
