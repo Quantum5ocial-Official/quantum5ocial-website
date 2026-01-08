@@ -113,7 +113,7 @@ export default function TattvaAIPage() {
   const greetingText = useMemo(
     () =>
       `Hi ${displayFirstName} — I’m Tattva.
-      How can I help you?`,
+How can I help you?`,
     [displayFirstName]
   );
 
