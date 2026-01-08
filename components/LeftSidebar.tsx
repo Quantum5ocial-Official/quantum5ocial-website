@@ -256,12 +256,7 @@ export default function LeftSidebar() {
             </div>
 
             {!loading && badgeLabel && (
-              <div
-                className="profile-sidebar-badge-pill"
-                style={{
-                  flexShrink: 0,
-                }}
-              >
+              <div className="profile-sidebar-badge-pill" style={{ flexShrink: 0 }}>
                 <Q5BadgeChips
                   label={badgeLabel}
                   reviewStatus={badgeStatus}
@@ -318,7 +313,7 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-            {/* TATTVA AI CARD (goes to /ai) */}
+      {/* TATTVA AI CARD (goes to /ai) */}
       <Link
         href="/ai"
         className="sidebar-card"
@@ -364,9 +359,23 @@ export default function LeftSidebar() {
           Tattva AI
         </div>
       </Link>
-      {/* DASHBOARD CARD */}
+
+      {/* DASHBOARD CARD (header changed: remove "Dashboard", make "My ecosystem" the header) */}
       <div className="sidebar-card dashboard-sidebar-card">
-        <div className="dashboard-sidebar-title">Dashboard</div>
+        {/* Header is now My ecosystem */}
+        <Link
+          href="/ecosystem"
+          className="dashboard-sidebar-title"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            textDecoration: "none",
+            color: "var(--text-primary)",
+          }}
+        >
+          🌐 <span>My ecosystem</span>
+        </Link>
 
         <div
           className="dashboard-sidebar-links"
@@ -377,38 +386,6 @@ export default function LeftSidebar() {
             gap: 4,
           }}
         >
-          {/* Top-level: My ecosystem */}
-          <Link
-            href="/ecosystem"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "var(--text-primary)",
-              }}
-            >
-              🌐 <span>My ecosystem</span>
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                color: "#38bdf8",
-              }}
-            >
-              Open →
-            </span>
-          </Link>
-
           {/* Sub-menu group */}
           <div
             style={{
@@ -669,7 +646,10 @@ export default function LeftSidebar() {
       {/* SOCIALS + COPYRIGHT */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "flex", gap: 12, fontSize: 18 }}>
-          <a href="mailto:info@quantum5ocial.com" style={{ color: "var(--text-muted)" }}>
+          <a
+            href="mailto:info@quantum5ocial.com"
+            style={{ color: "var(--text-muted)" }}
+          >
             ✉️
           </a>
           <a href="#" style={{ color: "var(--text-muted)" }}>
