@@ -1,11 +1,5 @@
 // components/NavbarIcons.tsx
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  FormEvent,
-} from "react";
+import { useState, useEffect, useRef, useCallback, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
@@ -18,6 +12,9 @@ const NAV_BLOCK_HEIGHT = 68;
 const NAV_HEADER_HEIGHT = 84;
 const NAV_BLOCK_MIN_WIDTH = 90;
 
+// Mobile bottom bar sizing
+const MOBILE_BAR_HEIGHT = 64;
+
 export default function NavbarIcons() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
@@ -25,11 +22,12 @@ export default function NavbarIcons() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
+  // desktop user menu
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   const [theme, setTheme] = useState<Theme>("dark");
 
-  // mobile drawer
+  // mobile (bottom nav + small top-right menu)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // isMobile – used to hide desktop icon bar on small screens
@@ -39,7 +37,7 @@ export default function NavbarIcons() {
   });
 
   const userMenuRef = useRef<HTMLDivElement | null>(null);
-  const mobileDrawerRef = useRef<HTMLDivElement | null>(null);
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null);
 
   // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
@@ -179,14 +177,16 @@ export default function NavbarIcons() {
     };
   }, [user]);
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click (desktop user menu + mobile top-right menu)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      ) {
+      const t = e.target as Node;
+
+      if (userMenuRef.current && !userMenuRef.current.contains(t)) {
         setIsUserMenuOpen(false);
+      }
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(t)) {
+        setIsMobileMenuOpen(false);
       }
     }
 
@@ -194,31 +194,14 @@ export default function NavbarIcons() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Lock scroll when mobile drawer is open
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isMobileMenuOpen]);
-
-  // Close drawer on outside pointer down
+  // ESC closes mobile menu
   useEffect(() => {
     if (!isMobileMenuOpen) return;
-    if (typeof document === "undefined") return;
-
-    const onPointerDown = (e: PointerEvent) => {
-      const drawerEl = mobileDrawerRef.current;
-      if (!drawerEl) return;
-      if (!drawerEl.contains(e.target as Node)) {
-        setIsMobileMenuOpen(false);
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsMobileMenuOpen(false);
     };
-
-    document.addEventListener("pointerdown", onPointerDown, true);
-    return () =>
-      document.removeEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
@@ -247,8 +230,6 @@ export default function NavbarIcons() {
       ? fullName.split(" ")[0] || fullName
       : "User";
 
-  const closeMobileMenu = () => setIsMobileMenuOpen(false);
-
   // helper for icon+label links (desktop)
   const renderIconNavLink = (
     href: string,
@@ -265,10 +246,7 @@ export default function NavbarIcons() {
     const iconSize = isQnA ? 40 : 36; // ✅ only QnA bigger
 
     return (
-      <Link
-        href={href}
-        className={`nav-link ${active ? "nav-link-active" : ""}`}
-      >
+      <Link href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
         <div
           style={{
             position: "relative",
@@ -341,531 +319,550 @@ export default function NavbarIcons() {
     );
   };
 
-  return (
-    <header className="nav">
-      <div
-        className="nav-inner"
+  // helper for mobile bottom bar item
+  const renderMobileBottomLink = (
+    href: string,
+    label: string,
+    iconSrc: string,
+    badgeCount?: number
+  ) => {
+    const active = isActive(href);
+    const displayBadge = typeof badgeCount === "number" && badgeCount > 0;
+    const badgeText = displayBadge && badgeCount! > 9 ? "9+" : badgeCount;
+
+    const isQnA = href === "/qna";
+    const iconSize = isQnA ? 30 : 26;
+
+    return (
+      <Link
+        href={href}
         style={{
-          maxWidth: 1400,
-          margin: "0 auto",
-          padding: isMobile ? "0 8px" : "0 24px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-          height: NAV_HEADER_HEIGHT,
-          gap: 16,
+          flex: 1,
+          minWidth: 0,
+          textDecoration: "none",
+          color: "inherit",
         }}
       >
-        {/* LEFT: brand + (mobile search pill inline) + desktop search */}
         <div
           style={{
+            position: "relative",
+            height: MOBILE_BAR_HEIGHT,
             display: "flex",
-            gap: isMobile ? 10 : 12,
+            flexDirection: "column",
             alignItems: "center",
-            flex: 1,
-            minWidth: 0,
+            justifyContent: "center",
+            gap: 4,
+            borderRadius: 14,
+            margin: "6px 4px",
+            background: active
+              ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.45), rgba(15,23,42,0.92))"
+              : "transparent",
+            boxShadow: active ? "0 0 0 1px rgba(56,189,248,0.45)" : "none",
+            transition: "transform 120ms ease, background 160ms ease",
+            transform: active ? "translateY(-1px)" : "none",
           }}
         >
-          {/* Brand */}
-          {!isMobile ? (
-            <Link href="/" className="brand-clickable">
-              <div className="brand">
-                <img
-                  src="/Q5_white_bg.png"
-                  alt="Quantum5ocial logo"
-                  className="brand-logo"
-                />
-                <div>
-                  <div className="brand-text-main brand-text-gradient">
-                    Quantum5ocial
-                  </div>
-                  <div className="brand-text-sub">
-                    Connecting the quantum world
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ) : (
-            <Link
-              href="/"
-              className="brand-clickable"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "flex-start",
-                gap: 0,
-                flexShrink: 0,
-              }}
-            >
-              <img
-                src="/Q5_white_bg.png"
-                alt="Quantum5ocial logo"
-                className="brand-logo-mobile"
-                style={{ display: "block" }}
-              />
-            </Link>
-          )}
+          <img
+            src={iconSrc}
+            alt={label}
+            style={{
+              width: iconSize,
+              height: iconSize,
+              objectFit: "contain",
+              display: "block",
+              opacity: active ? 1 : 0.92,
+            }}
+          />
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "rgba(226,232,240,0.92)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </div>
 
-          {/* MOBILE SEARCH PILL */}
-          {isMobile && (
-            <form
-              onSubmit={handleGlobalSearchSubmit}
+          {displayBadge && (
+            <span
               style={{
-                flex: 1,
-                minWidth: 0,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
+                position: "absolute",
+                top: 6,
+                right: 12,
+                minWidth: 16,
+                height: 16,
                 borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.55)",
-                background: "rgba(15,23,42,0.55)",
-                height: 38,
-              }}
-            >
-              <span style={{ opacity: 0.85, flexShrink: 0 }}>🔍</span>
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search"
-                style={{
-                  width: "100%",
-                  border: "none",
-                  outline: "none",
-                  background: "transparent",
-                  color: "#e5e7eb",
-                  fontSize: 14,
-                }}
-              />
-            </form>
-          )}
-
-          {/* Global search – desktop only */}
-          {!isMobile && (
-            <form
-              onSubmit={handleGlobalSearchSubmit}
-              className="nav-search-desktop"
-            >
-              <input
-                type="text"
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search jobs, products, people, organizations…"
-                className="nav-search-input"
-              />
-            </form>
-          )}
-        </div>
-
-        {/* RIGHT: desktop nav OR hamburger */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexShrink: 0,
-            height: "100%",
-          }}
-        >
-          {/* DESKTOP NAV */}
-          {!isMobile && (
-            <nav
-              className="nav-links nav-links-desktop"
-              style={{
-                fontSize: 16,
-                display: "flex",
-                alignItems: "center",
-                gap: 0,
-              }}
-            >
-              {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
-              {renderIconNavLink("/products", "Marketplace", "/icons/products.svg")}
-              {renderIconNavLink(
-                "/community",
-                "Community",
-                "/icons/community.svg"
-              )}
-              {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
-
-              {!loading &&
-                user &&
-                renderIconNavLink(
-                  "/notifications",
-                  "Notifications",
-                  "/icons/notifications.svg",
-                  notificationsCount
-                )}
-
-              <button
-                type="button"
-                className="nav-link nav-link-button theme-toggle"
-                onClick={toggleTheme}
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? "☀️" : "🌙"}
-              </button>
-
-              {!loading && !user && (
-                <Link href="/auth" className="nav-cta">
-                  Login / Sign up
-                </Link>
-              )}
-
-              {!loading && user && (
-                <div className="nav-user-wrapper" ref={userMenuRef}>
-                  <button
-                    type="button"
-                    className={`nav-user-button nav-link-button ${
-                      isActive("/profile") ? "nav-link-active" : ""
-                    }`}
-                    onClick={() => {
-                      setIsUserMenuOpen((o) => !o);
-                    }}
-                    style={{
-                      padding: 0,
-                      background: "transparent",
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        height: NAV_BLOCK_HEIGHT,
-                        minWidth: NAV_BLOCK_MIN_WIDTH,
-                        padding: "0 14px",
-                        gap: 6,
-                        borderRadius: 16,
-                        background: isActive("/profile")
-                          ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
-                          : "transparent",
-                        boxShadow: isActive("/profile")
-                          ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
-                          : "none",
-                      }}
-                    >
-                      <div
-                        className="nav-user-avatar"
-                        style={{ width: 36, height: 36 }}
-                      >
-                        {avatarUrl ? (
-                          <img src={avatarUrl} alt={firstName} />
-                        ) : (
-                          <span className="nav-user-initial">
-                            {firstName.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          letterSpacing: "0.08em",
-                          textTransform: "uppercase",
-                          color: "rgba(226,232,240,0.96)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {firstName}
-                      </span>
-                    </div>
-                  </button>
-
-                  {isUserMenuOpen && (
-                    <div className="nav-dashboard-menu right-align">
-                      <Link
-                        href="/profile"
-                        className="nav-dropdown-item"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        My profile
-                      </Link>
-
-                      <Link
-                        href="/ecosystem"
-                        className="nav-dropdown-item"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        My ecosystem
-                      </Link>
-
-                      <Link
-                        href="/orgs/create"
-                        className="nav-dropdown-item"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        Create my organization page
-                      </Link>
-
-                      {/* ✅ Change password (added above Logout) */}
-                      <Link
-                        href="/settings/security"
-                        className="nav-dropdown-item"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        Change password
-                      </Link>
-
-                      <button
-                        type="button"
-                        className="nav-dropdown-item nav-dropdown-danger"
-                        onClick={async () => {
-                          await handleLogout();
-                          setIsUserMenuOpen(false);
-                        }}
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </nav>
-          )}
-
-          {/* MOBILE HAMBURGER */}
-          {isMobile && (
-            <button
-              type="button"
-              className={`nav-mobile-toggle ${isMobileMenuOpen ? "open" : ""}`}
-              aria-label="Open navigation"
-              onClick={() => setIsMobileMenuOpen((o) => !o)}
-              style={{
+                background: "#ef4444",
+                color: "white",
+                fontSize: 10,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                height: 38,
+                padding: "0 4px",
               }}
             >
-              <span className="nav-mobile-bar" />
-              <span className="nav-mobile-bar" />
-            </button>
+              {badgeText}
+            </span>
           )}
         </div>
-      </div>
+      </Link>
+    );
+  };
 
-      {/* ✅ MOBILE OVERLAY — click outside closes drawer */}
-      {isMobile && isMobileMenuOpen && (
+  return (
+    <>
+      {/* TOP NAV (desktop unchanged; mobile keeps brand + search + top-right menu) */}
+      <header className="nav">
         <div
-          className="nav-drawer-backdrop"
-          aria-hidden="true"
-          onPointerDown={closeMobileMenu}
-        />
-      )}
-
-      {/* MOBILE DRAWER */}
-      <div
-        ref={mobileDrawerRef}
-        className={`nav-drawer ${isMobileMenuOpen ? "nav-drawer-open" : ""}`}
-        style={{ zIndex: 999 }}
-      >
-        <nav className="nav-links nav-links-mobile">
-          {/* PROFILE ROW (mobile) */}
-          {!loading && user && (
-            <Link
-              href="/profile"
-              className="nav-item-with-icon nav-mobile-profile"
-              onClick={closeMobileMenu}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 4px 14px",
-                borderBottom: "1px solid rgba(148,163,184,0.35)",
-                marginBottom: 12,
-                textDecoration: "none",
-              }}
-            >
-              <div
+          className="nav-inner"
+          style={{
+            maxWidth: 1400,
+            margin: "0 auto",
+            padding: isMobile ? "0 8px" : "0 24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            height: NAV_HEADER_HEIGHT,
+            gap: 16,
+          }}
+        >
+          {/* LEFT: brand + (mobile search pill inline) + desktop search */}
+          <div
+            style={{
+              display: "flex",
+              gap: isMobile ? 10 : 12,
+              alignItems: "center",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {/* Brand */}
+            {!isMobile ? (
+              <Link href="/" className="brand-clickable">
+                <div className="brand">
+                  <img
+                    src="/Q5_white_bg.png"
+                    alt="Quantum5ocial logo"
+                    className="brand-logo"
+                  />
+                  <div>
+                    <div className="brand-text-main brand-text-gradient">
+                      Quantum5ocial
+                    </div>
+                    <div className="brand-text-sub">
+                      Connecting the quantum world
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ) : (
+              <Link
+                href="/"
+                className="brand-clickable"
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: "999px",
-                  overflow: "hidden",
-                  border: "1px solid rgba(148,163,184,0.7)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                  color: "#fff",
-                  fontWeight: 600,
+                  justifyContent: "flex-start",
+                  gap: 0,
                   flexShrink: 0,
                 }}
               >
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt={firstName}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  firstName.charAt(0).toUpperCase()
-                )}
-              </div>
+                <img
+                  src="/Q5_white_bg.png"
+                  alt="Quantum5ocial logo"
+                  className="brand-logo-mobile"
+                  style={{ display: "block" }}
+                />
+              </Link>
+            )}
 
-              <div>
-                <span style={{ fontSize: 16, fontWeight: 600, color: "#e5e7eb" }}>
-                  {firstName}
-                </span>
-              </div>
-            </Link>
-          )}
-
-          {/* MAIN ICON NAV ITEMS */}
-          <Link
-            href="/jobs"
-            className={`nav-item-with-icon ${
-              isActive("/jobs") ? "nav-item-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            <img src="/icons/jobs.svg" className="nav-icon" />
-            <span className="nav-icon-label">Jobs</span>
-          </Link>
-
-          <Link
-            href="/products"
-            className={`nav-item-with-icon ${
-              isActive("/products") ? "nav-item-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            <img src="/icons/products.svg" className="nav-icon" />
-            <span className="nav-icon-label">Marketplace</span>
-          </Link>
-
-          <Link
-            href="/community"
-            className={`nav-item-with-icon ${
-              isActive("/community") ? "nav-item-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            <img src="/icons/community.svg" className="nav-icon" />
-            <span className="nav-icon-label">Community</span>
-          </Link>
-
-          <Link
-            href="/qna"
-            className={`nav-item-with-icon ${
-              isActive("/qna") ? "nav-item-active" : ""
-            }`}
-            onClick={closeMobileMenu}
-          >
-            <img
-              src="/icons/qna.svg"
-              className="nav-icon"
-              style={{ width: 40, height: 40 }}
-            />
-            <span className="nav-icon-label">QnA</span>
-          </Link>
-
-          {!loading && user && (
-            <Link
-              href="/notifications"
-              className={`nav-item-with-icon ${
-                isActive("/notifications") ? "nav-item-active" : ""
-              }`}
-              onClick={closeMobileMenu}
-            >
-              <img src="/icons/notifications.svg" className="nav-icon" />
-              <span className="nav-icon-label">Notifications</span>
-              {notificationsCount > 0 && (
-                <span
+            {/* MOBILE SEARCH PILL */}
+            {isMobile && (
+              <form
+                onSubmit={handleGlobalSearchSubmit}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.55)",
+                  background: "rgba(15,23,42,0.55)",
+                  height: 38,
+                }}
+              >
+                <span style={{ opacity: 0.85, flexShrink: 0 }}>🔍</span>
+                <input
+                  type="text"
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  placeholder="Search"
                   style={{
-                    marginLeft: "auto",
-                    minWidth: 18,
-                    height: 18,
+                    width: "100%",
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    color: "#e5e7eb",
+                    fontSize: 14,
+                  }}
+                />
+              </form>
+            )}
+
+            {/* Global search – desktop only */}
+            {!isMobile && (
+              <form onSubmit={handleGlobalSearchSubmit} className="nav-search-desktop">
+                <input
+                  type="text"
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  placeholder="Search jobs, products, people, organizations…"
+                  className="nav-search-input"
+                />
+              </form>
+            )}
+          </div>
+
+          {/* RIGHT: desktop nav OR (mobile top-right menu) */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              flexShrink: 0,
+              height: "100%",
+            }}
+          >
+            {/* DESKTOP NAV (unchanged) */}
+            {!isMobile && (
+              <nav
+                className="nav-links nav-links-desktop"
+                style={{
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0,
+                }}
+              >
+                {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
+                {renderIconNavLink("/products", "Marketplace", "/icons/products.svg")}
+                {renderIconNavLink("/community", "Community", "/icons/community.svg")}
+                {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
+
+                {!loading &&
+                  user &&
+                  renderIconNavLink(
+                    "/notifications",
+                    "Notifications",
+                    "/icons/notifications.svg",
+                    notificationsCount
+                  )}
+
+                <button
+                  type="button"
+                  className="nav-link nav-link-button theme-toggle"
+                  onClick={toggleTheme}
+                  aria-label="Toggle theme"
+                >
+                  {theme === "dark" ? "☀️" : "🌙"}
+                </button>
+
+                {!loading && !user && (
+                  <Link href="/auth" className="nav-cta">
+                    Login / Sign up
+                  </Link>
+                )}
+
+                {!loading && user && (
+                  <div className="nav-user-wrapper" ref={userMenuRef}>
+                    <button
+                      type="button"
+                      className={`nav-user-button nav-link-button ${
+                        isActive("/profile") ? "nav-link-active" : ""
+                      }`}
+                      onClick={() => {
+                        setIsUserMenuOpen((o) => !o);
+                      }}
+                      style={{
+                        padding: 0,
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: NAV_BLOCK_HEIGHT,
+                          minWidth: NAV_BLOCK_MIN_WIDTH,
+                          padding: "0 14px",
+                          gap: 6,
+                          borderRadius: 16,
+                          background: isActive("/profile")
+                            ? "radial-gradient(circle at 50% 0%, rgba(56,189,248,0.6), rgba(15,23,42,0.98))"
+                            : "transparent",
+                          boxShadow: isActive("/profile")
+                            ? "0 0 0 1px rgba(56,189,248,0.7), 0 0 18px rgba(56,189,248,0.45)"
+                            : "none",
+                        }}
+                      >
+                        <div className="nav-user-avatar" style={{ width: 36, height: 36 }}>
+                          {avatarUrl ? (
+                            <img src={avatarUrl} alt={firstName} />
+                          ) : (
+                            <span className="nav-user-initial">
+                              {firstName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "rgba(226,232,240,0.96)",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {firstName}
+                        </span>
+                      </div>
+                    </button>
+
+                    {isUserMenuOpen && (
+                      <div className="nav-dashboard-menu right-align">
+                        <Link
+                          href="/profile"
+                          className="nav-dropdown-item"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          My profile
+                        </Link>
+
+                        <Link
+                          href="/ecosystem"
+                          className="nav-dropdown-item"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          My ecosystem
+                        </Link>
+
+                        <Link
+                          href="/orgs/create"
+                          className="nav-dropdown-item"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          Create my organization page
+                        </Link>
+
+                        <Link
+                          href="/settings/security"
+                          className="nav-dropdown-item"
+                          onClick={() => setIsUserMenuOpen(false)}
+                        >
+                          Change password
+                        </Link>
+
+                        <button
+                          type="button"
+                          className="nav-dropdown-item nav-dropdown-danger"
+                          onClick={async () => {
+                            await handleLogout();
+                            setIsUserMenuOpen(false);
+                          }}
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </nav>
+            )}
+
+            {/* MOBILE TOP-RIGHT MENU: Change password + Logout */}
+            {isMobile && !loading && user && (
+              <div
+                ref={mobileMenuRef}
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                  height: 38,
+                }}
+              >
+                <button
+                  type="button"
+                  aria-label="Account menu"
+                  onClick={() => setIsMobileMenuOpen((v) => !v)}
+                  style={{
+                    width: 38,
+                    height: 38,
                     borderRadius: 999,
-                    background: "#ef4444",
-                    color: "white",
-                    fontSize: 11,
-                    display: "inline-flex",
+                    border: "1px solid rgba(148,163,184,0.45)",
+                    background: "rgba(15,23,42,0.55)",
+                    color: "rgba(226,232,240,0.95)",
+                    display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    padding: "0 6px",
+                    cursor: "pointer",
+                    overflow: "hidden",
                   }}
+                  title="Account"
                 >
-                  {notificationsCount > 9 ? "9+" : notificationsCount}
-                </span>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={firstName}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <span style={{ fontWeight: 900 }}>
+                      {firstName.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </button>
+
+                {isMobileMenuOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 44,
+                      right: 0,
+                      width: 220,
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.30)",
+                      background: "rgba(2,6,23,0.92)",
+                      boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
+                      padding: 8,
+                      zIndex: 9999,
+                    }}
+                  >
+                    <Link
+                      href="/settings/security"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 10px",
+                        borderRadius: 12,
+                        textDecoration: "none",
+                        color: "rgba(226,232,240,0.95)",
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        background: "rgba(15,23,42,0.35)",
+                        fontSize: 13,
+                        fontWeight: 800,
+                      }}
+                    >
+                      <span style={{ width: 22, textAlign: "center" }}>🔒</span>
+                      Change password
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleLogout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      style={{
+                        marginTop: 8,
+                        width: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 10px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(248,113,113,0.28)",
+                        background: "rgba(248,113,113,0.10)",
+                        color: "rgba(254,202,202,0.95)",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: 900,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ width: 22, textAlign: "center" }}>⎋</span>
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MOBILE when logged out: keep a simple login button top-right */}
+            {isMobile && !loading && !user && (
+              <Link
+                href="/auth"
+                style={{
+                  height: 38,
+                  padding: "0 12px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.45)",
+                  background: "rgba(15,23,42,0.55)",
+                  color: "rgba(226,232,240,0.95)",
+                  textDecoration: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  fontWeight: 900,
+                  fontSize: 13,
+                }}
+              >
+                Login
+              </Link>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* MOBILE BOTTOM ICON BAR (fixed) */}
+      {isMobile && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: MOBILE_BAR_HEIGHT + 12, // includes padding
+            padding: "6px 8px calc(6px + env(safe-area-inset-bottom, 0px))",
+            background: "rgba(2,6,23,0.86)",
+            borderTop: "1px solid rgba(148,163,184,0.22)",
+            backdropFilter: "blur(10px)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 4,
+          }}
+        >
+          {renderMobileBottomLink("/jobs", "Jobs", "/icons/jobs.svg")}
+          {renderMobileBottomLink("/products", "Market", "/icons/products.svg")}
+          {renderMobileBottomLink("/community", "Community", "/icons/community.svg")}
+          {renderMobileBottomLink("/qna", "QnA", "/icons/qna.svg")}
+
+          {!loading && user
+            ? renderMobileBottomLink(
+                "/notifications",
+                "Alerts",
+                "/icons/notifications.svg",
+                notificationsCount
+              )
+            : renderMobileBottomLink(
+                "/notifications",
+                "Alerts",
+                "/icons/notifications.svg",
+                0
               )}
-            </Link>
-          )}
-
-          {/* AUTH AREA */}
-          {!loading && !user && (
-            <Link
-              href="/auth"
-              className="nav-cta nav-cta-mobile"
-              onClick={closeMobileMenu}
-              style={{ marginTop: 16 }}
-            >
-              Login / Sign up
-            </Link>
-          )}
-
-          {/* ✅ Change password link (added above Logout) */}
-          {!loading && user && (
-            <Link
-              href="/settings/security"
-              className="nav-item-with-icon"
-              onClick={closeMobileMenu}
-              style={{ marginTop: 14 }}
-            >
-              <span style={{ fontSize: 18, width: 28, textAlign: "center" }}>
-                🔒
-              </span>
-              <span className="nav-icon-label">Change password</span>
-            </Link>
-          )}
-
-          {/* LOGOUT BUTTON */}
-          {!loading && user && (
-            <button
-              type="button"
-              onClick={async () => {
-                await handleLogout();
-                closeMobileMenu();
-              }}
-              style={{
-                marginTop: 18,
-                marginBottom: 10,
-                alignSelf: "center",
-                padding: "8px 22px",
-                borderRadius: 999,
-                background: "transparent",
-                border: "1px solid rgba(148,163,184,0.5)",
-                color: "rgba(226,232,240,0.9)",
-                fontSize: 14,
-                fontWeight: 500,
-                textAlign: "center",
-                cursor: "pointer",
-                width: "fit-content",
-                minWidth: "120px",
-              }}
-            >
-              Logout
-            </button>
-          )}
-        </nav>
-      </div>
-    </header>
+        </div>
+      )}
+    </>
   );
 }
