@@ -42,7 +42,38 @@ function lastPreviewOf(thread: ChatThread) {
   return (last?.text || "—").trim();
 }
 
-export default function TattvaAIPage() {
+function useIsMobile(maxWidth = 900) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+/* =========================
+   Middle (desktop + mobile)
+   - Desktop: chat + right rail (same as before)
+   - Mobile: chat only + history drawer (right)
+   ========================= */
+
+function TattvaAIMiddle() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
@@ -50,6 +81,8 @@ export default function TattvaAIPage() {
   useEffect(() => {
     if (!loading && !user) router.replace("/auth?redirect=/ai");
   }, [loading, user, router]);
+
+  const isMobile = useIsMobile(900);
 
   // name from profiles
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -104,7 +137,7 @@ export default function TattvaAIPage() {
     return `q5:tattva:threads:v3:${uid}`;
   }, [user?.id]);
 
-  // persistent rail collapsed state
+  // persistent rail collapsed state (desktop only)
   const railKey = useMemo(() => {
     const uid = user?.id || "anon";
     return `q5:tattva:railCollapsed:v1:${uid}`;
@@ -169,7 +202,7 @@ How can I help you?`,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey, user?.id]);
 
-  // load rail collapsed
+  // load rail collapsed (desktop only)
   const [railCollapsed, setRailCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -181,7 +214,7 @@ How can I help you?`,
     }
   }, [railKey]);
 
-  // persist rail collapsed
+  // persist rail collapsed (desktop only)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -190,6 +223,16 @@ How can I help you?`,
       // ignore
     }
   }, [railCollapsed, railKey]);
+
+  // persist threads
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(threads));
+    } catch {
+      // ignore
+    }
+  }, [threads, storageKey]);
 
   // update greeting when name resolves (only updates first AI message of active thread)
   useEffect(() => {
@@ -210,16 +253,6 @@ How can I help you?`,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [greetingText]);
-
-  // persist threads
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(threads));
-    } catch {
-      // ignore
-    }
-  }, [threads, storageKey]);
 
   // scroller for messages
   const scrollerRef = useRef<HTMLDivElement | null>(null);
@@ -279,7 +312,23 @@ How can I help you?`,
     };
     setThreads((prev) => [t, ...prev]);
     setActiveId(t.id);
+    if (isMobile) setHistoryOpen(false);
   };
+
+  // mobile history drawer
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // ESC closes drawer on mobile
+  useEffect(() => {
+    if (!isMobile) return;
+    if (!historyOpen) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setHistoryOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMobile, historyOpen]);
 
   if (!user && !loading) return null;
 
@@ -344,10 +393,37 @@ How can I help you?`,
               </div>
             </div>
           </div>
+
+          {/* Mobile-only: History pill */}
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 999,
+                border: "1px solid rgba(148,163,184,0.35)",
+                background: "rgba(2,6,23,0.55)",
+                color: "rgba(226,232,240,0.95)",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 900,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                boxShadow: "0 12px 28px rgba(15,23,42,0.35)",
+                whiteSpace: "nowrap",
+              }}
+              title="Open chat history"
+              aria-label="Open chat history"
+            >
+              🗂️ History
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Body: chat + right rail */}
+      {/* Body */}
       <div
         style={{
           flex: "1 1 auto",
@@ -466,114 +542,308 @@ How can I help you?`,
           </form>
         </div>
 
-        {/* Right rail (persistent, collapsible) */}
-        <aside
-          className="card"
-          style={{
-            width: railCollapsed ? railCollapsedW : railW,
-            maxWidth: "calc(100vw - 56px)",
-            transition: "width 160ms ease",
-            border: "1px solid rgba(148,163,184,0.22)",
-            background: "rgba(2,6,23,0.78)",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            borderRadius: 18,
-            flexShrink: 0,
-            minHeight: 0,
-          }}
-        >
-          {/* top bar */}
-          <div
+        {/* Desktop right rail (unchanged) */}
+        {!isMobile && (
+          <aside
+            className="card"
             style={{
-              padding: 12,
+              width: railCollapsed ? railCollapsedW : railW,
+              maxWidth: "calc(100vw - 56px)",
+              transition: "width 160ms ease",
+              border: "1px solid rgba(148,163,184,0.22)",
+              background: "rgba(2,6,23,0.78)",
+              overflow: "hidden",
               display: "flex",
-              justifyContent: railCollapsed ? "center" : "space-between",
-              alignItems: "center",
-              borderBottom: "1px solid rgba(148,163,184,0.18)",
-              gap: 10,
+              flexDirection: "column",
+              borderRadius: 18,
+              flexShrink: 0,
+              minHeight: 0,
             }}
           >
-            {!railCollapsed && (
-              <div style={{ fontWeight: 900, color: "rgba(226,232,240,0.95)" }}>
-                History
-              </div>
-            )}
-
+            {/* top bar */}
             <div
               style={{
+                padding: 12,
                 display: "flex",
-                gap: 8,
+                justifyContent: railCollapsed ? "center" : "space-between",
                 alignItems: "center",
-                justifyContent: "flex-end",
+                borderBottom: "1px solid rgba(148,163,184,0.18)",
+                gap: 10,
               }}
             >
               {!railCollapsed && (
+                <div
+                  style={{ fontWeight: 900, color: "rgba(226,232,240,0.95)" }}
+                >
+                  History
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                }}
+              >
+                {!railCollapsed && (
+                  <button
+                    type="button"
+                    onClick={newThread}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.30)",
+                      background: "rgba(15,23,42,0.55)",
+                      color: "rgba(226,232,240,0.95)",
+                      cursor: "pointer",
+                      fontSize: 12.5,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    + New
+                  </button>
+                )}
+
                 <button
                   type="button"
-                  onClick={newThread}
+                  onClick={() => setRailCollapsed((v) => !v)}
                   style={{
-                    padding: "6px 10px",
+                    width: 34,
+                    height: 34,
                     borderRadius: 999,
                     border: "1px solid rgba(148,163,184,0.30)",
                     background: "rgba(15,23,42,0.55)",
                     color: "rgba(226,232,240,0.95)",
                     cursor: "pointer",
-                    fontSize: 12.5,
+                    fontSize: 14,
                     fontWeight: 900,
-                    whiteSpace: "nowrap",
+                  }}
+                  aria-label={railCollapsed ? "Expand history" : "Collapse history"}
+                  title={railCollapsed ? "Expand" : "Collapse"}
+                >
+                  {railCollapsed ? "❮" : "❯"}
+                </button>
+              </div>
+            </div>
+
+            {/* collapsed view */}
+            {railCollapsed ? (
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0.85,
+                  padding: 10,
+                  color: "rgba(226,232,240,0.85)",
+                  fontSize: 12,
+                  writingMode: "vertical-rl",
+                  transform: "rotate(180deg)",
+                  userSelect: "none",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                HISTORY
+              </div>
+            ) : (
+              <>
+                {/* search */}
+                <div style={{ padding: 12 }}>
+                  <input
+                    value={threadQuery}
+                    onChange={(e) => setThreadQuery(e.target.value)}
+                    placeholder="Search chats…"
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(148,163,184,0.26)",
+                      background: "rgba(2,6,23,0.62)",
+                      color: "rgba(226,232,240,0.95)",
+                      fontSize: 13,
+                      outline: "none",
+                    }}
+                  />
+                </div>
+
+                {/* list */}
+                <div
+                  style={{
+                    padding: "0 12px 12px 12px",
+                    overflowY: "auto",
+                    flex: 1,
+                    minHeight: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
                   }}
                 >
-                  + New
-                </button>
-              )}
+                  {filteredThreads.length === 0 ? (
+                    <div style={{ padding: 10, opacity: 0.75, fontSize: 13 }}>
+                      No chats found.
+                    </div>
+                  ) : (
+                    filteredThreads.map((t) => {
+                      const isActive = t.id === activeId;
+                      const preview = lastPreviewOf(t);
 
-              <button
-                type="button"
-                onClick={() => setRailCollapsed((v) => !v)}
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.30)",
-                  background: "rgba(15,23,42,0.55)",
-                  color: "rgba(226,232,240,0.95)",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: 900,
-                }}
-                aria-label={railCollapsed ? "Expand history" : "Collapse history"}
-                title={railCollapsed ? "Expand" : "Collapse"}
-              >
-                {railCollapsed ? "❮" : "❯"}
-              </button>
-            </div>
-          </div>
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setActiveId(t.id)}
+                          style={{
+                            textAlign: "left",
+                            width: "100%",
+                            padding: "10px 12px",
+                            borderRadius: 14,
+                            border: isActive
+                              ? "1px solid rgba(34,211,238,0.55)"
+                              : "1px solid rgba(148,163,184,0.18)",
+                            background: isActive
+                              ? "rgba(2,6,23,0.72)"
+                              : "rgba(15,23,42,0.35)",
+                            color: "rgba(226,232,240,0.95)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontWeight: 900,
+                              fontSize: 13,
+                              lineHeight: 1.15,
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {t.title || "Chat"}
+                          </div>
 
-          {/* collapsed view */}
-          {railCollapsed ? (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 12,
+                              opacity: 0.78,
+                              lineHeight: 1.25,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {preview || "—"}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+          </aside>
+        )}
+
+        {/* Mobile history drawer (right) */}
+        {isMobile && (
+          <>
+            {/* overlay */}
             <div
+              onClick={() => setHistoryOpen(false)}
               style={{
-                flex: 1,
-                minHeight: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                opacity: 0.85,
-                padding: 10,
-                color: "rgba(226,232,240,0.85)",
-                fontSize: 12,
-                writingMode: "vertical-rl",
-                transform: "rotate(180deg)",
-                userSelect: "none",
-                letterSpacing: "0.08em",
+                position: "fixed",
+                inset: 0,
+                background: "rgba(2,6,23,0.55)",
+                opacity: historyOpen ? 1 : 0,
+                pointerEvents: historyOpen ? "auto" : "none",
+                transition: "opacity 160ms ease",
+                zIndex: 120,
               }}
+            />
+
+            {/* drawer */}
+            <aside
+              className="card"
+              style={{
+                position: "fixed",
+                top: 0,
+                right: 0,
+                height: "100vh",
+                width: "min(360px, 88vw)",
+                transform: historyOpen ? "translateX(0)" : "translateX(102%)",
+                transition: "transform 180ms ease",
+                zIndex: 121,
+                borderRadius: 0,
+                borderLeft: "1px solid rgba(148,163,184,0.28)",
+                background: "rgba(2,6,23,0.92)",
+                boxShadow: "-18px 0 60px rgba(0,0,0,0.55)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              HISTORY
-            </div>
-          ) : (
-            <>
-              {/* search */}
+              <div
+                style={{
+                  padding: 12,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderBottom: "1px solid rgba(148,163,184,0.18)",
+                  gap: 10,
+                }}
+              >
+                <div style={{ fontWeight: 900, color: "rgba(226,232,240,0.95)" }}>
+                  History
+                </div>
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button
+                    type="button"
+                    onClick={newThread}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.30)",
+                      background: "rgba(15,23,42,0.55)",
+                      color: "rgba(226,232,240,0.95)",
+                      cursor: "pointer",
+                      fontSize: 12.5,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    + New
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHistoryOpen(false)}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 12,
+                      border: "1px solid rgba(148,163,184,0.30)",
+                      background: "rgba(15,23,42,0.55)",
+                      color: "rgba(226,232,240,0.95)",
+                      cursor: "pointer",
+                      fontSize: 16,
+                      fontWeight: 900,
+                    }}
+                    aria-label="Close history"
+                    title="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+
               <div style={{ padding: 12 }}>
                 <input
                   value={threadQuery}
@@ -592,7 +862,6 @@ How can I help you?`,
                 />
               </div>
 
-              {/* list */}
               <div
                 style={{
                   padding: "0 12px 12px 12px",
@@ -617,7 +886,10 @@ How can I help you?`,
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setActiveId(t.id)}
+                        onClick={() => {
+                          setActiveId(t.id);
+                          setHistoryOpen(false);
+                        }}
                         style={{
                           textAlign: "left",
                           width: "100%",
@@ -646,7 +918,6 @@ How can I help you?`,
                           {t.title || "Chat"}
                         </div>
 
-                        {/* no time/date */}
                         <div
                           style={{
                             marginTop: 6,
@@ -667,15 +938,20 @@ How can I help you?`,
                   })
                 )}
               </div>
-            </>
-          )}
-        </aside>
+            </aside>
+          </>
+        )}
       </div>
     </section>
   );
 }
 
+export default function TattvaAIPage() {
+  return <TattvaAIMiddle />;
+}
+
 (TattvaAIPage as any).layoutProps = {
   variant: "two-left",
   right: null,
+  mobileMain: <TattvaAIMiddle />,
 };
