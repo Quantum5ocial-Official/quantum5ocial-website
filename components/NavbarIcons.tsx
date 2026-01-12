@@ -488,6 +488,7 @@ export default function NavbarIcons() {
                 "/icons/community.svg"
               )}
               {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
+              {renderIconNavLink("/chat", "HeisenBot", "/icons/bot.svg")}
 
               {!loading &&
                 user &&
@@ -517,9 +518,8 @@ export default function NavbarIcons() {
                 <div className="nav-user-wrapper" ref={userMenuRef}>
                   <button
                     type="button"
-                    className={`nav-user-button nav-link-button ${
-                      isActive("/profile") ? "nav-link-active" : ""
-                    }`}
+                    className={`nav-user-button nav-link-button ${isActive("/profile") ? "nav-link-active" : ""
+                      }`}
                     onClick={() => {
                       setIsUserMenuOpen((o) => !o);
                     }}
@@ -720,9 +720,8 @@ export default function NavbarIcons() {
           {/* MAIN ICON NAV ITEMS */}
           <Link
             href="/jobs"
-            className={`nav-item-with-icon ${
-              isActive("/jobs") ? "nav-item-active" : ""
-            }`}
+            className={`nav-item-with-icon ${isActive("/jobs") ? "nav-item-active" : ""
+              }`}
             onClick={closeMobileMenu}
           >
             <img src="/icons/jobs.svg" className="nav-icon" />
@@ -731,9 +730,8 @@ export default function NavbarIcons() {
 
           <Link
             href="/products"
-            className={`nav-item-with-icon ${
-              isActive("/products") ? "nav-item-active" : ""
-            }`}
+            className={`nav-item-with-icon ${isActive("/products") ? "nav-item-active" : ""
+              }`}
             onClick={closeMobileMenu}
           >
             <img src="/icons/products.svg" className="nav-icon" />
@@ -742,9 +740,8 @@ export default function NavbarIcons() {
 
           <Link
             href="/community"
-            className={`nav-item-with-icon ${
-              isActive("/community") ? "nav-item-active" : ""
-            }`}
+            className={`nav-item-with-icon ${isActive("/community") ? "nav-item-active" : ""
+              }`}
             onClick={closeMobileMenu}
           >
             <img src="/icons/community.svg" className="nav-icon" />
@@ -753,9 +750,8 @@ export default function NavbarIcons() {
 
           <Link
             href="/qna"
-            className={`nav-item-with-icon ${
-              isActive("/qna") ? "nav-item-active" : ""
-            }`}
+            className={`nav-item-with-icon ${isActive("/qna") ? "nav-item-active" : ""
+              }`}
             onClick={closeMobileMenu}
           >
             <img
@@ -769,9 +765,8 @@ export default function NavbarIcons() {
           {!loading && user && (
             <Link
               href="/notifications"
-              className={`nav-item-with-icon ${
-                isActive("/notifications") ? "nav-item-active" : ""
-              }`}
+              className={`nav-item-with-icon ${isActive("/notifications") ? "nav-item-active" : ""
+                }`}
               onClick={closeMobileMenu}
             >
               <img src="/icons/notifications.svg" className="nav-icon" />
