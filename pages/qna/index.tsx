@@ -62,7 +62,7 @@ function BodyPortal({ children }: { children: React.ReactNode }) {
   return createPortal(children, document.body);
 }
 
-function pickProfile(p: ProfileMaybe): ProfileLite | null {
+function pickProfile(p: ProfileMaybe | undefined): ProfileLite | null {
   if (!p) return null;
   return Array.isArray(p) ? p[0] ?? null : p;
 }
@@ -981,10 +981,10 @@ function QnAMiddle() {
           qna_answer_votes: (data as any).qna_answer_votes ?? null,
           profile: myP
             ? {
-                id: myP.id,
-                full_name: myP.full_name ?? null,
-                avatar_url: myP.avatar_url ?? null,
-              }
+              id: myP.id,
+              full_name: myP.full_name ?? null,
+              avatar_url: myP.avatar_url ?? null,
+            }
             : null,
         };
 
