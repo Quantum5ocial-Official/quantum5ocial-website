@@ -256,12 +256,7 @@ export default function LeftSidebar() {
             </div>
 
             {!loading && badgeLabel && (
-              <div
-                className="profile-sidebar-badge-pill"
-                style={{
-                  flexShrink: 0,
-                }}
-              >
+              <div className="profile-sidebar-badge-pill" style={{ flexShrink: 0 }}>
                 <Q5BadgeChips
                   label={badgeLabel}
                   reviewStatus={badgeStatus}
@@ -309,10 +304,7 @@ export default function LeftSidebar() {
         {/* Skeleton */}
         {loading && (
           <div style={{ marginTop: 10, opacity: 0.7 }}>
-            <div
-              className="profile-sidebar-info-value"
-              style={{ height: 12 }}
-            />
+            <div className="profile-sidebar-info-value" style={{ height: 12 }} />
             <div
               className="profile-sidebar-info-value"
               style={{ height: 12, marginTop: 6 }}
@@ -321,9 +313,98 @@ export default function LeftSidebar() {
         )}
       </Link>
 
-      {/* DASHBOARD CARD */}
+      {/* TATTVA AI CARD (goes to /ai) */}
+      <Link
+        href="/ai"
+        className="sidebar-card"
+        style={{
+          textDecoration: "none",
+          color: "inherit",
+          borderRadius: 20,
+          border: "1px solid rgba(148,163,184,0.25)",
+          background:
+            "radial-gradient(circle at top left, rgba(34,211,238,0.16), transparent 60%), rgba(15,23,42,0.86)",
+          padding: "12px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 11,
+            border: "1px solid rgba(34,211,238,0.55)",
+            background: "rgba(2,6,23,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 0 0 6px rgba(34,211,238,0.06)",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          🧠
+        </div>
+
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 800,
+            color: "rgba(226,232,240,0.95)",
+            lineHeight: 1.1,
+          }}
+        >
+          Tattva AI
+        </div>
+      </Link>
+
+      {/* MY ECOSYSTEM CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
-        <div className="dashboard-sidebar-title">Dashboard</div>
+        {/* Header row: clickable + Open pill + hover effect */}
+        <Link
+          href="/ecosystem"
+          className="dashboard-sidebar-link"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            textDecoration: "none",
+            padding: "4px 2px",
+            borderRadius: 12,
+          }}
+        >
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              color: "var(--text-primary)",
+              fontWeight: 700,
+            }}
+          >
+            🌐 <span className="dashboard-sidebar-title">My ecosystem</span>
+          </span>
+
+          {/* Open pill */}
+          <span
+            style={{
+              fontSize: 11,
+              padding: "4px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(56,189,248,0.55)",
+              background: "rgba(56,189,248,0.10)",
+              color: "#38bdf8",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Open →
+          </span>
+        </Link>
 
         <div
           className="dashboard-sidebar-links"
@@ -334,38 +415,6 @@ export default function LeftSidebar() {
             gap: 4,
           }}
         >
-          {/* Top-level: My ecosystem */}
-          <Link
-            href="/ecosystem"
-            className="dashboard-sidebar-link"
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "var(--text-primary)",
-              }}
-            >
-              🌐 <span>My ecosystem</span>
-            </span>
-            <span
-              style={{
-                fontSize: 11,
-                letterSpacing: "0.08em",
-                color: "#38bdf8", // bluish "Open" that works in both themes
-              }}
-            >
-              Open →
-            </span>
-          </Link>
-
           {/* Sub-menu group */}
           <div
             style={{
@@ -557,13 +606,11 @@ export default function LeftSidebar() {
                 }}
               >
                 <div>
-                  Followers:{" "}
-                  <span>{data.myOrgFollowersCount ?? "…"}</span>
+                  Followers: <span>{data.myOrgFollowersCount ?? "…"}</span>
                 </div>
                 <div>
                   Views: <span>0</span>
                 </div>
-                
               </div>
             </div>
           </div>
@@ -665,6 +712,14 @@ export default function LeftSidebar() {
           <span>© 2025 Quantum5ocial</span>
         </div>
       </div>
+
+      {/* Local hover styling (matches the feel of other sidebar links) */}
+      <style jsx>{`
+        .dashboard-sidebar-link:hover {
+          background: rgba(148, 163, 184, 0.12);
+          border-radius: 12px;
+        }
+      `}</style>
     </aside>
   );
 }
