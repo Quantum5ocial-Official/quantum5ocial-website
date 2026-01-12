@@ -582,9 +582,8 @@ export default function NavbarIcons() {
                   <div className="nav-user-wrapper" ref={userMenuRef}>
                     <button
                       type="button"
-                      className={`nav-user-button nav-link-button ${
-                        isActive("/profile") ? "nav-link-active" : ""
-                      }`}
+                      className={`nav-user-button nav-link-button ${isActive("/profile") ? "nav-link-active" : ""
+                        }`}
                       onClick={() => {
                         setIsUserMenuOpen((o) => !o);
                       }}
@@ -850,17 +849,17 @@ export default function NavbarIcons() {
 
           {!loading && user
             ? renderMobileBottomLink(
-                "/notifications",
-                "Alerts",
-                "/icons/notifications.svg",
-                notificationsCount
-              )
+              "/notifications",
+              "Alerts",
+              "/icons/notifications.svg",
+              notificationsCount
+            )
             : renderMobileBottomLink(
-                "/notifications",
-                "Alerts",
-                "/icons/notifications.svg",
-                0
-              )}
+              "/notifications",
+              "Alerts",
+              "/icons/notifications.svg",
+              0
+            )}
         </div>
       )}
     </>

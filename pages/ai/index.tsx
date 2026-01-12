@@ -3,6 +3,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from 'ai';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type ChatMsg = {
   id: string;
@@ -277,28 +281,80 @@ How can I help you?`,
     );
   };
 
-  const send = () => {
-    const q = input.trim();
-    if (!q || !activeThread) return;
+  const { messages, setMessages, sendMessage, status, stop, regenerate, error } = useChat({
+    id: activeThread?.id,
+    initialMessages: activeThread?.msgs.map((m) => ({
+      id: m.id,
+      role: m.role === "ai" ? "assistant" : "user",
+      content: m.text,
+      createdAt: new Date(m.ts),
+    })) ?? [],
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+    }),
+    onFinish: (message: any) => {
+      // This callback runs when the AI finishes its response.
+      // You can add analytics or other logic here.
 
-    const now = Date.now();
-    const userMsg: ChatMsg = { id: `u-${now}`, role: "user", text: q, ts: now };
-    const aiMsg: ChatMsg = {
-      id: `a-${now + 1}`,
-      role: "ai",
-      text: FIXED_REPLY,
-      ts: now + 1,
-    };
+      // ANSWER TO OPENAI QUESTION:
+      // To use OpenAI instead of Gemini, you just need to:
+      // 1. In `app/api/chat/route.ts`, change the model to `openai('gpt-4-turbo')` (or similar).
+      // 2. Ensure you have the `openai` provider configured.
+      // 3. This frontend code (useChat) remains EXACTLY the same! The Vercel AI SDK abstracts the provider differences.
+    }
+  } as any);
 
-    renameIfNeeded(activeThread.id, q);
+  const isLoading = status === "submitted" || status === "streaming";
+
+  // Sync state: activeThread -> useChat (when switching threads)
+  useEffect(() => {
+    // If the thread ID changes, we reset the messages to that thread's history
+    // NOTE: passing `id` and `initialMessages` to useChat handles this automatically 
+    // in newer versions, but we can enforce it here if needed. 
+    // With `id` passed to useChat, it should separate sessions.
+  }, [activeThread?.id]);
+
+
+  // Sync state: useChat -> persistence (threads)
+  useEffect(() => {
+    if (!activeThread) return;
+
+    // Convert back to ChatMsg
+    const currentMsgs: ChatMsg[] = messages.map((m) => ({
+      id: m.id,
+      role: m.role === "assistant" ? "ai" : (m.role as "user" | "ai"),
+      text: m.parts?.find(p => p.type === 'text')?.text || "",
+      ts: Date.now(),
+    }));
+
+    // Avoid infinite loops: check if length or content changed significantly
+    if (JSON.stringify(currentMsgs) === JSON.stringify(activeThread.msgs)) {
+      return;
+    }
 
     setThreads((prev) =>
-      prev.map((t) =>
-        t.id === activeThread.id
-          ? { ...t, msgs: [...t.msgs, userMsg, aiMsg], updatedAt: Date.now() }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id === activeThread.id) {
+          let title = t.title;
+          // Auto-rename logic
+          if (title === "New chat" && currentMsgs.length > 1) {
+            const firstUser = currentMsgs.find(m => m.role === 'user');
+            if (firstUser) title = firstUser.text.slice(0, 40).trim();
+          }
+          return { ...t, msgs: currentMsgs, title, updatedAt: Date.now() };
+        }
+        return t;
+      })
     );
+  }, [messages, status, activeThread?.id]);
+
+
+  const send = () => {
+    const q = input.trim();
+    if (!q) return;
+
+    // Just send the message. The useEffect above will handle saving to 'activeThread'
+    sendMessage({ text: q });
     setInput("");
   };
 
@@ -484,10 +540,59 @@ How can I help you?`,
                   wordBreak: "break-word",
                 }}
               >
-                {m.text}
+                <span><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown></span>
               </div>
             ))}
           </div>
+          {isLoading && (
+            <div
+              className="typing-indicator"
+              style={{
+                alignSelf: "flex-start",
+                maxWidth: "78%",
+                padding: "10px 12px",
+                borderRadius: 16,
+                fontSize: 13.5,
+                lineHeight: 1.35,
+                border:
+                  "1px solid rgba(148,163,184,0.22)",
+                background:
+                  "rgba(2,6,23,0.35)",
+                color: "rgba(226,232,240,0.95)",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}>
+              <span>•</span><span>•</span><span>•</span>
+            </div>
+          )}
+
+          {error && (
+            <div
+              style={{
+                alignSelf: "flex-start",
+                maxWidth: "78%",
+                padding: "10px 12px",
+                borderRadius: 16,
+                fontSize: 13.5,
+                lineHeight: 1.35,
+                border:
+                  "1px solid rgba(148,163,184,0.22)",
+                background:
+                  "rgba(127, 29, 29, 0.4)",
+                color: "rgba(226,232,240,0.95)",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}>
+              <div>Quantum fluctuation detected: {error.message}</div>
+              <button
+                onClick={() => regenerate()}
+                className="retry-btn"
+                type="button"
+              >
+                ↻ Retry
+              </button>
+            </div>
+          )}
 
           <form
             onSubmit={(e) => {
@@ -508,6 +613,7 @@ How can I help you?`,
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your question…"
+              disabled={isLoading}
               style={{
                 flex: 1,
                 height: 44,
@@ -519,11 +625,13 @@ How can I help you?`,
                 fontSize: 14,
                 outline: "none",
                 minWidth: 0,
+                opacity: isLoading ? 0.5 : 1,
               }}
             />
 
             <button
               type="submit"
+              disabled={isLoading}
               style={{
                 height: 44,
                 padding: "0 16px",
@@ -531,10 +639,11 @@ How can I help you?`,
                 border: "1px solid rgba(34,211,238,0.60)",
                 background: "linear-gradient(90deg,#22d3ee,#6366f1)",
                 color: "#0f172a",
-                cursor: "pointer",
                 fontSize: 14,
                 fontWeight: 900,
                 flexShrink: 0,
+                opacity: isLoading ? 0.5 : 1,
+                cursor: isLoading ? "not-allowed" : "pointer",
               }}
             >
               Send
@@ -941,13 +1050,64 @@ How can I help you?`,
             </aside>
           </>
         )}
+        <style jsx>{`
+        .error-bubble {
+          border-color: #ef4444 !important;
+          color: #fecaca !important;
+          background: rgba(127, 29, 29, 0.4) !important;
+        }
+
+        .error-avatar {
+          border-color: #ef4444 !important;
+          color: #ef4444 !important;
+        }
+
+        .typing-indicator {
+          display: flex;
+          gap: 4px;
+          padding: 4px 0;
+        }
+        .typing-indicator span {
+          width: 6px;
+          height: 6px;
+          background: var(--text-muted, #94a3b8);
+          border-radius: 50%;
+          animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1); }
+        }
+        .retry-btn {
+          margin-top: 8px;
+          padding: 4px 12px;
+          background: rgba(239, 68, 68, 0.2);
+          border: 1px solid rgba(239, 68, 68, 0.5);
+          color: #fecaca;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 0.85rem;
+          transition: background 0.2s;
+        }
+        .retry-btn:hover {
+          background: rgba(239, 68, 68, 0.3);
+        }
+        `}</style>
       </div>
     </section>
   );
 }
 
+
+
+
+
 export default function TattvaAIPage() {
   return <TattvaAIMiddle />;
+  // return <Test />;
 }
 
 (TattvaAIPage as any).layoutProps = {
