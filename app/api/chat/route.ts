@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, streamText, UIMessage, embed } from "ai";
-import { google } from "@ai-sdk/google";
+import { openai } from "@ai-sdk/openai";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -16,9 +16,9 @@ export async function POST(req: Request) {
   const query = lastMessage.parts?.find(p => p.type === 'text')?.text || "";
 
   try {
-    // 1. Generate embedding using Gemini
+    // 1. Generate embedding using OpenAI
     const { embedding } = await embed({
-      model: google.textEmbeddingModel("text-embedding-004"),
+      model: openai.textEmbeddingModel("text-embedding-3-small"),
       value: query,
     });
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const { data: documents, error: searchError } = await supabase
       .rpc("match_documents", {
         query_embedding: embedding,
-        match_threshold: 0.3,
+        match_threshold: 0.1,
         match_count: 5,
       });
 
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     const context = documents?.map((doc: any) => doc.content).join("\n\n---\n\n") || "No relevant documents found.";
 
     const systemPrompt = `
-You are HeisenBot, a witty and rebellious AI assistant for Quantum5ocial.
+You are Tattva AI, an intelligent and helpful AI assistant for Quantum5ocial.
 You have access to the following real-time data from the platform:
 
 ${context}
@@ -49,12 +49,13 @@ Instructions:
 - If the answer is not in the context, say "I can't find that in the quantum realm currently."
 - Be concise, helpful, and slightly snarky/witty.
 - Do not hallucinate jobs or facts not present in the context.
+- Filter out the results that are not relevant to the user's question.
 - **Formating**: Use Markdown tables or bulleted lists to present job listings or data clearly. Avoid dense paragraphs for lists.
     `.trim();
 
     // 4. Stream response
     const result = streamText({
-      model: google("gemini-2.5-flash"),
+      model: openai("gpt-4o"),
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
     });
