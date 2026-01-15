@@ -1579,17 +1579,30 @@ function HomeComposerStrip() {
                         </button>
                       </div>
                       <div style={{ marginTop: 8 }}>
-                        <img
-                          src={postPhotoPreview}
-                          alt="Preview"
-                          style={{
-                            width: "100%",
-                            maxHeight: 360,
-                            objectFit: "cover",
-                            borderRadius: 12,
-                            display: "block",
-                          }}
-                        />
+                        <div
+  style={{
+    width: "100%",
+    height: 360, // ✅ standard frame height
+    borderRadius: 12,
+    overflow: "hidden",
+    background: "rgba(2,6,23,0.35)", // ✅ makes letterboxing look intentional
+    border: "1px solid rgba(148,163,184,0.18)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
+  <img
+    src={postPhotoPreview}
+    alt="Preview"
+    style={{
+      width: "100%",
+      height: "100%",
+      objectFit: "contain", // ✅ show the whole image (no crop)
+      display: "block",
+    }}
+  />
+</div>
                       </div>
                     </div>
                   )}
