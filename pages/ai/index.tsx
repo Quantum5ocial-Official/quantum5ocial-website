@@ -445,7 +445,7 @@ How can I help you?`,
                 Tattva AI
               </div>
               <div className="section-sub" style={{ maxWidth: 680 }}>
-                Explore careers, products, and people at Quantum5ocial with Tattva
+                Explore careers, products, and collaborations at Quantum5ocial with Tattva
               </div>
             </div>
           </div>
