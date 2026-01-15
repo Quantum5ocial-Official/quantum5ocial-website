@@ -257,28 +257,34 @@ export default function FeedCards({
             </div>
 
             {/* Image */}
-            {p.image_url && (
-              <div
-                style={{
-                  marginTop: 10,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  background: "rgba(2,6,23,0.22)",
-                }}
-              >
-                <img
-                  src={p.image_url}
-                  alt="Post media"
-                  style={{
-                    width: "100%",
-                    maxHeight: 520,
-                    objectFit: "cover",
-                    display: "block",
-                  }}
-                />
-              </div>
-            )}
+{p.image_url && (
+  <div
+    style={{
+      marginTop: 10,
+      width: "100%",
+      height: 520, // ✅ standard frame height (match your design)
+      borderRadius: 14,
+      overflow: "hidden",
+      border: "1px solid rgba(148,163,184,0.16)",
+      background: "rgba(2,6,23,0.35)", // ✅ better letterbox look
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    <img
+      src={p.image_url}
+      alt="Post media"
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "contain", // ✅ show full image, no crop
+        display: "block",
+      }}
+      loading="lazy"
+    />
+  </div>
+)}
 
             {/* Actions */}
             <div
