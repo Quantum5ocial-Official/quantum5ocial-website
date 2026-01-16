@@ -19,13 +19,13 @@ export async function POST(req: Request) {
   // --- 1. JOBS ---
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, title, company_name, location, employment_type, description")
+    .select("id, title, company_name, location, employment_type, additional_description")
     .eq("is_published", true);
 
   if (jobs) {
     for (const job of jobs) {
       try {
-        const content = `Type: Job\nTitle: ${job.title}\nCompany: ${job.company_name}\nLocation: ${job.location || "Remote"}\nDetails: ${job.description || ""}`;
+        const content = `Type: Job\nTitle: ${job.title}\nCompany: ${job.company_name}\nLocation: ${job.location || "Remote"}\nDetails: ${job.additional_description || ""}`;
         await indexItem(job.id, content, { type: "job", title: job.title });
         indexedCount++;
       } catch (e: any) {
@@ -54,17 +54,17 @@ export async function POST(req: Request) {
   // --- 3. ORGANIZATIONS ---
   const { data: orgs } = await supabase
     .from("organizations")
-    .select("id, name, industry, description, focus_areas")
+    .select("id, name, slug, industry, description, focus_areas")
     .eq("is_active", true);
 
   if (orgs) {
     for (const org of orgs) {
       try {
         const content = `Type: Organization\nName: ${org.name}\nIndustry: ${org.industry}\nFocus: ${org.focus_areas}\nDescription: ${org.description || ""}`;
-        await indexItem(org.id, content, { type: "organization", title: org.name });
+        await indexItem(org.slug, content, { type: "organization", title: org.name });
         indexedCount++;
       } catch (e: any) {
-        errors.push({ id: org.id, type: "organization", error: e.message });
+        errors.push({ id: org.slug, type: "organization", error: e.message });
       }
     }
   }
@@ -119,21 +119,9 @@ async function indexItem(id: string, text: string, metadata: any) {
   const { error } = await supabase
     .from("search_documents")
     .upsert({
-      // We assume search_documents has a unique constraint on something, 
-      // but usually it's just an ID. Ideally we store `source_id` and `type` to dedup.
-      // For now, we'll blindly insert or we need a way to identify the row.
-      // Actually, if we don't have a unique ID for search_documents, upsert might insert duplicates.
-      // Let's rely on standard insert for now, or assume there's no unique constraint violation if we don't provide ID.
-      // Wait, to UPDATE existing, we need to know the search_document ID. 
-      // A simple strategy is: DELETE where type=X and source_id=Y, then INSERT.
-      // Or just INSERT and let vector search handle it (dupes are messy though).
-      // Let's try to match on metadata if possible? No, metadata is JSONB.
-      // Best approach for quick script: Delete old embeddings for this item type/id? 
-      // Supabase vector store doesn't usually enforce constraints on metadata.
-      // I will simplify: just INSERT. The user can clear table if needed.
        content: text,
        embedding,
-       metadata: { ...metadata, source_id: id }
+       metadata: { ...metadata, link: id }
     });
 
   if (error) throw error;

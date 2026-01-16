@@ -12,6 +12,7 @@ type ChatMsg = {
   id: string;
   role: "user" | "ai";
   text: string;
+  parts?: any[];
   ts: number;
 };
 
@@ -21,6 +22,7 @@ type ChatThread = {
   createdAt: number;
   updatedAt: number;
   msgs: ChatMsg[];
+  generatingTitle?: boolean;
 };
 
 const FIXED_REPLY =
@@ -268,13 +270,48 @@ How can I help you?`,
 
   const [input, setInput] = useState("");
 
+  const generateTitle = async (threadId: string, inputText: string) => {
+    try {
+      // Mark as generating to prevent double-triggers (optimistic update could act as lock)
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === threadId ? { ...t, generatingTitle: true } : t
+        )
+      );
+
+      const res = await fetch("/api/chat/title", {
+        method: "POST",
+        body: JSON.stringify({ inputText }),
+      });
+      if (!res.ok) throw new Error("Failed to generate title");
+      const { title } = await res.json();
+
+      if (title) {
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === threadId ? { ...t, title, generatingTitle: false, updatedAt: Date.now() } : t
+          )
+        );
+      }
+    } catch (e) {
+      console.warn("Title generation failed", e);
+      // Reset generating flag
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === threadId ? { ...t, generatingTitle: false } : t
+        )
+      );
+    }
+  };
+
   const renameIfNeeded = (threadId: string, userText: string) => {
+    // Legacy manual rename - kept for manual override if needed, or we can remove usage
     const title = (userText || "").trim().slice(0, 42);
     if (!title) return;
 
     setThreads((prev) =>
       prev.map((t) =>
-        t.id === threadId && (t.title === "New chat" || !t.title)
+        t.id === threadId
           ? { ...t, title, updatedAt: Date.now() }
           : t
       )
@@ -283,10 +320,11 @@ How can I help you?`,
 
   const { messages, setMessages, sendMessage, status, stop, regenerate, error } = useChat({
     id: activeThread?.id,
-    initialMessages: activeThread?.msgs.map((m) => ({
+    messages: activeThread?.msgs.map((m) => ({
       id: m.id,
       role: m.role === "ai" ? "assistant" : "user",
       content: m.text,
+      parts: m.parts,
       createdAt: new Date(m.ts),
     })) ?? [],
     transport: new DefaultChatTransport({
@@ -295,12 +333,6 @@ How can I help you?`,
     onFinish: (message: any) => {
       // This callback runs when the AI finishes its response.
       // You can add analytics or other logic here.
-
-      // ANSWER TO OPENAI QUESTION:
-      // To use OpenAI instead of Gemini, you just need to:
-      // 1. In `app/api/chat/route.ts`, change the model to `openai('gpt-4-turbo')` (or similar).
-      // 2. Ensure you have the `openai` provider configured.
-      // 3. This frontend code (useChat) remains EXACTLY the same! The Vercel AI SDK abstracts the provider differences.
     }
   } as any);
 
@@ -323,8 +355,9 @@ How can I help you?`,
     const currentMsgs: ChatMsg[] = messages.map((m) => ({
       id: m.id,
       role: m.role === "assistant" ? "ai" : (m.role as "user" | "ai"),
-      text: m.parts?.find(p => p.type === 'text')?.text || "",
-      ts: Date.now(),
+      text: (m as any).content || m.parts?.find(p => p.type === 'text')?.text || "",
+      parts: m.parts,
+      ts: (m as any).createdAt?.getTime() || Date.now(),
     }));
 
     // Avoid infinite loops: check if length or content changed significantly
@@ -337,9 +370,11 @@ How can I help you?`,
         if (t.id === activeThread.id) {
           let title = t.title;
           // Auto-rename logic
-          if (title === "New chat" && currentMsgs.length > 1) {
+          if (title === "New chat" && currentMsgs.length >= 2) {
             const firstUser = currentMsgs.find(m => m.role === 'user');
-            if (firstUser) title = firstUser.text.slice(0, 40).trim();
+            if (firstUser && !t.generatingTitle) {
+              generateTitle(t.id, firstUser.text);
+            }
           }
           return { ...t, msgs: currentMsgs, title, updatedAt: Date.now() };
         }

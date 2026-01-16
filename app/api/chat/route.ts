@@ -13,7 +13,8 @@ export async function POST(req: Request) {
 
   const lastMessage = messages[messages.length - 1];
   // Extract text content robustly
-  const query = lastMessage.parts?.find(p => p.type === 'text')?.text || "";
+  // Extract text content robustly
+  const query = (lastMessage as any).content || lastMessage.parts?.find(p => p.type === 'text')?.text || "";
 
   try {
     // 1. Generate embedding using OpenAI
@@ -36,8 +37,9 @@ export async function POST(req: Request) {
     }
 
     // 3. Construct system prompt
-    const context = documents?.map((doc: any) => doc.content).join("\n\n---\n\n") || "No relevant documents found.";
+    const context = documents?.map((doc: any) => `${doc.content}\nID: ${doc.metadata.link}\nType: ${doc.metadata.type}`).join("\n\n---\n\n") || "No relevant documents found.";
 
+    console.log("Context:", documents);
     const systemPrompt = `
 You are Tattva AI, an intelligent and helpful AI assistant for Quantum5ocial.
 You have access to the following real-time data from the platform:
@@ -51,7 +53,14 @@ Instructions:
 - Do not hallucinate jobs or facts not present in the context.
 - Filter out the results that are not relevant to the user's question.
 - **Formating**: Use Markdown tables or bulleted lists to present job listings or data clearly. Avoid dense paragraphs for lists.
+- **Linking**:
+  - When mentioning a Job, you MUST link to it using the format: \`[Job Title](/jobs/ID)\` (using the ID from the context).
+  - When mentioning a Product, you MUST link to it using the format: \`[Product Name](/products/ID)\`.
+  - When mentioning a User/Profile, you MUST link to it using the format: \`[Name](/profile/ID)\`.
+  - When mentioning an Organization, you MUST link to it using the format: \`[Name](/orgs/ID)\`.
+  - Do NOT create links for types other than Job, Product, Profile, or Organization unless you are certain of the URL.
     `.trim();
+    console.log("System prompt:", systemPrompt);
 
     // 4. Stream response
     const result = streamText({
