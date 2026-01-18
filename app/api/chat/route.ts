@@ -92,10 +92,9 @@ Instructions:
   - When mentioning a Product, you MUST link to it using the format: \`[Product Name](/products/ID)\`.
   - When mentioning a User/Profile, you MUST link to it using the format: \`[Name](/profile/ID)\`.
   - When mentioning an Organization, you MUST link to it using the format: \`[Name](/orgs/ID)\`.
-  - Do NOT create links for types other than Job, Product, Profile, or Organization unless you are certain of the URL.
+  - Do NOT create links for Q&A questions, threads, or tags.
+  - Do NOT create links for STRICTLY anything else other than the 4 types listed above.
     `.trim();
-
-    console.log(systemPrompt);
 
     // 4. Stream response
     const result = streamText({
