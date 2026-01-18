@@ -612,56 +612,56 @@ How can I help you?`,
                 </div>
               </div>
             ))}
-          </div>
-          {isLoading && (
-            <div
-              className="typing-indicator"
-              style={{
-                alignSelf: "flex-start",
-                maxWidth: "78%",
-                padding: "10px 12px",
-                borderRadius: 16,
-                fontSize: 13.5,
-                lineHeight: 1.35,
-                border:
-                  "1px solid rgba(148,163,184,0.22)",
-                background:
-                  "rgba(2,6,23,0.35)",
-                color: "rgba(226,232,240,0.95)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              }}>
-              <span>•</span><span>•</span><span>•</span>
-            </div>
-          )}
+            {isLoading && (
+              <div
+                className="typing-indicator"
+                style={{
+                  alignSelf: "flex-start",
+                  maxWidth: "78%",
+                  padding: "10px 12px",
+                  borderRadius: 16,
+                  fontSize: 13.5,
+                  lineHeight: 1.35,
+                  border:
+                    "1px solid rgba(148,163,184,0.22)",
+                  background:
+                    "rgba(2,6,23,0.35)",
+                  color: "rgba(226,232,240,0.95)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}>
+                <span></span><span></span><span></span>
+              </div>
+            )}
 
-          {error && (
-            <div
-              style={{
-                alignSelf: "flex-start",
-                maxWidth: "78%",
-                padding: "10px 12px",
-                borderRadius: 16,
-                fontSize: 13.5,
-                lineHeight: 1.35,
-                border:
-                  "1px solid rgba(148,163,184,0.22)",
-                background:
-                  "rgba(127, 29, 29, 0.4)",
-                color: "rgba(226,232,240,0.95)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              }}>
-              <div>Quantum fluctuation detected: {error.message}</div>
-              <button
-                onClick={() => regenerate()}
-                className="retry-btn"
-                type="button"
-              >
-                ↻ Retry
-              </button>
-            </div>
-          )}
+            {error && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  maxWidth: "78%",
+                  padding: "10px 12px",
+                  borderRadius: 16,
+                  fontSize: 13.5,
+                  lineHeight: 1.35,
+                  border:
+                    "1px solid rgba(148,163,184,0.22)",
+                  background:
+                    "rgba(127, 29, 29, 0.4)",
+                  color: "rgba(226,232,240,0.95)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}>
+                <div>Quantum fluctuation detected: {error.message}</div>
+                <button
+                  onClick={() => regenerate()}
+                  className="retry-btn"
+                  type="button"
+                >
+                  ↻ Retry
+                </button>
+              </div>
+            )}
+          </div>
 
           <form
             onSubmit={(e) => {
@@ -1151,7 +1151,7 @@ How can I help you?`,
         }
         `}</style>
       </div>
-    </section>
+    </section >
   );
 }
 
