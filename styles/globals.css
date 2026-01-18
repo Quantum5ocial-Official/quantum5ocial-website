@@ -428,7 +428,7 @@ a:focus {
 
 .hero-highlight {
   background: linear-gradient(120deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
+  --webkit-background-clip: text;
   color: transparent;
 }
 

@@ -574,11 +574,10 @@ How can I help you?`,
                       ? "rgba(2,6,23,0.55)"
                       : "rgba(2,6,23,0.35)",
                   color: "rgba(226,232,240,0.95)",
-                  whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
                 }}
               >
-                <span>
+                <div>
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -599,12 +598,18 @@ How can I help you?`,
                       ),
                       ol: ({ node, ...props }) => (
                         <ol {...props} style={{ paddingLeft: 20, margin: "10px 0" }} />
+                      ),
+                      li: ({ node, ...props }) => (
+                        <li {...props} style={{ marginBottom: 4 }} />
+                      ),
+                      p: ({ node, ...props }) => (
+                        <p {...props} style={{ margin: 0, display: 'inline' }} />
                       )
                     }}
                   >
                     {m.text}
                   </ReactMarkdown>
-                </span>
+                </div>
               </div>
             ))}
           </div>
