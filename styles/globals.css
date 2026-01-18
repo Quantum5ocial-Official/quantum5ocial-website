@@ -428,7 +428,7 @@ a:focus {
 
 .hero-highlight {
   background: linear-gradient(120deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
+  --webkit-background-clip: text;
   color: transparent;
 }
 
@@ -3733,3 +3733,23 @@ html.theme-light footer {
 }
 .heroCompanyLink { position: relative; z-index: 5; pointer-events: auto; }
 .job-detail-card { cursor: default; }
+
+/* ========== SCROLLBAR ========== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-soft);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}

@@ -15,11 +15,31 @@ export async function POST(req: Request) {
   // Extract text content robustly
   const query = (lastMessage as any).content || lastMessage.parts?.find(p => p.type === 'text')?.text || "";
 
+  // Enrich query with user context if personalization is implied
+  let searchInput = query;
+  if (userProfile) {
+    const q = query.toLowerCase();
+    const isPersonal = q.includes("my") || q.includes("me") || q.includes("i ") || q.includes("recommend") || q.includes("match") || q.includes("suitable");
+    
+    if (isPersonal) {
+      const keywords = [
+        userProfile.skills,
+        userProfile.focus_areas,
+        userProfile.current_title,
+        userProfile.role
+      ].filter(Boolean).join(" ");
+      
+      if (keywords) {
+        searchInput = `${query} ${keywords}`;
+      }
+    }
+  }
+
   try {
     // 1. Generate embedding using OpenAI
     const { embedding } = await embed({
       model: openai.textEmbeddingModel("text-embedding-3-small"),
-      value: query,
+      value: searchInput,
     });
 
     // 2. Retrieve relevant documents
@@ -81,7 +101,10 @@ Instructions:
     const result = streamText({
       model: openai("gpt-4o"),
       system: systemPrompt,
-      messages: await convertToModelMessages(messages),
+      messages: messages.map(m => ({
+        role: m.role as "user" | "assistant",
+        content: (m as any).content || m.parts?.filter(p => p.type === 'text').map(p => p.text).join('') || "",
+      })),
     });
 
     return result.toUIMessageStreamResponse();
