@@ -182,6 +182,17 @@ export default function JobDetailPage() {
       return;
     }
 
+    // Sync to search index
+    await fetch("/api/search/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "job",
+        data: { id: job.id },
+        action: "delete"
+      })
+    });
+
     router.push("/jobs");
   };
 

@@ -156,10 +156,10 @@ export default function NewProductPage() {
 
         const { data: memberOrgs, error: memberOrgsErr } = memberOrgIds.length
           ? await supabase
-              .from("organizations")
-              .select("id,name,slug,created_by,is_active")
-              .eq("is_active", true)
-              .in("id", memberOrgIds)
+            .from("organizations")
+            .select("id,name,slug,created_by,is_active")
+            .eq("is_active", true)
+            .in("id", memberOrgIds)
           : { data: [], error: null as any };
 
         if (memberOrgsErr) throw memberOrgsErr;
@@ -371,14 +371,14 @@ export default function NewProductPage() {
 
   const handleFormChange =
     (field: keyof typeof form) =>
-    (
-      e:
-        | React.ChangeEvent<HTMLInputElement>
-        | React.ChangeEvent<HTMLTextAreaElement>
-        | React.ChangeEvent<HTMLSelectElement>
-    ) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }));
-    };
+      (
+        e:
+          | React.ChangeEvent<HTMLInputElement>
+          | React.ChangeEvent<HTMLTextAreaElement>
+          | React.ChangeEvent<HTMLSelectElement>
+      ) => {
+        setForm((prev) => ({ ...prev, [field]: e.target.value }));
+      };
 
   const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []).slice(0, 3);
@@ -442,8 +442,8 @@ export default function NewProductPage() {
       form.stock_quantity.trim() === ""
         ? null
         : Number.isNaN(Number(form.stock_quantity))
-        ? null
-        : parseInt(form.stock_quantity, 10);
+          ? null
+          : parseInt(form.stock_quantity, 10);
 
     const priceType = form.price_type === "fixed" ? "fixed" : "contact";
     const priceValue =
@@ -547,6 +547,22 @@ export default function NewProductPage() {
         console.error("Error updating product with file URLs", updateFilesError);
       }
 
+      // Sync to search index
+      await fetch("/api/search/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "product",
+          data: {
+            id: productId,
+            name: form.name.trim(),
+            company_name: isEditMode ? form.company_name : org!.name,
+            category: form.category,
+            description: form.full_description || form.short_description
+          }
+        })
+      });
+
       router.push(`/products/${productId}`);
     } catch (err) {
       console.error("Unexpected error", err);
@@ -564,15 +580,15 @@ export default function NewProductPage() {
   const lockCompanyField = !!org;
 
   const backTarget = useMemo(() => {
-  // ✅ If editing: always go back to the product detail page
-  if (isEditMode) return id ? `/products/${id}` : "/products";
+    // ✅ If editing: always go back to the product detail page
+    if (isEditMode) return id ? `/products/${id}` : "/products";
 
-  // ✅ If creating from an org page: go back to org products tab
-  if (org?.slug) return `/orgs/${org.slug}?tab=products`;
+    // ✅ If creating from an org page: go back to org products tab
+    if (org?.slug) return `/orgs/${org.slug}?tab=products`;
 
-  // ✅ If creating from marketplace: go back to products list
-  return "/products";
-}, [isEditMode, id, org?.slug]);
+    // ✅ If creating from marketplace: go back to products list
+    return "/products";
+  }, [isEditMode, id, org?.slug]);
 
   const showPublishAsPicker = !isEditMode && isMarketplaceCreate && eligibleOrgs.length > 1;
 
@@ -901,8 +917,8 @@ export default function NewProductPage() {
                             ? "Saving…"
                             : "Publishing…"
                           : isEditMode
-                          ? "Save changes"
-                          : "Publish product"}
+                            ? "Save changes"
+                            : "Publish product"}
                       </button>
 
                       {createError && <span className="products-status error">{createError}</span>}

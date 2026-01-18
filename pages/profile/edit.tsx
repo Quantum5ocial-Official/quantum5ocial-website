@@ -217,14 +217,14 @@ export default function ProfileEditPage() {
 
   const handleChange =
     (field: keyof typeof form) =>
-    (
-      e:
-        | React.ChangeEvent<HTMLInputElement>
-        | React.ChangeEvent<HTMLTextAreaElement>
-        | React.ChangeEvent<HTMLSelectElement>
-    ) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }));
-    };
+      (
+        e:
+          | React.ChangeEvent<HTMLInputElement>
+          | React.ChangeEvent<HTMLTextAreaElement>
+          | React.ChangeEvent<HTMLSelectElement>
+      ) => {
+        setForm((prev) => ({ ...prev, [field]: e.target.value }));
+      };
 
   const normalizeUrlOrNull = (v: string) => {
     const s = (v || "").trim();
@@ -300,6 +300,16 @@ export default function ProfileEditPage() {
       setSaving(false);
       return;
     }
+
+    // Sync to search index
+    await fetch("/api/search/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "profile",
+        data: payloadPublic
+      })
+    });
 
     setSaveMessage("Profile updated ✅");
     setSaving(false);

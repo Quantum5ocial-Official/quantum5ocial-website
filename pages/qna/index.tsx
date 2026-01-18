@@ -280,6 +280,16 @@ function QnAComposerStrip({
 
         onCreated(normalized);
 
+        // Sync to search index
+        await fetch("/api/search/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "question",
+            data: normalized
+          })
+        });
+
         // ✅ UX: focus the new question right away (so notifications + deep links match)
         router.replace(
           { pathname: "/qna", query: { focus: normalized.id } },

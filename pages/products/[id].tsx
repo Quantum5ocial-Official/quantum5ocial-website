@@ -108,6 +108,17 @@ export default function ProductDetailPage() {
       return;
     }
 
+    // Sync to search index
+    await fetch("/api/search/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "product",
+        data: { id: product.id },
+        action: "delete"
+      })
+    });
+
     setDeleting(false);
     router.push("/products");
   };
@@ -135,10 +146,10 @@ export default function ProductDetailPage() {
     product.in_stock === false
       ? "Out of stock"
       : product.stock_quantity != null
-      ? `In stock · ${product.stock_quantity} pcs`
-      : product.in_stock
-      ? "In stock"
-      : "Stock not specified";
+        ? `In stock · ${product.stock_quantity} pcs`
+        : product.in_stock
+          ? "In stock"
+          : "Stock not specified";
 
   const keywordList =
     product.keywords

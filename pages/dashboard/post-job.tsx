@@ -52,7 +52,7 @@ export default function PostJobPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.from("jobs").insert({
+      const { data, error } = await supabase.from("jobs").insert({
         title,
         organisation_name: organisationName,
         location_text: locationText || null,
@@ -63,7 +63,26 @@ export default function PostJobPage() {
         contact_email: contactEmail || null,
         owner_id: userId,
         is_published: true,
-      });
+      })
+        .select()
+        .single();
+
+      if (data) {
+        // Sync to search index
+        await fetch("/api/search/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "job",
+            data: {
+              ...data,
+              company_name: organisationName, // Map mismatch naming
+              additional_description: description,
+              location: locationText
+            }
+          })
+        });
+      }
 
       if (error) {
         setError(error.message);
