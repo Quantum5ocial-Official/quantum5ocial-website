@@ -93,7 +93,8 @@ export default function JobDetailPage() {
             `
               *,
               organizations:organizations(
-                slug
+                slug,
+                name
               )
             `
           )
@@ -106,12 +107,22 @@ export default function JobDetailPage() {
           setJob(null);
         } else if (data) {
           const jobRow: any = data;
+
           const orgSlug = jobRow.organizations?.slug ?? null;
+
+          // ✅ Company name fallback:
+          // - backend-filled jobs: company_name / organisation_name
+          // - org-posted jobs: organizations.name (joined)
+          const companyName =
+            jobRow.company_name ??
+            jobRow.organisation_name ??
+            jobRow.organizations?.name ??
+            null;
 
           const jobWithOrg: Job = {
             id: jobRow.id,
             title: jobRow.title,
-            company_name: jobRow.company_name,
+            company_name: companyName,
 
             org_id:
               jobRow.org_id ??
@@ -120,10 +131,11 @@ export default function JobDetailPage() {
               null,
             org_slug: orgSlug,
 
-            location: jobRow.location,
-            employment_type: jobRow.employment_type,
-            remote_type: jobRow.remote_type,
-            short_description: jobRow.short_description,
+            // ✅ Location fallback for imported jobs
+            location: jobRow.location ?? jobRow.location_text ?? null,
+            employment_type: jobRow.employment_type ?? null,
+            remote_type: jobRow.remote_type ?? null,
+            short_description: jobRow.short_description ?? null,
 
             additional_description:
               jobRow.additional_description ?? jobRow.description ?? null,
@@ -134,11 +146,11 @@ export default function JobDetailPage() {
             ideal_qualifications: jobRow.ideal_qualifications ?? null,
             what_we_offer: jobRow.what_we_offer ?? null,
 
-            keywords: jobRow.keywords,
-            salary_display: jobRow.salary_display,
-            apply_url: jobRow.apply_url,
-            owner_id: jobRow.owner_id,
-            created_at: jobRow.created_at,
+            keywords: jobRow.keywords ?? null,
+            salary_display: jobRow.salary_display ?? null,
+            apply_url: jobRow.apply_url ?? null,
+            owner_id: jobRow.owner_id ?? null,
+            created_at: jobRow.created_at ?? null,
           };
 
           setJob(jobWithOrg);
@@ -189,8 +201,8 @@ export default function JobDetailPage() {
       body: JSON.stringify({
         type: "job",
         data: { id: job.id },
-        action: "delete"
-      })
+        action: "delete",
+      }),
     });
 
     router.push("/jobs");
@@ -294,13 +306,13 @@ export default function JobDetailPage() {
         {!loading && !loadError && job && (
           <div className="job-detail-card">
             <div className="hero">
-              {/* ✅ JOB BY: ... (same row), posted stays top-right under it */}
               <div className="heroTopRow">
-                <div className="heroByRow">
-                  <div className="heroKicker">JOB BY:</div>
+                {/* ✅ Show JOB BY only if we have a company name */}
+                {!!(job.company_name || "").trim() && (
+                  <div className="heroByRow">
+                    <div className="heroKicker">JOB BY:</div>
 
-                  {job.company_name ? (
-                    job.org_slug ? (
+                    {job.org_slug ? (
                       <Link
                         href={`/orgs/${encodeURIComponent(job.org_slug)}`}
                         legacyBehavior
@@ -310,13 +322,9 @@ export default function JobDetailPage() {
                       </Link>
                     ) : (
                       <div className="heroCompany">{job.company_name}</div>
-                    )
-                  ) : (
-                    <div className="heroCompany" style={{ opacity: 0.6 }}>
-                      —
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
 
                 {postedAgo && <div className="heroPosted">Posted — {postedAgo}</div>}
               </div>
