@@ -137,6 +137,22 @@ export default function CreateResearchGroupPage() {
         throw error || new Error("No organization data returned");
       }
 
+      // Sync to search index
+      await fetch("/api/search/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "organization",
+          data: {
+            ...data,
+            name: groupName,
+            industry: "Research", // Specific for group
+            focus_areas: focusAreas,
+            description: tagline
+          }
+        })
+      });
+
       // ⬇️ 2) Create membership row for creator as owner + affiliated
       const { error: memberError } = await supabase.from("org_members").insert({
         org_id: data.id,

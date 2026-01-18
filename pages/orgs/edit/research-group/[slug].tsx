@@ -230,6 +230,22 @@ export default function EditResearchGroupPage() {
 
       if (error) throw error;
 
+      // Sync to search index
+      await fetch("/api/search/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "organization",
+          data: {
+            id: orgId,
+            name: groupName,
+            industry: "Research",
+            focus_areas: focusAreas,
+            description: tagline
+          }
+        })
+      });
+
       setSubmitMessage("Research group page updated successfully.");
 
       // If slug changed, navigate to the new public URL (and stop here).
@@ -264,7 +280,7 @@ export default function EditResearchGroupPage() {
           <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>
             Edit research group page
           </h1>
-        <p style={{ fontSize: 15, opacity: 0.8, maxWidth: 620 }}>
+          <p style={{ fontSize: 15, opacity: 0.8, maxWidth: 620 }}>
             Update how your group or institute appears on Quantum5ocial.
           </p>
         </header>

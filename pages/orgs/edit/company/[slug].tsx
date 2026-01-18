@@ -228,7 +228,7 @@ export default function EditCompanyPage() {
     setLogoFile(files[0]);
   };
 
-    const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitMessage(null);
     setSubmitError(null);
@@ -298,6 +298,22 @@ export default function EditCompanyPage() {
 
       if (error) throw error;
 
+      // Sync to search index
+      await fetch("/api/search/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "organization",
+          data: {
+            id: orgId,
+            name,
+            industry,
+            focus_areas: focusAreas,
+            description: description || tagline
+          }
+        })
+      });
+
       // Decide which slug to use for redirect
       const finalSlug =
         effectiveSlug && effectiveSlug !== slugFromUrl
@@ -317,7 +333,7 @@ export default function EditCompanyPage() {
       // nicer message if something similar ever appears again
       const friendly =
         raw &&
-        raw.includes("Cannot coerce the result to a single JSON object")
+          raw.includes("Cannot coerce the result to a single JSON object")
           ? "Update failed – no row was updated. Please check your permissions."
           : raw || "Something went wrong while updating the company.";
 
