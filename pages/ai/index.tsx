@@ -91,7 +91,7 @@ function TattvaAIMiddle() {
   const isMobile = useIsMobile(900);
 
   // name from profiles
-  const [profileName, setProfileName] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   useEffect(() => {
     const uid = user?.id;
@@ -101,7 +101,7 @@ function TattvaAIMiddle() {
     (async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("*")
         .eq("id", uid)
         .maybeSingle();
 
@@ -109,11 +109,11 @@ function TattvaAIMiddle() {
 
       if (error) {
         console.warn("AI page: could not load profile name", error);
-        setProfileName(null);
+        setUserProfile(null);
         return;
       }
 
-      setProfileName((data as any)?.full_name ?? null);
+      setUserProfile(data || null);
     })();
 
     return () => {
@@ -122,7 +122,7 @@ function TattvaAIMiddle() {
   }, [user?.id]);
 
   const displayFirstName = useMemo(() => {
-    const fromProfile = firstNameOf(profileName);
+    const fromProfile = firstNameOf(userProfile?.full_name);
     if (fromProfile) return fromProfile;
 
     const meta =
@@ -135,7 +135,7 @@ function TattvaAIMiddle() {
 
     // never use email
     return "there";
-  }, [profileName, user?.id]);
+  }, [userProfile, user?.id]);
 
   // history persistence per-user
   const storageKey = useMemo(() => {
@@ -329,6 +329,7 @@ How can I help you?`,
     })) ?? [],
     transport: new DefaultChatTransport({
       api: '/api/chat',
+      body: { userProfile }
     }),
     onFinish: (message: any) => {
       // This callback runs when the AI finishes its response.
@@ -438,7 +439,6 @@ How can I help you?`,
     >
       {/* Header card */}
       <div
-        className="card"
         style={{
           padding: 18,
           marginBottom: 14,
@@ -446,6 +446,9 @@ How can I help you?`,
             "radial-gradient(circle at 0% 0%, rgba(56,189,248,0.16), rgba(15,23,42,0.96))",
           border: "1px solid rgba(148,163,184,0.35)",
           flex: "0 0 auto",
+          borderRadius: 18,
+          position: "relative",
+          overflow: "hidden"
         }}
       >
         <div
@@ -526,7 +529,6 @@ How can I help you?`,
       >
         {/* Chat */}
         <div
-          className="card"
           style={{
             flex: 1,
             minWidth: 0,
@@ -538,6 +540,7 @@ How can I help you?`,
             display: "flex",
             flexDirection: "column",
             borderRadius: 18,
+            position: "relative",
           }}
         >
           <div
@@ -575,7 +578,33 @@ How can I help you?`,
                   wordBreak: "break-word",
                 }}
               >
-                <span><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown></span>
+                <span>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ node, ...props }) => (
+                        <a
+                          {...props}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            color: "#22d3ee",
+                            textDecoration: "underline",
+                            fontWeight: 600
+                          }}
+                        />
+                      ),
+                      ul: ({ node, ...props }) => (
+                        <ul {...props} style={{ paddingLeft: 20, margin: "10px 0" }} />
+                      ),
+                      ol: ({ node, ...props }) => (
+                        <ol {...props} style={{ paddingLeft: 20, margin: "10px 0" }} />
+                      )
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                </span>
               </div>
             ))}
           </div>
@@ -689,7 +718,6 @@ How can I help you?`,
         {/* Desktop right rail (unchanged) */}
         {!isMobile && (
           <aside
-            className="card"
             style={{
               width: railCollapsed ? railCollapsedW : railW,
               maxWidth: "calc(100vw - 56px)",
@@ -702,6 +730,7 @@ How can I help you?`,
               borderRadius: 18,
               flexShrink: 0,
               minHeight: 0,
+              position: "relative",
             }}
           >
             {/* top bar */}
@@ -869,21 +898,6 @@ How can I help you?`,
                             {t.title || "Chat"}
                           </div>
 
-                          <div
-                            style={{
-                              marginTop: 6,
-                              fontSize: 12,
-                              opacity: 0.78,
-                              lineHeight: 1.25,
-                              display: "-webkit-box",
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: "vertical",
-                              overflow: "hidden",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {preview || "—"}
-                          </div>
                         </button>
                       );
                     })

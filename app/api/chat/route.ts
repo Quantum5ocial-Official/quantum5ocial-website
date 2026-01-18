@@ -9,10 +9,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { messages, userProfile }: { messages: UIMessage[], userProfile?: any } = await req.json();
 
   const lastMessage = messages[messages.length - 1];
-  // Extract text content robustly
   // Extract text content robustly
   const query = (lastMessage as any).content || lastMessage.parts?.find(p => p.type === 'text')?.text || "";
 
@@ -28,7 +27,7 @@ export async function POST(req: Request) {
       .rpc("match_documents", {
         query_embedding: embedding,
         match_threshold: 0.1,
-        match_count: 5,
+        match_count: 10,
       });
 
     if (searchError) {
@@ -39,12 +38,27 @@ export async function POST(req: Request) {
     // 3. Construct system prompt
     const context = documents?.map((doc: any) => `${doc.content}\nID: ${doc.metadata.link}\nType: ${doc.metadata.type}`).join("\n\n---\n\n") || "No relevant documents found.";
 
-    console.log("Context:", documents);
+    // Format user profile for context
+    let userContext = "User is anonymous.";
+    if (userProfile) {
+      userContext = `
+**Current User Context:**
+- **Name:** ${userProfile.full_name || "Unknown"}
+- **Role:** ${userProfile.role || userProfile.current_title || "Unknown"}
+- **Skills:** ${userProfile.skills || "N/A"}
+- **Focus Areas:** ${userProfile.focus_areas || "N/A"}
+- **Bio:** ${userProfile.short_bio || "N/A"}
+- **ID:** ${userProfile.id}
+      `.trim();
+    }
+
     const systemPrompt = `
 You are Tattva AI, an intelligent and helpful AI assistant for Quantum5ocial.
 You have access to the following real-time data from the platform:
 
 ${context}
+
+${userContext}
 
 Instructions:
 - Answer the user's question based ONLY on the provided context.
@@ -60,7 +74,8 @@ Instructions:
   - When mentioning an Organization, you MUST link to it using the format: \`[Name](/orgs/ID)\`.
   - Do NOT create links for types other than Job, Product, Profile, or Organization unless you are certain of the URL.
     `.trim();
-    console.log("System prompt:", systemPrompt);
+
+    console.log(systemPrompt);
 
     // 4. Stream response
     const result = streamText({
