@@ -469,11 +469,74 @@ function HomeGlobalFeed() {
     setError(null);
 
     try {
-      const { data: postRows, error: postErr } = await supabase
-        .from("posts")
-        .select("id, user_id, body, created_at, image_url, org_id") // 👈 include org_id
-        .order("created_at", { ascending: false })
-        .limit(30);
+
+      let postRows: PostRow[] | null = null;
+      let postErr: any = null;
+
+      // 1. If user is logged in, try fetching personalized feed IDs first
+      let recommendedIds: string[] = [];
+      if (uid) {
+        try {
+          const res = await fetch("/api/feed/personalized", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: uid }),
+          });
+          const data = await res.json();
+          if (data.postIds && Array.isArray(data.postIds)) {
+            recommendedIds = data.postIds;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch personalized feed", e);
+        }
+      }
+
+      // 2. Fetch posts based on recommendation or fallback to latest
+      if (recommendedIds.length > 0) {
+        // Fetch recommended posts
+        const { data: recPosts, error: recErr } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url, org_id")
+          .in("id", recommendedIds);
+
+        if (recErr) throw recErr;
+
+        // Also fetch some latest posts to keep feed fresh (mix-in)
+        const { data: freshPosts, error: freshErr } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url, org_id")
+          .order("created_at", { ascending: false })
+          .limit(10); // Fetch top 10 fresh to mix in
+
+        if (freshErr) throw freshErr;
+
+        // Merge: Recommended first, then fresh, dedup by ID
+        const recMap = new Map(recPosts?.map(p => [p.id, p]));
+        freshPosts?.forEach(p => {
+          if (!recMap.has(p.id)) recMap.set(p.id, p);
+        });
+
+        postRows = Array.from(recMap.values());
+
+        // Specific sorting? 
+        // Let's sort by created_at for now to avoid disjointed timeline, 
+        // OR keep recommended order? 
+        // User "tailor made" usually implies relevance > time.
+        // But purely relevance can show old posts. 
+        // Let's simple sort by created_at descending for the mixed set for consistency
+        postRows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      } else {
+        // Fallback: standard latest feed
+        const { data, error } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url, org_id")
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        postRows = data;
+        postErr = error;
+      }
 
       if (postErr) throw postErr;
 
@@ -652,10 +715,10 @@ function HomeGlobalFeed() {
         x.post.id !== postId
           ? x
           : {
-              ...x,
-              likedByMe: nextLiked,
-              likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
-            }
+            ...x,
+            likedByMe: nextLiked,
+            likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
+          }
       )
     );
 
@@ -774,6 +837,9 @@ function HomeGlobalFeed() {
       <div className="section-header" style={{ marginTop: 0 }}>
         <div>
           <div className="section-title">My Q5-feed</div>
+          <div className="section-sub" style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            {user ? "Personalized for you based on interests & connections" : "Explore the latest updates"}
+          </div>
         </div>
 
         <button
@@ -1162,8 +1228,8 @@ function HomeComposerStrip() {
         ? "What’s on your mind?"
         : `What’s on your mind, ${firstName}?`
       : isMobile
-      ? "Ask the community…"
-      : "Ask the quantum community…";
+        ? "Ask the community…"
+        : "Ask the quantum community…";
 
   const canSubmit =
     mode === "post"
@@ -1347,7 +1413,7 @@ function HomeComposerStrip() {
       console.error("submitAskToQnA error:", e);
       setAskError(
         e?.message ||
-          "Could not post your question. Check Supabase RLS/policies for qna_questions."
+        "Could not post your question. Check Supabase RLS/policies for qna_questions."
       );
     } finally {
       setAskSaving(false);
@@ -1580,29 +1646,29 @@ function HomeComposerStrip() {
                       </div>
                       <div style={{ marginTop: 8 }}>
                         <div
-  style={{
-    width: "100%",
-    height: 360, // ✅ standard frame height
-    borderRadius: 12,
-    overflow: "hidden",
-    background: "rgba(2,6,23,0.35)", // ✅ makes letterboxing look intentional
-    border: "1px solid rgba(148,163,184,0.18)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
-  <img
-    src={postPhotoPreview}
-    alt="Preview"
-    style={{
-      width: "100%",
-      height: "100%",
-      objectFit: "contain", // ✅ show the whole image (no crop)
-      display: "block",
-    }}
-  />
-</div>
+                          style={{
+                            width: "100%",
+                            height: 360, // ✅ standard frame height
+                            borderRadius: 12,
+                            overflow: "hidden",
+                            background: "rgba(2,6,23,0.35)", // ✅ makes letterboxing look intentional
+                            border: "1px solid rgba(148,163,184,0.18)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <img
+                            src={postPhotoPreview}
+                            alt="Preview"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain", // ✅ show the whole image (no crop)
+                              display: "block",
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1768,8 +1834,8 @@ function HomeComposerStrip() {
                     ? "Posting…"
                     : "Post"
                   : askSaving
-                  ? "Asking…"
-                  : "Ask"}
+                    ? "Asking…"
+                    : "Ask"}
               </button>
             </div>
 
