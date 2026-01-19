@@ -42,12 +42,27 @@ export async function POST(req: Request) {
       value: searchInput,
     });
 
-    // 2. Retrieve relevant documents
+    // 2. Fetch stats for global context (parallel)
+    const [
+      { count: jobCount },
+      { count: productCount },
+      { count: orgCount },
+      { count: userCount },
+      { count: qnaCount }
+    ] = await Promise.all([
+      supabase.from("jobs").select("*", { count: "exact", head: true }).eq("is_published", true),
+      supabase.from("products").select("*", { count: "exact", head: true }),
+      supabase.from("organizations").select("*", { count: "exact", head: true }).eq("is_active", true),
+      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("qna_questions").select("*", { count: "exact", head: true })
+    ]);
+
+    // 3. Retrieve relevant documents
     const { data: documents, error: searchError } = await supabase
       .rpc("match_documents", {
         query_embedding: embedding,
         match_threshold: 0.1,
-        match_count: 10,
+        match_count: 20,
       });
 
     if (searchError) {
@@ -55,7 +70,7 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: searchError.message }), { status: 500 });
     }
 
-    // 3. Construct system prompt
+    // 4. Construct system prompt
     const context = documents?.map((doc: any) => `${doc.content}\nID: ${doc.metadata.link}\nType: ${doc.metadata.type}`).join("\n\n---\n\n") || "No relevant documents found.";
 
     // Format user profile for context
@@ -76,13 +91,21 @@ export async function POST(req: Request) {
 You are Tattva AI, an intelligent and helpful AI assistant for Quantum5ocial.
 You have access to the following real-time data from the platform:
 
+**Global Stats:**
+- Total Jobs Available: ${jobCount}
+- Total Products: ${productCount}
+- Total Organizations: ${orgCount}
+- Total Professionals: ${userCount}
+- Total Community Questions: ${qnaCount}
+
+**Search Results:**
 ${context}
 
 ${userContext}
 
 Instructions:
 - Answer the user's question based ONLY on the provided context.
-- If the answer is not in the context, say "I can't find that in the quantum realm currently."
+- If the answer is not in the context, say "I can't find that in the quantum5ocial currently."
 - Be concise, helpful, and slightly snarky/witty.
 - Do not hallucinate jobs or facts not present in the context.
 - Filter out the results that are not relevant to the user's question.
