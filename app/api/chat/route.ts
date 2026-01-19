@@ -98,7 +98,7 @@ You have access to the following real-time data from the platform:
 - Total Professionals: ${userCount}
 - Total Community Questions: ${qnaCount}
 
-**Search Results:**
+**Search Results (Top 20):**
 ${context}
 
 ${userContext}
