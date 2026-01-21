@@ -72,6 +72,7 @@ type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
+  video_url: string | null; // ✅ new
   org_id: string | null; // 👈 post can belong to an org
 };
 
@@ -471,7 +472,7 @@ function HomeGlobalFeed() {
     try {
       const { data: postRows, error: postErr } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at, image_url, org_id") // 👈 include org_id
+        .select("id, user_id, body, created_at, image_url, video_url, org_id")
         .order("created_at", { ascending: false })
         .limit(30);
 
@@ -895,10 +896,10 @@ function HomeComposerStrip() {
   const [postError, setPostError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
-  const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(
-    null
-  );
+
+// ✅ Image OR video
+const [postMediaFile, setPostMediaFile] = useState<File | null>(null);
+const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
 
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
@@ -939,12 +940,13 @@ function HomeComposerStrip() {
   }, [user, loading]);
 
   useEffect(() => {
-    return () => {
-      if (postPhotoPreview?.startsWith("blob:"))
-        URL.revokeObjectURL(postPhotoPreview);
-    };
-  }, [postPhotoPreview]);
-
+  return () => {
+    if (postMediaPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(postMediaPreview);
+    }
+  };
+}, [postMediaPreview]);
+  
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
   const firstName =
@@ -1170,117 +1172,122 @@ function HomeComposerStrip() {
       ? !!postText.trim() && !postSaving
       : !!askTitle.trim() && !!askBody.trim() && !askSaving;
 
-  const pickPhoto = () => {
-    if (!isAuthed) {
-      window.location.href = "/auth?redirect=/";
-      return;
-    }
-    fileInputRef.current?.click();
+  const pickMedia = () => {
+  if (!isAuthed) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
+  fileInputRef.current?.click();
+};
+
+  const onMediaSelected = (file: File | null) => {
+  setMediaError(null);
+
+  if (postMediaPreview?.startsWith("blob:")) {
+    URL.revokeObjectURL(postMediaPreview);
+  }
+
+  if (!file) {
+    setPostMediaFile(null);
+    setPostMediaPreview(null);
+    return;
+  }
+
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+
+  if (!isImage && !isVideo) {
+    setMediaError("Only image or video files are allowed.");
+    return;
+  }
+
+  if (file.size > MAX_MEDIA_SIZE) {
+    setMediaError("Media must be smaller than 5 MB.");
+    return;
+  }
+
+  setPostMediaFile(file);
+  setPostMediaPreview(URL.createObjectURL(file));
+};
+
+  const clearMedia = () => {
+  setMediaError(null);
+  onMediaSelected(null);
+};
+
+const uploadPostMediaIfAny = async (): Promise<{
+  image_url: string | null;
+  video_url: string | null;
+}> => {
+  if (!user || !postMediaFile) {
+    return { image_url: null, video_url: null };
+  }
+
+  const isImage = postMediaFile.type.startsWith("image/");
+  const isVideo = postMediaFile.type.startsWith("video/");
+
+  const ext = (postMediaFile.name.split(".").pop() || "bin").toLowerCase();
+  const path = `posts/${user.id}/${Date.now()}-${Math.random()
+    .toString(16)
+    .slice(2)}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(POSTS_BUCKET)
+    .upload(path, postMediaFile, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: postMediaFile.type,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
+  const url = data?.publicUrl || null;
+
+  return {
+    image_url: isImage ? url : null,
+    video_url: isVideo ? url : null,
   };
+};
 
-  const onPhotoSelected = (file: File | null) => {
-    setMediaError(null);
+const submitPost = async () => {
+  if (!user) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
 
-    if (postPhotoPreview?.startsWith("blob:"))
-      URL.revokeObjectURL(postPhotoPreview);
+  const body = postText.trim();
+  if (!body) return;
 
-    if (!file) {
-      setPostPhotoFile(null);
-      setPostPhotoPreview(null);
-      return;
+  setPostSaving(true);
+  setPostError(null);
+
+  try {
+    const { image_url, video_url } = await uploadPostMediaIfAny();
+
+    const { error } = await supabase.from("posts").insert({
+      user_id: user.id,
+      body,
+      image_url,
+      video_url,
+    });
+
+    if (error) throw error;
+
+    setPostText("");
+    clearMedia();
+    closeComposer();
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("q5:feed-changed"));
     }
-
-    if (!file.type.startsWith("image/")) {
-      setMediaError("Only image files are allowed (video coming later).");
-      setPostPhotoFile(null);
-      setPostPhotoPreview(null);
-      return;
-    }
-
-    if (file.size > MAX_MEDIA_SIZE) {
-      setMediaError("Media must be smaller than 5 MB.");
-      setPostPhotoFile(null);
-      setPostPhotoPreview(null);
-      return;
-    }
-
-    setPostPhotoFile(file);
-    setPostPhotoPreview(URL.createObjectURL(file));
-  };
-
-  const clearPhoto = () => {
-    setMediaError(null);
-    onPhotoSelected(null);
-  };
-
-  const uploadPostPhotoIfAny = async (): Promise<string | null> => {
-    if (!user) return null;
-    if (!postPhotoFile) return null;
-
-    if (!postPhotoFile.type.startsWith("image/")) {
-      throw new Error("Please choose an image file.");
-    }
-
-    if (postPhotoFile.size > MAX_MEDIA_SIZE) {
-      throw new Error("Media must be smaller than 5 MB.");
-    }
-
-    const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `posts/${user.id}/${Date.now()}-${Math.random()
-      .toString(16)
-      .slice(2)}.${ext}`;
-
-    const { error: upErr } = await supabase.storage
-      .from(POSTS_BUCKET)
-      .upload(path, postPhotoFile, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: postPhotoFile.type,
-      });
-
-    if (upErr) throw upErr;
-
-    const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
-    return data?.publicUrl || null;
-  };
-
-  const submitPost = async () => {
-    if (!user) {
-      window.location.href = "/auth?redirect=/";
-      return;
-    }
-
-    const body = postText.trim();
-    if (!body) return;
-
-    setPostSaving(true);
-    setPostError(null);
-
-    try {
-      const image_url = await uploadPostPhotoIfAny();
-
-      const { error } = await supabase.from("posts").insert({
-        user_id: user.id,
-        body,
-        image_url: image_url ?? null,
-      });
-
-      if (error) throw error;
-
-      setPostText("");
-      clearPhoto();
-      closeComposer();
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
-      }
-    } catch (e: any) {
-      console.error("submitPost error:", e);
-      setPostError(e?.message || "Could not create post.");
-    } finally {
-      setPostSaving(false);
-    }
-  };
+  } catch (e: any) {
+    console.error("submitPost error:", e);
+    setPostError(e?.message || "Could not create post.");
+  } finally {
+    setPostSaving(false);
+  }
+};
 
   const submitAskToQnA = async () => {
     if (!user) {
@@ -1534,78 +1541,90 @@ function HomeComposerStrip() {
                     style={bigTextarea}
                   />
 
-                  {postPhotoPreview && (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        borderRadius: 14,
-                        border: "1px solid rgba(148,163,184,0.18)",
-                        background: "rgba(2,6,23,0.22)",
-                        padding: 10,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 12,
-                            opacity: 0.85,
-                            fontWeight: 800,
-                          }}
-                        >
-                          Photo attached
-                        </div>
-                        <button
-                          type="button"
-                          onClick={clearPhoto}
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: 999,
-                            border: "1px solid rgba(248,113,113,0.35)",
-                            background: "rgba(248,113,113,0.10)",
-                            color: "rgba(254,226,226,0.95)",
-                            fontSize: 12,
-                            cursor: "pointer",
-                            fontWeight: 800,
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                      <div style={{ marginTop: 8 }}>
-                        <div
-  style={{
-    width: "100%",
-    height: 360, // ✅ standard frame height
-    borderRadius: 12,
-    overflow: "hidden",
-    background: "rgba(2,6,23,0.35)", // ✅ makes letterboxing look intentional
-    border: "1px solid rgba(148,163,184,0.18)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
-  <img
-    src={postPhotoPreview}
-    alt="Preview"
+                  {postMediaPreview && (
+  <div
     style={{
-      width: "100%",
-      height: "100%",
-      objectFit: "contain", // ✅ show the whole image (no crop)
-      display: "block",
+      marginTop: 10,
+      borderRadius: 14,
+      border: "1px solid rgba(148,163,184,0.18)",
+      background: "rgba(2,6,23,0.22)",
+      padding: 10,
     }}
-  />
-</div>
-                      </div>
-                    </div>
-                  )}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 10,
+        alignItems: "center",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          opacity: 0.85,
+          fontWeight: 800,
+        }}
+      >
+        Media attached
+      </div>
+      <button
+        type="button"
+        onClick={clearMedia}
+        style={{
+          padding: "6px 10px",
+          borderRadius: 999,
+          border: "1px solid rgba(248,113,113,0.35)",
+          background: "rgba(248,113,113,0.10)",
+          color: "rgba(254,226,226,0.95)",
+          fontSize: 12,
+          cursor: "pointer",
+          fontWeight: 800,
+        }}
+      >
+        Remove
+      </button>
+    </div>
+    <div style={{ marginTop: 8 }}>
+      <div
+        style={{
+          width: "100%",
+          height: 360,
+          borderRadius: 12,
+          overflow: "hidden",
+          background: "rgba(2,6,23,0.35)",
+          border: "1px solid rgba(148,163,184,0.18)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {postMediaFile?.type.startsWith("video/") ? (
+          <video
+            src={postMediaPreview}
+            controls
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+            }}
+          />
+        ) : (
+          <img
+            src={postMediaPreview}
+            alt="Preview"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
                   {mediaError && (
                     <div
@@ -1731,7 +1750,7 @@ function HomeComposerStrip() {
                       <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
                     }
                     label="Media"
-                    onClick={pickPhoto}
+                    onClick={pickMedia}
                   />
                 ) : (
                   <>
@@ -1774,16 +1793,15 @@ function HomeComposerStrip() {
             </div>
 
             <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files?.[0] || null;
-                onPhotoSelected(f);
-                e.currentTarget.value = "";
-              }}
-            />
+  ref={fileInputRef}
+  type="file"
+  accept="image/*,video/*"
+  style={{ display: "none" }}
+  onChange={(e) => {
+    onMediaSelected(e.target.files?.[0] || null);
+    e.currentTarget.value = "";
+  }}
+/>
           </div>
         </div>
       )}
