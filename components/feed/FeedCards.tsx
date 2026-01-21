@@ -23,6 +23,9 @@ export type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
+
+  // ✅ NEW: optional video URL for feed posts
+  video_url?: string | null;
 };
 
 export type CommentRow = {
@@ -129,6 +132,9 @@ export default function FeedCards({
         const org = vm.org ?? null;
         const isOpen = !!openComments[p.id];
         const comments = commentsByPost[p.id] || [];
+
+        const hasVideo = !!p.video_url;
+        const hasImage = !!p.image_url && !hasVideo; // prefer video over image when both exist
 
         // Who is the main actor? org if present, else profile
         const actorName = org?.name || author?.full_name || "Quantum member";
@@ -256,35 +262,64 @@ export default function FeedCards({
               <LinkifyText text={p.body || ""} />
             </div>
 
-            {/* Image */}
-{p.image_url && (
-  <div
-    style={{
-      marginTop: 10,
-      width: "100%",
-      height: 520, // ✅ standard frame height (match your design)
-      borderRadius: 14,
-      overflow: "hidden",
-      border: "1px solid rgba(148,163,184,0.16)",
-      background: "rgba(2,6,23,0.35)", // ✅ better letterbox look
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    <img
-      src={p.image_url}
-      alt="Post media"
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "contain", // ✅ show full image, no crop
-        display: "block",
-      }}
-      loading="lazy"
-    />
-  </div>
-)}
+            {/* Media: prefer video, else image */}
+            {hasVideo && (
+              <div
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  height: 520,
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,184,0.16)",
+                  background: "rgba(2,6,23,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <video
+                  src={p.video_url as string}
+                  controls
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                  // poster={optionalThumbnailUrl}
+                />
+              </div>
+            )}
+
+            {hasImage && (
+              <div
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  height: 520,
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,184,0.16)",
+                  background: "rgba(2,6,23,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src={p.image_url as string}
+                  alt="Post media"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                  loading="lazy"
+                />
+              </div>
+            )}
 
             {/* Actions */}
             <div
