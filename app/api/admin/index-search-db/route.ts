@@ -104,6 +104,24 @@ export async function POST(req: Request) {
       }
     }
   }
+  
+  // --- 6. POSTS ---
+  const { data: posts } = await supabase
+    .from("posts")
+    .select("id, body, created_at, user_id");
+  
+  if (posts) {
+    for (const post of posts) {
+      try {
+        if (!post.body || post.body.length < 10) continue; // Skip short posts
+        const content = `Type: Post\nContent: ${post.body}`;
+        const inserted = await indexItem(post.id, content, { type: "post", title: post.body.substring(0, 50) });
+        if (inserted) insertedCount++; else skippedCount++;
+      } catch (e: any) {
+        errors.push({ id: post.id, type: "post", error: e.message });
+      }
+    }
+  }
 
   return NextResponse.json({ 
     message: `Indexing complete. Inserted: ${insertedCount}, Skipped: ${skippedCount}.`, 

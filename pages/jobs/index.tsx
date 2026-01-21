@@ -131,6 +131,7 @@ type JobsCtx = {
 
   filteredJobs: Job[];
   recommendedJobs: Job[];
+  isAiRecommended: boolean;
   remainingJobs: Job[];
 };
 
@@ -162,6 +163,9 @@ function JobsProvider({ children }: { children: ReactNode }) {
 
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
+
+  const [recommendedJobIds, setRecommendedJobIds] = useState<string[]>([]);
+  const [isAiRecommended, setIsAiRecommended] = useState(false);
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -209,6 +213,34 @@ function JobsProvider({ children }: { children: ReactNode }) {
     };
 
     loadSaved();
+  }, [user]);
+
+  // Load AI Recommendations
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      if (!user) {
+        setRecommendedJobIds([]);
+        setIsAiRecommended(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/jobs/recommend", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id }),
+        });
+        const data = await res.json();
+        if (data.jobIds && Array.isArray(data.jobIds)) {
+          setRecommendedJobIds(data.jobIds);
+          setIsAiRecommended(data.jobIds.length > 0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch recommendations", err);
+      }
+    };
+
+    fetchRecommendations();
   }, [user]);
 
   const isSaved = (id: string) => savedJobIds.includes(id);
@@ -268,10 +300,8 @@ function JobsProvider({ children }: { children: ReactNode }) {
       if (!q) return true;
 
       const haystack = (
-        `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${
-          job.short_description || ""
-        } ${job.keywords || ""} ${job.technology_type || ""} ${job.quantum_domain || ""} ${
-          job.role_track || ""
+        `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${job.short_description || ""
+        } ${job.keywords || ""} ${job.technology_type || ""} ${job.quantum_domain || ""} ${job.role_track || ""
         } ${job.seniority_level || ""}`
       ).toLowerCase();
 
@@ -289,8 +319,26 @@ function JobsProvider({ children }: { children: ReactNode }) {
     seniorityFilter,
   ]);
 
-  const recommendedJobs = filteredJobs.slice(0, 2);
-  const remainingJobs = filteredJobs.slice(recommendedJobs.length);
+
+
+  const recommendedJobs = useMemo(() => {
+    if (recommendedJobIds.length > 0) {
+      // If we have AI recommendations, prioritize them
+      // But only if they match current filters? 
+      // Strategy: Show them if they are in the filtered list.
+      // If none of the recommended jobs are in the filtered list, fallback to generic.
+
+      const aiJobs = filteredJobs.filter(j => recommendedJobIds.includes(j.id));
+      // Sort them by order in recommendedJobIds to keep relevance?
+      // Since filter doesn't guarantee order, let's just stick to what we found.
+
+      if (aiJobs.length > 0) return aiJobs;
+    }
+    // Fallback
+    return filteredJobs.slice(0, 2);
+  }, [filteredJobs, recommendedJobIds]);
+
+  const remainingJobs = filteredJobs.filter(j => !recommendedJobs.includes(j));
 
   const resetFilters = () => {
     setSearch("");
@@ -341,6 +389,7 @@ function JobsProvider({ children }: { children: ReactNode }) {
 
     filteredJobs,
     recommendedJobs,
+    isAiRecommended: recommendedJobs.length > 0 && isAiRecommended && recommendedJobIds.length > 0 && recommendedJobs.every(j => recommendedJobIds.includes(j.id)), // Check if currently displayed recs are actually from AI
     remainingJobs,
   };
 
@@ -524,45 +573,45 @@ function JobsFiltersDrawer() {
     <>
       {/* right-edge tab */}
       <button
-  type="button"
-  aria-label={open ? "Close filters" : "Open filters"}
-  onClick={() => setOpen((v) => !v)}
-  style={{
-    position: "fixed",
-    right: 0,
-    top: "80%",
-    transform: "translateY(-50%)",
-    zIndex: 60,
-    width: 30,
-    height: 80,
-    border: "1px solid rgba(148,163,184,0.35)",
-    borderRight: "none",
-    borderTopLeftRadius: 16,
-    borderBottomLeftRadius: 16,
-    background: "rgba(2,6,23,0.72)",
-    backdropFilter: "blur(10px)",
-    WebkitBackdropFilter: "blur(10px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-  }}
->
-  <span
-    aria-hidden="true"
-    style={{
-      fontSize: 22,
-      lineHeight: 1,
-      color: "rgba(226,232,240,0.95)",
-      transform: open ? "rotate(180deg)" : "none",
-      transition: "transform 160ms ease",
-      userSelect: "none",
-    }}
-  >
-    ❮
-  </span>
-</button>
+        type="button"
+        aria-label={open ? "Close filters" : "Open filters"}
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          position: "fixed",
+          right: 0,
+          top: "80%",
+          transform: "translateY(-50%)",
+          zIndex: 60,
+          width: 30,
+          height: 80,
+          border: "1px solid rgba(148,163,184,0.35)",
+          borderRight: "none",
+          borderTopLeftRadius: 16,
+          borderBottomLeftRadius: 16,
+          background: "rgba(2,6,23,0.72)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            fontSize: 22,
+            lineHeight: 1,
+            color: "rgba(226,232,240,0.95)",
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 160ms ease",
+            userSelect: "none",
+          }}
+        >
+          ❮
+        </span>
+      </button>
 
       {/* overlay */}
       {open && (
@@ -753,13 +802,14 @@ function JobsMiddle() {
                       WebkitTextFillColor: "transparent",
                     }}
                   >
-                    Top recommendations based on your profile
+                    {ctx.isAiRecommended
+                      ? "Curated matches based on your profile"
+                      : "Top recommendations based on your filters"}
                   </div>
                 </div>
 
                 <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
-                  For now based on your filters. <br />
-                  Later: AI profile matching.
+                  {ctx.isAiRecommended ? "AI-Powered Selection" : "Based on filters"}
                 </div>
               </div>
 

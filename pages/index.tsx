@@ -470,11 +470,74 @@ function HomeGlobalFeed() {
     setError(null);
 
     try {
-      const { data: postRows, error: postErr } = await supabase
-        .from("posts")
-        .select("id, user_id, body, created_at, image_url, video_url, org_id")
-        .order("created_at", { ascending: false })
-        .limit(30);
+
+      let postRows: PostRow[] | null = null;
+      let postErr: any = null;
+
+      // 1. If user is logged in, try fetching personalized feed IDs first
+      let recommendedIds: string[] = [];
+      if (uid) {
+        try {
+          const res = await fetch("/api/feed/personalized", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: uid }),
+          });
+          const data = await res.json();
+          if (data.postIds && Array.isArray(data.postIds)) {
+            recommendedIds = data.postIds;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch personalized feed", e);
+        }
+      }
+
+      // 2. Fetch posts based on recommendation or fallback to latest
+      if (recommendedIds.length > 0) {
+        // Fetch recommended posts
+        const { data: recPosts, error: recErr } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id")
+          .in("id", recommendedIds);
+
+        if (recErr) throw recErr;
+
+        // Also fetch some latest posts to keep feed fresh (mix-in)
+        const { data: freshPosts, error: freshErr } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id")
+          .order("created_at", { ascending: false })
+          .limit(10); // Fetch top 10 fresh to mix in
+
+        if (freshErr) throw freshErr;
+
+        // Merge: Recommended first, then fresh, dedup by ID
+        const recMap = new Map(recPosts?.map(p => [p.id, p]));
+        freshPosts?.forEach(p => {
+          if (!recMap.has(p.id)) recMap.set(p.id, p);
+        });
+
+        postRows = Array.from(recMap.values());
+
+        // Specific sorting? 
+        // Let's sort by created_at for now to avoid disjointed timeline, 
+        // OR keep recommended order? 
+        // User "tailor made" usually implies relevance > time.
+        // But purely relevance can show old posts. 
+        // Let's simple sort by created_at descending for the mixed set for consistency
+        postRows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      } else {
+        // Fallback: standard latest feed
+        const { data, error } = await supabase
+          .from("posts")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id")
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        postRows = data;
+        postErr = error;
+      }
 
       if (postErr) throw postErr;
 
@@ -653,10 +716,10 @@ function HomeGlobalFeed() {
         x.post.id !== postId
           ? x
           : {
-              ...x,
-              likedByMe: nextLiked,
-              likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
-            }
+            ...x,
+            likedByMe: nextLiked,
+            likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
+          }
       )
     );
 
@@ -775,6 +838,9 @@ function HomeGlobalFeed() {
       <div className="section-header" style={{ marginTop: 0 }}>
         <div>
           <div className="section-title">My Q5-feed</div>
+          <div className="section-sub" style={{ fontSize: 13, color: "var(--text-muted)" }}>
+            {user ? "Personalized for you based on interests & connections" : "Explore the latest updates"}
+          </div>
         </div>
 
         <button
@@ -897,9 +963,9 @@ function HomeComposerStrip() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-// ✅ Image OR video
-const [postMediaFile, setPostMediaFile] = useState<File | null>(null);
-const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
+  // ✅ Image OR video
+  const [postMediaFile, setPostMediaFile] = useState<File | null>(null);
+  const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
 
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
@@ -940,13 +1006,13 @@ const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
   }, [user, loading]);
 
   useEffect(() => {
-  return () => {
-    if (postMediaPreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(postMediaPreview);
-    }
-  };
-}, [postMediaPreview]);
-  
+    return () => {
+      if (postMediaPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(postMediaPreview);
+      }
+    };
+  }, [postMediaPreview]);
+
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
   const firstName =
@@ -1164,8 +1230,8 @@ const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
         ? "What’s on your mind?"
         : `What’s on your mind, ${firstName}?`
       : isMobile
-      ? "Ask the community…"
-      : "Ask the quantum community…";
+        ? "Ask the community…"
+        : "Ask the quantum community…";
 
   const canSubmit =
     mode === "post"
@@ -1173,121 +1239,121 @@ const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
       : !!askTitle.trim() && !!askBody.trim() && !askSaving;
 
   const pickMedia = () => {
-  if (!isAuthed) {
-    window.location.href = "/auth?redirect=/";
-    return;
-  }
-  fileInputRef.current?.click();
-};
+    if (!isAuthed) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+    fileInputRef.current?.click();
+  };
 
   const onMediaSelected = (file: File | null) => {
-  setMediaError(null);
+    setMediaError(null);
 
-  if (postMediaPreview?.startsWith("blob:")) {
-    URL.revokeObjectURL(postMediaPreview);
-  }
+    if (postMediaPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(postMediaPreview);
+    }
 
-  if (!file) {
-    setPostMediaFile(null);
-    setPostMediaPreview(null);
-    return;
-  }
+    if (!file) {
+      setPostMediaFile(null);
+      setPostMediaPreview(null);
+      return;
+    }
 
-  const isImage = file.type.startsWith("image/");
-  const isVideo = file.type.startsWith("video/");
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
 
-  if (!isImage && !isVideo) {
-    setMediaError("Only image or video files are allowed.");
-    return;
-  }
+    if (!isImage && !isVideo) {
+      setMediaError("Only image or video files are allowed.");
+      return;
+    }
 
-  if (file.size > MAX_MEDIA_SIZE) {
-    setMediaError("Media must be smaller than 25 MB.");
-    return;
-  }
+    if (file.size > MAX_MEDIA_SIZE) {
+      setMediaError("Media must be smaller than 25 MB.");
+      return;
+    }
 
-  setPostMediaFile(file);
-  setPostMediaPreview(URL.createObjectURL(file));
-};
+    setPostMediaFile(file);
+    setPostMediaPreview(URL.createObjectURL(file));
+  };
 
   const clearMedia = () => {
-  setMediaError(null);
-  onMediaSelected(null);
-};
-
-const uploadPostMediaIfAny = async (): Promise<{
-  image_url: string | null;
-  video_url: string | null;
-}> => {
-  if (!user || !postMediaFile) {
-    return { image_url: null, video_url: null };
-  }
-
-  const isImage = postMediaFile.type.startsWith("image/");
-  const isVideo = postMediaFile.type.startsWith("video/");
-
-  const ext = (postMediaFile.name.split(".").pop() || "bin").toLowerCase();
-  const path = `posts/${user.id}/${Date.now()}-${Math.random()
-    .toString(16)
-    .slice(2)}.${ext}`;
-
-  const { error } = await supabase.storage
-    .from(POSTS_BUCKET)
-    .upload(path, postMediaFile, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: postMediaFile.type,
-    });
-
-  if (error) throw error;
-
-  const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
-  const url = data?.publicUrl || null;
-
-  return {
-    image_url: isImage ? url : null,
-    video_url: isVideo ? url : null,
+    setMediaError(null);
+    onMediaSelected(null);
   };
-};
 
-const submitPost = async () => {
-  if (!user) {
-    window.location.href = "/auth?redirect=/";
-    return;
-  }
+  const uploadPostMediaIfAny = async (): Promise<{
+    image_url: string | null;
+    video_url: string | null;
+  }> => {
+    if (!user || !postMediaFile) {
+      return { image_url: null, video_url: null };
+    }
 
-  const body = postText.trim();
-  if (!body) return;
+    const isImage = postMediaFile.type.startsWith("image/");
+    const isVideo = postMediaFile.type.startsWith("video/");
 
-  setPostSaving(true);
-  setPostError(null);
+    const ext = (postMediaFile.name.split(".").pop() || "bin").toLowerCase();
+    const path = `posts/${user.id}/${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.${ext}`;
 
-  try {
-    const { image_url, video_url } = await uploadPostMediaIfAny();
-
-    const { error } = await supabase.from("posts").insert({
-      user_id: user.id,
-      body,
-      image_url,
-      video_url,
-    });
+    const { error } = await supabase.storage
+      .from(POSTS_BUCKET)
+      .upload(path, postMediaFile, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: postMediaFile.type,
+      });
 
     if (error) throw error;
 
-    setPostText("");
-    clearMedia();
-    closeComposer();
+    const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
+    const url = data?.publicUrl || null;
 
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+    return {
+      image_url: isImage ? url : null,
+      video_url: isVideo ? url : null,
+    };
+  };
+
+  const submitPost = async () => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
     }
-  } catch (e: any) {
-    console.error("submitPost error:", e);
-    setPostError(e?.message || "Could not create post.");
-  } finally {
-    setPostSaving(false);
-  }
-};
+
+    const body = postText.trim();
+    if (!body) return;
+
+    setPostSaving(true);
+    setPostError(null);
+
+    try {
+      const { image_url, video_url } = await uploadPostMediaIfAny();
+
+      const { error } = await supabase.from("posts").insert({
+        user_id: user.id,
+        body,
+        image_url,
+        video_url,
+      });
+
+      if (error) throw error;
+
+      setPostText("");
+      clearMedia();
+      closeComposer();
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+    } catch (e: any) {
+      console.error("submitPost error:", e);
+      setPostError(e?.message || "Could not create post.");
+    } finally {
+      setPostSaving(false);
+    }
+  };
 
   const submitAskToQnA = async () => {
     if (!user) {
@@ -1354,7 +1420,7 @@ const submitPost = async () => {
       console.error("submitAskToQnA error:", e);
       setAskError(
         e?.message ||
-          "Could not post your question. Check Supabase RLS/policies for qna_questions."
+        "Could not post your question. Check Supabase RLS/policies for qna_questions."
       );
     } finally {
       setAskSaving(false);
@@ -1542,89 +1608,89 @@ const submitPost = async () => {
                   />
 
                   {postMediaPreview && (
-  <div
-    style={{
-      marginTop: 10,
-      borderRadius: 14,
-      border: "1px solid rgba(148,163,184,0.18)",
-      background: "rgba(2,6,23,0.22)",
-      padding: 10,
-    }}
-  >
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: 10,
-        alignItems: "center",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 12,
-          opacity: 0.85,
-          fontWeight: 800,
-        }}
-      >
-        Media attached
-      </div>
-      <button
-        type="button"
-        onClick={clearMedia}
-        style={{
-          padding: "6px 10px",
-          borderRadius: 999,
-          border: "1px solid rgba(248,113,113,0.35)",
-          background: "rgba(248,113,113,0.10)",
-          color: "rgba(254,226,226,0.95)",
-          fontSize: 12,
-          cursor: "pointer",
-          fontWeight: 800,
-        }}
-      >
-        Remove
-      </button>
-    </div>
-    <div style={{ marginTop: 8 }}>
-      <div
-        style={{
-          width: "100%",
-          height: 360,
-          borderRadius: 12,
-          overflow: "hidden",
-          background: "rgba(2,6,23,0.35)",
-          border: "1px solid rgba(148,163,184,0.18)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {postMediaFile?.type.startsWith("video/") ? (
-          <video
-            src={postMediaPreview}
-            controls
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-            }}
-          />
-        ) : (
-          <img
-            src={postMediaPreview}
-            alt="Preview"
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-            }}
-          />
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                    <div
+                      style={{
+                        marginTop: 10,
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        background: "rgba(2,6,23,0.22)",
+                        padding: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 12,
+                            opacity: 0.85,
+                            fontWeight: 800,
+                          }}
+                        >
+                          Media attached
+                        </div>
+                        <button
+                          type="button"
+                          onClick={clearMedia}
+                          style={{
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(248,113,113,0.35)",
+                            background: "rgba(248,113,113,0.10)",
+                            color: "rgba(254,226,226,0.95)",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            fontWeight: 800,
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div style={{ marginTop: 8 }}>
+                        <div
+                          style={{
+                            width: "100%",
+                            height: 360,
+                            borderRadius: 12,
+                            overflow: "hidden",
+                            background: "rgba(2,6,23,0.35)",
+                            border: "1px solid rgba(148,163,184,0.18)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {postMediaFile?.type.startsWith("video/") ? (
+                            <video
+                              src={postMediaPreview}
+                              controls
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                              }}
+                            />
+                          ) : (
+                            <img
+                              src={postMediaPreview}
+                              alt="Preview"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                                display: "block",
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {mediaError && (
                     <div
@@ -1787,21 +1853,21 @@ const submitPost = async () => {
                     ? "Posting…"
                     : "Post"
                   : askSaving
-                  ? "Asking…"
-                  : "Ask"}
+                    ? "Asking…"
+                    : "Ask"}
               </button>
             </div>
 
             <input
-  ref={fileInputRef}
-  type="file"
-  accept="image/*,video/*"
-  style={{ display: "none" }}
-  onChange={(e) => {
-    onMediaSelected(e.target.files?.[0] || null);
-    e.currentTarget.value = "";
-  }}
-/>
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                onMediaSelected(e.target.files?.[0] || null);
+                e.currentTarget.value = "";
+              }}
+            />
           </div>
         </div>
       )}
