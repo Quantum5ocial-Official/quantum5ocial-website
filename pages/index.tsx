@@ -911,7 +911,7 @@ const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
 
   const isMobile = useIsMobile(520);
 
-  const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5 MB
+  const MAX_MEDIA_SIZE = 25 * 1024 * 1024; // 25 MB
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1202,7 +1202,7 @@ const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
   }
 
   if (file.size > MAX_MEDIA_SIZE) {
-    setMediaError("Media must be smaller than 5 MB.");
+    setMediaError("Media must be smaller than 25 MB.");
     return;
   }
 
