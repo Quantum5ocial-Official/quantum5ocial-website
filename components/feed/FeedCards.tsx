@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -23,6 +23,9 @@ export type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
+
+  // ✅ optional video URL for feed posts
+  video_url?: string | null;
 };
 
 export type CommentRow = {
@@ -78,6 +81,71 @@ type Props = {
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 };
 
+/** ✅ Autoplay video:
+ *  - starts muted (required for autoplay)
+ *  - user can unmute via controls
+ *  - plays when ~40% in viewport, pauses when out of frame
+ *  - we NEVER force-mute in the observer, so user choice is respected
+ */
+function AutoPlayVideo({
+  src,
+  style,
+}: {
+  src: string;
+  style?: React.CSSProperties;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = videoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const node = videoRef.current;
+          if (!node) return;
+
+          if (entry.isIntersecting) {
+            // Do NOT touch node.muted here; let user control it.
+            const p = node.play();
+            if (p && typeof p.catch === "function") {
+              p.catch(() => {
+                // ignore autoplay rejections
+              });
+            }
+          } else {
+            node.pause();
+          }
+        });
+      },
+      {
+        threshold: 0.4, // play when ~40% visible
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      loop
+      controls
+      preload="metadata"
+      style={style}
+    />
+  );
+}
+
 export default function FeedCards({
   items,
   user,
@@ -129,6 +197,9 @@ export default function FeedCards({
         const org = vm.org ?? null;
         const isOpen = !!openComments[p.id];
         const comments = commentsByPost[p.id] || [];
+
+        const hasVideo = !!p.video_url;
+        const hasImage = !!p.image_url && !hasVideo; // prefer video over image when both exist
 
         // Who is the main actor? org if present, else profile
         const actorName = org?.name || author?.full_name || "Quantum member";
@@ -256,35 +327,63 @@ export default function FeedCards({
               <LinkifyText text={p.body || ""} />
             </div>
 
-            {/* Image */}
-{p.image_url && (
-  <div
-    style={{
-      marginTop: 10,
-      width: "100%",
-      height: 520, // ✅ standard frame height (match your design)
-      borderRadius: 14,
-      overflow: "hidden",
-      border: "1px solid rgba(148,163,184,0.16)",
-      background: "rgba(2,6,23,0.35)", // ✅ better letterbox look
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    <img
-      src={p.image_url}
-      alt="Post media"
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "contain", // ✅ show full image, no crop
-        display: "block",
-      }}
-      loading="lazy"
-    />
-  </div>
-)}
+            {/* Media: prefer video, else image */}
+            {hasVideo && (
+              <div
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  height: 520,
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,184,0.16)",
+                  background: "rgba(2,6,23,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <AutoPlayVideo
+                  src={p.video_url as string}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    display: "block",
+                    background: "rgba(15,23,42,0.95)",
+                  }}
+                />
+              </div>
+            )}
+
+            {hasImage && (
+              <div
+                style={{
+                  marginTop: 10,
+                  width: "100%",
+                  height: 520,
+                  borderRadius: 14,
+                  overflow: "hidden",
+                  border: "1px solid rgba(148,163,184,0.16)",
+                  background: "rgba(2,6,23,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <img
+                  src={p.image_url as string}
+                  alt="Post media"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    display: "block",
+                  }}
+                  loading="lazy"
+                />
+              </div>
+            )}
 
             {/* Actions */}
             <div

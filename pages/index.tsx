@@ -72,6 +72,7 @@ type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
+  video_url: string | null; // ✅ new
   org_id: string | null; // 👈 post can belong to an org
 };
 
@@ -496,7 +497,7 @@ function HomeGlobalFeed() {
         // Fetch recommended posts
         const { data: recPosts, error: recErr } = await supabase
           .from("posts")
-          .select("id, user_id, body, created_at, image_url, org_id")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id")
           .in("id", recommendedIds);
 
         if (recErr) throw recErr;
@@ -504,7 +505,7 @@ function HomeGlobalFeed() {
         // Also fetch some latest posts to keep feed fresh (mix-in)
         const { data: freshPosts, error: freshErr } = await supabase
           .from("posts")
-          .select("id, user_id, body, created_at, image_url, org_id")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id")
           .order("created_at", { ascending: false })
           .limit(10); // Fetch top 10 fresh to mix in
 
@@ -530,7 +531,7 @@ function HomeGlobalFeed() {
         // Fallback: standard latest feed
         const { data, error } = await supabase
           .from("posts")
-          .select("id, user_id, body, created_at, image_url, org_id")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id")
           .order("created_at", { ascending: false })
           .limit(30);
 
@@ -961,10 +962,10 @@ function HomeComposerStrip() {
   const [postError, setPostError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [postPhotoFile, setPostPhotoFile] = useState<File | null>(null);
-  const [postPhotoPreview, setPostPhotoPreview] = useState<string | null>(
-    null
-  );
+
+  // ✅ Image OR video
+  const [postMediaFile, setPostMediaFile] = useState<File | null>(null);
+  const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
 
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
@@ -976,7 +977,7 @@ function HomeComposerStrip() {
 
   const isMobile = useIsMobile(520);
 
-  const MAX_MEDIA_SIZE = 5 * 1024 * 1024; // 5 MB
+  const MAX_MEDIA_SIZE = 25 * 1024 * 1024; // 25 MB
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1006,10 +1007,11 @@ function HomeComposerStrip() {
 
   useEffect(() => {
     return () => {
-      if (postPhotoPreview?.startsWith("blob:"))
-        URL.revokeObjectURL(postPhotoPreview);
+      if (postMediaPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(postMediaPreview);
+      }
     };
-  }, [postPhotoPreview]);
+  }, [postMediaPreview]);
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
@@ -1236,7 +1238,7 @@ function HomeComposerStrip() {
       ? !!postText.trim() && !postSaving
       : !!askTitle.trim() && !!askBody.trim() && !askSaving;
 
-  const pickPhoto = () => {
+  const pickMedia = () => {
     if (!isAuthed) {
       window.location.href = "/auth?redirect=/";
       return;
@@ -1244,70 +1246,74 @@ function HomeComposerStrip() {
     fileInputRef.current?.click();
   };
 
-  const onPhotoSelected = (file: File | null) => {
+  const onMediaSelected = (file: File | null) => {
     setMediaError(null);
 
-    if (postPhotoPreview?.startsWith("blob:"))
-      URL.revokeObjectURL(postPhotoPreview);
+    if (postMediaPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(postMediaPreview);
+    }
 
     if (!file) {
-      setPostPhotoFile(null);
-      setPostPhotoPreview(null);
+      setPostMediaFile(null);
+      setPostMediaPreview(null);
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setMediaError("Only image files are allowed (video coming later).");
-      setPostPhotoFile(null);
-      setPostPhotoPreview(null);
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      setMediaError("Only image or video files are allowed.");
       return;
     }
 
     if (file.size > MAX_MEDIA_SIZE) {
-      setMediaError("Media must be smaller than 5 MB.");
-      setPostPhotoFile(null);
-      setPostPhotoPreview(null);
+      setMediaError("Media must be smaller than 25 MB.");
       return;
     }
 
-    setPostPhotoFile(file);
-    setPostPhotoPreview(URL.createObjectURL(file));
+    setPostMediaFile(file);
+    setPostMediaPreview(URL.createObjectURL(file));
   };
 
-  const clearPhoto = () => {
+  const clearMedia = () => {
     setMediaError(null);
-    onPhotoSelected(null);
+    onMediaSelected(null);
   };
 
-  const uploadPostPhotoIfAny = async (): Promise<string | null> => {
-    if (!user) return null;
-    if (!postPhotoFile) return null;
-
-    if (!postPhotoFile.type.startsWith("image/")) {
-      throw new Error("Please choose an image file.");
+  const uploadPostMediaIfAny = async (): Promise<{
+    image_url: string | null;
+    video_url: string | null;
+  }> => {
+    if (!user || !postMediaFile) {
+      return { image_url: null, video_url: null };
     }
 
-    if (postPhotoFile.size > MAX_MEDIA_SIZE) {
-      throw new Error("Media must be smaller than 5 MB.");
-    }
+    const isImage = postMediaFile.type.startsWith("image/");
+    const isVideo = postMediaFile.type.startsWith("video/");
 
-    const ext = (postPhotoFile.name.split(".").pop() || "jpg").toLowerCase();
+    const ext = (postMediaFile.name.split(".").pop() || "bin").toLowerCase();
     const path = `posts/${user.id}/${Date.now()}-${Math.random()
       .toString(16)
       .slice(2)}.${ext}`;
 
-    const { error: upErr } = await supabase.storage
+    const { error } = await supabase.storage
       .from(POSTS_BUCKET)
-      .upload(path, postPhotoFile, {
+      .upload(path, postMediaFile, {
         cacheControl: "3600",
         upsert: false,
-        contentType: postPhotoFile.type,
+        contentType: postMediaFile.type,
       });
 
-    if (upErr) throw upErr;
+    if (error) throw error;
 
     const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
-    return data?.publicUrl || null;
+    const url = data?.publicUrl || null;
+
+    return {
+      image_url: isImage ? url : null,
+      video_url: isVideo ? url : null,
+    };
   };
 
   const submitPost = async () => {
@@ -1323,18 +1329,19 @@ function HomeComposerStrip() {
     setPostError(null);
 
     try {
-      const image_url = await uploadPostPhotoIfAny();
+      const { image_url, video_url } = await uploadPostMediaIfAny();
 
       const { error } = await supabase.from("posts").insert({
         user_id: user.id,
         body,
-        image_url: image_url ?? null,
+        image_url,
+        video_url,
       });
 
       if (error) throw error;
 
       setPostText("");
-      clearPhoto();
+      clearMedia();
       closeComposer();
 
       if (typeof window !== "undefined") {
@@ -1600,7 +1607,7 @@ function HomeComposerStrip() {
                     style={bigTextarea}
                   />
 
-                  {postPhotoPreview && (
+                  {postMediaPreview && (
                     <div
                       style={{
                         marginTop: 10,
@@ -1629,7 +1636,7 @@ function HomeComposerStrip() {
                         </div>
                         <button
                           type="button"
-                          onClick={clearPhoto}
+                          onClick={clearMedia}
                           style={{
                             padding: "6px 10px",
                             borderRadius: 999,
@@ -1659,7 +1666,7 @@ function HomeComposerStrip() {
                           }}
                         >
                           <img
-                            src={postPhotoPreview}
+                            src={postMediaPreview}
                             alt="Preview"
                             style={{
                               width: "100%",
@@ -1797,7 +1804,7 @@ function HomeComposerStrip() {
                       <MiniIcon path="M4 7h3l2-2h6l2 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
                     }
                     label="Media"
-                    onClick={pickPhoto}
+                    onClick={pickMedia}
                   />
                 ) : (
                   <>
@@ -1842,11 +1849,10 @@ function HomeComposerStrip() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               style={{ display: "none" }}
               onChange={(e) => {
-                const f = e.target.files?.[0] || null;
-                onPhotoSelected(f);
+                onMediaSelected(e.target.files?.[0] || null);
                 e.currentTarget.value = "";
               }}
             />
