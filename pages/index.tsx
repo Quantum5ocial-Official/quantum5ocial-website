@@ -1632,7 +1632,7 @@ function HomeComposerStrip() {
                             fontWeight: 800,
                           }}
                         >
-                          Photo attached
+                          Media attached
                         </div>
                         <button
                           type="button"
@@ -1655,26 +1655,38 @@ function HomeComposerStrip() {
                         <div
                           style={{
                             width: "100%",
-                            height: 360, // ✅ standard frame height
+                            height: 360,
                             borderRadius: 12,
                             overflow: "hidden",
-                            background: "rgba(2,6,23,0.35)", // ✅ makes letterboxing look intentional
+                            background: "rgba(2,6,23,0.35)",
                             border: "1px solid rgba(148,163,184,0.18)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                           }}
                         >
-                          <img
-                            src={postMediaPreview}
-                            alt="Preview"
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain", // ✅ show the whole image (no crop)
-                              display: "block",
-                            }}
-                          />
+                          {postMediaFile?.type.startsWith("video/") ? (
+                            <video
+                              src={postMediaPreview}
+                              controls
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                              }}
+                            />
+                          ) : (
+                            <img
+                              src={postMediaPreview}
+                              alt="Preview"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                                display: "block",
+                              }}
+                            />
+                          )}
                         </div>
                       </div>
                     </div>
