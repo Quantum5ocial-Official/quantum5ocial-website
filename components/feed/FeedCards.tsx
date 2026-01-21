@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -24,7 +24,7 @@ export type PostRow = {
   created_at: string | null;
   image_url: string | null;
 
-  // ✅ NEW: optional video URL for feed posts
+  // ✅ optional video URL for feed posts
   video_url?: string | null;
 };
 
@@ -81,7 +81,12 @@ type Props = {
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 };
 
-/** ✅ Autoplay video component – plays muted when in view, pauses when out of view */
+/** ✅ Autoplay video:
+ *  - starts muted (required for autoplay)
+ *  - user can unmute via controls
+ *  - plays when ~40% in viewport, pauses when out of frame
+ *  - we NEVER force-mute in the observer, so user choice is respected
+ */
 function AutoPlayVideo({
   src,
   style,
@@ -90,16 +95,9 @@ function AutoPlayVideo({
   style?: React.CSSProperties;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [canAutoPlay, setCanAutoPlay] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setCanAutoPlay(true);
-  }, []);
-
-  useEffect(() => {
-    if (!canAutoPlay) return;
-
     const el = videoRef.current;
     if (!el) return;
 
@@ -110,12 +108,12 @@ function AutoPlayVideo({
           if (!node) return;
 
           if (entry.isIntersecting) {
-            node.muted = true;
-            node.playsInline = true;
+            // Do NOT touch node.muted here; let user control it.
             const p = node.play();
             if (p && typeof p.catch === "function") {
-              // ignore autoplay rejections
-              p.catch(() => {});
+              p.catch(() => {
+                // ignore autoplay rejections
+              });
             }
           } else {
             node.pause();
@@ -132,7 +130,7 @@ function AutoPlayVideo({
     return () => {
       observer.disconnect();
     };
-  }, [canAutoPlay]);
+  }, []);
 
   return (
     <video
@@ -142,6 +140,7 @@ function AutoPlayVideo({
       playsInline
       loop
       controls
+      preload="metadata"
       style={style}
     />
   );
