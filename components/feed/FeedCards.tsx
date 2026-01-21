@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -80,6 +80,72 @@ type Props = {
 
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 };
+
+/** ✅ Autoplay video component – plays muted when in view, pauses when out of view */
+function AutoPlayVideo({
+  src,
+  style,
+}: {
+  src: string;
+  style?: React.CSSProperties;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [canAutoPlay, setCanAutoPlay] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setCanAutoPlay(true);
+  }, []);
+
+  useEffect(() => {
+    if (!canAutoPlay) return;
+
+    const el = videoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const node = videoRef.current;
+          if (!node) return;
+
+          if (entry.isIntersecting) {
+            node.muted = true;
+            node.playsInline = true;
+            const p = node.play();
+            if (p && typeof p.catch === "function") {
+              // ignore autoplay rejections
+              p.catch(() => {});
+            }
+          } else {
+            node.pause();
+          }
+        });
+      },
+      {
+        threshold: 0.4, // play when ~40% visible
+      }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [canAutoPlay]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      loop
+      controls
+      style={style}
+    />
+  );
+}
 
 export default function FeedCards({
   items,
@@ -278,16 +344,15 @@ export default function FeedCards({
                   justifyContent: "center",
                 }}
               >
-                <video
+                <AutoPlayVideo
                   src={p.video_url as string}
-                  controls
                   style={{
                     width: "100%",
                     height: "100%",
                     objectFit: "contain",
                     display: "block",
+                    background: "rgba(15,23,42,0.95)",
                   }}
-                  // poster={optionalThumbnailUrl}
                 />
               </div>
             )}
