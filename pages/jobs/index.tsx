@@ -133,6 +133,7 @@ type JobsCtx = {
   recommendedJobs: Job[];
   isAiRecommended: boolean;
   remainingJobs: Job[];
+  missingSkills: boolean;
 };
 
 const JobsContext = createContext<JobsCtx | null>(null);
@@ -166,6 +167,7 @@ function JobsProvider({ children }: { children: ReactNode }) {
 
   const [recommendedJobIds, setRecommendedJobIds] = useState<string[]>([]);
   const [isAiRecommended, setIsAiRecommended] = useState(false);
+  const [missingSkills, setMissingSkills] = useState(false);
 
   useEffect(() => {
     const loadJobs = async () => {
@@ -215,15 +217,36 @@ function JobsProvider({ children }: { children: ReactNode }) {
     loadSaved();
   }, [user]);
 
-  // Load AI Recommendations
+  // Load AI Recommendations + Check Missing Skills
   useEffect(() => {
-    const fetchRecommendations = async () => {
+    const fetchRecommendationsAndProfile = async () => {
       if (!user) {
         setRecommendedJobIds([]);
         setIsAiRecommended(false);
+        setMissingSkills(false);
         return;
       }
 
+      // Check profile skills
+      try {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("skills")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          if (!profile.skills || profile.skills.trim().length === 0) {
+            setMissingSkills(true);
+          } else {
+            setMissingSkills(false);
+          }
+        }
+      } catch (e) {
+        // ignore profile fetch error
+      }
+
+      // Fetch recs
       try {
         const res = await fetch("/api/jobs/recommend", {
           method: "POST",
@@ -240,7 +263,7 @@ function JobsProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    fetchRecommendations();
+    fetchRecommendationsAndProfile();
   }, [user]);
 
   const isSaved = (id: string) => savedJobIds.includes(id);
@@ -389,8 +412,9 @@ function JobsProvider({ children }: { children: ReactNode }) {
 
     filteredJobs,
     recommendedJobs,
-    isAiRecommended: recommendedJobs.length > 0 && isAiRecommended && recommendedJobIds.length > 0 && recommendedJobs.every(j => recommendedJobIds.includes(j.id)), // Check if currently displayed recs are actually from AI
+    isAiRecommended: recommendedJobs.length > 0 && isAiRecommended,
     remainingJobs,
+    missingSkills,
   };
 
   return <JobsContext.Provider value={value}>{children}</JobsContext.Provider>;
@@ -753,6 +777,49 @@ function JobsMiddle() {
         </div>
       </div>
 
+      {/* ✅ Missing Skills Warning */}
+      {ctx.missingSkills && (
+        <div
+          style={{
+            margin: "0 0 24px 0",
+            padding: "14px 18px",
+            borderRadius: 16,
+            background: "rgba(234, 179, 8, 0.15)",
+            border: "1px solid rgba(234, 179, 8, 0.4)",
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            color: "rgba(255,255,255,0.92)",
+          }}
+        >
+          <div style={{ fontSize: 24 }}>⚠️</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, color: "#fef08a" }}>
+              Complete your profile for AI recommendations
+            </div>
+            <div style={{ fontSize: 13.5, opacity: 0.9 }}>
+              You haven't added any skills yet. Tattva AI needs your skills to find the best job matches for you.
+            </div>
+          </div>
+          <Link href="/profile" style={{ textDecoration: "none" }}>
+            <button
+              style={{
+                background: "#fef08a",
+                color: "#422006",
+                border: "none",
+                fontWeight: 700,
+                fontSize: 13,
+                padding: "8px 16px",
+                borderRadius: 999,
+                cursor: "pointer",
+              }}
+            >
+              Add Skills
+            </button>
+          </Link>
+        </div>
+      )}
+
       {ctx.loading && <p className="products-status">Loading jobs…</p>}
       {!ctx.loading && ctx.error && <p className="products-empty">{ctx.error}</p>}
 
@@ -762,7 +829,7 @@ function JobsMiddle() {
 
       {!ctx.loading && !ctx.error && ctx.filteredJobs.length > 0 && (
         <>
-          {ctx.recommendedJobs.length > 0 && (
+          {!ctx.missingSkills && ctx.recommendedJobs.length > 0 && (
             <div
               style={{
                 marginBottom: 32,
@@ -859,7 +926,7 @@ function JobsMiddle() {
 
           {ctx.remainingJobs.length > 0 && (
             <div style={{ marginTop: 8 }}>
-              {ctx.recommendedJobs.length > 0 && (
+              {!ctx.missingSkills && ctx.recommendedJobs.length > 0 && (
                 <div
                   style={{
                     height: 1,
