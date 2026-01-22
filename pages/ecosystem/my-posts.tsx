@@ -42,8 +42,7 @@ export default function EcosystemMyPostsPage() {
           <div>
             <div className="section-title">📝 My posts</div>
             <div className="section-sub" style={{ maxWidth: 560 }}>
-              Your public posts on the global feed — same view as homepage
-              (likes and comments included).
+              Your public posts on the global feed
             </div>
           </div>
 
