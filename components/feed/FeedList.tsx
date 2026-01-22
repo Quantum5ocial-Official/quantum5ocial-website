@@ -28,6 +28,9 @@ type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
+
+  // ✅ NEW: optional video
+  video_url?: string | null;
 };
 
 type LikeRow = { post_id: string; user_id: string };
@@ -48,6 +51,61 @@ type PostVM = {
   commentCount: number;
   likedByMe: boolean;
 };
+
+function AutoPlayVideo({
+  src,
+  style,
+}: {
+  src: string;
+  style?: CSSProperties;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = videoRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const node = videoRef.current;
+          if (!node) return;
+
+          if (entry.isIntersecting) {
+            // Only play; don't change muted so user can unmute & keep it.
+            const p = node.play();
+            if (p && typeof p.catch === "function") {
+              p.catch(() => {});
+            }
+          } else {
+            node.pause();
+          }
+        });
+      },
+      { threshold: 0.4 }
+    );
+
+    observer.observe(el);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      loop
+      controls
+      preload="metadata"
+      style={style}
+    />
+  );
+}
 
 export default function FeedList({
   filterUserId,
@@ -171,7 +229,7 @@ export default function FeedList({
     try {
       let q = supabase
         .from("posts")
-        .select("id, user_id, org_id, body, created_at, image_url")
+        .select("id, user_id, org_id, body, created_at, image_url, video_url")
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -465,11 +523,10 @@ export default function FeedList({
 
         const actorName = o?.name || a?.full_name || "Quantum member";
 
-        // 👇 KEY CHANGE:
         // If there's an org, avatar is the org (logo or initials),
         // we do NOT fall back to the user avatar.
         const actorAvatar = o
-          ? o.logo_url // may be null → will show org initials
+          ? o.logo_url
           : a?.avatar_url || null;
 
         const actorHref = o
@@ -491,6 +548,9 @@ export default function FeedList({
           : formatSubtitle(a) || "Quantum5ocial member";
 
         const actorInitials = initialsOf(actorName);
+
+        const hasVideo = !!p.video_url;
+        const hasImage = !!p.image_url && !hasVideo; // prefer video
 
         return (
           <div key={p.id}>
@@ -611,10 +671,34 @@ export default function FeedList({
                     <LinkifyText text={p.body} />
                   </div>
 
-                  {p.image_url && (
+                  {/* Media: prefer video, else image */}
+                  {hasVideo && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        borderRadius: 14,
+                        overflow: "hidden",
+                        border: "1px solid rgba(148,163,184,0.14)",
+                        background: "rgba(2,6,23,0.25)",
+                      }}
+                    >
+                      <AutoPlayVideo
+                        src={p.video_url as string}
+                        style={{
+                          width: "100%",
+                          maxHeight: 420,
+                          objectFit: "contain",
+                          display: "block",
+                          background: "rgba(15,23,42,0.98)",
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {hasImage && (
                     <div style={{ marginTop: 10 }}>
                       <img
-                        src={p.image_url}
+                        src={p.image_url as string}
                         alt="Post image"
                         style={{
                           width: "100%",
@@ -713,7 +797,7 @@ export default function FeedList({
                         }}
                       >
                         <div style={avatarStyle(30)}>
-                          {user ? user.email?.[0]?.toUpperCase() || "U" : "U"}
+                          {user ? "U" : "U"}
                         </div>
 
                         <div style={{ flex: 1, minWidth: 0 }}>
