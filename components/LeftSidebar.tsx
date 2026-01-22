@@ -30,8 +30,6 @@ type MyOrgSummary = {
 type SidebarData = {
   profile: ProfileSummary | null;
   entangledCount: number | null;
-  savedJobsCount: number | null;
-  savedProductsCount: number | null;
   postsCount: number | null;
   myOrg: MyOrgSummary | null;
   myOrgFollowersCount: number | null;
@@ -44,8 +42,6 @@ export default function LeftSidebar() {
   const [data, setData] = useState<SidebarData>({
     profile: null,
     entangledCount: null,
-    savedJobsCount: null,
-    savedProductsCount: null,
     postsCount: null,
     myOrg: null,
     myOrgFollowersCount: null,
@@ -69,8 +65,6 @@ export default function LeftSidebar() {
       setData({
         profile: null,
         entangledCount: null,
-        savedJobsCount: null,
-        savedProductsCount: null,
         postsCount: null,
         myOrg: null,
         myOrgFollowersCount: null,
@@ -95,16 +89,6 @@ export default function LeftSidebar() {
           .eq("status", "accepted")
           .or(`user_id.eq.${uid},target_user_id.eq.${uid}`);
 
-        const savedJobsQ = supabase
-          .from("saved_jobs")
-          .select("job_id")
-          .eq("user_id", uid);
-
-        const savedProductsQ = supabase
-          .from("saved_products")
-          .select("product_id")
-          .eq("user_id", uid);
-
         const postsQ = supabase.from("posts").select("id").eq("user_id", uid);
 
         const orgQ = supabase
@@ -116,11 +100,9 @@ export default function LeftSidebar() {
           .limit(1)
           .maybeSingle();
 
-        const [pRes, cRes, sjRes, spRes, postsRes, orgRes] = await Promise.all([
+        const [pRes, cRes, postsRes, orgRes] = await Promise.all([
           profileQ,
           connectionsQ,
-          savedJobsQ,
-          savedProductsQ,
           postsQ,
           orgQ,
         ]);
@@ -139,8 +121,6 @@ export default function LeftSidebar() {
           entangledCount = otherIds.length;
         }
 
-        const savedJobsCount = (sjRes.data || []).length;
-        const savedProductsCount = (spRes.data || []).length;
         const postsCount = (postsRes.data || []).length;
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
@@ -160,8 +140,6 @@ export default function LeftSidebar() {
         setData({
           profile,
           entangledCount,
-          savedJobsCount,
-          savedProductsCount,
           postsCount,
           myOrg,
           myOrgFollowersCount,
@@ -172,8 +150,6 @@ export default function LeftSidebar() {
         setData({
           profile: null,
           entangledCount: 0,
-          savedJobsCount: 0,
-          savedProductsCount: 0,
           postsCount: 0,
           myOrg: null,
           myOrgFollowersCount: null,
@@ -185,8 +161,37 @@ export default function LeftSidebar() {
     };
 
     void loadAll();
+
+    // 🔁 Realtime: update entanglements + posts when DB changes
+    const channel = supabase
+      .channel(`left-sidebar-${uid}`)
+      // Posts by this user (for "My posts" count)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts", filter: `user_id=eq.${uid}` },
+        () => {
+          if (!alive) return;
+          void loadAll();
+        }
+      )
+      // Connections involving this user (for "Entanglements" count)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "connections" },
+        (payload) => {
+          if (!alive) return;
+          const row: any = payload.new || payload.old;
+          if (!row) return;
+          if (row.user_id === uid || row.target_user_id === uid) {
+            void loadAll();
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       alive = false;
+      supabase.removeChannel(channel);
     };
   }, [user?.id]);
 
@@ -475,58 +480,6 @@ export default function LeftSidebar() {
               </span>
               <span style={{ opacity: 0.9, fontSize: 12 }}>
                 {data.postsCount ?? "…"}
-              </span>
-            </Link>
-
-            <Link
-              href="/ecosystem/saved-jobs"
-              className="dashboard-sidebar-link"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  color: "var(--text-primary)",
-                }}
-              >
-                💼 <span>Saved jobs</span>
-              </span>
-              <span style={{ opacity: 0.9, fontSize: 12 }}>
-                {data.savedJobsCount ?? "…"}
-              </span>
-            </Link>
-
-            <Link
-              href="/ecosystem/saved-products"
-              className="dashboard-sidebar-link"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 8,
-                fontSize: 13,
-              }}
-            >
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  color: "var(--text-primary)",
-                }}
-              >
-                🛒 <span>Saved products</span>
-              </span>
-              <span style={{ opacity: 0.9, fontSize: 12 }}>
-                {data.savedProductsCount ?? "…"}
               </span>
             </Link>
           </div>
