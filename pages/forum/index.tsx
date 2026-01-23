@@ -1,4 +1,4 @@
-// pages/qna/index.tsx
+// pages/forum/index.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
