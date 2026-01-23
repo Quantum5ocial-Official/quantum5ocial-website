@@ -242,8 +242,8 @@ export default function NavbarIcons() {
     const displayBadge = typeof badgeCount === "number" && badgeCount > 0;
     const badgeText = displayBadge && badgeCount! > 9 ? "9+" : badgeCount;
 
-    const isQnA = href === "/qna";
-    const iconSize = isQnA ? 40 : 36; // ✅ only QnA bigger
+    const isForum = href === "/forum";
+    const iconSize = isForum ? 40 : 36; // ✅ only Forum bigger
 
     return (
       <Link href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
@@ -330,8 +330,8 @@ export default function NavbarIcons() {
     const displayBadge = typeof badgeCount === "number" && badgeCount > 0;
     const badgeText = displayBadge && badgeCount! > 9 ? "9+" : badgeCount;
 
-    const isQnA = href === "/qna";
-    const iconSize = isQnA ? 30 : 26;
+    const isForum = href === "/forum";
+    const iconSize = isForum ? 30 : 26;
 
     return (
       <Link
@@ -538,7 +538,7 @@ export default function NavbarIcons() {
               height: "100%",
             }}
           >
-            {/* DESKTOP NAV (unchanged) */}
+            {/* DESKTOP NAV */}
             {!isMobile && (
               <nav
                 className="nav-links nav-links-desktop"
@@ -552,7 +552,7 @@ export default function NavbarIcons() {
                 {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
                 {renderIconNavLink("/products", "Marketplace", "/icons/products.svg")}
                 {renderIconNavLink("/community", "Community", "/icons/community.svg")}
-                {renderIconNavLink("/qna", "QnA", "/icons/qna.svg")}
+                {renderIconNavLink("/forum", "Forum", "/icons/forum.svg")}
 
                 {!loading &&
                   user &&
@@ -582,8 +582,9 @@ export default function NavbarIcons() {
                   <div className="nav-user-wrapper" ref={userMenuRef}>
                     <button
                       type="button"
-                      className={`nav-user-button nav-link-button ${isActive("/profile") ? "nav-link-active" : ""
-                        }`}
+                      className={`nav-user-button nav-link-button ${
+                        isActive("/profile") ? "nav-link-active" : ""
+                      }`}
                       onClick={() => {
                         setIsUserMenuOpen((o) => !o);
                       }}
@@ -845,21 +846,21 @@ export default function NavbarIcons() {
           {renderMobileBottomLink("/jobs", "Jobs", "/icons/jobs.svg")}
           {renderMobileBottomLink("/products", "Market", "/icons/products.svg")}
           {renderMobileBottomLink("/community", "Community", "/icons/community.svg")}
-          {renderMobileBottomLink("/qna", "QnA", "/icons/qna.svg")}
+          {renderMobileBottomLink("/forum", "Forum", "/icons/forum.svg")}
 
           {!loading && user
             ? renderMobileBottomLink(
-              "/notifications",
-              "Alerts",
-              "/icons/notifications.svg",
-              notificationsCount
-            )
+                "/notifications",
+                "Alerts",
+                "/icons/notifications.svg",
+                notificationsCount
+              )
             : renderMobileBottomLink(
-              "/notifications",
-              "Alerts",
-              "/icons/notifications.svg",
-              0
-            )}
+                "/notifications",
+                "Alerts",
+                "/icons/notifications.svg",
+                0
+              )}
         </div>
       )}
     </>
