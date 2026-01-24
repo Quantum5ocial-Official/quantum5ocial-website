@@ -20,7 +20,7 @@ type Job = {
   employment_type: string | null;
   remote_type: string | null;
   short_description: string | null;
-  description: string | null;
+  additional_description: string | null;
   keywords: string | null;
   salary_display: string | null;
   created_at: string | null;
