@@ -279,19 +279,6 @@ export default function LeftSidebar() {
             {loading ? "Loading…" : fullName}
           </div>
 
-          {/* Highest education */}
-          {!loading && highestEducation && (
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--text-primary)",
-                lineHeight: 1.2,
-              }}
-            >
-              {highestEducation}
-            </div>
-          )}
-
           {/* Title + affiliation */}
           {!loading && titleLine && (
             <div
