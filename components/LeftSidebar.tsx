@@ -649,7 +649,7 @@ export default function LeftSidebar() {
             alt="Quantum5ocial logo"
             style={{ width: 24, height: 24, borderRadius: 4 }}
           />
-          <span>© 2025 Quantum5ocial</span>
+          <span>© 2026 Quantum5ocial</span>
         </div>
       </div>
 
