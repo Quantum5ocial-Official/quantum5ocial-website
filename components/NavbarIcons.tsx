@@ -452,9 +452,6 @@ export default function NavbarIcons() {
                     <div className="brand-text-main brand-text-gradient">
                       Quantum5ocial
                     </div>
-                    <div className="brand-text-sub">
-                      Connecting the quantum world
-                    </div>
                   </div>
                 </div>
               </Link>
