@@ -143,6 +143,14 @@ function useJobsCtx() {
   if (!ctx) throw new Error("useJobsCtx must be used inside <JobsProvider />");
   return ctx;
 }
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 function JobsProvider({ children }: { children: ReactNode }) {
   const { user } = useSupabaseUser();
@@ -184,7 +192,7 @@ function JobsProvider({ children }: { children: ReactNode }) {
         setError("Could not load jobs. Please try again.");
         setJobs([]);
       } else {
-        setJobs((data || []) as Job[]);
+        setJobs(shuffle((data || []) as Job[]));
       }
 
       setLoading(false);
