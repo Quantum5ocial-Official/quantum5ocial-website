@@ -562,7 +562,7 @@ export default function NavbarIcons() {
                     "/icons/notifications.svg",
                     notificationsCount
                   )}
-
+                {/*
                 <button
                   type="button"
                   className="nav-link nav-link-button theme-toggle"
@@ -571,7 +571,8 @@ export default function NavbarIcons() {
                 >
                   {theme === "dark" ? "☀️" : "🌙"}
                 </button>
-
+                */}
+                
                 {!loading && !user && (
                   <Link href="/auth" className="nav-cta">
                     Login / Sign up
