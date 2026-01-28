@@ -10,6 +10,7 @@ import { useSupabaseUser } from "../lib/useSupabaseUser";
 // ✅ homepage keeps header + loading/error/empty,
 // and ONLY the feed cards list is extracted into a reusable component.
 import FeedCards from "../components/feed/FeedCards";
+import LinkifyText from "../components/LinkifyText";
 
 const POSTS_BUCKET = "post-images"; // ✅ must exist in Supabase Storage
 
