@@ -2086,12 +2086,6 @@ function HomeRightSidebar() {
               </Link>
             </div>
           )}
-
-          <div className="tile-pill-row">
-            <span className="tile-pill">MSc / PhD</span>
-            <span className="tile-pill">Postdoc</span>
-            <span className="tile-pill">Industry</span>
-          </div>
         </div>
       </Link>
 
@@ -2220,12 +2214,6 @@ function HomeRightSidebar() {
               </Link>
             </div>
           )}
-
-          <div className="tile-pill-row">
-            <span className="tile-pill">Hardware</span>
-            <span className="tile-pill">Control &amp; readout</span>
-            <span className="tile-pill">Software &amp; services</span>
-          </div>
         </div>
       </Link>
 
@@ -2343,12 +2331,6 @@ function HomeRightSidebar() {
               </div>
             </div>
           )}
-
-          <div className="tile-pill-row">
-            <span className="tile-pill">Profiles</span>
-            <span className="tile-pill">Labs &amp; companies</span>
-            <span className="tile-pill">Entangle connections</span>
-          </div>
         </div>
       </Link>
     </div>
