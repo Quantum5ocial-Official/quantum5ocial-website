@@ -2016,7 +2016,7 @@ function HomeRightSidebar() {
 
   return (
     <div className="hero-tiles hero-tiles-vertical">
-      <HomeHeroTile />
+      {/* <HomeHeroTile /> */}
 
       <Link href="/jobs" className="hero-tile">
         <div className="hero-tile-inner">
