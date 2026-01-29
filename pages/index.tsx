@@ -2092,10 +2092,6 @@ function HomeRightSidebar() {
             <span className="tile-pill">Postdoc</span>
             <span className="tile-pill">Industry</span>
           </div>
-
-          <div className="tile-cta">
-            Browse jobs <span>›</span>
-          </div>
         </div>
       </Link>
 
@@ -2230,10 +2226,6 @@ function HomeRightSidebar() {
             <span className="tile-pill">Control &amp; readout</span>
             <span className="tile-pill">Software &amp; services</span>
           </div>
-
-          <div className="tile-cta">
-            Browse products <span>›</span>
-          </div>
         </div>
       </Link>
 
@@ -2356,10 +2348,6 @@ function HomeRightSidebar() {
             <span className="tile-pill">Profiles</span>
             <span className="tile-pill">Labs &amp; companies</span>
             <span className="tile-pill">Entangle connections</span>
-          </div>
-
-          <div className="tile-cta">
-            Browse community <span>›</span>
           </div>
         </div>
       </Link>
