@@ -2020,7 +2020,6 @@ function HomeRightSidebar() {
 
       <Link href="/jobs" className="hero-tile">
         <div className="hero-tile-inner">
-          <div className="tile-label">Featured role</div>
 
           <div className="tile-title-row">
             <div
@@ -2091,7 +2090,6 @@ function HomeRightSidebar() {
 
       <Link href="/products" className="hero-tile">
         <div className="hero-tile-inner">
-          <div className="tile-label">Featured product</div>
 
           <div className="tile-title-row">
             <div
@@ -2219,7 +2217,6 @@ function HomeRightSidebar() {
 
       <Link href="/community" className="hero-tile">
         <div className="hero-tile-inner">
-          <div className="tile-label">Featured member</div>
 
           <div className="tile-title-row">
             <div
