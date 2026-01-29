@@ -1851,7 +1851,7 @@ function HomeComposerStrip() {
 /* =========================
    RIGHT SIDEBAR (dynamic tiles)
    ========================= */
-
+/*
 function HomeHeroTile() {
   return (
     <div className="hero-tile" id="about">
@@ -1894,7 +1894,7 @@ function HomeHeroTile() {
     </div>
   );
 }
-
+*/
 function HomeRightSidebar() {
   const [latestJob, setLatestJob] = useState<Job | null>(null);
   const [latestProduct, setLatestProduct] = useState<Product | null>(null);
