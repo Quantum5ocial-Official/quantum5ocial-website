@@ -737,11 +737,11 @@ function JobsMiddle() {
                 </span>
               )}
             </div>
-            /*
+            {/*
             <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
               Browse internships, PhD positions, postdocs, and industry roles across labs and companies.
             </div>
-            */
+            */}
           </div>
 
           <button className="nav-cta" style={{ cursor: "pointer" }} onClick={() => router.push("/jobs/new")}>
