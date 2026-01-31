@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       .rpc("match_documents", {
         query_embedding: embedding,
         match_threshold: 0.1,
-        match_count: 20,
+        match_count: 10,
       });
 
     if (searchError) {
