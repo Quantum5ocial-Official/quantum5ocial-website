@@ -7,6 +7,7 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+/*
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -1000,4 +1001,34 @@ export default function ProductsIndexPage() {
 
   // ✅ Mobile main page = ONLY middle content (no two-column shell)
   mobileMain: <ProductsMiddle />,
+};
+*/
+
+function ProductsClosedPage() {
+  return (
+    <section className="section">
+      <div className="section-header">
+        <div>
+          <div className="section-title">Quantum Marketplace</div>
+          <div
+            className="section-sub"
+            style={{ maxWidth: 520, lineHeight: 1.5, marginTop: 4 }}
+          >
+            The Market is under construction and will open soon.
+            <br />
+            Stay updated for all quantum related products/services.
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function ProductsIndexPage() {
+  return <ProductsClosedPage />;
+}
+
+(ProductsIndexPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
 };
