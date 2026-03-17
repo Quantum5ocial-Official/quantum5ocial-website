@@ -24,6 +24,7 @@ export type PostRow = {
   created_at: string | null;
   image_url: string | null;
   video_url?: string | null;
+  org_id?: string | null;
 };
 
 export type CommentRow = {
@@ -77,19 +78,16 @@ type Props = {
 
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
 
-  // ✅ New action props
-  onEditPost?: (postId: string) => void;
-  onSharePost?: (postId: string) => void;
-  onSavePost?: (postId: string) => void;
+  onEditPost?: (postId: string) => Promise<void> | void;
+  onSharePost?: (postId: string) => Promise<void> | void;
+  onSavePost?: (postId: string) => Promise<void> | void;
   isPostSaved?: (postId: string) => boolean;
+
+  // optional loading flags coming from parent
+  savingPostId?: string | null;
+  editingPostId?: string | null;
 };
 
-/** ✅ Autoplay video:
- *  - starts muted (required for autoplay)
- *  - user can unmute via controls
- *  - plays when ~40% in viewport, pauses when out of frame
- *  - we NEVER force-mute in the observer, so user choice is respected
- */
 function AutoPlayVideo({
   src,
   style,
@@ -112,24 +110,17 @@ function AutoPlayVideo({
 
           if (entry.isIntersecting) {
             const p = node.play();
-            if (p && typeof p.catch === "function") {
-              p.catch(() => {});
-            }
+            if (p && typeof p.catch === "function") p.catch(() => {});
           } else {
             node.pause();
           }
         });
       },
-      {
-        threshold: 0.4,
-      }
+      { threshold: 0.4 }
     );
 
     observer.observe(el);
-
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -169,15 +160,17 @@ export default function FeedCards({
   onSharePost,
   onSavePost,
   isPostSaved,
+  savingPostId,
+  editingPostId,
 }: Props) {
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
+  const [sharingPostId, setSharingPostId] = useState<string | null>(null);
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as Node;
       if (!openMenuPostId) return;
-
       const activeMenu = menuRefs.current[openMenuPostId];
       if (activeMenu && !activeMenu.contains(target)) {
         setOpenMenuPostId(null);
@@ -185,9 +178,7 @@ export default function FeedCards({
     }
 
     function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setOpenMenuPostId(null);
-      }
+      if (e.key === "Escape") setOpenMenuPostId(null);
     }
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -200,23 +191,27 @@ export default function FeedCards({
   }, [openMenuPostId]);
 
   const handleShare = async (postId: string) => {
-    if (onSharePost) {
-      onSharePost(postId);
-      return;
-    }
-
-    if (typeof window === "undefined") return;
-
-    const shareUrl = `${window.location.origin}/post/${postId}`;
+    if (sharingPostId) return;
+    setSharingPostId(postId);
 
     try {
+      if (onSharePost) {
+        await onSharePost(postId);
+        return;
+      }
+
+      if (typeof window === "undefined") return;
+      const shareUrl = `${window.location.origin}/?post=${postId}`;
+
       if (navigator.share) {
         await navigator.share({ url: shareUrl });
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
       }
     } catch {
-      // ignore cancelled share / clipboard errors
+      // ignore
+    } finally {
+      setSharingPostId(null);
     }
   };
 
@@ -263,7 +258,7 @@ export default function FeedCards({
     position: "absolute",
     top: 40,
     right: 0,
-    minWidth: 170,
+    minWidth: 180,
     padding: 8,
     borderRadius: 14,
     border: "1px solid rgba(148,163,184,0.22)",
@@ -299,6 +294,10 @@ export default function FeedCards({
         const isOwnPost = !!user && user.id === p.user_id;
         const postSaved = isPostSaved ? !!isPostSaved(p.id) : false;
 
+        const isSavingThisPost = savingPostId === p.id;
+        const isEditingThisPost = editingPostId === p.id;
+        const isSharingThisPost = sharingPostId === p.id;
+
         const hasVideo = !!p.video_url;
         const hasImage = !!p.image_url && !hasVideo;
 
@@ -309,14 +308,11 @@ export default function FeedCards({
           ? `/profile/${author.id}`
           : undefined;
 
-        const avatarSrc =
-          org != null ? org.logo_url : author?.avatar_url || null;
+        const avatarSrc = org != null ? org.logo_url : author?.avatar_url || null;
 
         const subtitle = org
           ? [
-              author?.full_name
-                ? `Posted by ${author.full_name}`
-                : "Posted by member",
+              author?.full_name ? `Posted by ${author.full_name}` : "Posted by member",
               formatSubtitle(author),
             ]
               .filter(Boolean)
@@ -333,7 +329,6 @@ export default function FeedCards({
             }}
             style={cardStyle}
           >
-            {/* Header */}
             <div
               style={{
                 display: "flex",
@@ -418,7 +413,6 @@ export default function FeedCards({
                 <div style={{ ...subtle, marginTop: 2 }}>{subtitle}</div>
               </div>
 
-              {/* ✅ Card actions menu */}
               <div
                 ref={(el) => {
                   menuRefs.current[p.id] = el;
@@ -441,43 +435,63 @@ export default function FeedCards({
                     {isOwnPost && (
                       <button
                         type="button"
-                        style={menuItemStyle}
-                        onClick={() => {
+                        style={{
+                          ...menuItemStyle,
+                          opacity: isEditingThisPost ? 0.6 : 1,
+                          cursor: isEditingThisPost ? "default" : "pointer",
+                        }}
+                        disabled={isEditingThisPost}
+                        onClick={async () => {
+                          if (!onEditPost || isEditingThisPost) return;
                           setOpenMenuPostId(null);
-                          onEditPost?.(p.id);
+                          await onEditPost(p.id);
                         }}
                       >
-                        ✏️ Edit
+                        {isEditingThisPost ? "⏳ Opening editor…" : "✏️ Edit"}
                       </button>
                     )}
 
                     <button
                       type="button"
-                      style={menuItemStyle}
+                      style={{
+                        ...menuItemStyle,
+                        opacity: isSharingThisPost ? 0.6 : 1,
+                        cursor: isSharingThisPost ? "default" : "pointer",
+                      }}
+                      disabled={isSharingThisPost}
                       onClick={async () => {
                         setOpenMenuPostId(null);
                         await handleShare(p.id);
                       }}
                     >
-                      🔗 Share
+                      {isSharingThisPost ? "⏳ Sharing…" : "🔗 Share"}
                     </button>
 
                     <button
                       type="button"
-                      style={menuItemStyle}
-                      onClick={() => {
+                      style={{
+                        ...menuItemStyle,
+                        opacity: isSavingThisPost ? 0.6 : 1,
+                        cursor: isSavingThisPost ? "default" : "pointer",
+                      }}
+                      disabled={isSavingThisPost}
+                      onClick={async () => {
+                        if (!onSavePost || isSavingThisPost) return;
                         setOpenMenuPostId(null);
-                        onSavePost?.(p.id);
+                        await onSavePost(p.id);
                       }}
                     >
-                      {postSaved ? "💾 Saved" : "📌 Save post"}
+                      {isSavingThisPost
+                        ? "⏳ Saving..."
+                        : postSaved
+                        ? "💾 Saved"
+                        : "📌 Save post"}
                     </button>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Body */}
             <div
               style={{
                 marginTop: 10,
@@ -489,7 +503,6 @@ export default function FeedCards({
               <LinkifyText text={p.body || ""} />
             </div>
 
-            {/* Media */}
             {hasVideo && (
               <div
                 style={{
@@ -547,7 +560,6 @@ export default function FeedCards({
               </div>
             )}
 
-            {/* Actions */}
             <div
               style={{
                 display: "flex",
@@ -588,7 +600,6 @@ export default function FeedCards({
               </button>
             </div>
 
-            {/* Comments */}
             {isOpen && (
               <div
                 style={{
@@ -615,9 +626,7 @@ export default function FeedCards({
                           [p.id]: e.target.value,
                         }))
                       }
-                      placeholder={
-                        user ? "Write a comment…" : "Login to comment…"
-                      }
+                      placeholder={user ? "Write a comment…" : "Login to comment…"}
                       disabled={!user || !!commentSaving[p.id]}
                       style={{
                         width: "100%",
