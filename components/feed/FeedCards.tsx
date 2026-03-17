@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -23,8 +23,6 @@ export type PostRow = {
   body: string;
   created_at: string | null;
   image_url: string | null;
-
-  // ✅ optional video URL for feed posts
   video_url?: string | null;
 };
 
@@ -39,7 +37,6 @@ export type CommentRow = {
 export type PostVM = {
   post: PostRow;
   author: FeedProfile | null;
-  // when present, card will show org as the main actor
   org?: FeedOrg | null;
   likeCount: number;
   commentCount: number;
@@ -79,6 +76,12 @@ type Props = {
   LinkifyText: React.ComponentType<{ text: string }>;
 
   postRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+
+  // ✅ New action props
+  onEditPost?: (postId: string) => void;
+  onSharePost?: (postId: string) => void;
+  onSavePost?: (postId: string) => void;
+  isPostSaved?: (postId: string) => boolean;
 };
 
 /** ✅ Autoplay video:
@@ -108,12 +111,9 @@ function AutoPlayVideo({
           if (!node) return;
 
           if (entry.isIntersecting) {
-            // Do NOT touch node.muted here; let user control it.
             const p = node.play();
             if (p && typeof p.catch === "function") {
-              p.catch(() => {
-                // ignore autoplay rejections
-              });
+              p.catch(() => {});
             }
           } else {
             node.pause();
@@ -121,7 +121,7 @@ function AutoPlayVideo({
         });
       },
       {
-        threshold: 0.4, // play when ~40% visible
+        threshold: 0.4,
       }
     );
 
@@ -165,7 +165,61 @@ export default function FeedCards({
   avatarStyle,
   LinkifyText,
   postRefs,
+  onEditPost,
+  onSharePost,
+  onSavePost,
+  isPostSaved,
 }: Props) {
+  const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
+  const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (!openMenuPostId) return;
+
+      const activeMenu = menuRefs.current[openMenuPostId];
+      if (activeMenu && !activeMenu.contains(target)) {
+        setOpenMenuPostId(null);
+      }
+    }
+
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpenMenuPostId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleEsc);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [openMenuPostId]);
+
+  const handleShare = async (postId: string) => {
+    if (onSharePost) {
+      onSharePost(postId);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
+    const shareUrl = `${window.location.origin}/post/${postId}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ url: shareUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+    } catch {
+      // ignore cancelled share / clipboard errors
+    }
+  };
+
   const cardStyle: React.CSSProperties = {
     borderRadius: 18,
     border: "1px solid rgba(148,163,184,0.18)",
@@ -189,6 +243,51 @@ export default function FeedCards({
 
   const subtle: React.CSSProperties = { opacity: 0.78, fontSize: 12 };
 
+  const menuButtonStyle: React.CSSProperties = {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "rgba(2,6,23,0.24)",
+    color: "rgba(226,232,240,0.92)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+    fontSize: 18,
+    lineHeight: 1,
+  };
+
+  const menuStyle: React.CSSProperties = {
+    position: "absolute",
+    top: 40,
+    right: 0,
+    minWidth: 170,
+    padding: 8,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.22)",
+    background: "rgba(2,6,23,0.96)",
+    boxShadow: "0 16px 40px rgba(0,0,0,0.35)",
+    zIndex: 50,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  };
+
+  const menuItemStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "9px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(148,163,184,0.14)",
+    background: "rgba(15,23,42,0.45)",
+    color: "rgba(226,232,240,0.95)",
+    textAlign: "left",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 700,
+  };
+
   return (
     <div>
       {items.map((vm) => {
@@ -197,11 +296,12 @@ export default function FeedCards({
         const org = vm.org ?? null;
         const isOpen = !!openComments[p.id];
         const comments = commentsByPost[p.id] || [];
+        const isOwnPost = !!user && user.id === p.user_id;
+        const postSaved = isPostSaved ? !!isPostSaved(p.id) : false;
 
         const hasVideo = !!p.video_url;
-        const hasImage = !!p.image_url && !hasVideo; // prefer video over image when both exist
+        const hasImage = !!p.image_url && !hasVideo;
 
-        // Who is the main actor? org if present, else profile
         const actorName = org?.name || author?.full_name || "Quantum member";
         const actorHref = org
           ? `/orgs/${org.slug}`
@@ -209,8 +309,6 @@ export default function FeedCards({
           ? `/profile/${author.id}`
           : undefined;
 
-        // ✅ If there is an org, use ONLY its logo (or initials if no logo).
-        // Only fall back to author avatar when there is NO org.
         const avatarSrc =
           org != null ? org.logo_url : author?.avatar_url || null;
 
@@ -236,7 +334,13 @@ export default function FeedCards({
             style={cardStyle}
           >
             {/* Header */}
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                alignItems: "flex-start",
+              }}
+            >
               {actorHref ? (
                 <Link
                   href={actorHref}
@@ -313,6 +417,64 @@ export default function FeedCards({
                 </div>
                 <div style={{ ...subtle, marginTop: 2 }}>{subtitle}</div>
               </div>
+
+              {/* ✅ Card actions menu */}
+              <div
+                ref={(el) => {
+                  menuRefs.current[p.id] = el;
+                }}
+                style={{ position: "relative", flexShrink: 0 }}
+              >
+                <button
+                  type="button"
+                  aria-label="Post actions"
+                  onClick={() =>
+                    setOpenMenuPostId((prev) => (prev === p.id ? null : p.id))
+                  }
+                  style={menuButtonStyle}
+                >
+                  ⋯
+                </button>
+
+                {openMenuPostId === p.id && (
+                  <div style={menuStyle}>
+                    {isOwnPost && (
+                      <button
+                        type="button"
+                        style={menuItemStyle}
+                        onClick={() => {
+                          setOpenMenuPostId(null);
+                          onEditPost?.(p.id);
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      style={menuItemStyle}
+                      onClick={async () => {
+                        setOpenMenuPostId(null);
+                        await handleShare(p.id);
+                      }}
+                    >
+                      🔗 Share
+                    </button>
+
+                    <button
+                      type="button"
+                      style={menuItemStyle}
+                      onClick={() => {
+                        setOpenMenuPostId(null);
+                        onSavePost?.(p.id);
+                      }}
+                    >
+                      {postSaved ? "💾 Saved" : "📌 Save post"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Body */}
@@ -327,7 +489,7 @@ export default function FeedCards({
               <LinkifyText text={p.body || ""} />
             </div>
 
-            {/* Media: prefer video, else image */}
+            {/* Media */}
             {hasVideo && (
               <div
                 style={{
@@ -435,7 +597,6 @@ export default function FeedCards({
                   borderTop: "1px solid rgba(148,163,184,0.14)",
                 }}
               >
-                {/* Comment input */}
                 <div
                   style={{
                     display: "flex",
@@ -509,7 +670,6 @@ export default function FeedCards({
                   </div>
                 </div>
 
-                {/* Comments list */}
                 <div
                   style={{
                     marginTop: 12,
