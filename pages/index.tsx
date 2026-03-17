@@ -842,25 +842,36 @@ function HomeGlobalFeed() {
 
       {!loading && !error && items.length > 0 && (
         <FeedCards
-          items={items}
-          user={user}
-          openComments={openComments}
-          setOpenComments={setOpenComments}
-          commentsByPost={commentsByPost}
-          commenterProfiles={commenterProfiles}
-          commentDraft={commentDraft}
-          setCommentDraft={setCommentDraft}
-          commentSaving={commentSaving}
-          onToggleLike={toggleLike}
-          onLoadComments={loadComments}
-          onSubmitComment={submitComment}
-          formatRelativeTime={formatRelativeTime}
-          formatSubtitle={formatSubtitle}
-          initialsOf={initialsOf}
-          avatarStyle={avatarStyle}
-          LinkifyText={LinkifyText}
-          postRefs={postRefs}
-        />
+  items={items}
+  user={user}
+  openComments={openComments}
+  setOpenComments={setOpenComments}
+  commentsByPost={commentsByPost}
+  commenterProfiles={commenterProfiles}
+  commentDraft={commentDraft}
+  setCommentDraft={setCommentDraft}
+  commentSaving={commentSaving}
+  onToggleLike={toggleLike}
+  onLoadComments={loadComments}
+  onSubmitComment={submitComment}
+  formatRelativeTime={formatRelativeTime}
+  formatSubtitle={formatSubtitle}
+  initialsOf={initialsOf}
+  avatarStyle={avatarStyle}
+  LinkifyText={LinkifyText}
+  postRefs={postRefs}
+  onEditPost={(postId) => {
+    // open edit modal here
+    console.log("edit post", postId);
+  }}
+  onSharePost={(postId) => {
+    console.log("share post", postId);
+  }}
+  onSavePost={(postId) => {
+    console.log("save post", postId);
+  }}
+  isPostSaved={(postId) => false}
+/>
       )}
     </div>
   );
