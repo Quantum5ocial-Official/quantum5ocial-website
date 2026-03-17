@@ -594,7 +594,7 @@ export default function NavbarIcons() {
                 {renderIconNavLink("/jobs", "Jobs", "/icons/jobs.svg")}
                 {/* renderIconNavLink("/products", "Marketplace", "/icons/products.svg") */}
                 {renderIconNavLink("/community", "Community", "/icons/community.svg")}
-                {renderIconNavLink("/forum", "Forum", "/icons/forum.svg")}
+                {/* renderIconNavLink("/forum", "Forum", "/icons/forum.svg") */}
 
                 {!loading &&
                   user &&
@@ -899,7 +899,7 @@ export default function NavbarIcons() {
           {renderMobileBottomLink("/jobs", "Jobs", "/icons/jobs.svg")}
           {/* renderMobileBottomLink("/products", "Market", "/icons/products.svg") */}
           {renderMobileBottomLink("/community", "Community", "/icons/community.svg")}
-          {renderMobileBottomLink("/forum", "Forum", "/icons/forum.svg")}
+          {/* renderMobileBottomLink("/forum", "Forum", "/icons/forum.svg") */}
 
           {!loading && user
             ? renderMobileBottomLink(
