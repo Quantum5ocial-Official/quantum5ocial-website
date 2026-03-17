@@ -408,6 +408,7 @@ const [editError, setEditError] = useState<string | null>(null);
 
 const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
 const [savingPostId, setSavingPostId] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   const formatRelativeTime = (created_at: string | null) => {
     if (!created_at) return "";
@@ -779,6 +780,67 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
   setEditError(null);
 };
 
+const handleDeletePost = async (postId: string) => {
+  if (!user) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Delete this post? This action cannot be undone."
+  );
+  if (!confirmed) return;
+
+  setDeletingPostId(postId);
+
+  try {
+    const { error } = await supabase
+      .from("posts")
+      .delete()
+      .eq("id", postId)
+      .eq("user_id", user.id);
+
+    if (error) throw error;
+
+    setItems((prev) => prev.filter((x) => x.post.id !== postId));
+
+    setSavedPostIds((prev) => prev.filter((id) => id !== postId));
+
+    setOpenComments((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+
+    setCommentsByPost((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+
+    setCommentDraft((prev) => {
+      const next = { ...prev };
+      delete next[postId];
+      return next;
+    });
+
+    if (editingPostId === postId) {
+      setEditingPostId(null);
+      setEditingBody("");
+      setEditError(null);
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+    }
+  } catch (e: any) {
+    console.error("Failed to delete post", e);
+    alert(e?.message || "Could not delete post.");
+  } finally {
+    setDeletingPostId(null);
+  }
+};
+  
 const handleSharePost = async (postId: string) => {
   if (typeof window === "undefined") return;
 
@@ -986,9 +1048,11 @@ const handleSaveEditedPost = async () => {
   onEditPost={handleEditPost}
   onSharePost={handleSharePost}
   onSavePost={handleSavePost}
+  onDeletePost={handleDeletePost}
   isPostSaved={isPostSaved}
   savingPostId={savingPostId}
   editingPostId={editingPostId}
+  deletingPostId={deletingPostId}
 />
       )}
 
@@ -1060,22 +1124,23 @@ const handleSaveEditedPost = async () => {
 
       <div style={{ padding: 16 }}>
         <textarea
-          value={editingBody}
-          onChange={(e) => setEditingBody(e.target.value)}
-          style={{
-            width: "100%",
-            minHeight: 160,
-            borderRadius: 14,
-            border: "1px solid rgba(148,163,184,0.2)",
-            background: "rgba(2,6,23,0.26)",
-            color: "rgba(226,232,240,0.94)",
-            padding: 14,
-            fontSize: 15,
-            lineHeight: 1.45,
-            outline: "none",
-            resize: "vertical",
-          }}
-        />
+  value={editingBody}
+  onChange={(e) => setEditingBody(e.target.value)}
+  style={{
+    width: "100%",
+    minHeight: 160,
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.2)",
+    background: "rgba(2,6,23,0.26)",
+    color: "rgba(226,232,240,0.94)",
+    padding: 14,
+    fontSize: 15,
+    lineHeight: 1.45,
+    outline: "none",
+    resize: "vertical",
+    whiteSpace: "pre-wrap",
+  }}
+/>
 
         {editError && (
           <div
