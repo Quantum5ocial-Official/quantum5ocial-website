@@ -509,6 +509,8 @@ export default function FeedCards({
                   fontSize: 14,
                   lineHeight: 1.45,
                   color: "rgba(226,232,240,0.92)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
                 }}
               >
                 <LinkifyText text={p.body || ""} />
@@ -755,6 +757,8 @@ export default function FeedCards({
                                 fontSize: 13,
                                 lineHeight: 1.4,
                                 opacity: 0.92,
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
                               }}
                             >
                               <LinkifyText text={c.body || ""} />
