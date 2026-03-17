@@ -81,10 +81,12 @@ type Props = {
   onEditPost?: (postId: string) => Promise<void> | void;
   onSharePost?: (postId: string) => Promise<void> | void;
   onSavePost?: (postId: string) => Promise<void> | void;
+  onDeletePost?: (postId: string) => Promise<void> | void;
   isPostSaved?: (postId: string) => boolean;
 
   savingPostId?: string | null;
   editingPostId?: string | null;
+  deletingPostId?: string | null;
 };
 
 function AutoPlayVideo({
@@ -158,9 +160,11 @@ export default function FeedCards({
   onEditPost,
   onSharePost,
   onSavePost,
+  onDeletePost,
   isPostSaved,
   savingPostId,
   editingPostId,
+  deletingPostId,
 }: Props) {
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
   const [sharingPostId, setSharingPostId] = useState<string | null>(null);
@@ -302,6 +306,7 @@ export default function FeedCards({
 
         const isSavingThisPost = savingPostId === p.id;
         const isEditingThisPost = editingPostId === p.id;
+        const isDeletingThisPost = deletingPostId === p.id;
         const isSharingThisPost = sharingPostId === p.id;
 
         const hasVideo = !!p.video_url;
@@ -458,6 +463,28 @@ export default function FeedCards({
                         }}
                       >
                         {isEditingThisPost ? "⏳ Opening editor…" : "✏️ Edit"}
+                      </button>
+                    )}
+
+                    {isOwnPost && (
+                      <button
+                        type="button"
+                        style={{
+                          ...menuItemStyle,
+                          opacity: isDeletingThisPost ? 0.6 : 1,
+                          cursor: isDeletingThisPost ? "default" : "pointer",
+                          border: "1px solid rgba(248,113,113,0.22)",
+                          background: "rgba(127,29,29,0.18)",
+                          color: "rgba(254,202,202,0.95)",
+                        }}
+                        disabled={isDeletingThisPost}
+                        onClick={async () => {
+                          if (!onDeletePost || isDeletingThisPost) return;
+                          setOpenMenuPostId(null);
+                          await onDeletePost(p.id);
+                        }}
+                      >
+                        {isDeletingThisPost ? "⏳ Deleting..." : "🗑 Delete"}
                       </button>
                     )}
 
