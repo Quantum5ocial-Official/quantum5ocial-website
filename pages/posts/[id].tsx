@@ -1,5 +1,5 @@
 // pages/posts/[id].tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -68,15 +68,23 @@ export default function PostDetailPage() {
   const [savingPostId, setSavingPostId] = useState<string | null>(null);
 
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentRow[]>
+  >({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commentSaving, setCommentSaving] = useState<
+    Record<string, boolean>
+  >({});
+  const [commenterProfiles, setCommenterProfiles] = useState<
+    Record<string, FeedProfile>
+  >({});
 
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -91,7 +99,8 @@ export default function PostDetailPage() {
     if (diffSec < 60) return `${diffSec} seconds ago`;
 
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    if (diffMin < 60)
+      return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
 
     const diffHr = Math.floor(diffMin / 60);
     if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
@@ -253,6 +262,7 @@ export default function PostDetailPage() {
   useEffect(() => {
     if (!postId) return;
     loadPost();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId, user?.id]);
 
   useEffect(() => {
@@ -405,11 +415,43 @@ export default function PostDetailPage() {
     }
   };
 
+  const handleDeletePost = async (pid: string) => {
+    if (!user || !item || item.post.id !== pid) return;
+
+    const confirmed = window.confirm(
+      "Delete this post? This action cannot be undone."
+    );
+    if (!confirmed) return;
+
+    setDeletingPostId(pid);
+
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", pid)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+
+      router.push("/");
+    } catch (e: any) {
+      console.error("Failed to delete post", e);
+      alert(e?.message || "Could not delete post.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
   const handleSaveEditedPost = async () => {
     if (!user || !editingPostId || !item) return;
 
-    const body = editingBody.trim();
-    if (!body) {
+    const body = editingBody;
+    if (!body.trim()) {
       setEditError("Post body cannot be empty.");
       return;
     }
@@ -446,7 +488,8 @@ export default function PostDetailPage() {
 
   const isPostSaved = (pid: string) => savedPostIds.includes(pid);
 
-  const editingPost = editingPostId && item?.post.id === editingPostId ? item.post : null;
+  const editingPost =
+    editingPostId && item?.post.id === editingPostId ? item.post : null;
 
   return (
     <section className="section">
@@ -501,9 +544,11 @@ export default function PostDetailPage() {
             } catch {}
           }}
           onSavePost={handleSavePost}
+          onDeletePost={handleDeletePost}
           isPostSaved={isPostSaved}
           savingPostId={savingPostId}
           editingPostId={editingPostId}
+          deletingPostId={deletingPostId}
         />
       )}
 
@@ -588,6 +633,7 @@ export default function PostDetailPage() {
                   lineHeight: 1.45,
                   outline: "none",
                   resize: "vertical",
+                  whiteSpace: "pre-wrap",
                 }}
               />
 
