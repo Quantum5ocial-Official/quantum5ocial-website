@@ -13,6 +13,7 @@ export default function EcosystemIndexPage() {
   const [followingCount, setFollowingCount] = useState(0);
   const [savedJobsCount, setSavedJobsCount] = useState(0);
   const [savedProductsCount, setSavedProductsCount] = useState(0);
+  const [savedPostsCount, setSavedPostsCount] = useState(0);
 
   const [myPostsCount, setMyPostsCount] = useState(0);
   const [questionsAskedCount, setQuestionsAskedCount] = useState(0);
@@ -21,7 +22,6 @@ export default function EcosystemIndexPage() {
   const [mainLoading, setMainLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!loading && !user) router.replace("/auth?redirect=/ecosystem");
   }, [loading, user, router]);
@@ -37,7 +37,6 @@ export default function EcosystemIndexPage() {
       setErrorMsg(null);
 
       try {
-        // Entangled members
         const { data: connData } = await supabase
           .from("connections")
           .select("user_id, target_user_id")
@@ -55,15 +54,15 @@ export default function EcosystemIndexPage() {
           setEntangledCount(otherIds.length);
         }
 
-        // Followed orgs
         const { data: followRows } = await supabase
           .from("org_follows")
           .select("org_id")
           .eq("user_id", user.id);
 
-        setFollowingCount(new Set((followRows || []).map((r: any) => r.org_id)).size);
+        setFollowingCount(
+          new Set((followRows || []).map((r: any) => r.org_id)).size
+        );
 
-        // Saved jobs
         const { data: savedJobs } = await supabase
           .from("saved_jobs")
           .select("job_id")
@@ -71,7 +70,6 @@ export default function EcosystemIndexPage() {
 
         setSavedJobsCount(savedJobs?.length || 0);
 
-        // Saved products
         const { data: savedProducts } = await supabase
           .from("saved_products")
           .select("product_id")
@@ -79,7 +77,13 @@ export default function EcosystemIndexPage() {
 
         setSavedProductsCount(savedProducts?.length || 0);
 
-        // My posts
+        const { data: savedPosts } = await supabase
+          .from("saved_posts")
+          .select("post_id")
+          .eq("user_id", user.id);
+
+        setSavedPostsCount(savedPosts?.length || 0);
+
         const { data: myPosts } = await supabase
           .from("posts")
           .select("id")
@@ -87,7 +91,6 @@ export default function EcosystemIndexPage() {
 
         setMyPostsCount(myPosts?.length || 0);
 
-        // Questions asked
         const { data: askedQs } = await supabase
           .from("qna_questions")
           .select("id")
@@ -95,7 +98,6 @@ export default function EcosystemIndexPage() {
 
         setQuestionsAskedCount(askedQs?.length || 0);
 
-        // Questions answered
         const { data: answers } = await supabase
           .from("qna_answers")
           .select("id")
@@ -117,7 +119,6 @@ export default function EcosystemIndexPage() {
 
   return (
     <section className="section">
-      {/* HERO */}
       <div
         className="card"
         style={{
@@ -155,7 +156,6 @@ export default function EcosystemIndexPage() {
         </div>
       </div>
 
-      {/* STATES */}
       {mainLoading && <div className="products-status">Loading your ecosystem…</div>}
       {errorMsg && !mainLoading && (
         <div className="products-status" style={{ color: "#f87171" }}>
@@ -163,7 +163,6 @@ export default function EcosystemIndexPage() {
         </div>
       )}
 
-      {/* TILES */}
       {!mainLoading && !errorMsg && (
         <div
           style={{
@@ -172,7 +171,6 @@ export default function EcosystemIndexPage() {
             gap: 14,
           }}
         >
-          {/* Entangled */}
           <Tile
             href="/ecosystem/entangled"
             label="Entanglements"
@@ -182,7 +180,6 @@ export default function EcosystemIndexPage() {
             description="People you are connected with in the quantum ecosystem."
           />
 
-          {/* Following */}
           <Tile
             href="/ecosystem/following"
             label="Organizations I follow"
@@ -192,7 +189,6 @@ export default function EcosystemIndexPage() {
             description="Companies and research groups you track."
           />
 
-          {/* Saved jobs */}
           <Tile
             href="/ecosystem/saved-jobs"
             label="Saved jobs"
@@ -202,7 +198,6 @@ export default function EcosystemIndexPage() {
             description="Roles you’ve bookmarked for later."
           />
 
-          {/* Saved products */}
           <Tile
             href="/ecosystem/saved-products"
             label="Saved products"
@@ -212,7 +207,15 @@ export default function EcosystemIndexPage() {
             description="Marketplace items you want to revisit."
           />
 
-          {/* My posts */}
+          <Tile
+            href="/ecosystem/saved-posts"
+            label="Saved posts"
+            count={savedPostsCount}
+            icon="📌"
+            color="#ec4899"
+            description="Posts you bookmarked for later reading."
+          />
+
           <Tile
             href="/ecosystem/my-posts"
             label="My posts"
@@ -222,7 +225,6 @@ export default function EcosystemIndexPage() {
             description="Your posts in the global feed."
           />
 
-          {/* Questions asked */}
           <Tile
             href="/ecosystem/questions-asked"
             label="Questions asked"
@@ -232,7 +234,6 @@ export default function EcosystemIndexPage() {
             description="Questions you posted to Q&A."
           />
 
-          {/* Questions answered */}
           <Tile
             href="/ecosystem/questions-answered"
             label="Questions answered"
@@ -242,7 +243,6 @@ export default function EcosystemIndexPage() {
             description="Q&A threads where you replied."
           />
 
-          {/* ✅ NEW: My publications */}
           <Tile
             href="/ecosystem/publications"
             label="My publications"
@@ -252,7 +252,6 @@ export default function EcosystemIndexPage() {
             description="Your papers, preprints, and publication links."
           />
 
-          {/* ✅ NEW: My CV */}
           <Tile
             href="/ecosystem/cv"
             label="My CV"
