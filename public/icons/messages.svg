@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="3 3 18 16"
+  fill="none"
+>
+  <defs>
+    <style>
+      .outer {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 0.9px;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .inner {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 0.45px;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        opacity: 0.95;
+      }
+    </style>
+  </defs>
+
+  <!-- Outer bubble -->
+  <path
+    class="outer"
+    d="
+      M5 4.5
+      h14
+      a2 2 0 0 1 2 2
+      v6.5
+      a2 2 0 0 1 -2 2
+      h-8
+      l-3.5 3
+      v-3
+      h-2
+      a2 2 0 0 1 -2 -2
+      v-6.5
+      a2 2 0 0 1 2 -2
+      z
+    "
+  />
+
+  <!-- Inner bubble -->
+  <path
+    class="inner"
+    d="
+      M5.8 5.2
+      h12.4
+      a1.6 1.6 0 0 1 1.6 1.6
+      v5.6
+      a1.6 1.6 0 0 1 -1.6 1.6
+      h-7.2
+      l-2.6 2.2
+      v-2.2
+      h-1.6
+      a1.6 1.6 0 0 1 -1.6 -1.6
+      v-5.6
+      a1.6 1.6 0 0 1 1.6 -1.6
+      z
+    "
+  />
+
+  <!-- Message lines -->
+  <path class="outer" d="M8 8.5h7" />
+  <path class="outer" d="M8 10.5h5.5" />
+
+  <path class="inner" d="M8.6 8.5h6" />
+  <path class="inner" d="M8.6 10.5h4.5" />
+</svg>
