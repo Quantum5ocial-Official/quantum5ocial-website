@@ -400,6 +400,10 @@ function HomeGlobalFeed() {
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  // ✅ new: local post action state
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+
   const postParam = useMemo(() => {
     const raw = router.query?.post;
     if (!raw) return null;
@@ -443,11 +447,9 @@ function HomeGlobalFeed() {
     setError(null);
 
     try {
-
       let postRows: PostRow[] | null = null;
       let postErr: any = null;
 
-      // 1. If user is logged in, try fetching personalized feed IDs first
       let recommendedIds: string[] = [];
       if (uid) {
         try {
@@ -465,9 +467,7 @@ function HomeGlobalFeed() {
         }
       }
 
-      // 2. Fetch posts based on recommendation or fallback to latest
       if (recommendedIds.length > 0) {
-        // Fetch recommended posts
         const { data: recPosts, error: recErr } = await supabase
           .from("posts")
           .select("id, user_id, body, created_at, image_url, video_url, org_id")
@@ -475,33 +475,26 @@ function HomeGlobalFeed() {
 
         if (recErr) throw recErr;
 
-        // Also fetch some latest posts to keep feed fresh (mix-in)
         const { data: freshPosts, error: freshErr } = await supabase
           .from("posts")
           .select("id, user_id, body, created_at, image_url, video_url, org_id")
           .order("created_at", { ascending: false })
-          .limit(10); // Fetch top 10 fresh to mix in
+          .limit(10);
 
         if (freshErr) throw freshErr;
 
-        // Merge: Recommended first, then fresh, dedup by ID
-        const recMap = new Map(recPosts?.map(p => [p.id, p]));
-        freshPosts?.forEach(p => {
+        const recMap = new Map(recPosts?.map((p) => [p.id, p]));
+        freshPosts?.forEach((p) => {
           if (!recMap.has(p.id)) recMap.set(p.id, p);
         });
 
         postRows = Array.from(recMap.values());
-
-        // Specific sorting? 
-        // Let's sort by created_at for now to avoid disjointed timeline, 
-        // OR keep recommended order? 
-        // User "tailor made" usually implies relevance > time.
-        // But purely relevance can show old posts. 
-        // Let's simple sort by created_at descending for the mixed set for consistency
-        postRows.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
+        postRows.sort(
+          (a, b) =>
+            new Date(b.created_at || 0).getTime() -
+            new Date(a.created_at || 0).getTime()
+        );
       } else {
-        // Fallback: standard latest feed
         const { data, error } = await supabase
           .from("posts")
           .select("id, user_id, body, created_at, image_url, video_url, org_id")
@@ -518,14 +511,11 @@ function HomeGlobalFeed() {
       const postIds = posts.map((p) => p.id);
       const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
 
-      // --- load author profiles ---
       const profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
           .from("profiles")
-          .select(
-            "id, full_name, avatar_url, highest_education, affiliation"
-          )
+          .select("id, full_name, avatar_url, highest_education, affiliation")
           .in("id", userIds);
 
         if (!profErr && profRows) {
@@ -533,7 +523,6 @@ function HomeGlobalFeed() {
         }
       }
 
-      // --- load orgs for posts that have org_id ---
       const orgIds = Array.from(
         new Set(posts.map((p) => p.org_id).filter(Boolean) as string[])
       );
@@ -550,7 +539,6 @@ function HomeGlobalFeed() {
         }
       }
 
-      // --- likes ---
       let likeRows: LikeRow[] = [];
       if (postIds.length > 0) {
         const { data: likes, error: likeErr } = await supabase
@@ -561,7 +549,6 @@ function HomeGlobalFeed() {
         if (!likeErr && likes) likeRows = likes as LikeRow[];
       }
 
-      // --- comments (for counts only) ---
       let commentRows: CommentRow[] = [];
       if (postIds.length > 0) {
         const { data: comments, error: cErr } = await supabase
@@ -689,10 +676,10 @@ function HomeGlobalFeed() {
         x.post.id !== postId
           ? x
           : {
-            ...x,
-            likedByMe: nextLiked,
-            likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
-          }
+              ...x,
+              likedByMe: nextLiked,
+              likeCount: Math.max(0, x.likeCount + (nextLiked ? 1 : -1)),
+            }
       )
     );
 
@@ -772,6 +759,37 @@ function HomeGlobalFeed() {
     }
   };
 
+  // ✅ new: edit/share/save handlers
+  const handleEditPost = (postId: string) => {
+    setEditingPostId(postId);
+  };
+
+  const handleSharePost = async (postId: string) => {
+    if (typeof window === "undefined") return;
+
+    const shareUrl = `${window.location.origin}/?post=${postId}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ url: shareUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+    } catch (e) {
+      console.warn("share post cancelled / failed", e);
+    }
+  };
+
+  const handleSavePost = (postId: string) => {
+    setSavedPostIds((prev) =>
+      prev.includes(postId)
+        ? prev.filter((id) => id !== postId)
+        : [...prev, postId]
+    );
+  };
+
+  const isPostSaved = (postId: string) => savedPostIds.includes(postId);
+
   const pillBtnStyle: CSSProperties = {
     fontSize: 13,
     padding: "6px 10px",
@@ -806,13 +824,23 @@ function HomeGlobalFeed() {
       .map((x) => x[0]?.toUpperCase())
       .join("") || "Q";
 
+  const editingPost =
+    editingPostId != null
+      ? items.find((x) => x.post.id === editingPostId)?.post || null
+      : null;
+
   return (
     <div>
       <div className="section-header" style={{ marginTop: 0 }}>
         <div>
           <div className="section-title">My Q5-feed</div>
-          <div className="section-sub" style={{ fontSize: 13, color: "var(--text-muted)" }}>
-            {user ? "Personalized for you based on interests & connections" : "Explore the latest updates"}
+          <div
+            className="section-sub"
+            style={{ fontSize: 13, color: "var(--text-muted)" }}
+          >
+            {user
+              ? "Personalized for you based on interests & connections"
+              : "Explore the latest updates"}
           </div>
         </div>
 
@@ -842,36 +870,148 @@ function HomeGlobalFeed() {
 
       {!loading && !error && items.length > 0 && (
         <FeedCards
-  items={items}
-  user={user}
-  openComments={openComments}
-  setOpenComments={setOpenComments}
-  commentsByPost={commentsByPost}
-  commenterProfiles={commenterProfiles}
-  commentDraft={commentDraft}
-  setCommentDraft={setCommentDraft}
-  commentSaving={commentSaving}
-  onToggleLike={toggleLike}
-  onLoadComments={loadComments}
-  onSubmitComment={submitComment}
-  formatRelativeTime={formatRelativeTime}
-  formatSubtitle={formatSubtitle}
-  initialsOf={initialsOf}
-  avatarStyle={avatarStyle}
-  LinkifyText={LinkifyText}
-  postRefs={postRefs}
-  onEditPost={(postId) => {
-    // open edit modal here
-    console.log("edit post", postId);
-  }}
-  onSharePost={(postId) => {
-    console.log("share post", postId);
-  }}
-  onSavePost={(postId) => {
-    console.log("save post", postId);
-  }}
-  isPostSaved={(postId) => false}
-/>
+          items={items}
+          user={user}
+          openComments={openComments}
+          setOpenComments={setOpenComments}
+          commentsByPost={commentsByPost}
+          commenterProfiles={commenterProfiles}
+          commentDraft={commentDraft}
+          setCommentDraft={setCommentDraft}
+          commentSaving={commentSaving}
+          onToggleLike={toggleLike}
+          onLoadComments={loadComments}
+          onSubmitComment={submitComment}
+          formatRelativeTime={formatRelativeTime}
+          formatSubtitle={formatSubtitle}
+          initialsOf={initialsOf}
+          avatarStyle={avatarStyle}
+          LinkifyText={LinkifyText}
+          postRefs={postRefs}
+          onEditPost={handleEditPost}
+          onSharePost={handleSharePost}
+          onSavePost={handleSavePost}
+          isPostSaved={isPostSaved}
+        />
+      )}
+
+      {/* ✅ minimal placeholder edit modal */}
+      {editingPost && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(2,6,23,0.62)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setEditingPostId(null);
+          }}
+        >
+          <div
+            style={{
+              width: "min(640px, 100%)",
+              borderRadius: 18,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid rgba(148,163,184,0.14)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 15 }}>Edit post</div>
+              <button
+                type="button"
+                onClick={() => setEditingPostId(null)}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(2,6,23,0.2)",
+                  color: "rgba(226,232,240,0.92)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: 16 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  opacity: 0.8,
+                  marginBottom: 10,
+                }}
+              >
+                For now this is just the edit-entry point.
+              </div>
+
+              <textarea
+                defaultValue={editingPost.body}
+                style={{
+                  width: "100%",
+                  minHeight: 160,
+                  borderRadius: 14,
+                  border: "1px solid rgba(148,163,184,0.2)",
+                  background: "rgba(2,6,23,0.26)",
+                  color: "rgba(226,232,240,0.94)",
+                  padding: 14,
+                  fontSize: 15,
+                  lineHeight: 1.45,
+                  outline: "none",
+                  resize: "vertical",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  marginTop: 14,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setEditingPostId(null)}
+                  style={pillBtnStyle}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingPostId(null)}
+                  style={{
+                    ...pillBtnStyle,
+                    border: "none",
+                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                    color: "#0f172a",
+                    fontWeight: 800,
+                  }}
+                >
+                  Save changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
