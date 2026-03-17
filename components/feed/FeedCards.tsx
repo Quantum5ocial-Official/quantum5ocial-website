@@ -83,7 +83,6 @@ type Props = {
   onSavePost?: (postId: string) => Promise<void> | void;
   isPostSaved?: (postId: string) => boolean;
 
-  // optional loading flags coming from parent
   savingPostId?: string | null;
   editingPostId?: string | null;
 };
@@ -201,7 +200,7 @@ export default function FeedCards({
       }
 
       if (typeof window === "undefined") return;
-      const shareUrl = `${window.location.origin}/?post=${postId}`;
+      const shareUrl = `${window.location.origin}/posts/${postId}`;
 
       if (navigator.share) {
         await navigator.share({ url: shareUrl });
@@ -283,6 +282,13 @@ export default function FeedCards({
     fontWeight: 700,
   };
 
+  const clickableStyle: React.CSSProperties = {
+    textDecoration: "none",
+    color: "inherit",
+    display: "block",
+    cursor: "pointer",
+  };
+
   return (
     <div>
       {items.map((vm) => {
@@ -308,11 +314,14 @@ export default function FeedCards({
           ? `/profile/${author.id}`
           : undefined;
 
-        const avatarSrc = org != null ? org.logo_url : author?.avatar_url || null;
+        const avatarSrc =
+          org != null ? org.logo_url : author?.avatar_url || null;
 
         const subtitle = org
           ? [
-              author?.full_name ? `Posted by ${author.full_name}` : "Posted by member",
+              author?.full_name
+                ? `Posted by ${author.full_name}`
+                : "Posted by member",
               formatSubtitle(author),
             ]
               .filter(Boolean)
@@ -320,6 +329,7 @@ export default function FeedCards({
           : formatSubtitle(author);
 
         const initials = initialsOf(actorName);
+        const postHref = `/posts/${p.id}`;
 
         return (
           <div
@@ -492,73 +502,75 @@ export default function FeedCards({
               </div>
             </div>
 
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 14,
-                lineHeight: 1.45,
-                color: "rgba(226,232,240,0.92)",
-              }}
-            >
-              <LinkifyText text={p.body || ""} />
-            </div>
-
-            {hasVideo && (
+            <Link href={postHref} style={clickableStyle}>
               <div
                 style={{
                   marginTop: 10,
-                  width: "100%",
-                  height: 520,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  background: "rgba(2,6,23,0.35)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  fontSize: 14,
+                  lineHeight: 1.45,
+                  color: "rgba(226,232,240,0.92)",
                 }}
               >
-                <AutoPlayVideo
-                  src={p.video_url as string}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    display: "block",
-                    background: "rgba(15,23,42,0.95)",
-                  }}
-                />
+                <LinkifyText text={p.body || ""} />
               </div>
-            )}
 
-            {hasImage && (
-              <div
-                style={{
-                  marginTop: 10,
-                  width: "100%",
-                  height: 520,
-                  borderRadius: 14,
-                  overflow: "hidden",
-                  border: "1px solid rgba(148,163,184,0.16)",
-                  background: "rgba(2,6,23,0.35)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <img
-                  src={p.image_url as string}
-                  alt="Post media"
+              {hasVideo && (
+                <div
                   style={{
+                    marginTop: 10,
                     width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    display: "block",
+                    height: 520,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    border: "1px solid rgba(148,163,184,0.16)",
+                    background: "rgba(2,6,23,0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                  loading="lazy"
-                />
-              </div>
-            )}
+                >
+                  <AutoPlayVideo
+                    src={p.video_url as string}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block",
+                      background: "rgba(15,23,42,0.95)",
+                    }}
+                  />
+                </div>
+              )}
+
+              {hasImage && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    width: "100%",
+                    height: 520,
+                    borderRadius: 14,
+                    overflow: "hidden",
+                    border: "1px solid rgba(148,163,184,0.16)",
+                    background: "rgba(2,6,23,0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <img
+                    src={p.image_url as string}
+                    alt="Post media"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+              )}
+            </Link>
 
             <div
               style={{
@@ -626,7 +638,9 @@ export default function FeedCards({
                           [p.id]: e.target.value,
                         }))
                       }
-                      placeholder={user ? "Write a comment…" : "Login to comment…"}
+                      placeholder={
+                        user ? "Write a comment…" : "Login to comment…"
+                      }
                       disabled={!user || !!commentSaving[p.id]}
                       style={{
                         width: "100%",
