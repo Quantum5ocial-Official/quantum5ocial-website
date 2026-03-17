@@ -408,13 +408,6 @@ const [editError, setEditError] = useState<string | null>(null);
 
 const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
 const [savingPostId, setSavingPostId] = useState<string | null>(null);
-  
-  const postParam = useMemo(() => {
-    const raw = router.query?.post;
-    if (!raw) return null;
-    const v = Array.isArray(raw) ? raw[0] : raw;
-    return typeof v === "string" && v.length > 0 ? v : null;
-  }, [router.query]);
 
   const formatRelativeTime = (created_at: string | null) => {
     if (!created_at) return "";
@@ -636,20 +629,6 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!postParam) return;
-    const exists = items.some((x) => x.post.id === postParam);
-    if (!exists) return;
-
-    setOpenComments((prev) => ({ ...prev, [postParam]: true }));
-
-    const node = postRefs.current[postParam];
-    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
-
-    if (!commentsByPost[postParam]) void loadComments(postParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postParam, items]);
-
   const loadProfilesForUserIds = async (userIds: string[]) => {
     const uniq = Array.from(new Set(userIds)).filter(Boolean);
     const missing = uniq.filter((id) => !commenterProfiles[id]);
@@ -803,8 +782,8 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
 const handleSharePost = async (postId: string) => {
   if (typeof window === "undefined") return;
 
-  const shareUrl = `${window.location.origin}/?post=${postId}`;
-
+  const shareUrl = `${window.location.origin}/posts/${postId}`;
+  
   try {
     if (navigator.share) {
       await navigator.share({ url: shareUrl });
