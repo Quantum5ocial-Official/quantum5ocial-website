@@ -42,6 +42,9 @@ export default function NavbarIcons() {
   // notifications count
   const [notificationsCount, setNotificationsCount] = useState(0);
 
+  // ✅ messages count
+  const [messagesCount, setMessagesCount] = useState(0);
+
   // global search (shared by desktop & mobile)
   const [globalSearch, setGlobalSearch] = useState("");
 
@@ -86,10 +89,39 @@ export default function NavbarIcons() {
     }
   }, [user]);
 
+  // ✅ unread messages count
+  const loadUnreadMessagesCount = useCallback(async () => {
+    if (!user) {
+      setMessagesCount(0);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc("dm_inbox");
+
+      if (error) {
+        console.error("Error loading unread messages", error);
+        setMessagesCount(0);
+        return;
+      }
+
+      const totalUnread = ((data as any[] | null) || []).reduce(
+        (sum, row) => sum + Number(row.unread_count || 0),
+        0
+      );
+
+      setMessagesCount(totalUnread);
+    } catch (e) {
+      console.error("Error loading unread messages", e);
+      setMessagesCount(0);
+    }
+  }, [user]);
+
   // ✅ refresh unread count on route changes + user changes
   useEffect(() => {
     loadUnreadCount();
-  }, [loadUnreadCount, router.pathname]);
+    loadUnreadMessagesCount();
+  }, [loadUnreadCount, loadUnreadMessagesCount, router.pathname]);
 
   // ✅ listen for “notifications changed” to refresh badge
   useEffect(() => {
@@ -103,6 +135,19 @@ export default function NavbarIcons() {
     return () =>
       window.removeEventListener("q5:notifications-changed", onChanged);
   }, [loadUnreadCount]);
+
+  // ✅ listen for “messages changed” to refresh badge
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onChanged = () => {
+      loadUnreadMessagesCount();
+    };
+
+    window.addEventListener("q5:messages-changed", onChanged);
+    return () =>
+      window.removeEventListener("q5:messages-changed", onChanged);
+  }, [loadUnreadMessagesCount]);
 
   // ----- HANDLE RESPONSIVE -----
   useEffect(() => {
@@ -554,11 +599,21 @@ export default function NavbarIcons() {
                 {!loading &&
                   user &&
                   renderIconNavLink(
+                    "/messages",
+                    "Messages",
+                    "/icons/messages.svg",
+                    messagesCount
+                  )}
+
+                {!loading &&
+                  user &&
+                  renderIconNavLink(
                     "/notifications",
                     "Notifications",
                     "/icons/notifications.svg",
                     notificationsCount
                   )}
+
                 {/*
                 <button
                   type="button"
@@ -569,7 +624,7 @@ export default function NavbarIcons() {
                   {theme === "dark" ? "☀️" : "🌙"}
                 </button>
                 */}
-                
+
                 {!loading && !user && (
                   <Link href="/auth" className="nav-cta">
                     Login / Sign up
@@ -845,6 +900,20 @@ export default function NavbarIcons() {
           {/* renderMobileBottomLink("/products", "Market", "/icons/products.svg") */}
           {renderMobileBottomLink("/community", "Community", "/icons/community.svg")}
           {renderMobileBottomLink("/forum", "Forum", "/icons/forum.svg")}
+
+          {!loading && user
+            ? renderMobileBottomLink(
+                "/messages",
+                "Messages",
+                "/icons/messages.svg",
+                messagesCount
+              )
+            : renderMobileBottomLink(
+                "/messages",
+                "Messages",
+                "/icons/messages.svg",
+                0
+              )}
 
           {!loading && user
             ? renderMobileBottomLink(
