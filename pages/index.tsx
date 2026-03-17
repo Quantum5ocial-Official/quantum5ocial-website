@@ -402,8 +402,13 @@ function HomeGlobalFeed() {
 
   // ✅ new: local post action state
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+const [editingBody, setEditingBody] = useState("");
+const [editSaving, setEditSaving] = useState(false);
+const [editError, setEditError] = useState<string | null>(null);
 
+const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+const [savingPostId, setSavingPostId] = useState<string | null>(null);
+  
   const postParam = useMemo(() => {
     const raw = router.query?.post;
     if (!raw) return null;
@@ -590,7 +595,33 @@ function HomeGlobalFeed() {
       setLoading(false);
     }
   };
+  
+  useEffect(() => {
+  const loadSavedPosts = async () => {
+    if (!user) {
+      setSavedPostIds([]);
+      return;
+    }
 
+    const { data, error } = await supabase
+      .from("saved_posts")
+      .select("post_id")
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Failed to load saved posts", error);
+      setSavedPostIds([]);
+      return;
+    }
+
+    setSavedPostIds((data || []).map((row: any) => row.post_id as string));
+  };
+
+  if (!userLoading) {
+    loadSavedPosts();
+  }
+}, [user, userLoading]);
+  
   useEffect(() => {
     if (userLoading) return;
     loadFeed(user?.id ?? null);
@@ -761,35 +792,120 @@ function HomeGlobalFeed() {
 
   // ✅ new: edit/share/save handlers
   const handleEditPost = (postId: string) => {
-    setEditingPostId(postId);
-  };
+  const found = items.find((x) => x.post.id === postId)?.post;
+  if (!found) return;
 
-  const handleSharePost = async (postId: string) => {
-    if (typeof window === "undefined") return;
+  setEditingPostId(postId);
+  setEditingBody(found.body || "");
+  setEditError(null);
+};
 
-    const shareUrl = `${window.location.origin}/?post=${postId}`;
+const handleSharePost = async (postId: string) => {
+  if (typeof window === "undefined") return;
 
-    try {
-      if (navigator.share) {
-        await navigator.share({ url: shareUrl });
-      } else if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-      }
-    } catch (e) {
-      console.warn("share post cancelled / failed", e);
+  const shareUrl = `${window.location.origin}/?post=${postId}`;
+
+  try {
+    if (navigator.share) {
+      await navigator.share({ url: shareUrl });
+    } else if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(shareUrl);
     }
-  };
+  } catch (e) {
+    console.warn("share post cancelled / failed", e);
+  }
+};
 
-  const handleSavePost = (postId: string) => {
-    setSavedPostIds((prev) =>
-      prev.includes(postId)
-        ? prev.filter((id) => id !== postId)
-        : [...prev, postId]
+const handleSavePost = async (postId: string) => {
+  if (!user) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
+
+  if (savingPostId) return;
+  setSavingPostId(postId);
+
+  const alreadySaved = savedPostIds.includes(postId);
+
+  try {
+    if (alreadySaved) {
+      const { error } = await supabase
+        .from("saved_posts")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("post_id", postId);
+
+      if (error) throw error;
+
+      setSavedPostIds((prev) => prev.filter((id) => id !== postId));
+    } else {
+      const { error } = await supabase.from("saved_posts").insert({
+        user_id: user.id,
+        post_id: postId,
+      });
+
+      if (error) throw error;
+
+      setSavedPostIds((prev) => [...prev, postId]);
+    }
+  } catch (e) {
+    console.error("Failed to toggle saved post", e);
+  } finally {
+    setSavingPostId(null);
+  }
+};
+
+const isPostSaved = (postId: string) => savedPostIds.includes(postId);
+
+const handleSaveEditedPost = async () => {
+  if (!user || !editingPostId) return;
+
+  const body = editingBody.trim();
+  if (!body) {
+    setEditError("Post body cannot be empty.");
+    return;
+  }
+
+  setEditSaving(true);
+  setEditError(null);
+
+  try {
+    const { error } = await supabase
+      .from("posts")
+      .update({ body })
+      .eq("id", editingPostId)
+      .eq("user_id", user.id);
+
+    if (error) throw error;
+
+    setItems((prev) =>
+      prev.map((x) =>
+        x.post.id === editingPostId
+          ? {
+              ...x,
+              post: {
+                ...x.post,
+                body,
+              },
+            }
+          : x
+      )
     );
-  };
 
-  const isPostSaved = (postId: string) => savedPostIds.includes(postId);
+    setEditingPostId(null);
+    setEditingBody("");
+    setEditError(null);
 
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+    }
+  } catch (e: any) {
+    console.error("Failed to update post", e);
+    setEditError(e?.message || "Could not save post changes.");
+  } finally {
+    setEditSaving(false);
+  }
+};
   const pillBtnStyle: CSSProperties = {
     fontSize: 13,
     padding: "6px 10px",
@@ -870,29 +986,31 @@ function HomeGlobalFeed() {
 
       {!loading && !error && items.length > 0 && (
         <FeedCards
-          items={items}
-          user={user}
-          openComments={openComments}
-          setOpenComments={setOpenComments}
-          commentsByPost={commentsByPost}
-          commenterProfiles={commenterProfiles}
-          commentDraft={commentDraft}
-          setCommentDraft={setCommentDraft}
-          commentSaving={commentSaving}
-          onToggleLike={toggleLike}
-          onLoadComments={loadComments}
-          onSubmitComment={submitComment}
-          formatRelativeTime={formatRelativeTime}
-          formatSubtitle={formatSubtitle}
-          initialsOf={initialsOf}
-          avatarStyle={avatarStyle}
-          LinkifyText={LinkifyText}
-          postRefs={postRefs}
-          onEditPost={handleEditPost}
-          onSharePost={handleSharePost}
-          onSavePost={handleSavePost}
-          isPostSaved={isPostSaved}
-        />
+  items={items}
+  user={user}
+  openComments={openComments}
+  setOpenComments={setOpenComments}
+  commentsByPost={commentsByPost}
+  commenterProfiles={commenterProfiles}
+  commentDraft={commentDraft}
+  setCommentDraft={setCommentDraft}
+  commentSaving={commentSaving}
+  onToggleLike={toggleLike}
+  onLoadComments={loadComments}
+  onSubmitComment={submitComment}
+  formatRelativeTime={formatRelativeTime}
+  formatSubtitle={formatSubtitle}
+  initialsOf={initialsOf}
+  avatarStyle={avatarStyle}
+  LinkifyText={LinkifyText}
+  postRefs={postRefs}
+  onEditPost={handleEditPost}
+  onSharePost={handleSharePost}
+  onSavePost={handleSavePost}
+  isPostSaved={isPostSaved}
+  savingPostId={savingPostId}
+  editingPostId={editingPostId}
+/>
       )}
 
       {/* ✅ minimal placeholder edit modal */}
