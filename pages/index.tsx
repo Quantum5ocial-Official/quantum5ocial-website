@@ -1015,122 +1015,152 @@ const handleSaveEditedPost = async () => {
 
       {/* ✅ minimal placeholder edit modal */}
       {editingPost && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(2,6,23,0.62)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 18,
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 1000,
+      background: "rgba(2,6,23,0.62)",
+      backdropFilter: "blur(8px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 18,
+    }}
+    onMouseDown={(e) => {
+      if (e.target === e.currentTarget && !editSaving) {
+        setEditingPostId(null);
+        setEditingBody("");
+        setEditError(null);
+      }
+    }}
+  >
+    <div
+      style={{
+        width: "min(640px, 100%)",
+        borderRadius: 18,
+        border: "1px solid rgba(148,163,184,0.22)",
+        background:
+          "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+        boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          padding: "14px 16px",
+          borderBottom: "1px solid rgba(148,163,184,0.14)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ fontWeight: 800, fontSize: 15 }}>Edit post</div>
+        <button
+          type="button"
+          disabled={editSaving}
+          onClick={() => {
+            setEditingPostId(null);
+            setEditingBody("");
+            setEditError(null);
           }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setEditingPostId(null);
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 999,
+            border: "1px solid rgba(148,163,184,0.18)",
+            background: "rgba(2,6,23,0.2)",
+            color: "rgba(226,232,240,0.92)",
+            cursor: editSaving ? "default" : "pointer",
+            opacity: editSaving ? 0.6 : 1,
           }}
         >
+          ✕
+        </button>
+      </div>
+
+      <div style={{ padding: 16 }}>
+        <textarea
+          value={editingBody}
+          onChange={(e) => setEditingBody(e.target.value)}
+          style={{
+            width: "100%",
+            minHeight: 160,
+            borderRadius: 14,
+            border: "1px solid rgba(148,163,184,0.2)",
+            background: "rgba(2,6,23,0.26)",
+            color: "rgba(226,232,240,0.94)",
+            padding: 14,
+            fontSize: 15,
+            lineHeight: 1.45,
+            outline: "none",
+            resize: "vertical",
+          }}
+        />
+
+        {editError && (
           <div
             style={{
-              width: "min(640px, 100%)",
-              borderRadius: 18,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background:
-                "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
-              boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-              overflow: "hidden",
+              marginTop: 10,
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(248,113,113,0.35)",
+              background: "rgba(248,113,113,0.10)",
+              color: "rgba(254,226,226,0.95)",
+              fontSize: 13,
+              lineHeight: 1.35,
             }}
           >
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "1px solid rgba(148,163,184,0.14)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ fontWeight: 800, fontSize: 15 }}>Edit post</div>
-              <button
-                type="button"
-                onClick={() => setEditingPostId(null)}
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.18)",
-                  background: "rgba(2,6,23,0.2)",
-                  color: "rgba(226,232,240,0.92)",
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ padding: 16 }}>
-              <div
-                style={{
-                  fontSize: 13,
-                  opacity: 0.8,
-                  marginBottom: 10,
-                }}
-              >
-                For now this is just the edit-entry point.
-              </div>
-
-              <textarea
-                defaultValue={editingPost.body}
-                style={{
-                  width: "100%",
-                  minHeight: 160,
-                  borderRadius: 14,
-                  border: "1px solid rgba(148,163,184,0.2)",
-                  background: "rgba(2,6,23,0.26)",
-                  color: "rgba(226,232,240,0.94)",
-                  padding: 14,
-                  fontSize: 15,
-                  lineHeight: 1.45,
-                  outline: "none",
-                  resize: "vertical",
-                }}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  marginTop: 14,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setEditingPostId(null)}
-                  style={pillBtnStyle}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setEditingPostId(null)}
-                  style={{
-                    ...pillBtnStyle,
-                    border: "none",
-                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                    color: "#0f172a",
-                    fontWeight: 800,
-                  }}
-                >
-                  Save changes
-                </button>
-              </div>
-            </div>
+            {editError}
           </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            marginTop: 14,
+          }}
+        >
+          <button
+            type="button"
+            disabled={editSaving}
+            onClick={() => {
+              setEditingPostId(null);
+              setEditingBody("");
+              setEditError(null);
+            }}
+            style={{
+              ...pillBtnStyle,
+              opacity: editSaving ? 0.6 : 1,
+              cursor: editSaving ? "default" : "pointer",
+            }}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            disabled={editSaving || !editingBody.trim()}
+            onClick={handleSaveEditedPost}
+            style={{
+              ...pillBtnStyle,
+              border: "none",
+              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+              color: "#0f172a",
+              fontWeight: 800,
+              opacity: editSaving || !editingBody.trim() ? 0.6 : 1,
+              cursor: editSaving || !editingBody.trim() ? "default" : "pointer",
+            }}
+          >
+            {editSaving ? "Saving..." : "Save changes"}
+          </button>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
