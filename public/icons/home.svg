@@ -1,37 +1,47 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg
   xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 23 21.5"
+  viewBox="4.5 2.4 13.5 17.2"
   fill="none"
 >
   <defs>
     <style>
-      .cls-1 {
+      .outer {
         fill: none;
         stroke: #fff;
+        stroke-width: 0.9px;
         stroke-linecap: round;
         stroke-linejoin: round;
-        stroke-width: .5px;
+      }
+      .inner {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 0.45px;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        opacity: 0.95;
       }
     </style>
   </defs>
 
-  <!-- outer house -->
-  <path class="cls-1" d="M4.4 10.0L11.5 4.4L18.6 10.0" />
-  <path class="cls-1" d="M6.1 9.5V19.8H16.9V9.5" />
+  <!-- SCALE GROUP -->
+  <g transform="translate(-2 -2) scale(1.25)">
+    
+    <!-- Roof -->
+    <path class="outer" d="M6.1 8.6 L11.25 5.0 L16.4 8.6" />
+    <path class="inner" d="M6.9 8.6 L11.25 5.6 L15.6 8.6" />
 
-  <!-- inner roof -->
-  <path class="cls-1" d="M6.8 9.9L11.5 6.1L16.2 9.9" />
+    <!-- Walls -->
+    <path class="outer" d="M7.1 8.8 V15.6 H15.4 V8.8" />
+    <path class="inner" d="M7.9 9.4 V14.9 H14.6 V9.4" />
 
-  <!-- door -->
-  <path class="cls-1" d="M9.9 19.8V13.0H13.1V19.8" />
-  <path class="cls-1" d="M10.8 19.8V14.0H12.2V19.8" />
-  <line class="cls-1" x1="11.5" y1="13.0" x2="11.5" y2="12.0" />
+    <!-- Base -->
+    <path class="outer" d="M6.9 15.6 H15.6" />
+    <path class="inner" d="M7.7 15.0 H14.8" />
 
-  <!-- side inner lines -->
-  <line class="cls-1" x1="7.7" y1="11.6" x2="7.7" y2="17.4" />
-  <line class="cls-1" x1="15.3" y1="11.6" x2="15.3" y2="17.4" />
+    <!-- Door -->
+    <path class="outer" d="M10.15 15.6 V11.5 H12.35 V15.6" />
+    <path class="inner" d="M10.7 15.0 V12.2 H11.8 V15.0" />
 
-  <!-- base -->
-  <line class="cls-1" x1="5.5" y1="19.8" x2="17.5" y2="19.8" />
+  </g>
 </svg>
