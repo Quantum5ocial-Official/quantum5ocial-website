@@ -762,7 +762,7 @@ export default function FeedCards({
                         background: "rgba(2,6,23,0.22)",
                         color: "rgba(226,232,240,0.92)",
                         padding: "10px 12px",
-                        fontSize: 13,
+                        fontSize: 16,
                         outline: "none",
                         resize: "vertical",
                       }}
