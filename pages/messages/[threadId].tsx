@@ -539,7 +539,7 @@ export default function ThreadPage() {
             background: "rgba(2,6,23,0.26)",
             color: "rgba(226,232,240,0.94)",
             padding: isMobile ? "0 10px" : "0 12px",
-            fontSize: isMobile ? 13 : 14,
+            fontSize: 16,
             outline: "none",
           }}
         />
