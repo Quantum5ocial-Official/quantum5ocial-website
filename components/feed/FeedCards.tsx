@@ -351,9 +351,10 @@ export default function FeedCards({
 
         const isExpanded = !!expandedPosts[p.id];
 
+        // reduced preview so image appears higher on standard laptop screens
         const shouldShowExpand =
           enablePreviewCollapse &&
-          ((p.body || "").length > 380 || (p.body || "").split("\n").length > 8);
+          ((p.body || "").length > 220 || (p.body || "").split("\n").length > 3);
 
         const isCollapsed = shouldShowExpand && !isExpanded;
 
@@ -555,7 +556,7 @@ export default function FeedCards({
                 <div
                   style={{
                     position: "relative",
-                    maxHeight: isCollapsed ? 280 : "none",
+                    maxHeight: isCollapsed ? 135 : "none",
                     overflow: isCollapsed ? "hidden" : "visible",
                   }}
                 >
@@ -578,7 +579,7 @@ export default function FeedCards({
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        height: 90,
+                        height: 64,
                         background:
                           "linear-gradient(to bottom, rgba(15,23,42,0), rgba(15,23,42,0.82) 48%, rgba(15,23,42,0.98) 100%)",
                         pointerEvents: "none",
