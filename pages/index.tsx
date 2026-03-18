@@ -1425,15 +1425,17 @@ function HomeComposerStrip() {
   });
 
   const modalCard: CSSProperties = {
-    width: "min(740px, 100%)",
-    borderRadius: isMobile ? "18px 18px 0 0" : 18,
-    border: "1px solid rgba(148,163,184,0.22)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
-    boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-    overflow: "hidden",
-    maxHeight: isMobile ? "86vh" : undefined,
-  };
+  width: "min(680px, calc(100vw - 32px))",
+  borderRadius: isMobile ? "18px 18px 0 0" : 18,
+  border: "1px solid rgba(148,163,184,0.22)",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+  boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+  overflow: "hidden",
+  maxHeight: isMobile ? "86vh" : "82vh",
+  display: "flex",
+  flexDirection: "column",
+};
 
   const modalHeader: CSSProperties = {
     padding: "14px 16px",
@@ -1458,10 +1460,11 @@ function HomeComposerStrip() {
     flexShrink: 0,
   };
 
-  const modalBody: CSSProperties = {
-    padding: 16,
-    overflowY: isMobile ? "auto" : undefined,
-  };
+const modalBody: CSSProperties = {
+  padding: 16,
+  overflowY: "auto",
+  minHeight: 0,
+};
 
   const bigTextarea: CSSProperties = {
     width: "100%",
@@ -1976,18 +1979,19 @@ function HomeComposerStrip() {
                       </div>
                       <div style={{ marginTop: 8 }}>
                         <div
-                          style={{
-                            width: "100%",
-                            height: 360,
-                            borderRadius: 12,
-                            overflow: "hidden",
-                            background: "rgba(2,6,23,0.35)",
-                            border: "1px solid rgba(148,163,184,0.18)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
+  style={{
+    width: "100%",
+    height: isMobile ? 180 : 220,
+    maxHeight: "28vh",
+    borderRadius: 12,
+    overflow: "hidden",
+    background: "rgba(2,6,23,0.35)",
+    border: "1px solid rgba(148,163,184,0.18)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  }}
+>
                           {postMediaFile?.type.startsWith("video/") ? (
                             <video
                               src={postMediaPreview}
