@@ -233,11 +233,11 @@ export default function FeedCards({
 
   const cardStyle: React.CSSProperties = {
   borderRadius: 20,
-  border: "1px solid rgba(148,163,184,0.30)",
+  border: "1px solid rgba(56,189,248,0.25)",
   background:
-    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.99))",
+    "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.96))",
   boxShadow:
-    "0 14px 34px rgba(0,0,0,0.32), 0 0 24px rgba(56,189,248,0.05)",
+    "0 14px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
   padding: 14,
   marginBottom: 16,
 };
