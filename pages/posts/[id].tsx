@@ -333,8 +333,8 @@ export default function PostDetailPage() {
       return;
     }
 
-    const body = (commentDraft[pid] || "").trim();
-    if (!body || !item) return;
+    const body = commentDraft[pid] || "";
+    if (!body.trim() || !item) return;
 
     setCommentSaving((p) => ({ ...p, [pid]: true }));
 
@@ -478,6 +478,10 @@ export default function PostDetailPage() {
 
       setEditingPostId(null);
       setEditingBody("");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
     } catch (e: any) {
       console.error("Failed to update post", e);
       setEditError(e?.message || "Could not save changes.");
@@ -549,6 +553,7 @@ export default function PostDetailPage() {
           savingPostId={savingPostId}
           editingPostId={editingPostId}
           deletingPostId={deletingPostId}
+          enablePreviewCollapse={false}
         />
       )}
 
