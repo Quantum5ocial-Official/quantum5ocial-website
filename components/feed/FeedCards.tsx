@@ -88,7 +88,7 @@ type Props = {
   editingPostId?: string | null;
   deletingPostId?: string | null;
 
-  // ✅ feed preview behavior
+  // feed preview behavior
   enablePreviewCollapse?: boolean;
 };
 
@@ -113,8 +113,10 @@ function AutoPlayVideo({
           if (!node) return;
 
           if (entry.isIntersecting) {
-            const p = node.play();
-            if (p && typeof p.catch === "function") p.catch(() => {});
+            const playPromise = node.play();
+            if (playPromise && typeof playPromise.catch === "function") {
+              playPromise.catch(() => {});
+            }
           } else {
             node.pause();
           }
@@ -322,7 +324,6 @@ export default function FeedCards({
 
         const hasVideo = !!p.video_url;
         const hasImage = !!p.image_url && !hasVideo;
-        const hasMedia = hasVideo || hasImage;
 
         const actorName = org?.name || author?.full_name || "Quantum member";
         const actorHref = org
@@ -349,13 +350,11 @@ export default function FeedCards({
         const postHref = `/posts/${p.id}`;
 
         const isExpanded = !!expandedPosts[p.id];
+
         const shouldShowExpand =
           enablePreviewCollapse &&
-          ((p.body || "").length > 380 ||
-            (p.body || "").split("\n").length > 8 ||
-            hasMedia);
+          ((p.body || "").length > 380 || (p.body || "").split("\n").length > 8);
 
-        const collapsedContentHeight = hasMedia ? 560 : 280;
         const isCollapsed = shouldShowExpand && !isExpanded;
 
         return (
@@ -551,33 +550,79 @@ export default function FeedCards({
               </div>
             </div>
 
-            <div
-              style={{
-                position: "relative",
-                marginTop: 10,
-                maxHeight: isCollapsed ? collapsedContentHeight : "none",
-                overflow: isCollapsed ? "hidden" : "visible",
-              }}
-            >
+            <div style={{ marginTop: 10 }}>
               <Link href={postHref} style={clickableStyle}>
                 <div
                   style={{
-                    fontSize: 14,
-                    lineHeight: 1.45,
-                    color: "rgba(226,232,240,0.92)",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
+                    position: "relative",
+                    maxHeight: isCollapsed ? 280 : "none",
+                    overflow: isCollapsed ? "hidden" : "visible",
                   }}
                 >
-                  <LinkifyText text={p.body || ""} />
-                </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                      color: "rgba(226,232,240,0.92)",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    <LinkifyText text={p.body || ""} />
+                  </div>
 
-                {hasVideo && (
+                  {isCollapsed && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: 90,
+                        background:
+                          "linear-gradient(to bottom, rgba(15,23,42,0), rgba(15,23,42,0.82) 48%, rgba(15,23,42,0.98) 100%)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                  )}
+                </div>
+              </Link>
+
+              {shouldShowExpand && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    marginTop: 10,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleExpanded(p.id);
+                    }}
+                    style={{
+                      ...pillBtn,
+                      borderColor: "rgba(56,189,248,0.3)",
+                      background: "rgba(56,189,248,0.08)",
+                      color: "rgba(226,232,240,0.96)",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {isExpanded ? "See less" : "See more"}
+                  </button>
+                </div>
+              )}
+
+              {hasVideo && (
+                <Link href={postHref} style={clickableStyle}>
                   <div
                     style={{
                       marginTop: 10,
                       width: "100%",
-                      height: isCollapsed ? 360 : 520,
+                      height: 520,
                       borderRadius: 14,
                       overflow: "hidden",
                       border: "1px solid rgba(148,163,184,0.16)",
@@ -598,14 +643,16 @@ export default function FeedCards({
                       }}
                     />
                   </div>
-                )}
+                </Link>
+              )}
 
-                {hasImage && (
+              {hasImage && (
+                <Link href={postHref} style={clickableStyle}>
                   <div
                     style={{
                       marginTop: 10,
                       width: "100%",
-                      height: isCollapsed ? 360 : 520,
+                      height: 520,
                       borderRadius: 14,
                       overflow: "hidden",
                       border: "1px solid rgba(148,163,184,0.16)",
@@ -627,52 +674,9 @@ export default function FeedCards({
                       loading="lazy"
                     />
                   </div>
-                )}
-              </Link>
-
-              {isCollapsed && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 120,
-                    background:
-                      "linear-gradient(to bottom, rgba(15,23,42,0), rgba(15,23,42,0.82) 45%, rgba(15,23,42,0.98) 100%)",
-                    pointerEvents: "none",
-                  }}
-                />
+                </Link>
               )}
             </div>
-
-            {shouldShowExpand && (
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-start",
-                  marginTop: 10,
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleExpanded(p.id);
-                  }}
-                  style={{
-                    ...pillBtn,
-                    borderColor: "rgba(56,189,248,0.3)",
-                    background: "rgba(56,189,248,0.08)",
-                    color: "rgba(226,232,240,0.96)",
-                    fontWeight: 700,
-                  }}
-                >
-                  {isExpanded ? "See less" : "See more"}
-                </button>
-              </div>
-            )}
 
             <div
               style={{
