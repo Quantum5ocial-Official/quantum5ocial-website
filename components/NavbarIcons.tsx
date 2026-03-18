@@ -256,11 +256,14 @@ export default function NavbarIcons() {
 
   // ----- ACTIVE LINK HELPERS -----
   const isActive = (path: string) => {
-    if (path === "/dashboard") {
-      return router.pathname.startsWith("/dashboard");
-    }
-    return router.pathname === path || router.pathname.startsWith(path + "/");
-  };
+  if (path === "/") {
+    return router.pathname === "/";
+  }
+  if (path === "/dashboard") {
+    return router.pathname.startsWith("/dashboard");
+  }
+  return router.pathname === path || router.pathname.startsWith(path + "/");
+};
 
   // Fallback name
   const fallbackName =
@@ -877,59 +880,58 @@ export default function NavbarIcons() {
       </header>
 
       {/* MOBILE BOTTOM ICON BAR (fixed) */}
-      {isMobile && (
-        <div
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: MOBILE_BAR_HEIGHT + 12, // includes padding
-            padding: "6px 8px calc(6px + env(safe-area-inset-bottom, 0px))",
-            background: "rgba(2,6,23,0.86)",
-            borderTop: "1px solid rgba(148,163,184,0.22)",
-            backdropFilter: "blur(10px)",
-            zIndex: 999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 4,
-          }}
-        >
-          {renderMobileBottomLink("/jobs", "Jobs", "/icons/jobs.svg")}
-          {/* renderMobileBottomLink("/products", "Market", "/icons/products.svg") */}
-          {renderMobileBottomLink("/community", "Community", "/icons/community.svg")}
-          {/* renderMobileBottomLink("/forum", "Forum", "/icons/forum.svg") */}
+{isMobile && (
+  <div
+    style={{
+      position: "fixed",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: MOBILE_BAR_HEIGHT + 12,
+      padding: "6px 8px calc(6px + env(safe-area-inset-bottom, 0px))",
+      background: "rgba(2,6,23,0.86)",
+      borderTop: "1px solid rgba(148,163,184,0.22)",
+      backdropFilter: "blur(10px)",
+      zIndex: 999,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 4,
+    }}
+  >
+    {renderMobileBottomLink("/jobs", "Jobs", "/icons/jobs.svg")}
+    {renderMobileBottomLink("/community", "Community", "/icons/community.svg")}
+    {renderMobileBottomLink("/", "Home", "/icons/home.svg")}
 
-          {!loading && user
-            ? renderMobileBottomLink(
-                "/messages",
-                "Messages",
-                "/icons/messages.svg",
-                messagesCount
-              )
-            : renderMobileBottomLink(
-                "/messages",
-                "Messages",
-                "/icons/messages.svg",
-                0
-              )}
+    {!loading && user
+      ? renderMobileBottomLink(
+          "/messages",
+          "Messages",
+          "/icons/messages.svg",
+          messagesCount
+        )
+      : renderMobileBottomLink(
+          "/messages",
+          "Messages",
+          "/icons/messages.svg",
+          0
+        )}
 
-          {!loading && user
-            ? renderMobileBottomLink(
-                "/notifications",
-                "Alerts",
-                "/icons/notifications.svg",
-                notificationsCount
-              )
-            : renderMobileBottomLink(
-                "/notifications",
-                "Alerts",
-                "/icons/notifications.svg",
-                0
-              )}
-        </div>
-      )}
+    {!loading && user
+      ? renderMobileBottomLink(
+          "/notifications",
+          "Alerts",
+          "/icons/notifications.svg",
+          notificationsCount
+        )
+      : renderMobileBottomLink(
+          "/notifications",
+          "Alerts",
+          "/icons/notifications.svg",
+          0
+        )}
+  </div>
+)}
     </>
   );
 }
