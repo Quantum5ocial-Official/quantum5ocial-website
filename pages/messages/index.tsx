@@ -97,8 +97,8 @@ export default function MessagesIndexPage() {
       const { data: tRows, error: tErr } = await supabase
         .from("dm_threads")
         .select("id, user1, user2, created_at")
+        .or(`user1.eq.${uid},user2.eq.${uid}`)
         .order("created_at", { ascending: false });
-
       if (tErr) throw tErr;
 
       const tList = (tRows || []) as ThreadRow[];
