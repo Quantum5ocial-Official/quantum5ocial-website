@@ -710,8 +710,6 @@ export default function FeedCards({
   </span>{" "}
   {vm.likeCount}
 </button>
-                {vm.likedByMe ? "♥" : "♡"} {vm.likeCount}
-              </button>
 
               <button
                 type="button"
