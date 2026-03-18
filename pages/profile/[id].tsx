@@ -303,47 +303,51 @@ export default function MemberProfilePage() {
     (profile?.q5_badge_level != null ? `Q5-Level ${profile.q5_badge_level}` : "");
 
   const openOrCreateThread = async (otherUserId: string) => {
-    if (!user) {
-      router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
+  if (!user) {
+    router.push(`/auth?redirect=${encodeURIComponent(router.asPath)}`);
+    return;
+  }
+
+  try {
+    const myId = user.id;
+
+    // always store in canonical order to satisfy dm_threads_user_order_chk
+    const user1 = myId < otherUserId ? myId : otherUserId;
+    const user2 = myId < otherUserId ? otherUserId : myId;
+
+    const { data: existing, error: findErr } = await supabase
+      .from("dm_threads")
+      .select("id, user1, user2, created_at")
+      .eq("user1", user1)
+      .eq("user2", user2)
+      .maybeSingle();
+
+    if (findErr) throw findErr;
+
+    if (existing?.id) {
+      router.push(`/messages/${existing.id}`);
       return;
     }
 
-    try {
-      const { data: existing, error: findErr } = await supabase
-        .from("dm_threads")
-        .select("id, user1, user2, created_at")
-        .or(
-          `and(user1.eq.${user.id},user2.eq.${otherUserId}),and(user1.eq.${otherUserId},user2.eq.${user.id})`
-        )
-        .limit(1)
-        .maybeSingle();
+    const { data: created, error: createErr } = await supabase
+      .from("dm_threads")
+      .insert({ user1, user2 })
+      .select("id")
+      .maybeSingle();
 
-      if (findErr) throw findErr;
+    if (createErr) throw createErr;
 
-      if (existing?.id) {
-        router.push(`/messages/${existing.id}`);
-        return;
-      }
-
-      const { data: created, error: createErr } = await supabase
-        .from("dm_threads")
-        .insert({ user1: user.id, user2: otherUserId })
-        .select("id")
-        .maybeSingle();
-
-      if (createErr) throw createErr;
-
-      if (created?.id) {
-        router.push(`/messages/${created.id}`);
-        return;
-      }
-
-      throw new Error("Could not create thread.");
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Could not open messages.");
+    if (created?.id) {
+      router.push(`/messages/${created.id}`);
+      return;
     }
-  };
+
+    throw new Error("Could not create thread.");
+  } catch (e: any) {
+    console.error(e);
+    alert(e?.message || "Could not open messages.");
+  }
+};
 
   const renderEntangleHeaderCTA = () => {
     if (!profile || profileLoading) return null;
