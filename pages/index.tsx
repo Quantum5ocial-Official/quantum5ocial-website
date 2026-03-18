@@ -2644,7 +2644,6 @@ function HomeRightSidebar() {
                     }}
                   >
                     {[
-                      latestMember.highest_education,
                       latestMember.role,
                       latestMember.affiliation,
                     ]
