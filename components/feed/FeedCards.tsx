@@ -87,6 +87,9 @@ type Props = {
   savingPostId?: string | null;
   editingPostId?: string | null;
   deletingPostId?: string | null;
+
+  // ✅ feed preview behavior
+  enablePreviewCollapse?: boolean;
 };
 
 function AutoPlayVideo({
@@ -165,9 +168,13 @@ export default function FeedCards({
   savingPostId,
   editingPostId,
   deletingPostId,
+  enablePreviewCollapse = true,
 }: Props) {
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
   const [sharingPostId, setSharingPostId] = useState<string | null>(null);
+  const [expandedPosts, setExpandedPosts] = useState<Record<string, boolean>>(
+    {}
+  );
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
@@ -216,6 +223,10 @@ export default function FeedCards({
     } finally {
       setSharingPostId(null);
     }
+  };
+
+  const toggleExpanded = (postId: string) => {
+    setExpandedPosts((prev) => ({ ...prev, [postId]: !prev[postId] }));
   };
 
   const cardStyle: React.CSSProperties = {
@@ -311,6 +322,7 @@ export default function FeedCards({
 
         const hasVideo = !!p.video_url;
         const hasImage = !!p.image_url && !hasVideo;
+        const hasMedia = hasVideo || hasImage;
 
         const actorName = org?.name || author?.full_name || "Quantum member";
         const actorHref = org
@@ -335,6 +347,16 @@ export default function FeedCards({
 
         const initials = initialsOf(actorName);
         const postHref = `/posts/${p.id}`;
+
+        const isExpanded = !!expandedPosts[p.id];
+        const shouldShowExpand =
+          enablePreviewCollapse &&
+          ((p.body || "").length > 380 ||
+            (p.body || "").split("\n").length > 8 ||
+            hasMedia);
+
+        const collapsedContentHeight = hasMedia ? 560 : 280;
+        const isCollapsed = shouldShowExpand && !isExpanded;
 
         return (
           <div
@@ -529,77 +551,128 @@ export default function FeedCards({
               </div>
             </div>
 
-            <Link href={postHref} style={clickableStyle}>
+            <div
+              style={{
+                position: "relative",
+                marginTop: 10,
+                maxHeight: isCollapsed ? collapsedContentHeight : "none",
+                overflow: isCollapsed ? "hidden" : "visible",
+              }}
+            >
+              <Link href={postHref} style={clickableStyle}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    lineHeight: 1.45,
+                    color: "rgba(226,232,240,0.92)",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  <LinkifyText text={p.body || ""} />
+                </div>
+
+                {hasVideo && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      width: "100%",
+                      height: isCollapsed ? 360 : 520,
+                      borderRadius: 14,
+                      overflow: "hidden",
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      background: "rgba(2,6,23,0.35)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <AutoPlayVideo
+                      src={p.video_url as string}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                        background: "rgba(15,23,42,0.95)",
+                      }}
+                    />
+                  </div>
+                )}
+
+                {hasImage && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      width: "100%",
+                      height: isCollapsed ? 360 : 520,
+                      borderRadius: 14,
+                      overflow: "hidden",
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      background: "rgba(2,6,23,0.35)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <img
+                      src={p.image_url as string}
+                      alt="Post media"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+              </Link>
+
+              {isCollapsed && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 120,
+                    background:
+                      "linear-gradient(to bottom, rgba(15,23,42,0), rgba(15,23,42,0.82) 45%, rgba(15,23,42,0.98) 100%)",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+            </div>
+
+            {shouldShowExpand && (
               <div
                 style={{
+                  display: "flex",
+                  justifyContent: "flex-start",
                   marginTop: 10,
-                  fontSize: 14,
-                  lineHeight: 1.45,
-                  color: "rgba(226,232,240,0.92)",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
                 }}
               >
-                <LinkifyText text={p.body || ""} />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleExpanded(p.id);
+                  }}
+                  style={{
+                    ...pillBtn,
+                    borderColor: "rgba(56,189,248,0.3)",
+                    background: "rgba(56,189,248,0.08)",
+                    color: "rgba(226,232,240,0.96)",
+                    fontWeight: 700,
+                  }}
+                >
+                  {isExpanded ? "See less" : "See more"}
+                </button>
               </div>
-
-              {hasVideo && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    width: "100%",
-                    height: 520,
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    border: "1px solid rgba(148,163,184,0.16)",
-                    background: "rgba(2,6,23,0.35)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <AutoPlayVideo
-                    src={p.video_url as string}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                      display: "block",
-                      background: "rgba(15,23,42,0.95)",
-                    }}
-                  />
-                </div>
-              )}
-
-              {hasImage && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    width: "100%",
-                    height: 520,
-                    borderRadius: 14,
-                    overflow: "hidden",
-                    border: "1px solid rgba(148,163,184,0.16)",
-                    background: "rgba(2,6,23,0.35)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <img
-                    src={p.image_url as string}
-                    alt="Post media"
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                      display: "block",
-                    }}
-                    loading="lazy"
-                  />
-                </div>
-              )}
-            </Link>
+            )}
 
             <div
               style={{
