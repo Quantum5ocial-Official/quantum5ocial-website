@@ -634,8 +634,8 @@ useEffect(() => {
   hasLoadedFeedRef.current = true;
   loadFeed(user?.id ?? null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [userLoading]);
-
+}, [userLoading, user?.id]);
+  
   const loadProfilesForUserIds = async (userIds: string[]) => {
     const uniq = Array.from(new Set(userIds)).filter(Boolean);
     const missing = uniq.filter((id) => !commenterProfiles[id]);
