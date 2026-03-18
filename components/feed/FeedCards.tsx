@@ -232,14 +232,15 @@ export default function FeedCards({
   };
 
   const cardStyle: React.CSSProperties = {
-    borderRadius: 18,
-    border: "1px solid rgba(148,163,184,0.18)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
-    boxShadow: "0 18px 40px rgba(15,23,42,0.35)",
-    padding: 14,
-    marginBottom: 12,
-  };
+  borderRadius: 20,
+  border: "1px solid rgba(148,163,184,0.30)",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.99))",
+  boxShadow:
+    "0 14px 34px rgba(0,0,0,0.32), 0 0 24px rgba(56,189,248,0.05)",
+  padding: 14,
+  marginBottom: 16,
+};
 
   const pillBtn: React.CSSProperties = {
     fontSize: 13,
