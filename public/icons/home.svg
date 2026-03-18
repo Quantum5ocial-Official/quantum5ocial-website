@@ -1,60 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg
   xmlns="http://www.w3.org/2000/svg"
-  viewBox="4.5 2.4 13.5 17.2"
+  viewBox="0 0 23 21.5"
   fill="none"
 >
   <defs>
     <style>
-      .outer {
+      .cls-1 {
         fill: none;
         stroke: #fff;
-        stroke-width: 0.9px;
         stroke-linecap: round;
         stroke-linejoin: round;
-      }
-      .inner {
-        fill: none;
-        stroke: #fff;
-        stroke-width: 0.45px;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        opacity: 0.95;
+        stroke-width: .5px;
       }
     </style>
   </defs>
 
-  <!-- Roof (wider → touches visual edges like other icons) -->
-  <path
-    class="outer"
-    d="M5.4 8.5 L11.25 4.9 L17.1 8.5"
-  />
-  <path
-    class="inner"
-    d="M6.4 8.5 L11.25 5.6 L16.1 8.5"
-  />
+  <!-- outer house -->
+  <path class="cls-1" d="M4.4 10.0L11.5 4.4L18.6 10.0" />
+  <path class="cls-1" d="M6.1 9.5V19.8H16.9V9.5" />
 
-  <!-- Walls (expanded width) -->
-  <path
-    class="outer"
-    d="M6.0 8.5 V16.2 H16.5 V8.5"
-  />
-  <path
-    class="inner"
-    d="M6.9 9.2 V15.4 H15.6 V9.2"
-  />
+  <!-- inner roof -->
+  <path class="cls-1" d="M6.8 9.9L11.5 6.1L16.2 9.9" />
 
-  <!-- Base (full width like others) -->
-  <path class="outer" d="M5.8 16.2 H16.7" />
-  <path class="inner" d="M6.7 15.5 H15.8" />
+  <!-- door -->
+  <path class="cls-1" d="M9.9 19.8V13.0H13.1V19.8" />
+  <path class="cls-1" d="M10.8 19.8V14.0H12.2V19.8" />
+  <line class="cls-1" x1="11.5" y1="13.0" x2="11.5" y2="12.0" />
 
-  <!-- Door (scaled with new width) -->
-  <path
-    class="outer"
-    d="M10.1 16.2 V11.5 H12.4 V16.2"
-  />
-  <path
-    class="inner"
-    d="M10.7 15.5 V12.2 H11.8 V15.5"
-  />
+  <!-- side inner lines -->
+  <line class="cls-1" x1="7.7" y1="11.6" x2="7.7" y2="17.4" />
+  <line class="cls-1" x1="15.3" y1="11.6" x2="15.3" y2="17.4" />
+
+  <!-- base -->
+  <line class="cls-1" x1="5.5" y1="19.8" x2="17.5" y2="19.8" />
 </svg>
