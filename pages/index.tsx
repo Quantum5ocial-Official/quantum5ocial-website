@@ -616,19 +616,16 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
   }
 }, [user, userLoading]);
   
-  useEffect(() => {
-    if (userLoading) return;
-    loadFeed(user?.id ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userLoading, user?.id]);
+  const hasLoadedFeedRef = useRef(false);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onFeedChanged = () => loadFeed(user?.id ?? null);
-    window.addEventListener("q5:feed-changed", onFeedChanged);
-    return () => window.removeEventListener("q5:feed-changed", onFeedChanged);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+useEffect(() => {
+  if (userLoading) return;
+  if (hasLoadedFeedRef.current) return;
+
+  hasLoadedFeedRef.current = true;
+  loadFeed(user?.id ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [userLoading]);
 
   const loadProfilesForUserIds = async (userIds: string[]) => {
     const uniq = Array.from(new Set(userIds)).filter(Boolean);
