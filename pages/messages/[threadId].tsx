@@ -22,9 +22,33 @@ type MessageRow = {
   recipient_id?: string;
 };
 
+function useIsMobile(maxWidth = 720) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const update = () => setIsMobile(mq.matches);
+    update();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", update);
+      return () => mq.removeEventListener("change", update);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(update);
+      return () => anyMq.removeListener(update);
+    }
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
 export default function ThreadPage() {
   const { user, loading: userLoading } = useSupabaseUser();
   const router = useRouter();
+  const isMobile = useIsMobile(720);
 
   const threadId = useMemo(() => {
     const raw = router.query?.threadId;
@@ -189,6 +213,7 @@ export default function ThreadPage() {
       return;
     }
     void loadThreadAndMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userLoading, uid, threadId]);
 
   useEffect(() => {
@@ -205,7 +230,7 @@ export default function ThreadPage() {
     return () => {
       el.removeEventListener("scroll", onScroll);
     };
-  }, [listRef.current]);
+  }, [messages.length]);
 
   useEffect(() => {
     if (!uid || !threadId) return;
@@ -221,7 +246,8 @@ export default function ThreadPage() {
           if (row.thread_id !== threadId) return;
 
           if (thread) {
-            const allowed = row.sender_id === thread.user1 || row.sender_id === thread.user2;
+            const allowed =
+              row.sender_id === thread.user1 || row.sender_id === thread.user2;
             if (!allowed) return;
           }
 
@@ -285,33 +311,52 @@ export default function ThreadPage() {
   const initials = initialsOf(other?.full_name);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        height: isMobile ? "calc(100dvh - 180px)" : "calc(100dvh - 160px)",
+        paddingBottom: isMobile ? 8 : 0,
+      }}
+    >
       {/* header */}
       <div
         style={{
           border: "1px solid rgba(148,163,184,0.18)",
           background: "rgba(15,23,42,0.92)",
           borderRadius: 14,
-          padding: 12,
+          padding: isMobile ? "10px 12px" : 12,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 12,
+          flexShrink: 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: isMobile ? 10 : 12,
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
           <Link
             href="/messages"
             style={{
               textDecoration: "none",
               color: "rgba(226,232,240,0.92)",
               fontWeight: 900,
+              fontSize: isMobile ? 24 : 18,
+              lineHeight: 1,
+              flexShrink: 0,
             }}
           >
             ←
           </Link>
 
-          {/* ✅ avatar + name are BOTH clickable */}
           {other?.id ? (
             <Link
               href={`/profile/${other.id}`}
@@ -319,11 +364,12 @@ export default function ThreadPage() {
                 textDecoration: "none",
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
+                gap: isMobile ? 10 : 12,
                 minWidth: 0,
+                flex: 1,
               }}
             >
-              <div style={avatarStyle(40)}>
+              <div style={avatarStyle(isMobile ? 38 : 40)}>
                 {other?.avatar_url ? (
                   <img
                     src={other.avatar_url}
@@ -338,11 +384,12 @@ export default function ThreadPage() {
               <div
                 style={{
                   fontWeight: 900,
-                  fontSize: 14,
+                  fontSize: isMobile ? 13 : 14,
                   color: "rgba(226,232,240,0.95)",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  minWidth: 0,
                 }}
                 title={name}
               >
@@ -351,7 +398,7 @@ export default function ThreadPage() {
             </Link>
           ) : (
             <>
-              <div style={avatarStyle(40)}>
+              <div style={avatarStyle(isMobile ? 38 : 40)}>
                 {other?.avatar_url ? (
                   <img
                     src={other.avatar_url}
@@ -366,10 +413,11 @@ export default function ThreadPage() {
               <div
                 style={{
                   fontWeight: 900,
-                  fontSize: 14,
+                  fontSize: isMobile ? 13 : 14,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  minWidth: 0,
                 }}
                 title={name}
               >
@@ -383,11 +431,12 @@ export default function ThreadPage() {
           <Link
             href={`/profile/${other.id}`}
             style={{
-              fontSize: 13,
+              fontSize: isMobile ? 12 : 13,
               color: "rgba(34,211,238,0.95)",
               textDecoration: "none",
               fontWeight: 900,
               whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
             View profile
@@ -395,18 +444,19 @@ export default function ThreadPage() {
         )}
       </div>
 
-      <div style={{ height: 10 }} />
+      <div style={{ height: 10, flexShrink: 0 }} />
 
       {/* message list */}
       <div
         ref={listRef}
         style={{
           flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           border: "1px solid rgba(148,163,184,0.14)",
           background: "rgba(2,6,23,0.18)",
           borderRadius: 14,
-          padding: 12,
+          padding: isMobile ? 10 : 12,
           display: "flex",
           flexDirection: "column",
           gap: 10,
@@ -420,19 +470,24 @@ export default function ThreadPage() {
             return (
               <div
                 key={m.id}
-                style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}
+                style={{
+                  display: "flex",
+                  justifyContent: mine ? "flex-end" : "flex-start",
+                }}
               >
                 <div
                   style={{
-                    maxWidth: "78%",
+                    maxWidth: isMobile ? "86%" : "78%",
                     borderRadius: 14,
-                    padding: "10px 12px",
+                    padding: isMobile ? "9px 11px" : "10px 12px",
                     border: mine
                       ? "1px solid rgba(59,199,243,0.35)"
                       : "1px solid rgba(148,163,184,0.18)",
-                    background: mine ? "rgba(59,199,243,0.10)" : "rgba(15,23,42,0.70)",
+                    background: mine
+                      ? "rgba(59,199,243,0.10)"
+                      : "rgba(15,23,42,0.70)",
                     color: "rgba(226,232,240,0.95)",
-                    fontSize: 14,
+                    fontSize: isMobile ? 13 : 14,
                     lineHeight: 1.45,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
@@ -446,7 +501,7 @@ export default function ThreadPage() {
         )}
       </div>
 
-      <div style={{ height: 10 }} />
+      <div style={{ height: 10, flexShrink: 0 }} />
 
       {/* composer */}
       <div
@@ -454,10 +509,14 @@ export default function ThreadPage() {
           border: "1px solid rgba(148,163,184,0.18)",
           background: "rgba(15,23,42,0.92)",
           borderRadius: 14,
-          padding: 12,
+          padding: isMobile ? 10 : 12,
           display: "flex",
-          gap: 10,
+          gap: isMobile ? 8 : 10,
           alignItems: "center",
+          flexShrink: 0,
+          position: "sticky",
+          bottom: 0,
+          zIndex: 5,
         }}
       >
         <input
@@ -473,13 +532,14 @@ export default function ThreadPage() {
           }}
           style={{
             flex: 1,
-            height: 42,
+            minWidth: 0,
+            height: isMobile ? 40 : 42,
             borderRadius: 12,
             border: "1px solid rgba(148,163,184,0.2)",
             background: "rgba(2,6,23,0.26)",
             color: "rgba(226,232,240,0.94)",
-            padding: "0 12px",
-            fontSize: 14,
+            padding: isMobile ? "0 10px" : "0 12px",
+            fontSize: isMobile ? 13 : 14,
             outline: "none",
           }}
         />
@@ -489,15 +549,16 @@ export default function ThreadPage() {
           onClick={() => void send()}
           disabled={sending || !draft.trim()}
           style={{
-            padding: "9px 14px",
+            padding: isMobile ? "9px 12px" : "9px 14px",
             borderRadius: 999,
             border: "none",
-            fontSize: 13,
+            fontSize: isMobile ? 12 : 13,
             fontWeight: 900,
             background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
             color: "#0f172a",
             opacity: sending || !draft.trim() ? 0.55 : 1,
             cursor: sending || !draft.trim() ? "default" : "pointer",
+            flexShrink: 0,
           }}
         >
           {sending ? "Sending…" : "Send"}
