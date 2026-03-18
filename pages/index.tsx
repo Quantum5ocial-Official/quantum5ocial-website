@@ -381,6 +381,7 @@ function HomeGlobalFeed() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>(
@@ -441,9 +442,16 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
     return parts.join(" · ");
   };
 
-  const loadFeed = async (uid: string | null) => {
-    setLoading(true);
-    setError(null);
+  const loadFeed = async (
+  uid: string | null,
+  opts?: { manual?: boolean }
+) => {
+  const manual = !!opts?.manual;
+
+  if (manual) setRefreshing(true);
+  else setLoading(true);
+
+  setError(null);
 
     try {
       let postRows: PostRow[] | null = null;
@@ -586,8 +594,9 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
       setError(e?.message || "Could not load feed.");
       setItems([]);
     } finally {
-      setLoading(false);
-    }
+  if (manual) setRefreshing(false);
+  else setLoading(false);
+}
   };
   
   useEffect(() => {
@@ -999,13 +1008,13 @@ const handleSaveEditedPost = async () => {
         </div>
 
         <button
-          type="button"
-          style={pillBtnStyle}
-          onClick={() => loadFeed(user?.id ?? null)}
-          disabled={loading}
-        >
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
+  type="button"
+  style={pillBtnStyle}
+  onClick={() => loadFeed(user?.id ?? null, { manual: true })}
+  disabled={refreshing}
+>
+  {refreshing ? "Refreshing…" : "Refresh"}
+</button>
       </div>
 
       {loading && <div className="products-status">Loading feed…</div>}
