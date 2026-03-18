@@ -454,7 +454,7 @@ export default function MessagesIndexPage() {
                 background: "rgba(2,6,23,0.26)",
                 color: "rgba(226,232,240,0.94)",
                 padding: "0 12px",
-                fontSize: 14,
+                fontSize: 16,
                 outline: "none",
               }}
             />
