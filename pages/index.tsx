@@ -1053,6 +1053,7 @@ const handleSaveEditedPost = async () => {
   savingPostId={savingPostId}
   editingPostId={editingPostId}
   deletingPostId={deletingPostId}
+  enablePreviewCollapse={true}
 />
       )}
 
