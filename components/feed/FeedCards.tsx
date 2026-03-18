@@ -690,18 +690,26 @@ export default function FeedCards({
               }}
             >
               <button
-                type="button"
-                style={{
-                  ...pillBtn,
-                  borderColor: vm.likedByMe
-                    ? "rgba(34,211,238,0.55)"
-                    : "rgba(148,163,184,0.28)",
-                  background: vm.likedByMe
-                    ? "rgba(34,211,238,0.12)"
-                    : "rgba(2,6,23,0.22)",
-                }}
-                onClick={() => onToggleLike(p.id)}
-              >
+  type="button"
+  style={{
+    ...pillBtn,
+    borderColor: vm.likedByMe
+      ? "rgba(248,113,113,0.55)"
+      : "rgba(148,163,184,0.28)",
+    background: vm.likedByMe
+      ? "rgba(248,113,113,0.12)"
+      : "rgba(2,6,23,0.22)",
+    color: vm.likedByMe
+      ? "rgba(254,226,226,0.98)"
+      : "rgba(226,232,240,0.92)",
+  }}
+  onClick={() => onToggleLike(p.id)}
+>
+  <span style={{ color: vm.likedByMe ? "#f87171" : "inherit" }}>
+    {vm.likedByMe ? "♥" : "♡"}
+  </span>{" "}
+  {vm.likeCount}
+</button>
                 {vm.likedByMe ? "♥" : "♡"} {vm.likeCount}
               </button>
 
@@ -729,15 +737,13 @@ export default function FeedCards({
                 }}
               >
                 <div
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div style={avatarStyle(32)}>{user ? "🙂" : "?"}</div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
+  style={{
+    display: "flex",
+    gap: 10,
+    alignItems: "flex-start",
+  }}
+>
+  <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
                       value={commentDraft[p.id] || ""}
                       onChange={(e) =>
