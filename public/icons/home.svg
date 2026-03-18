@@ -24,37 +24,37 @@
     </style>
   </defs>
 
-  <!-- Roof (flatter, wider) -->
+  <!-- Roof (wider → touches visual edges like other icons) -->
   <path
     class="outer"
-    d="M6.2 8.4 L11.25 5.0 L16.3 8.4"
+    d="M5.4 8.5 L11.25 4.9 L17.1 8.5"
   />
   <path
     class="inner"
-    d="M7.0 8.4 L11.25 5.6 L15.5 8.4"
+    d="M6.4 8.5 L11.25 5.6 L16.1 8.5"
   />
 
-  <!-- Walls (taller like bell body) -->
+  <!-- Walls (expanded width) -->
   <path
     class="outer"
-    d="M7.2 8.4 V16.1 H15.3 V8.4"
+    d="M6.0 8.5 V16.2 H16.5 V8.5"
   />
   <path
     class="inner"
-    d="M8.0 9.1 V15.3 H14.5 V9.1"
+    d="M6.9 9.2 V15.4 H15.6 V9.2"
   />
 
-  <!-- Base -->
-  <path class="outer" d="M7.0 16.1 H15.5" />
-  <path class="inner" d="M7.8 15.4 H14.7" />
+  <!-- Base (full width like others) -->
+  <path class="outer" d="M5.8 16.2 H16.7" />
+  <path class="inner" d="M6.7 15.5 H15.8" />
 
-  <!-- Door -->
+  <!-- Door (scaled with new width) -->
   <path
     class="outer"
-    d="M10.2 16.1 V11.6 H12.3 V16.1"
+    d="M10.1 16.2 V11.5 H12.4 V16.2"
   />
   <path
     class="inner"
-    d="M10.7 15.4 V12.3 H11.8 V15.4"
+    d="M10.7 15.5 V12.2 H11.8 V15.5"
   />
 </svg>
