@@ -32,77 +32,100 @@ export default function EcosystemIndexPage() {
       return;
     }
 
+    const loadValidEntangledCount = async (userId: string) => {
+      const { data: connData, error: connErr } = await supabase
+        .from("connections")
+        .select("user_id, target_user_id")
+        .eq("status", "accepted")
+        .or(`user_id.eq.${userId},target_user_id.eq.${userId}`);
+
+      if (connErr) throw connErr;
+
+      const otherIds = Array.from(
+        new Set(
+          (connData || []).map((c: any) =>
+            c.user_id === userId ? c.target_user_id : c.user_id
+          )
+        )
+      ).filter((id) => !!id && id !== userId);
+
+      if (otherIds.length === 0) return 0;
+
+      const { data: profData, error: profErr } = await supabase
+        .from("profiles")
+        .select("id")
+        .in("id", otherIds);
+
+      if (profErr) throw profErr;
+
+      return (profData || []).length;
+    };
+
     const loadCounts = async () => {
       setMainLoading(true);
       setErrorMsg(null);
 
       try {
-        const { data: connData } = await supabase
-          .from("connections")
-          .select("user_id, target_user_id")
-          .eq("status", "accepted")
-          .or(`user_id.eq.${user.id},target_user_id.eq.${user.id}`);
+        const validEntangledCount = await loadValidEntangledCount(user.id);
+        setEntangledCount(validEntangledCount);
 
-        if (connData) {
-          const otherIds = Array.from(
-            new Set(
-              connData.map((c: any) =>
-                c.user_id === user.id ? c.target_user_id : c.user_id
-              )
-            )
-          );
-          setEntangledCount(otherIds.length);
-        }
-
-        const { data: followRows } = await supabase
+        const { data: followRows, error: followErr } = await supabase
           .from("org_follows")
           .select("org_id")
           .eq("user_id", user.id);
+
+        if (followErr) throw followErr;
 
         setFollowingCount(
           new Set((followRows || []).map((r: any) => r.org_id)).size
         );
 
-        const { data: savedJobs } = await supabase
+        const { data: savedJobs, error: savedJobsErr } = await supabase
           .from("saved_jobs")
           .select("job_id")
           .eq("user_id", user.id);
 
+        if (savedJobsErr) throw savedJobsErr;
         setSavedJobsCount(savedJobs?.length || 0);
 
-        const { data: savedProducts } = await supabase
+        const { data: savedProducts, error: savedProductsErr } = await supabase
           .from("saved_products")
           .select("product_id")
           .eq("user_id", user.id);
 
+        if (savedProductsErr) throw savedProductsErr;
         setSavedProductsCount(savedProducts?.length || 0);
 
-        const { data: savedPosts } = await supabase
+        const { data: savedPosts, error: savedPostsErr } = await supabase
           .from("saved_posts")
           .select("post_id")
           .eq("user_id", user.id);
 
+        if (savedPostsErr) throw savedPostsErr;
         setSavedPostsCount(savedPosts?.length || 0);
 
-        const { data: myPosts } = await supabase
+        const { data: myPosts, error: myPostsErr } = await supabase
           .from("posts")
           .select("id")
           .eq("user_id", user.id);
 
+        if (myPostsErr) throw myPostsErr;
         setMyPostsCount(myPosts?.length || 0);
 
-        const { data: askedQs } = await supabase
+        const { data: askedQs, error: askedQsErr } = await supabase
           .from("qna_questions")
           .select("id")
           .eq("user_id", user.id);
 
+        if (askedQsErr) throw askedQsErr;
         setQuestionsAskedCount(askedQs?.length || 0);
 
-        const { data: answers } = await supabase
+        const { data: answers, error: answersErr } = await supabase
           .from("qna_answers")
           .select("id")
           .eq("user_id", user.id);
 
+        if (answersErr) throw answersErr;
         setQuestionsAnsweredCount(answers?.length || 0);
       } catch (e) {
         console.error("Ecosystem count error", e);
@@ -112,7 +135,7 @@ export default function EcosystemIndexPage() {
       }
     };
 
-    loadCounts();
+    void loadCounts();
   }, [user]);
 
   if (!user && !loading) return null;
