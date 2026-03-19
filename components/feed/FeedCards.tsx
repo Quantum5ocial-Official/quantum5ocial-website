@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -88,16 +88,33 @@ type Props = {
   editingPostId?: string | null;
   deletingPostId?: string | null;
 
-  // feed preview behavior
   enablePreviewCollapse?: boolean;
 };
+
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const update = () => setIsMobile(window.innerWidth < breakpoint);
+    update();
+
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 
 function AutoPlayVideo({
   src,
   style,
+  onLoadedMetadata,
 }: {
   src: string;
   style?: React.CSSProperties;
+  onLoadedMetadata?: (el: HTMLVideoElement) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -138,8 +155,117 @@ function AutoPlayVideo({
       loop
       controls
       preload="metadata"
+      onLoadedMetadata={(e) => onLoadedMetadata?.(e.currentTarget)}
       style={style}
     />
+  );
+}
+
+function AdaptiveImage({
+  src,
+  alt,
+}: {
+  src: string;
+  alt: string;
+}) {
+  const isMobile = useIsMobile();
+  const [ratio, setRatio] = useState<number>(16 / 9);
+
+  const frameMaxHeight = isMobile ? "min(52vh, 380px)" : "min(68vh, 560px)";
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        width: "100%",
+        borderRadius: 14,
+        overflow: "hidden",
+        border: "1px solid rgba(148,163,184,0.16)",
+        background: "rgba(2,6,23,0.35)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          aspectRatio: String(ratio),
+          maxHeight: frameMaxHeight,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(15,23,42,0.92)",
+        }}
+      >
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              setRatio(img.naturalWidth / img.naturalHeight);
+            }
+          }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AdaptiveVideo({
+  src,
+}: {
+  src: string;
+}) {
+  const isMobile = useIsMobile();
+  const [ratio, setRatio] = useState<number>(16 / 9);
+
+  const frameMaxHeight = isMobile ? "min(52vh, 380px)" : "min(68vh, 560px)";
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        width: "100%",
+        borderRadius: 14,
+        overflow: "hidden",
+        border: "1px solid rgba(148,163,184,0.16)",
+        background: "rgba(2,6,23,0.35)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          aspectRatio: String(ratio),
+          maxHeight: frameMaxHeight,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(15,23,42,0.95)",
+        }}
+      >
+        <AutoPlayVideo
+          src={src}
+          onLoadedMetadata={(video) => {
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              setRatio(video.videoWidth / video.videoHeight);
+            }
+          }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+            background: "rgba(15,23,42,0.95)",
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -232,15 +358,15 @@ export default function FeedCards({
   };
 
   const cardStyle: React.CSSProperties = {
-  borderRadius: 20,
-  border: "1px solid rgba(56,189,248,0.25)",
-  background:
-    "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.96))",
-  boxShadow:
-    "0 14px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
-  padding: 14,
-  marginBottom: 16,
-};
+    borderRadius: 20,
+    border: "1px solid rgba(56,189,248,0.25)",
+    background:
+      "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.96))",
+    boxShadow:
+      "0 14px 34px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
+    padding: 14,
+    marginBottom: 16,
+  };
 
   const pillBtn: React.CSSProperties = {
     fontSize: 13,
@@ -351,12 +477,9 @@ export default function FeedCards({
         const postHref = `/posts/${p.id}`;
 
         const isExpanded = !!expandedPosts[p.id];
-
-        // reduced preview so image appears higher on standard laptop screens
         const shouldShowExpand =
           enablePreviewCollapse &&
           ((p.body || "").length > 220 || (p.body || "").split("\n").length > 3);
-
         const isCollapsed = shouldShowExpand && !isExpanded;
 
         return (
@@ -620,62 +743,16 @@ export default function FeedCards({
 
               {hasVideo && (
                 <Link href={postHref} style={clickableStyle}>
-                  <div
-                    style={{
-                      marginTop: 10,
-                      width: "100%",
-                      height: 520,
-                      borderRadius: 14,
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      background: "rgba(2,6,23,0.35)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <AutoPlayVideo
-                      src={p.video_url as string}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        display: "block",
-                        background: "rgba(15,23,42,0.95)",
-                      }}
-                    />
-                  </div>
+                  <AdaptiveVideo src={p.video_url as string} />
                 </Link>
               )}
 
               {hasImage && (
                 <Link href={postHref} style={clickableStyle}>
-                  <div
-                    style={{
-                      marginTop: 10,
-                      width: "100%",
-                      height: 520,
-                      borderRadius: 14,
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      background: "rgba(2,6,23,0.35)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <img
-                      src={p.image_url as string}
-                      alt="Post media"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        display: "block",
-                      }}
-                      loading="lazy"
-                    />
-                  </div>
+                  <AdaptiveImage
+                    src={p.image_url as string}
+                    alt="Post media"
+                  />
                 </Link>
               )}
             </div>
@@ -690,26 +767,26 @@ export default function FeedCards({
               }}
             >
               <button
-  type="button"
-  style={{
-    ...pillBtn,
-    borderColor: vm.likedByMe
-      ? "rgba(248,113,113,0.55)"
-      : "rgba(148,163,184,0.28)",
-    background: vm.likedByMe
-      ? "rgba(248,113,113,0.12)"
-      : "rgba(2,6,23,0.22)",
-    color: vm.likedByMe
-      ? "rgba(254,226,226,0.98)"
-      : "rgba(226,232,240,0.92)",
-  }}
-  onClick={() => onToggleLike(p.id)}
->
-  <span style={{ color: vm.likedByMe ? "#f87171" : "inherit" }}>
-    {vm.likedByMe ? "♥" : "♡"}
-  </span>{" "}
-  {vm.likeCount}
-</button>
+                type="button"
+                style={{
+                  ...pillBtn,
+                  borderColor: vm.likedByMe
+                    ? "rgba(248,113,113,0.55)"
+                    : "rgba(148,163,184,0.28)",
+                  background: vm.likedByMe
+                    ? "rgba(248,113,113,0.12)"
+                    : "rgba(2,6,23,0.22)",
+                  color: vm.likedByMe
+                    ? "rgba(254,226,226,0.98)"
+                    : "rgba(226,232,240,0.92)",
+                }}
+                onClick={() => onToggleLike(p.id)}
+              >
+                <span style={{ color: vm.likedByMe ? "#f87171" : "inherit" }}>
+                  {vm.likedByMe ? "♥" : "♡"}
+                </span>{" "}
+                {vm.likeCount}
+              </button>
 
               <button
                 type="button"
@@ -735,13 +812,13 @@ export default function FeedCards({
                 }}
               >
                 <div
-  style={{
-    display: "flex",
-    gap: 10,
-    alignItems: "flex-start",
-  }}
->
-  <div style={{ flex: 1, minWidth: 0 }}>
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <textarea
                       value={commentDraft[p.id] || ""}
                       onChange={(e) =>
