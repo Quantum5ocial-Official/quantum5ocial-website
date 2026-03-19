@@ -101,27 +101,35 @@ export default function LeftSidebar() {
           .maybeSingle();
 
         const [pRes, cRes, postsRes, orgRes] = await Promise.all([
-          profileQ,
-          connectionsQ,
-          postsQ,
-          orgQ,
-        ]);
+  profileQ,
+  connectionsQ,
+  postsQ,
+  orgQ,
+]);
 
-        const profile = (pRes.data as ProfileSummary) || null;
+const profile = (pRes.data as ProfileSummary) || null;
 
-        let entangledCount = 0;
-        if (!cRes.error && cRes.data && cRes.data.length > 0) {
-          const otherIds = Array.from(
-            new Set(
-              (cRes.data as any[]).map((c: any) =>
-                c.user_id === uid ? c.target_user_id : c.user_id
-              )
-            )
-          ).filter(Boolean);
-          entangledCount = otherIds.length;
-        }
+let entangledCount = 0;
+if (!cRes.error && cRes.data && cRes.data.length > 0) {
+  const otherIds = Array.from(
+    new Set(
+      (cRes.data as any[]).map((c: any) =>
+        c.user_id === uid ? c.target_user_id : c.user_id
+      )
+    )
+  ).filter((id) => !!id && id !== uid);
 
-        const postsCount = (postsRes.data || []).length;
+  if (otherIds.length > 0) {
+    const { data: existingProfiles, error: existingProfilesErr } = await supabase
+      .from("profiles")
+      .select("id")
+      .in("id", otherIds);
+
+    entangledCount = existingProfilesErr ? 0 : (existingProfiles || []).length;
+  }
+}
+
+const postsCount = (postsRes.data || []).length;
 
         const myOrg = (orgRes.data as MyOrgSummary) || null;
 
