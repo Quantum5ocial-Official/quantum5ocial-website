@@ -69,14 +69,20 @@ type FeedOrg = {
   logo_url: string | null;
 };
 
+type PostMediaItem = {
+  url: string;
+  type: "image" | "video";
+};
+
 type PostRow = {
   id: string;
   user_id: string;
   body: string;
   created_at: string | null;
   image_url: string | null;
-  video_url: string | null; // ✅ new
-  org_id: string | null; // 👈 post can belong to an org
+  video_url: string | null;
+  org_id: string | null;
+  media?: PostMediaItem[] | null;
 };
 
 type LikeRow = { post_id: string; user_id: string };
@@ -485,14 +491,14 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
       if (recommendedIds.length > 0) {
         const { data: recPosts, error: recErr } = await supabase
           .from("posts")
-          .select("id, user_id, body, created_at, image_url, video_url, org_id")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id, media")
           .in("id", recommendedIds);
 
         if (recErr) throw recErr;
 
         const { data: freshPosts, error: freshErr } = await supabase
           .from("posts")
-          .select("id, user_id, body, created_at, image_url, video_url, org_id")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id, media")
           .order("created_at", { ascending: false })
           .limit(10);
 
@@ -512,7 +518,7 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
       } else {
         const { data, error } = await supabase
           .from("posts")
-          .select("id, user_id, body, created_at, image_url, video_url, org_id")
+          .select("id, user_id, body, created_at, image_url, video_url, org_id, media")
           .order("created_at", { ascending: false })
           .limit(30);
 
