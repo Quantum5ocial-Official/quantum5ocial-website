@@ -30,10 +30,16 @@ export default function FeedList({
 
   const [items, setItems] = useState<PostVM[]>([]);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentRow[]>
+  >({});
+  const [commenterProfiles, setCommenterProfiles] = useState<
+    Record<string, FeedProfile>
+  >({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
+  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const [savedPostIds, setSavedPostIds] = useState<Record<string, boolean>>({});
   const [savingPostId, setSavingPostId] = useState<string | null>(null);
@@ -77,8 +83,14 @@ export default function FeedList({
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-    const parts = [p?.highest_education, p?.affiliation].filter(Boolean);
-    return parts.join(" · ");
+    const primaryLabel =
+      (p?.current_title || "").trim() ||
+      (p?.role || "").trim() ||
+      (p?.highest_education || "").trim();
+
+    const affiliation = (p?.affiliation || "").trim();
+
+    return [primaryLabel, affiliation].filter(Boolean).join(" · ");
   };
 
   const initialsOf = (name: string | null | undefined) =>
@@ -112,7 +124,9 @@ export default function FeedList({
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation")
+        .select(
+          "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+        )
         .in("id", missing);
 
       if (error || !data) return;
@@ -207,7 +221,9 @@ export default function FeedList({
         if (userIds.length > 0) {
           const { data: profRows, error: profErr } = await supabase
             .from("profiles")
-            .select("id, full_name, avatar_url, highest_education, affiliation")
+            .select(
+              "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+            )
             .in("id", userIds);
 
           if (!profErr && profRows) {
