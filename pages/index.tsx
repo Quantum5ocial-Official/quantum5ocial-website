@@ -58,6 +58,8 @@ type FeedProfile = {
   avatar_url: string | null;
   highest_education?: string | null;
   affiliation?: string | null;
+  role?: string | null;
+  current_title?: string | null;
 };
 
 type FeedOrg = {
@@ -438,9 +440,15 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-    const parts = [p?.highest_education, p?.affiliation].filter(Boolean);
-    return parts.join(" · ");
-  };
+  const primaryLabel =
+    (p?.current_title || "").trim() ||
+    (p?.role || "").trim() ||
+    (p?.highest_education || "").trim();
+
+  const affiliation = (p?.affiliation || "").trim();
+
+  return [primaryLabel, affiliation].filter(Boolean).join(" · ");
+};
 
   const loadFeed = async (
   uid: string | null,
@@ -521,9 +529,11 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
       const profileMap = new Map<string, FeedProfile>();
       if (userIds.length > 0) {
         const { data: profRows, error: profErr } = await supabase
-          .from("profiles")
-          .select("id, full_name, avatar_url, highest_education, affiliation")
-          .in("id", userIds);
+  .from("profiles")
+  .select(
+    "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+  )
+  .in("id", userIds);
 
         if (!profErr && profRows) {
           (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
@@ -642,9 +652,11 @@ useEffect(() => {
     if (missing.length === 0) return;
 
     const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, highest_education, affiliation")
-      .in("id", missing);
+  .from("profiles")
+  .select(
+    "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+  )
+  .in("id", missing);
 
     if (error || !data) return;
 
