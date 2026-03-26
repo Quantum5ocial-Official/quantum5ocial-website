@@ -1299,9 +1299,11 @@ function HomeComposerStrip() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // ✅ Image OR video
-  const [postMediaFile, setPostMediaFile] = useState<File | null>(null);
-  const [postMediaPreview, setPostMediaPreview] = useState<string | null>(null);
-
+  const [postMediaFiles, setPostMediaFiles] = useState<File[]>([]);
+const [postMediaPreviews, setPostMediaPreviews] = useState<
+  { url: string; type: "image" | "video" }[]
+>([]);
+  
   const [askTitle, setAskTitle] = useState("");
   const [askBody, setAskBody] = useState("");
   const [askType, setAskType] =
@@ -1341,12 +1343,14 @@ function HomeComposerStrip() {
   }, [user, loading]);
 
   useEffect(() => {
-    return () => {
-      if (postMediaPreview?.startsWith("blob:")) {
-        URL.revokeObjectURL(postMediaPreview);
+  return () => {
+    postMediaPreviews.forEach((item) => {
+      if (item.url.startsWith("blob:")) {
+        URL.revokeObjectURL(item.url);
       }
-    };
-  }, [postMediaPreview]);
+    });
+  };
+}, [postMediaPreviews]);
 
   const isAuthed = !!user;
   const displayName = me?.full_name || "Member";
@@ -1584,19 +1588,24 @@ const modalBody: CSSProperties = {
     fileInputRef.current?.click();
   };
 
-  const onMediaSelected = (file: File | null) => {
-    setMediaError(null);
+  const onMediaSelected = (files: File[]) => {
+  setMediaError(null);
 
-    if (postMediaPreview?.startsWith("blob:")) {
-      URL.revokeObjectURL(postMediaPreview);
+  postMediaPreviews.forEach((item) => {
+    if (item.url.startsWith("blob:")) {
+      URL.revokeObjectURL(item.url);
     }
+  });
 
-    if (!file) {
-      setPostMediaFile(null);
-      setPostMediaPreview(null);
-      return;
-    }
+  if (!files.length) {
+    setPostMediaFiles([]);
+    setPostMediaPreviews([]);
+    return;
+  }
 
+  const limited = files.slice(0, 3);
+
+  for (const file of limited) {
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
 
@@ -1606,41 +1615,54 @@ const modalBody: CSSProperties = {
     }
 
     if (file.size > MAX_MEDIA_SIZE) {
-      setMediaError("Media must be smaller than 25 MB.");
+      setMediaError("Each media file must be smaller than 25 MB.");
       return;
     }
+  }
 
-    setPostMediaFile(file);
-    setPostMediaPreview(URL.createObjectURL(file));
-  };
+  setPostMediaFiles(limited);
+  setPostMediaPreviews(
+    limited.map((file) => ({
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith("video/") ? "video" : "image",
+    }))
+  );
+};
 
   const clearMedia = () => {
-    setMediaError(null);
-    onMediaSelected(null);
-  };
+  setMediaError(null);
 
-  const uploadPostMediaIfAny = async (): Promise<{
-    image_url: string | null;
-    video_url: string | null;
-  }> => {
-    if (!user || !postMediaFile) {
-      return { image_url: null, video_url: null };
+  postMediaPreviews.forEach((item) => {
+    if (item.url.startsWith("blob:")) {
+      URL.revokeObjectURL(item.url);
     }
+  });
 
-    const isImage = postMediaFile.type.startsWith("image/");
-    const isVideo = postMediaFile.type.startsWith("video/");
+  setPostMediaFiles([]);
+  setPostMediaPreviews([]);
+};
 
-    const ext = (postMediaFile.name.split(".").pop() || "bin").toLowerCase();
+  const uploadPostMediaIfAny = async (): Promise<
+  { url: string; type: "image" | "video" }[]
+> => {
+  if (!user || postMediaFiles.length === 0) {
+    return [];
+  }
+
+  const uploaded: { url: string; type: "image" | "video" }[] = [];
+
+  for (const file of postMediaFiles) {
+    const ext = (file.name.split(".").pop() || "bin").toLowerCase();
     const path = `posts/${user.id}/${Date.now()}-${Math.random()
       .toString(16)
       .slice(2)}.${ext}`;
 
     const { error } = await supabase.storage
       .from(POSTS_BUCKET)
-      .upload(path, postMediaFile, {
+      .upload(path, file, {
         cacheControl: "3600",
         upsert: false,
-        contentType: postMediaFile.type,
+        contentType: file.type,
       });
 
     if (error) throw error;
@@ -1648,11 +1670,16 @@ const modalBody: CSSProperties = {
     const { data } = supabase.storage.from(POSTS_BUCKET).getPublicUrl(path);
     const url = data?.publicUrl || null;
 
-    return {
-      image_url: isImage ? url : null,
-      video_url: isVideo ? url : null,
-    };
-  };
+    if (url) {
+      uploaded.push({
+        url,
+        type: file.type.startsWith("video/") ? "video" : "image",
+      });
+    }
+  }
+
+  return uploaded;
+};
 
   const submitPost = async () => {
     if (!user) {
@@ -1667,14 +1694,15 @@ const modalBody: CSSProperties = {
     setPostError(null);
 
     try {
-      const { image_url, video_url } = await uploadPostMediaIfAny();
+      const media = await uploadPostMediaIfAny();
 
-      const { error } = await supabase.from("posts").insert({
-        user_id: user.id,
-        body,
-        image_url,
-        video_url,
-      });
+const { error } = await supabase.from("posts").insert({
+  user_id: user.id,
+  body,
+  image_url: null,
+  video_url: null,
+  media: media.length > 0 ? media : null,
+});
 
       if (error) throw error;
 
@@ -1945,7 +1973,7 @@ const modalBody: CSSProperties = {
                     style={bigTextarea}
                   />
 
-                  {postMediaPreview && (
+                  {postMediaPreviews.length > 0 && (
                     <div
                       style={{
                         marginTop: 10,
@@ -1990,44 +2018,58 @@ const modalBody: CSSProperties = {
                         </button>
                       </div>
                       <div style={{ marginTop: 8 }}>
-                        <div
-  style={{
-    width: "100%",
-    height: isMobile ? 180 : 220,
-    maxHeight: "28vh",
-    borderRadius: 12,
-    overflow: "hidden",
-    background: "rgba(2,6,23,0.35)",
-    border: "1px solid rgba(148,163,184,0.18)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
-                          {postMediaFile?.type.startsWith("video/") ? (
-                            <video
-                              src={postMediaPreview}
-                              controls
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                              }}
-                            />
-                          ) : (
-                            <img
-                              src={postMediaPreview}
-                              alt="Preview"
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
-                                display: "block",
-                              }}
-                            />
-                          )}
-                        </div>
-                      </div>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns:
+        postMediaPreviews.length === 1
+          ? "1fr"
+          : postMediaPreviews.length === 2
+          ? "1fr 1fr"
+          : "1fr 1fr 1fr",
+      gap: 8,
+    }}
+  >
+    {postMediaPreviews.map((item, idx) => (
+      <div
+        key={idx}
+        style={{
+          height: isMobile ? 140 : 180,
+          borderRadius: 12,
+          overflow: "hidden",
+          background: "rgba(2,6,23,0.35)",
+          border: "1px solid rgba(148,163,184,0.18)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {item.type === "video" ? (
+          <video
+            src={item.url}
+            controls
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : (
+          <img
+            src={item.url}
+            alt={`Preview ${idx + 1}`}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              display: "block",
+            }}
+          />
+        )}
+      </div>
+    ))}
+  </div>
+</div>
                     </div>
                   )}
 
@@ -2198,15 +2240,16 @@ const modalBody: CSSProperties = {
             </div>
 
             <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                onMediaSelected(e.target.files?.[0] || null);
-                e.currentTarget.value = "";
-              }}
-            />
+  ref={fileInputRef}
+  type="file"
+  accept="image/*,video/*"
+  multiple
+  style={{ display: "none" }}
+  onChange={(e) => {
+    onMediaSelected(Array.from(e.target.files || []));
+    e.currentTarget.value = "";
+  }}
+/>
           </div>
         </div>
       )}
