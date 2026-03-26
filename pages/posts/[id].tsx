@@ -14,6 +14,8 @@ type FeedProfile = {
   avatar_url: string | null;
   highest_education?: string | null;
   affiliation?: string | null;
+  role?: string | null;
+  current_title?: string | null;
 };
 
 type FeedOrg = {
@@ -23,6 +25,11 @@ type FeedOrg = {
   logo_url: string | null;
 };
 
+type PostMediaItem = {
+  url: string;
+  type: "image" | "video";
+};
+
 type PostRow = {
   id: string;
   user_id: string;
@@ -30,6 +37,7 @@ type PostRow = {
   created_at: string | null;
   image_url: string | null;
   video_url: string | null;
+  media?: PostMediaItem[] | null;
   org_id: string | null;
 };
 
@@ -116,8 +124,14 @@ export default function PostDetailPage() {
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-    const parts = [p?.highest_education, p?.affiliation].filter(Boolean);
-    return parts.join(" · ");
+    const primaryLabel =
+      (p?.current_title || "").trim() ||
+      (p?.role || "").trim() ||
+      (p?.highest_education || "").trim();
+
+    const affiliation = (p?.affiliation || "").trim();
+
+    return [primaryLabel, affiliation].filter(Boolean).join(" · ");
   };
 
   const initialsOf = (name: string | null | undefined) =>
@@ -150,7 +164,9 @@ export default function PostDetailPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, highest_education, affiliation")
+      .select(
+        "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+      )
       .in("id", missing);
 
     if (error || !data) return;
@@ -190,7 +206,9 @@ export default function PostDetailPage() {
     try {
       const { data: postRow, error: postErr } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at, image_url, video_url, org_id")
+        .select(
+          "id, user_id, body, created_at, image_url, video_url, media, org_id"
+        )
         .eq("id", postId)
         .maybeSingle();
 
@@ -206,7 +224,9 @@ export default function PostDetailPage() {
       let author: FeedProfile | null = null;
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, affiliation")
+        .select(
+          "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+        )
         .eq("id", post.user_id)
         .maybeSingle();
 
@@ -356,7 +376,7 @@ export default function PostDetailPage() {
 
       setCommentsByPost((prev) => {
         const cur = prev[pid] || [];
-        return { ...prev, [pid]: data ? [...cur, data as CommentRow] : cur };
+        return { ...prev, [pid]: data ? [data as CommentRow, ...cur] : cur };
       });
 
       await loadProfilesForUserIds([user.id]);
