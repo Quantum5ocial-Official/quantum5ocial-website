@@ -1061,16 +1061,14 @@ function HomeGlobalFeed() {
         <button
           type="button"
           style={pillBtnStyle}
-          onClick={() => {
-            setPage(0);
-            setHasMore(true);
-            void loadFeedPage({
-              uid: user?.id ?? null,
-              pageIndex: 0,
-              replace: true,
-              manual: true,
-            });
-          }}
+          onClick={async () => {
+  setRefreshing(true);
+  try {
+    await refreshTopPageKeepingOlder(user?.id ?? null);
+  } finally {
+    setRefreshing(false);
+  }
+}}
           disabled={refreshing}
         >
           {refreshing ? "Refreshing…" : "Refresh"}
