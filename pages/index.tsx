@@ -612,6 +612,33 @@ function HomeGlobalFeed() {
     return vms;
   };
 
+  const refreshTopPageKeepingOlder = async (uid: string | null) => {
+  try {
+    const { data: postRows, error: postErr } = await supabase
+      .from("posts")
+      .select(
+        "id, user_id, body, created_at, image_url, video_url, org_id, media"
+      )
+      .order("created_at", { ascending: false })
+      .range(0, PAGE_SIZE - 1);
+
+    if (postErr) throw postErr;
+
+    const freshPosts = (postRows || []) as PostRow[];
+    const freshVMs = await hydratePosts(freshPosts, uid);
+
+    setItems((prev) => {
+      const freshIds = new Set(freshVMs.map((x) => x.post.id));
+      const older = prev.filter((x) => !freshIds.has(x.post.id));
+      return [...freshVMs, ...older];
+    });
+
+    setHasMore(freshPosts.length === PAGE_SIZE || items.length > freshPosts.length);
+  } catch (e) {
+    console.error("refreshTopPageKeepingOlder error", e);
+  }
+};
+
   const loadFeedPage = async ({
     uid,
     pageIndex,
@@ -717,27 +744,23 @@ function HomeGlobalFeed() {
   }, [userLoading, user?.id]);
 
   useEffect(() => {
-    const onFeedChanged = () => {
-      void loadFeedPage({
-        uid: user?.id ?? null,
-        pageIndex: 0,
-        replace: true,
-      });
-    };
+  const onFeedChanged = () => {
+    void refreshTopPageKeepingOlder(user?.id ?? null);
+  };
 
+  if (typeof window !== "undefined") {
+    window.addEventListener("q5:feed-changed", onFeedChanged as EventListener);
+  }
+
+  return () => {
     if (typeof window !== "undefined") {
-      window.addEventListener("q5:feed-changed", onFeedChanged as EventListener);
+      window.removeEventListener(
+        "q5:feed-changed",
+        onFeedChanged as EventListener
+      );
     }
-
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener(
-          "q5:feed-changed",
-          onFeedChanged as EventListener
-        );
-      }
-    };
-  }, [user?.id]);
+  };
+}, [user?.id, items.length]);
 
   const toggleLike = async (postId: string) => {
     if (!user) {
