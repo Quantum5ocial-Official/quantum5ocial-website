@@ -83,15 +83,17 @@ export default function FeedList({
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-    const primaryLabel =
-      (p?.current_title || "").trim() ||
-      (p?.role || "").trim() ||
-      (p?.highest_education || "").trim();
+  console.log("formatSubtitle input", p);
 
-    const affiliation = (p?.affiliation || "").trim();
+  const primaryLabel =
+    (p?.current_title || "").trim() ||
+    (p?.role || "").trim() ||
+    (p?.highest_education || "").trim();
 
-    return [primaryLabel, affiliation].filter(Boolean).join(" · ");
-  };
+  const affiliation = (p?.affiliation || "").trim();
+
+  return [primaryLabel, affiliation].filter(Boolean).join(" · ");
+};
 
   const initialsOf = (name: string | null | undefined) =>
     (name || "")
