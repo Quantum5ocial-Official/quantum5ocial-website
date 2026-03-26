@@ -8,6 +8,8 @@ export type FeedProfile = {
   avatar_url: string | null;
   highest_education?: string | null;
   affiliation?: string | null;
+  role?: string | null;
+  current_title?: string | null;
 };
 
 export type FeedOrg = {
