@@ -1,3 +1,4 @@
+// pages/posts/[id].tsx
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
@@ -63,10 +64,8 @@ function useIsMobile(breakpoint = 768) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const update = () => setIsMobile(window.innerWidth < breakpoint);
     update();
-
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, [breakpoint]);
@@ -76,15 +75,11 @@ function useIsMobile(breakpoint = 768) {
 
 function normalizePostMedia(post: PostRow | null): PostMediaItem[] {
   if (!post) return [];
-
-  if (Array.isArray(post.media) && post.media.length > 0) {
-    return post.media;
-  }
+  if (Array.isArray(post.media) && post.media.length > 0) return post.media;
 
   const legacy: PostMediaItem[] = [];
   if (post.video_url) legacy.push({ url: post.video_url, type: "video" });
   if (post.image_url) legacy.push({ url: post.image_url, type: "image" });
-
   return legacy;
 }
 
@@ -115,6 +110,7 @@ export default function PostDetailPage() {
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [savingPostId, setSavingPostId] = useState<string | null>(null);
 
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
   const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
@@ -139,16 +135,24 @@ export default function PostDetailPage() {
     if (diffSec < 60) return `${diffSec} seconds ago`;
 
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    if (diffMin < 60) {
+      return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    }
 
     const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    if (diffHr < 24) {
+      return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    }
 
     const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+    if (diffDay < 7) {
+      return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+    }
 
     const diffWk = Math.floor(diffDay / 7);
-    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+    if (diffWk < 5) {
+      return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+    }
 
     const diffMo = Math.floor(diffDay / 30);
     return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
@@ -161,7 +165,6 @@ export default function PostDetailPage() {
       (p?.highest_education || "").trim();
 
     const affiliation = (p?.affiliation || "").trim();
-
     return [primaryLabel, affiliation].filter(Boolean).join(" · ");
   };
 
@@ -294,6 +297,7 @@ export default function PostDetailPage() {
         likedByMe,
       });
 
+      setOpenComments((prev) => ({ ...prev, [postId]: true }));
       setCommentsByPost((prev) => ({ ...prev, [postId]: commentRows }));
       await loadProfilesForUserIds(commentRows.map((c) => c.user_id));
     } catch (e: any) {
@@ -337,9 +341,13 @@ export default function PostDetailPage() {
     }
   }, [user, userLoading]);
 
+  useEffect(() => {
+    setCurrentMediaIndex(0);
+  }, [postId]);
+
   const toggleLike = async (pid: string) => {
     if (!user || !item) {
-      router.push(`/auth?redirect=/post/${pid}`);
+      router.push(`/auth?redirect=/posts/${pid}`);
       return;
     }
 
@@ -375,7 +383,7 @@ export default function PostDetailPage() {
 
   const submitComment = async (pid: string) => {
     if (!user) {
-      router.push(`/auth?redirect=/post/${pid}`);
+      router.push(`/auth?redirect=/posts/${pid}`);
       return;
     }
 
@@ -398,6 +406,7 @@ export default function PostDetailPage() {
       if (error) throw error;
 
       setCommentDraft((p) => ({ ...p, [pid]: "" }));
+      setOpenComments((p) => ({ ...p, [pid]: true }));
 
       setCommentsByPost((prev) => {
         const cur = prev[pid] || [];
@@ -409,6 +418,10 @@ export default function PostDetailPage() {
       setItem((prev) =>
         prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev
       );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
     } catch (e) {
       console.warn("submitComment error", e);
     } finally {
@@ -425,7 +438,7 @@ export default function PostDetailPage() {
 
   const handleSavePost = async (pid: string) => {
     if (!user) {
-      router.push(`/auth?redirect=/post/${pid}`);
+      router.push(`/auth?redirect=/posts/${pid}`);
       return;
     }
 
@@ -521,6 +534,10 @@ export default function PostDetailPage() {
 
       setEditingPostId(null);
       setEditingBody("");
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
     } catch (e: any) {
       console.error("Failed to update post", e);
       setEditError(e?.message || "Could not save changes.");
@@ -536,11 +553,8 @@ export default function PostDetailPage() {
 
   const mediaItems = useMemo(() => normalizePostMedia(item?.post || null), [item]);
 
-  useEffect(() => {
-    setCurrentMediaIndex(0);
-  }, [postId, mediaItems.length]);
-
-  const actorName = item?.org?.name || item?.author?.full_name || "Quantum member";
+  const actorName =
+    item?.org?.name || item?.author?.full_name || "Quantum member";
 
   const actorHref = item?.org
     ? `/orgs/${item.org.slug}`
@@ -553,7 +567,9 @@ export default function PostDetailPage() {
 
   const subtitle = item?.org
     ? [
-        item?.author?.full_name ? `Posted by ${item.author.full_name}` : "Posted by member",
+        item?.author?.full_name
+          ? `Posted by ${item.author.full_name}`
+          : "Posted by member",
         formatSubtitle(item?.author),
       ]
         .filter(Boolean)
@@ -583,28 +599,53 @@ export default function PostDetailPage() {
       {!loading && !error && item && (
         <div
           style={{
-            borderRadius: 22,
-            border: "1px solid rgba(56,189,248,0.22)",
-            background:
-              "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.96))",
-            boxShadow:
-              "0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.04)",
-            overflow: "hidden",
+            width: "100%",
+            maxWidth: 900,
+            margin: "0 auto",
           }}
         >
-          <div style={{ padding: 16, paddingBottom: 12 }}>
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                alignItems: "flex-start",
-              }}
-            >
-              {actorHref ? (
-                <Link
-                  href={actorHref}
-                  style={{ textDecoration: "none", cursor: "pointer" }}
-                >
+          <div
+            style={{
+              borderRadius: 22,
+              border: "1px solid rgba(56,189,248,0.22)",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.96))",
+              boxShadow:
+                "0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.04)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ padding: 16, paddingBottom: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "flex-start",
+                }}
+              >
+                {actorHref ? (
+                  <Link
+                    href={actorHref}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <div style={avatarStyle(42)}>
+                      {avatarSrc ? (
+                        <img
+                          src={avatarSrc}
+                          alt={actorName}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        initialsOf(actorName)
+                      )}
+                    </div>
+                  </Link>
+                ) : (
                   <div style={avatarStyle(42)}>
                     {avatarSrc ? (
                       <img
@@ -621,325 +662,177 @@ export default function PostDetailPage() {
                       initialsOf(actorName)
                     )}
                   </div>
-                </Link>
-              ) : (
-                <div style={avatarStyle(42)}>
-                  {avatarSrc ? (
-                    <img
-                      src={avatarSrc}
-                      alt={actorName}
+                )}
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "baseline",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
+                        fontWeight: 800,
+                        fontSize: 15,
+                        lineHeight: 1.2,
                       }}
-                    />
-                  ) : (
-                    initialsOf(actorName)
+                    >
+                      {actorHref ? (
+                        <Link
+                          href={actorHref}
+                          style={{
+                            textDecoration: "none",
+                            color: "inherit",
+                          }}
+                        >
+                          {actorName}
+                        </Link>
+                      ) : (
+                        actorName
+                      )}
+                    </div>
+                    <div style={{ opacity: 0.72, fontSize: 12 }}>
+                      {formatRelativeTime(item.post.created_at)}
+                    </div>
+                  </div>
+
+                  {!!subtitle && (
+                    <div style={{ opacity: 0.78, fontSize: 12, marginTop: 2 }}>
+                      {subtitle}
+                    </div>
                   )}
                 </div>
-              )}
 
-              <div style={{ minWidth: 0, flex: 1 }}>
                 <div
                   style={{
                     display: "flex",
-                    gap: 10,
-                    alignItems: "baseline",
+                    gap: 8,
+                    alignItems: "center",
                     flexWrap: "wrap",
+                    justifyContent: "flex-end",
                   }}
                 >
-                  <div
+                  <button
+                    type="button"
+                    onClick={() => toggleLike(item.post.id)}
                     style={{
-                      fontWeight: 800,
-                      fontSize: 15,
-                      lineHeight: 1.2,
+                      ...pillBtnStyle,
+                      borderColor: item.likedByMe
+                        ? "rgba(248,113,113,0.55)"
+                        : "rgba(148,163,184,0.28)",
+                      background: item.likedByMe
+                        ? "rgba(248,113,113,0.12)"
+                        : "rgba(2,6,23,0.22)",
+                      color: item.likedByMe
+                        ? "rgba(254,226,226,0.98)"
+                        : "rgba(226,232,240,0.92)",
                     }}
                   >
-                    {actorHref ? (
-                      <Link
-                        href={actorHref}
+                    <span style={{ color: item.likedByMe ? "#f87171" : "inherit" }}>
+                      {item.likedByMe ? "♥" : "♡"}
+                    </span>{" "}
+                    {item.likeCount}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenComments((prev) => ({
+                        ...prev,
+                        [item.post.id]: !prev[item.post.id],
+                      }))
+                    }
+                    style={pillBtnStyle}
+                  >
+                    💬 {item.commentCount}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (typeof window === "undefined") return;
+                      const shareUrl = `${window.location.origin}/posts/${postId}`;
+                      try {
+                        if (navigator.share) {
+                          await navigator.share({ url: shareUrl });
+                        } else if (navigator.clipboard?.writeText) {
+                          await navigator.clipboard.writeText(shareUrl);
+                        }
+                      } catch {}
+                    }}
+                    style={pillBtnStyle}
+                  >
+                    🔗 Share
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={savingPostId === item.post.id}
+                    onClick={() => handleSavePost(item.post.id)}
+                    style={{
+                      ...pillBtnStyle,
+                      opacity: savingPostId === item.post.id ? 0.6 : 1,
+                      cursor: savingPostId === item.post.id ? "default" : "pointer",
+                    }}
+                  >
+                    {savingPostId === item.post.id
+                      ? "Saving..."
+                      : isPostSaved(item.post.id)
+                      ? "💾 Saved"
+                      : "📌 Save"}
+                  </button>
+
+                  {!!user && user.id === item.post.user_id && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleEditPost(item.post.id)}
+                        style={pillBtnStyle}
+                      >
+                        ✏️ Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={deletingPostId === item.post.id}
+                        onClick={() => handleDeletePost(item.post.id)}
                         style={{
-                          textDecoration: "none",
-                          color: "inherit",
-                          cursor: "pointer",
+                          ...pillBtnStyle,
+                          border: "1px solid rgba(248,113,113,0.28)",
+                          background: "rgba(127,29,29,0.18)",
+                          color: "rgba(254,202,202,0.95)",
+                          opacity: deletingPostId === item.post.id ? 0.6 : 1,
+                          cursor:
+                            deletingPostId === item.post.id ? "default" : "pointer",
                         }}
                       >
-                        {actorName}
-                      </Link>
-                    ) : (
-                      actorName
-                    )}
-                  </div>
-                  <div style={{ opacity: 0.72, fontSize: 12 }}>
-                    {formatRelativeTime(item.post.created_at)}
-                  </div>
-                </div>
-
-                {!!subtitle && (
-                  <div style={{ opacity: 0.78, fontSize: 12, marginTop: 2 }}>
-                    {subtitle}
-                  </div>
-                )}
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                  justifyContent: "flex-end",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleLike(item.post.id)}
-                  style={{
-                    ...pillBtnStyle,
-                    borderColor: item.likedByMe
-                      ? "rgba(248,113,113,0.55)"
-                      : "rgba(148,163,184,0.28)",
-                    background: item.likedByMe
-                      ? "rgba(248,113,113,0.12)"
-                      : "rgba(2,6,23,0.22)",
-                    color: item.likedByMe
-                      ? "rgba(254,226,226,0.98)"
-                      : "rgba(226,232,240,0.92)",
-                  }}
-                >
-                  <span style={{ color: item.likedByMe ? "#f87171" : "inherit" }}>
-                    {item.likedByMe ? "♥" : "♡"}
-                  </span>{" "}
-                  {item.likeCount}
-                </button>
-
-                <button type="button" style={pillBtnStyle}>
-                  💬 {item.commentCount}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (typeof window === "undefined") return;
-                    const shareUrl = `${window.location.origin}/post/${postId}`;
-                    try {
-                      if (navigator.share) {
-                        await navigator.share({ url: shareUrl });
-                      } else if (navigator.clipboard?.writeText) {
-                        await navigator.clipboard.writeText(shareUrl);
-                      }
-                    } catch {}
-                  }}
-                  style={pillBtnStyle}
-                >
-                  🔗 Share
-                </button>
-
-                <button
-                  type="button"
-                  disabled={savingPostId === item.post.id}
-                  onClick={() => handleSavePost(item.post.id)}
-                  style={{
-                    ...pillBtnStyle,
-                    opacity: savingPostId === item.post.id ? 0.6 : 1,
-                    cursor: savingPostId === item.post.id ? "default" : "pointer",
-                  }}
-                >
-                  {savingPostId === item.post.id
-                    ? "Saving..."
-                    : isPostSaved(item.post.id)
-                    ? "💾 Saved"
-                    : "📌 Save"}
-                </button>
-
-                {!!user && user.id === item.post.user_id && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleEditPost(item.post.id)}
-                      style={pillBtnStyle}
-                    >
-                      ✏️ Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={deletingPostId === item.post.id}
-                      onClick={() => handleDeletePost(item.post.id)}
-                      style={{
-                        ...pillBtnStyle,
-                        border: "1px solid rgba(248,113,113,0.28)",
-                        background: "rgba(127,29,29,0.18)",
-                        color: "rgba(254,202,202,0.95)",
-                        opacity: deletingPostId === item.post.id ? 0.6 : 1,
-                        cursor: deletingPostId === item.post.id ? "default" : "pointer",
-                      }}
-                    >
-                      {deletingPostId === item.post.id ? "Deleting..." : "🗑 Delete"}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div style={{ padding: "0 16px 16px 16px" }}>
-            <div
-              style={{
-                fontSize: 15,
-                lineHeight: 1.55,
-                color: "rgba(226,232,240,0.94)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              }}
-            >
-              <LinkifyText text={item.post.body || ""} />
-            </div>
-          </div>
-
-          {mediaItems.length > 0 && (
-            <div style={{ padding: "0 16px 16px 16px" }}>
-              {isMobile ? (
-                <div>
-                  <div
-                    style={{
-                      position: "relative",
-                      borderRadius: 18,
-                      overflow: "hidden",
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      background: "rgba(2,6,23,0.35)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "100%",
-                        minHeight: 260,
-                        maxHeight: "70vh",
-                        background: "rgba(15,23,42,0.95)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {mediaItems[currentMediaIndex]?.type === "video" ? (
-                        <video
-                          src={mediaItems[currentMediaIndex].url}
-                          controls
-                          playsInline
-                          style={{
-                            width: "100%",
-                            maxHeight: "70vh",
-                            objectFit: "contain",
-                            display: "block",
-                            background: "rgba(15,23,42,0.95)",
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src={mediaItems[currentMediaIndex].url}
-                          alt={`Post media ${currentMediaIndex + 1}`}
-                          style={{
-                            width: "100%",
-                            maxHeight: "70vh",
-                            objectFit: "contain",
-                            display: "block",
-                            background: "rgba(15,23,42,0.95)",
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    {mediaItems.length > 1 && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCurrentMediaIndex((prev) =>
-                              prev === 0 ? mediaItems.length - 1 : prev - 1
-                            )
-                          }
-                          style={{
-                            position: "absolute",
-                            left: 10,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            width: 38,
-                            height: 38,
-                            borderRadius: 999,
-                            border: "1px solid rgba(148,163,184,0.22)",
-                            background: "rgba(2,6,23,0.72)",
-                            color: "rgba(226,232,240,0.96)",
-                            cursor: "pointer",
-                            fontSize: 20,
-                            zIndex: 2,
-                          }}
-                        >
-                          ‹
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setCurrentMediaIndex((prev) =>
-                              prev === mediaItems.length - 1 ? 0 : prev + 1
-                            )
-                          }
-                          style={{
-                            position: "absolute",
-                            right: 10,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            width: 38,
-                            height: 38,
-                            borderRadius: 999,
-                            border: "1px solid rgba(148,163,184,0.22)",
-                            background: "rgba(2,6,23,0.72)",
-                            color: "rgba(226,232,240,0.96)",
-                            cursor: "pointer",
-                            fontSize: 20,
-                            zIndex: 2,
-                          }}
-                        >
-                          ›
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  {mediaItems.length > 1 && (
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 8,
-                        marginTop: 10,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {mediaItems.map((_, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setCurrentMediaIndex(idx)}
-                          style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: 999,
-                            border: "none",
-                            cursor: "pointer",
-                            background:
-                              idx === currentMediaIndex
-                                ? "rgba(56,189,248,0.95)"
-                                : "rgba(148,163,184,0.35)",
-                          }}
-                        />
-                      ))}
-                    </div>
+                        {deletingPostId === item.post.id ? "Deleting..." : "🗑 Delete"}
+                      </button>
+                    </>
                   )}
                 </div>
-              ) : (
+              </div>
+            </div>
+
+            <div style={{ padding: "0 16px 16px 16px" }}>
+              <div
+                style={{
+                  fontSize: 15,
+                  lineHeight: 1.55,
+                  color: "rgba(226,232,240,0.94)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
+                <LinkifyText text={item.post.body || ""} />
+              </div>
+            </div>
+
+            {mediaItems.length > 0 && (
+              <div style={{ padding: "0 16px 16px 16px" }}>
                 <div
                   style={{
                     position: "relative",
@@ -952,8 +845,8 @@ export default function PostDetailPage() {
                   <div
                     style={{
                       width: "100%",
-                      minHeight: 360,
-                      maxHeight: "72vh",
+                      minHeight: isMobile ? 260 : 360,
+                      maxHeight: isMobile ? "70vh" : "72vh",
                       background: "rgba(15,23,42,0.95)",
                       display: "flex",
                       alignItems: "center",
@@ -964,9 +857,10 @@ export default function PostDetailPage() {
                       <video
                         src={mediaItems[currentMediaIndex].url}
                         controls
+                        playsInline
                         style={{
                           width: "100%",
-                          maxHeight: "72vh",
+                          maxHeight: isMobile ? "70vh" : "72vh",
                           objectFit: "contain",
                           display: "block",
                           background: "rgba(15,23,42,0.95)",
@@ -978,7 +872,7 @@ export default function PostDetailPage() {
                         alt={`Post media ${currentMediaIndex + 1}`}
                         style={{
                           width: "100%",
-                          maxHeight: "72vh",
+                          maxHeight: isMobile ? "70vh" : "72vh",
                           objectFit: "contain",
                           display: "block",
                           background: "rgba(15,23,42,0.95)",
@@ -998,17 +892,17 @@ export default function PostDetailPage() {
                         }
                         style={{
                           position: "absolute",
-                          left: 12,
+                          left: 10,
                           top: "50%",
                           transform: "translateY(-50%)",
-                          width: 42,
-                          height: 42,
+                          width: 38,
+                          height: 38,
                           borderRadius: 999,
                           border: "1px solid rgba(148,163,184,0.22)",
                           background: "rgba(2,6,23,0.72)",
                           color: "rgba(226,232,240,0.96)",
                           cursor: "pointer",
-                          fontSize: 22,
+                          fontSize: 20,
                           zIndex: 2,
                         }}
                       >
@@ -1024,17 +918,17 @@ export default function PostDetailPage() {
                         }
                         style={{
                           position: "absolute",
-                          right: 12,
+                          right: 10,
                           top: "50%",
                           transform: "translateY(-50%)",
-                          width: 42,
-                          height: 42,
+                          width: 38,
+                          height: 38,
                           borderRadius: 999,
                           border: "1px solid rgba(148,163,184,0.22)",
                           background: "rgba(2,6,23,0.72)",
                           color: "rgba(226,232,240,0.96)",
                           cursor: "pointer",
-                          fontSize: 22,
+                          fontSize: 20,
                           zIndex: 2,
                         }}
                       >
@@ -1043,113 +937,138 @@ export default function PostDetailPage() {
                     </>
                   )}
                 </div>
-              )}
-            </div>
-          )}
 
-          <div
-            style={{
-              borderTop: "1px solid rgba(148,163,184,0.14)",
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                fontWeight: 800,
-                fontSize: 14,
-                marginBottom: 10,
-                color: "rgba(226,232,240,0.95)",
-              }}
-            >
-              Comments
-            </div>
-
-            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <textarea
-                  value={commentDraft[item.post.id] || ""}
-                  onChange={(e) =>
-                    setCommentDraft((prev) => ({
-                      ...prev,
-                      [item.post.id]: e.target.value,
-                    }))
-                  }
-                  placeholder={user ? "Write a comment…" : "Login to comment…"}
-                  disabled={!user || !!commentSaving[item.post.id]}
-                  style={{
-                    width: "100%",
-                    minHeight: 52,
-                    borderRadius: 14,
-                    border: "1px solid rgba(148,163,184,0.2)",
-                    background: "rgba(2,6,23,0.22)",
-                    color: "rgba(226,232,240,0.92)",
-                    padding: "10px 12px",
-                    fontSize: 15,
-                    outline: "none",
-                    resize: "vertical",
-                  }}
-                />
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginTop: 8,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() => submitComment(item.post.id)}
-                    disabled={
-                      !user ||
-                      !!commentSaving[item.post.id] ||
-                      !(commentDraft[item.post.id] || "").trim()
-                    }
+                {mediaItems.length > 1 && (
+                  <div
                     style={{
-                      ...pillBtnStyle,
-                      opacity:
-                        !user ||
-                        !!commentSaving[item.post.id] ||
-                        !(commentDraft[item.post.id] || "").trim()
-                          ? 0.5
-                          : 1,
-                      cursor:
-                        !user ||
-                        !!commentSaving[item.post.id] ||
-                        !(commentDraft[item.post.id] || "").trim()
-                          ? "default"
-                          : "pointer",
+                      display: "flex",
+                      justifyContent: "center",
+                      gap: 8,
+                      marginTop: 10,
+                      flexWrap: "wrap",
                     }}
                   >
-                    {commentSaving[item.post.id] ? "Posting…" : "Comment"}
-                  </button>
-                </div>
+                    {mediaItems.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setCurrentMediaIndex(idx)}
+                        style={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: 999,
+                          border: "none",
+                          cursor: "pointer",
+                          background:
+                            idx === currentMediaIndex
+                              ? "rgba(56,189,248,0.95)"
+                              : "rgba(148,163,184,0.35)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             <div
               style={{
-                marginTop: 14,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12,
+                borderTop: "1px solid rgba(148,163,184,0.14)",
+                padding: 16,
               }}
             >
-              {(commentsByPost[item.post.id] || []).length === 0 ? (
-                <div style={{ opacity: 0.7, fontSize: 12 }}>No comments yet.</div>
-              ) : (
-                (commentsByPost[item.post.id] || []).map((c) => {
-                  const cp = commenterProfiles[c.user_id];
-                  const name = cp?.full_name || "Member";
-                  const commenterHref = cp?.id ? `/profile/${cp.id}` : undefined;
+              <div
+                style={{
+                  fontWeight: 800,
+                  fontSize: 14,
+                  marginBottom: 10,
+                  color: "rgba(226,232,240,0.95)",
+                }}
+              >
+                Comments
+              </div>
 
-                  return (
-                    <div key={c.id} style={{ display: "flex", gap: 10 }}>
-                      {commenterHref ? (
-                        <Link
-                          href={commenterHref}
-                          style={{ textDecoration: "none", color: "inherit" }}
-                        >
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <textarea
+                    value={commentDraft[item.post.id] || ""}
+                    onChange={(e) =>
+                      setCommentDraft((prev) => ({
+                        ...prev,
+                        [item.post.id]: e.target.value,
+                      }))
+                    }
+                    placeholder={user ? "Write a comment…" : "Login to comment…"}
+                    disabled={!user || !!commentSaving[item.post.id]}
+                    style={{
+                      width: "100%",
+                      minHeight: 52,
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.2)",
+                      background: "rgba(2,6,23,0.22)",
+                      color: "rgba(226,232,240,0.92)",
+                      padding: "10px 12px",
+                      fontSize: 15,
+                      outline: "none",
+                      resize: "vertical",
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      marginTop: 8,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => submitComment(item.post.id)}
+                      disabled={
+                        !user ||
+                        !!commentSaving[item.post.id] ||
+                        !(commentDraft[item.post.id] || "").trim()
+                      }
+                      style={{
+                        ...pillBtnStyle,
+                        opacity:
+                          !user ||
+                          !!commentSaving[item.post.id] ||
+                          !(commentDraft[item.post.id] || "").trim()
+                            ? 0.5
+                            : 1,
+                        cursor:
+                          !user ||
+                          !!commentSaving[item.post.id] ||
+                          !(commentDraft[item.post.id] || "").trim()
+                            ? "default"
+                            : "pointer",
+                      }}
+                    >
+                      {commentSaving[item.post.id] ? "Posting…" : "Comment"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {openComments[item.post.id] !== false && (
+                <div
+                  style={{
+                    marginTop: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                  }}
+                >
+                  {(commentsByPost[item.post.id] || []).length === 0 ? (
+                    <div style={{ opacity: 0.7, fontSize: 12 }}>No comments yet.</div>
+                  ) : (
+                    (commentsByPost[item.post.id] || []).map((c) => {
+                      const cp = commenterProfiles[c.user_id];
+                      const name = cp?.full_name || "Member";
+
+                      return (
+                        <div key={c.id} style={{ display: "flex", gap: 10 }}>
                           <div style={avatarStyle(30)}>
                             {cp?.avatar_url ? (
                               <img
@@ -1166,83 +1085,72 @@ export default function PostDetailPage() {
                               initialsOf(name)
                             )}
                           </div>
-                        </Link>
-                      ) : (
-                        <div style={avatarStyle(30)}>
-                          {cp?.avatar_url ? (
-                            <img
-                              src={cp.avatar_url}
-                              alt={name}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                            />
-                          ) : (
-                            initialsOf(name)
-                          )}
-                        </div>
-                      )}
 
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: 10,
-                            alignItems: "baseline",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontWeight: 800,
-                              fontSize: 13,
-                            }}
-                          >
-                            {commenterHref ? (
-                              <Link
-                                href={commenterHref}
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 10,
+                                alignItems: "baseline",
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <div
                                 style={{
-                                  textDecoration: "none",
-                                  color: "inherit",
+                                  fontWeight: 800,
+                                  fontSize: 13,
                                 }}
                               >
-                                {name}
-                              </Link>
-                            ) : (
-                              name
+                                {cp?.id ? (
+                                  <Link
+                                    href={`/profile/${cp.id}`}
+                                    style={{
+                                      textDecoration: "none",
+                                      color: "inherit",
+                                    }}
+                                  >
+                                    {name}
+                                  </Link>
+                                ) : (
+                                  name
+                                )}
+                              </div>
+
+                              <div style={{ opacity: 0.7, fontSize: 12 }}>
+                                {formatRelativeTime(c.created_at)}
+                              </div>
+                            </div>
+
+                            {!!formatSubtitle(cp) && (
+                              <div
+                                style={{
+                                  opacity: 0.7,
+                                  fontSize: 12,
+                                  marginTop: 1,
+                                }}
+                              >
+                                {formatSubtitle(cp)}
+                              </div>
                             )}
-                          </div>
 
-                          <div style={{ opacity: 0.7, fontSize: 12 }}>
-                            {formatRelativeTime(c.created_at)}
+                            <div
+                              style={{
+                                marginTop: 4,
+                                fontSize: 13,
+                                lineHeight: 1.45,
+                                opacity: 0.92,
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
+                              }}
+                            >
+                              <LinkifyText text={c.body || ""} />
+                            </div>
                           </div>
                         </div>
-
-                        {!!formatSubtitle(cp) && (
-                          <div style={{ opacity: 0.68, fontSize: 12, marginTop: 1 }}>
-                            {formatSubtitle(cp)}
-                          </div>
-                        )}
-
-                        <div
-                          style={{
-                            marginTop: 4,
-                            fontSize: 13,
-                            lineHeight: 1.45,
-                            opacity: 0.92,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                          }}
-                        >
-                          <LinkifyText text={c.body || ""} />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
+                      );
+                    })
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1366,7 +1274,16 @@ export default function PostDetailPage() {
                     setEditingBody("");
                     setEditError(null);
                   }}
-                  style={pillBtnStyle}
+                  style={{
+                    fontSize: 13,
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    border: "1px solid rgba(148,163,184,0.45)",
+                    background: "rgba(15,23,42,0.65)",
+                    color: "rgba(226,232,240,0.95)",
+                    cursor: editSaving ? "default" : "pointer",
+                    opacity: editSaving ? 0.6 : 1,
+                  }}
                 >
                   Cancel
                 </button>
@@ -1376,12 +1293,15 @@ export default function PostDetailPage() {
                   disabled={editSaving || !editingBody.trim()}
                   onClick={handleSaveEditedPost}
                   style={{
-                    ...pillBtnStyle,
+                    fontSize: 13,
+                    padding: "6px 10px",
+                    borderRadius: 999,
                     border: "none",
                     background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
                     color: "#0f172a",
                     fontWeight: 800,
-                    cursor: editSaving || !editingBody.trim() ? "default" : "pointer",
+                    cursor:
+                      editSaving || !editingBody.trim() ? "default" : "pointer",
                     opacity: editSaving || !editingBody.trim() ? 0.6 : 1,
                   }}
                 >
@@ -1395,3 +1315,8 @@ export default function PostDetailPage() {
     </section>
   );
 }
+
+(PostDetailPage as any).layoutProps = {
+  variant: "two-left",
+  right: null,
+};
