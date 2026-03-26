@@ -385,16 +385,16 @@ export default function Home() {
 
 function HomeGlobalFeed() {
   const { user, loading: userLoading } = useSupabaseUser();
-  const router = useRouter();
+
+  const PAGE_SIZE = 10;
 
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const [items, setItems] = useState<PostVM[]>([]);
-  const [openComments, setOpenComments] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [commentsByPost, setCommentsByPost] = useState<
     Record<string, CommentRow[]>
   >({});
@@ -402,22 +402,23 @@ function HomeGlobalFeed() {
   const [commentSaving, setCommentSaving] = useState<
     Record<string, boolean>
   >({});
-
   const [commenterProfiles, setCommenterProfiles] = useState<
     Record<string, FeedProfile>
   >({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // ✅ new: local post action state
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
-const [editingBody, setEditingBody] = useState("");
-const [editSaving, setEditSaving] = useState(false);
-const [editError, setEditError] = useState<string | null>(null);
+  const [editingBody, setEditingBody] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
-const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
-const [savingPostId, setSavingPostId] = useState<string | null>(null);
+  const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+  const [savingPostId, setSavingPostId] = useState<string | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
   const formatRelativeTime = (created_at: string | null) => {
     if (!created_at) return "";
@@ -430,7 +431,8 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
     if (diffSec < 60) return `${diffSec} seconds ago`;
 
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    if (diffMin < 60)
+      return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
 
     const diffHr = Math.floor(diffMin / 60);
     if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
@@ -446,223 +448,61 @@ const [savingPostId, setSavingPostId] = useState<string | null>(null);
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-  const primaryLabel =
-    (p?.current_title || "").trim() ||
-    (p?.role || "").trim() ||
-    (p?.highest_education || "").trim();
+    const primaryLabel =
+      (p?.current_title || "").trim() ||
+      (p?.role || "").trim() ||
+      (p?.highest_education || "").trim();
 
-  const affiliation = (p?.affiliation || "").trim();
+    const affiliation = (p?.affiliation || "").trim();
 
-  return [primaryLabel, affiliation].filter(Boolean).join(" · ");
-};
-
-  const loadFeed = async (
-  uid: string | null,
-  opts?: { manual?: boolean }
-) => {
-  const manual = !!opts?.manual;
-
-  if (manual) setRefreshing(true);
-  else setLoading(true);
-
-  setError(null);
-
-    try {
-      let postRows: PostRow[] | null = null;
-      let postErr: any = null;
-
-      let recommendedIds: string[] = [];
-      if (uid) {
-        try {
-          const res = await fetch("/api/feed/personalized", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: uid }),
-          });
-          const data = await res.json();
-          if (data.postIds && Array.isArray(data.postIds)) {
-            recommendedIds = data.postIds;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch personalized feed", e);
-        }
-      }
-
-      if (recommendedIds.length > 0) {
-        const { data: recPosts, error: recErr } = await supabase
-          .from("posts")
-          .select("id, user_id, body, created_at, image_url, video_url, org_id, media")
-          .in("id", recommendedIds);
-
-        if (recErr) throw recErr;
-
-        const { data: freshPosts, error: freshErr } = await supabase
-          .from("posts")
-          .select("id, user_id, body, created_at, image_url, video_url, org_id, media")
-          .order("created_at", { ascending: false })
-          .limit(10);
-
-        if (freshErr) throw freshErr;
-
-        const recMap = new Map(recPosts?.map((p) => [p.id, p]));
-        freshPosts?.forEach((p) => {
-          if (!recMap.has(p.id)) recMap.set(p.id, p);
-        });
-
-        postRows = Array.from(recMap.values());
-        postRows.sort(
-          (a, b) =>
-            new Date(b.created_at || 0).getTime() -
-            new Date(a.created_at || 0).getTime()
-        );
-      } else {
-        const { data, error } = await supabase
-          .from("posts")
-          .select("id, user_id, body, created_at, image_url, video_url, org_id, media")
-          .order("created_at", { ascending: false })
-          .limit(30);
-
-        postRows = data;
-        postErr = error;
-      }
-
-      if (postErr) throw postErr;
-
-      const posts = (postRows || []) as PostRow[];
-      const postIds = posts.map((p) => p.id);
-      const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
-
-      const profileMap = new Map<string, FeedProfile>();
-      if (userIds.length > 0) {
-        const { data: profRows, error: profErr } = await supabase
-  .from("profiles")
-  .select(
-    "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
-  )
-  .in("id", userIds);
-
-        if (!profErr && profRows) {
-          (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
-        }
-      }
-
-      const orgIds = Array.from(
-        new Set(posts.map((p) => p.org_id).filter(Boolean) as string[])
-      );
-
-      const orgMap = new Map<string, FeedOrg>();
-      if (orgIds.length > 0) {
-        const { data: orgRows, error: orgErr } = await supabase
-          .from("organizations")
-          .select("id, name, slug, logo_url")
-          .in("id", orgIds);
-
-        if (!orgErr && orgRows) {
-          (orgRows as FeedOrg[]).forEach((o) => orgMap.set(o.id, o));
-        }
-      }
-
-      let likeRows: LikeRow[] = [];
-      if (postIds.length > 0) {
-        const { data: likes, error: likeErr } = await supabase
-          .from("post_likes")
-          .select("post_id, user_id")
-          .in("post_id", postIds);
-
-        if (!likeErr && likes) likeRows = likes as LikeRow[];
-      }
-
-      let commentRows: CommentRow[] = [];
-      if (postIds.length > 0) {
-        const { data: comments, error: cErr } = await supabase
-          .from("post_comments")
-          .select("id, post_id, user_id, body, created_at")
-          .in("post_id", postIds);
-
-        if (!cErr && comments) commentRows = comments as CommentRow[];
-      }
-
-      const likeCountByPost: Record<string, number> = {};
-      const likedByMeSet = new Set<string>();
-      likeRows.forEach((r) => {
-        likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
-        if (uid && r.user_id === uid) likedByMeSet.add(r.post_id);
-      });
-
-      const commentCountByPost: Record<string, number> = {};
-      commentRows.forEach((r) => {
-        commentCountByPost[r.post_id] =
-          (commentCountByPost[r.post_id] || 0) + 1;
-      });
-
-      const vms: PostVM[] = posts.map((p) => ({
-        post: p,
-        author: profileMap.get(p.user_id) || null,
-        org: p.org_id ? orgMap.get(p.org_id) || null : null,
-        likeCount: likeCountByPost[p.id] || 0,
-        commentCount: commentCountByPost[p.id] || 0,
-        likedByMe: likedByMeSet.has(p.id),
-      }));
-
-      setItems(vms);
-    } catch (e: any) {
-      console.error("HomeGlobalFeed load error:", e);
-      setError(e?.message || "Could not load feed.");
-      setItems([]);
-    } finally {
-  if (manual) setRefreshing(false);
-  else setLoading(false);
-}
-  };
-  
-  useEffect(() => {
-  const loadSavedPosts = async () => {
-    if (!user) {
-      setSavedPostIds([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("saved_posts")
-      .select("post_id")
-      .eq("user_id", user.id);
-
-    if (error) {
-      console.error("Failed to load saved posts", error);
-      setSavedPostIds([]);
-      return;
-    }
-
-    setSavedPostIds((data || []).map((row: any) => row.post_id as string));
+    return [primaryLabel, affiliation].filter(Boolean).join(" · ");
   };
 
-  if (!userLoading) {
-    loadSavedPosts();
-  }
-}, [user, userLoading]);
-  
-  const hasLoadedFeedRef = useRef(false);
+  const pillBtnStyle: CSSProperties = {
+    fontSize: 13,
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(148,163,184,0.45)",
+    background: "rgba(15,23,42,0.65)",
+    color: "rgba(226,232,240,0.95)",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
 
-useEffect(() => {
-  if (userLoading) return;
-  if (hasLoadedFeedRef.current) return;
+  const avatarStyle = (size = 34): CSSProperties => ({
+    width: size,
+    height: size,
+    borderRadius: 999,
+    overflow: "hidden",
+    border: "1px solid rgba(148,163,184,0.35)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+    color: "#fff",
+    fontWeight: 800,
+    flexShrink: 0,
+  });
 
-  hasLoadedFeedRef.current = true;
-  loadFeed(user?.id ?? null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [userLoading, user?.id]);
-  
+  const initialsOf = (name: string | null | undefined) =>
+    (name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((x) => x[0]?.toUpperCase())
+      .join("") || "Q";
+
   const loadProfilesForUserIds = async (userIds: string[]) => {
     const uniq = Array.from(new Set(userIds)).filter(Boolean);
     const missing = uniq.filter((id) => !commenterProfiles[id]);
     if (missing.length === 0) return;
 
     const { data, error } = await supabase
-  .from("profiles")
-  .select(
-    "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
-  )
-  .in("id", missing);
+      .from("profiles")
+      .select(
+        "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+      )
+      .in("id", missing);
 
     if (error || !data) return;
 
@@ -693,6 +533,211 @@ useEffect(() => {
       setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
     }
   };
+
+  const hydratePosts = async (posts: PostRow[], uid: string | null) => {
+    const postIds = posts.map((p) => p.id);
+    const userIds = Array.from(new Set(posts.map((p) => p.user_id)));
+    const orgIds = Array.from(
+      new Set(posts.map((p) => p.org_id).filter(Boolean) as string[])
+    );
+
+    const profileMap = new Map<string, FeedProfile>();
+    if (userIds.length > 0) {
+      const { data: profRows, error: profErr } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+        )
+        .in("id", userIds);
+
+      if (!profErr && profRows) {
+        (profRows as FeedProfile[]).forEach((p) => profileMap.set(p.id, p));
+      }
+    }
+
+    const orgMap = new Map<string, FeedOrg>();
+    if (orgIds.length > 0) {
+      const { data: orgRows, error: orgErr } = await supabase
+        .from("organizations")
+        .select("id, name, slug, logo_url")
+        .in("id", orgIds);
+
+      if (!orgErr && orgRows) {
+        (orgRows as FeedOrg[]).forEach((o) => orgMap.set(o.id, o));
+      }
+    }
+
+    let likeRows: LikeRow[] = [];
+    if (postIds.length > 0) {
+      const { data: likes, error: likeErr } = await supabase
+        .from("post_likes")
+        .select("post_id, user_id")
+        .in("post_id", postIds);
+
+      if (!likeErr && likes) likeRows = likes as LikeRow[];
+    }
+
+    let commentRows: CommentRow[] = [];
+    if (postIds.length > 0) {
+      const { data: comments, error: cErr } = await supabase
+        .from("post_comments")
+        .select("id, post_id, user_id, body, created_at")
+        .in("post_id", postIds);
+
+      if (!cErr && comments) commentRows = comments as CommentRow[];
+    }
+
+    const likeCountByPost: Record<string, number> = {};
+    const likedByMeSet = new Set<string>();
+    likeRows.forEach((r) => {
+      likeCountByPost[r.post_id] = (likeCountByPost[r.post_id] || 0) + 1;
+      if (uid && r.user_id === uid) likedByMeSet.add(r.post_id);
+    });
+
+    const commentCountByPost: Record<string, number> = {};
+    commentRows.forEach((r) => {
+      commentCountByPost[r.post_id] =
+        (commentCountByPost[r.post_id] || 0) + 1;
+    });
+
+    const vms: PostVM[] = posts.map((p) => ({
+      post: p,
+      author: profileMap.get(p.user_id) || null,
+      org: p.org_id ? orgMap.get(p.org_id) || null : null,
+      likeCount: likeCountByPost[p.id] || 0,
+      commentCount: commentCountByPost[p.id] || 0,
+      likedByMe: likedByMeSet.has(p.id),
+    }));
+
+    return vms;
+  };
+
+  const loadFeedPage = async ({
+    uid,
+    pageIndex,
+    replace = false,
+    manual = false,
+  }: {
+    uid: string | null;
+    pageIndex: number;
+    replace?: boolean;
+    manual?: boolean;
+  }) => {
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    if (manual) setRefreshing(true);
+    else if (replace) setLoading(true);
+    else setLoadingMore(true);
+
+    setError(null);
+
+    try {
+      const { data: postRows, error: postErr } = await supabase
+        .from("posts")
+        .select(
+          "id, user_id, body, created_at, image_url, video_url, org_id, media"
+        )
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (postErr) throw postErr;
+
+      const posts = (postRows || []) as PostRow[];
+      const vms = await hydratePosts(posts, uid);
+
+      setItems((prev) => {
+        if (replace) return vms;
+
+        const existing = new Set(prev.map((x) => x.post.id));
+        const merged = [...prev];
+
+        vms.forEach((vm) => {
+          if (!existing.has(vm.post.id)) merged.push(vm);
+        });
+
+        return merged;
+      });
+
+      setPage(pageIndex);
+      setHasMore(posts.length === PAGE_SIZE);
+    } catch (e: any) {
+      console.error("HomeGlobalFeed load error:", e);
+      setError(e?.message || "Could not load feed.");
+      if (replace) {
+        setItems([]);
+        setHasMore(false);
+      }
+    } finally {
+      if (manual) setRefreshing(false);
+      else if (replace) setLoading(false);
+      else setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadSavedPosts = async () => {
+      if (!user) {
+        setSavedPostIds([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("saved_posts")
+        .select("post_id")
+        .eq("user_id", user.id);
+
+      if (error) {
+        console.error("Failed to load saved posts", error);
+        setSavedPostIds([]);
+        return;
+      }
+
+      setSavedPostIds((data || []).map((row: any) => row.post_id as string));
+    };
+
+    if (!userLoading) {
+      loadSavedPosts();
+    }
+  }, [user, userLoading]);
+
+  const hasLoadedFeedRef = useRef(false);
+
+  useEffect(() => {
+    if (userLoading) return;
+    if (hasLoadedFeedRef.current) return;
+
+    hasLoadedFeedRef.current = true;
+    void loadFeedPage({
+      uid: user?.id ?? null,
+      pageIndex: 0,
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLoading, user?.id]);
+
+  useEffect(() => {
+    const onFeedChanged = () => {
+      void loadFeedPage({
+        uid: user?.id ?? null,
+        pageIndex: 0,
+        replace: true,
+      });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("q5:feed-changed", onFeedChanged as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener(
+          "q5:feed-changed",
+          onFeedChanged as EventListener
+        );
+      }
+    };
+  }, [user?.id]);
 
   const toggleLike = async (postId: string) => {
     if (!user) {
@@ -772,7 +817,7 @@ useEffect(() => {
 
       setCommentsByPost((prev) => {
         const cur = prev[postId] || [];
-        const next = data ? [...cur, data as CommentRow] : cur;
+        const next = data ? [data as CommentRow, ...cur] : cur;
         return { ...prev, [postId]: next };
       });
 
@@ -794,216 +839,181 @@ useEffect(() => {
     }
   };
 
-  // ✅ new: edit/share/save handlers
   const handleEditPost = (postId: string) => {
-  const found = items.find((x) => x.post.id === postId)?.post;
-  if (!found) return;
+    const found = items.find((x) => x.post.id === postId)?.post;
+    if (!found) return;
 
-  setEditingPostId(postId);
-  setEditingBody(found.body || "");
-  setEditError(null);
-};
+    setEditingPostId(postId);
+    setEditingBody(found.body || "");
+    setEditError(null);
+  };
 
-const handleDeletePost = async (postId: string) => {
-  if (!user) {
-    window.location.href = "/auth?redirect=/";
-    return;
-  }
+  const handleDeletePost = async (postId: string) => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
 
-  const confirmed = window.confirm(
-    "Delete this post? This action cannot be undone."
-  );
-  if (!confirmed) return;
+    const confirmed = window.confirm(
+      "Delete this post? This action cannot be undone."
+    );
+    if (!confirmed) return;
 
-  setDeletingPostId(postId);
+    setDeletingPostId(postId);
 
-  try {
-    const { error } = await supabase
-      .from("posts")
-      .delete()
-      .eq("id", postId)
-      .eq("user_id", user.id);
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", postId)
+        .eq("user_id", user.id);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    setItems((prev) => prev.filter((x) => x.post.id !== postId));
+      setItems((prev) => prev.filter((x) => x.post.id !== postId));
+      setSavedPostIds((prev) => prev.filter((id) => id !== postId));
 
-    setSavedPostIds((prev) => prev.filter((id) => id !== postId));
+      setOpenComments((prev) => {
+        const next = { ...prev };
+        delete next[postId];
+        return next;
+      });
 
-    setOpenComments((prev) => {
-      const next = { ...prev };
-      delete next[postId];
-      return next;
-    });
+      setCommentsByPost((prev) => {
+        const next = { ...prev };
+        delete next[postId];
+        return next;
+      });
 
-    setCommentsByPost((prev) => {
-      const next = { ...prev };
-      delete next[postId];
-      return next;
-    });
+      setCommentDraft((prev) => {
+        const next = { ...prev };
+        delete next[postId];
+        return next;
+      });
 
-    setCommentDraft((prev) => {
-      const next = { ...prev };
-      delete next[postId];
-      return next;
-    });
+      if (editingPostId === postId) {
+        setEditingPostId(null);
+        setEditingBody("");
+        setEditError(null);
+      }
 
-    if (editingPostId === postId) {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+    } catch (e: any) {
+      console.error("Failed to delete post", e);
+      alert(e?.message || "Could not delete post.");
+    } finally {
+      setDeletingPostId(null);
+    }
+  };
+
+  const handleSharePost = async (postId: string) => {
+    if (typeof window === "undefined") return;
+
+    const shareUrl = `${window.location.origin}/posts/${postId}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ url: shareUrl });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      }
+    } catch (e) {
+      console.warn("share post cancelled / failed", e);
+    }
+  };
+
+  const handleSavePost = async (postId: string) => {
+    if (!user) {
+      window.location.href = "/auth?redirect=/";
+      return;
+    }
+
+    if (savingPostId) return;
+    setSavingPostId(postId);
+
+    const alreadySaved = savedPostIds.includes(postId);
+
+    try {
+      if (alreadySaved) {
+        const { error } = await supabase
+          .from("saved_posts")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("post_id", postId);
+
+        if (error) throw error;
+
+        setSavedPostIds((prev) => prev.filter((id) => id !== postId));
+      } else {
+        const { error } = await supabase.from("saved_posts").insert({
+          user_id: user.id,
+          post_id: postId,
+        });
+
+        if (error) throw error;
+
+        setSavedPostIds((prev) => [...prev, postId]);
+      }
+    } catch (e) {
+      console.error("Failed to toggle saved post", e);
+    } finally {
+      setSavingPostId(null);
+    }
+  };
+
+  const isPostSaved = (postId: string) => savedPostIds.includes(postId);
+
+  const handleSaveEditedPost = async () => {
+    if (!user || !editingPostId) return;
+
+    const body = editingBody.trim();
+    if (!body) {
+      setEditError("Post body cannot be empty.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError(null);
+
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .update({ body })
+        .eq("id", editingPostId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setItems((prev) =>
+        prev.map((x) =>
+          x.post.id === editingPostId
+            ? {
+                ...x,
+                post: {
+                  ...x.post,
+                  body,
+                },
+              }
+            : x
+        )
+      );
+
       setEditingPostId(null);
       setEditingBody("");
       setEditError(null);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+    } catch (e: any) {
+      console.error("Failed to update post", e);
+      setEditError(e?.message || "Could not save post changes.");
+    } finally {
+      setEditSaving(false);
     }
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("q5:feed-changed"));
-    }
-  } catch (e: any) {
-    console.error("Failed to delete post", e);
-    alert(e?.message || "Could not delete post.");
-  } finally {
-    setDeletingPostId(null);
-  }
-};
-  
-const handleSharePost = async (postId: string) => {
-  if (typeof window === "undefined") return;
-
-  const shareUrl = `${window.location.origin}/posts/${postId}`;
-  
-  try {
-    if (navigator.share) {
-      await navigator.share({ url: shareUrl });
-    } else if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(shareUrl);
-    }
-  } catch (e) {
-    console.warn("share post cancelled / failed", e);
-  }
-};
-
-const handleSavePost = async (postId: string) => {
-  if (!user) {
-    window.location.href = "/auth?redirect=/";
-    return;
-  }
-
-  if (savingPostId) return;
-  setSavingPostId(postId);
-
-  const alreadySaved = savedPostIds.includes(postId);
-
-  try {
-    if (alreadySaved) {
-      const { error } = await supabase
-        .from("saved_posts")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("post_id", postId);
-
-      if (error) throw error;
-
-      setSavedPostIds((prev) => prev.filter((id) => id !== postId));
-    } else {
-      const { error } = await supabase.from("saved_posts").insert({
-        user_id: user.id,
-        post_id: postId,
-      });
-
-      if (error) throw error;
-
-      setSavedPostIds((prev) => [...prev, postId]);
-    }
-  } catch (e) {
-    console.error("Failed to toggle saved post", e);
-  } finally {
-    setSavingPostId(null);
-  }
-};
-
-const isPostSaved = (postId: string) => savedPostIds.includes(postId);
-
-const handleSaveEditedPost = async () => {
-  if (!user || !editingPostId) return;
-
-  const body = editingBody.trim();
-  if (!body) {
-    setEditError("Post body cannot be empty.");
-    return;
-  }
-
-  setEditSaving(true);
-  setEditError(null);
-
-  try {
-    const { error } = await supabase
-      .from("posts")
-      .update({ body })
-      .eq("id", editingPostId)
-      .eq("user_id", user.id);
-
-    if (error) throw error;
-
-    setItems((prev) =>
-      prev.map((x) =>
-        x.post.id === editingPostId
-          ? {
-              ...x,
-              post: {
-                ...x.post,
-                body,
-              },
-            }
-          : x
-      )
-    );
-
-    setEditingPostId(null);
-    setEditingBody("");
-    setEditError(null);
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("q5:feed-changed"));
-    }
-  } catch (e: any) {
-    console.error("Failed to update post", e);
-    setEditError(e?.message || "Could not save post changes.");
-  } finally {
-    setEditSaving(false);
-  }
-};
-  const pillBtnStyle: CSSProperties = {
-    fontSize: 13,
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.45)",
-    background: "rgba(15,23,42,0.65)",
-    color: "rgba(226,232,240,0.95)",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
   };
-
-  const avatarStyle = (size = 34): CSSProperties => ({
-    width: size,
-    height: size,
-    borderRadius: 999,
-    overflow: "hidden",
-    border: "1px solid rgba(148,163,184,0.35)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-    color: "#fff",
-    fontWeight: 800,
-    flexShrink: 0,
-  });
-
-  const initialsOf = (name: string | null | undefined) =>
-    (name || "")
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((x) => x[0]?.toUpperCase())
-      .join("") || "Q";
 
   const editingPost =
     editingPostId != null
@@ -1020,19 +1030,28 @@ const handleSaveEditedPost = async () => {
             style={{ fontSize: 13, color: "var(--text-muted)" }}
           >
             {user
-              ? "Personalized for you based on interests & connections"
+              ? "Latest updates from the quantum community"
               : "Explore the latest updates"}
           </div>
         </div>
 
         <button
-  type="button"
-  style={pillBtnStyle}
-  onClick={() => loadFeed(user?.id ?? null, { manual: true })}
-  disabled={refreshing}
->
-  {refreshing ? "Refreshing…" : "Refresh"}
-</button>
+          type="button"
+          style={pillBtnStyle}
+          onClick={() => {
+            setPage(0);
+            setHasMore(true);
+            void loadFeedPage({
+              uid: user?.id ?? null,
+              pageIndex: 0,
+              replace: true,
+              manual: true,
+            });
+          }}
+          disabled={refreshing}
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
       </div>
 
       {loading && <div className="products-status">Loading feed…</div>}
@@ -1050,186 +1069,231 @@ const handleSaveEditedPost = async () => {
       )}
 
       {!loading && !error && items.length > 0 && (
-        <FeedCards
-  items={items}
-  user={user}
-  openComments={openComments}
-  setOpenComments={setOpenComments}
-  commentsByPost={commentsByPost}
-  commenterProfiles={commenterProfiles}
-  commentDraft={commentDraft}
-  setCommentDraft={setCommentDraft}
-  commentSaving={commentSaving}
-  onToggleLike={toggleLike}
-  onLoadComments={loadComments}
-  onSubmitComment={submitComment}
-  formatRelativeTime={formatRelativeTime}
-  formatSubtitle={formatSubtitle}
-  initialsOf={initialsOf}
-  avatarStyle={avatarStyle}
-  LinkifyText={LinkifyText}
-  postRefs={postRefs}
-  onEditPost={handleEditPost}
-  onSharePost={handleSharePost}
-  onSavePost={handleSavePost}
-  onDeletePost={handleDeletePost}
-  isPostSaved={isPostSaved}
-  savingPostId={savingPostId}
-  editingPostId={editingPostId}
-  deletingPostId={deletingPostId}
-  enablePreviewCollapse={true}
-/>
+        <>
+          <FeedCards
+            items={items}
+            user={user}
+            openComments={openComments}
+            setOpenComments={setOpenComments}
+            commentsByPost={commentsByPost}
+            commenterProfiles={commenterProfiles}
+            commentDraft={commentDraft}
+            setCommentDraft={setCommentDraft}
+            commentSaving={commentSaving}
+            onToggleLike={toggleLike}
+            onLoadComments={loadComments}
+            onSubmitComment={submitComment}
+            formatRelativeTime={formatRelativeTime}
+            formatSubtitle={formatSubtitle}
+            initialsOf={initialsOf}
+            avatarStyle={avatarStyle}
+            LinkifyText={LinkifyText}
+            postRefs={postRefs}
+            onEditPost={handleEditPost}
+            onSharePost={handleSharePost}
+            onSavePost={handleSavePost}
+            onDeletePost={handleDeletePost}
+            isPostSaved={isPostSaved}
+            savingPostId={savingPostId}
+            editingPostId={editingPostId}
+            deletingPostId={deletingPostId}
+            enablePreviewCollapse={true}
+          />
+
+          {hasMore && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: 18,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  void loadFeedPage({
+                    uid: user?.id ?? null,
+                    pageIndex: page + 1,
+                    replace: false,
+                  })
+                }
+                disabled={loadingMore}
+                style={{
+                  ...pillBtnStyle,
+                  padding: "9px 16px",
+                  opacity: loadingMore ? 0.6 : 1,
+                  cursor: loadingMore ? "default" : "pointer",
+                }}
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          )}
+
+          {!hasMore && (
+            <div
+              style={{
+                marginTop: 16,
+                textAlign: "center",
+                fontSize: 12,
+                color: "rgba(148,163,184,0.8)",
+              }}
+            >
+              You’ve reached the end of the feed.
+            </div>
+          )}
+        </>
       )}
 
-      {/* ✅ minimal placeholder edit modal */}
       {editingPost && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 1000,
-      background: "rgba(2,6,23,0.62)",
-      backdropFilter: "blur(8px)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 18,
-    }}
-    onMouseDown={(e) => {
-      if (e.target === e.currentTarget && !editSaving) {
-        setEditingPostId(null);
-        setEditingBody("");
-        setEditError(null);
-      }
-    }}
-  >
-    <div
-      style={{
-        width: "min(640px, 100%)",
-        borderRadius: 18,
-        border: "1px solid rgba(148,163,184,0.22)",
-        background:
-          "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
-        boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          padding: "14px 16px",
-          borderBottom: "1px solid rgba(148,163,184,0.14)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ fontWeight: 800, fontSize: 15 }}>Edit post</div>
-        <button
-          type="button"
-          disabled={editSaving}
-          onClick={() => {
-            setEditingPostId(null);
-            setEditingBody("");
-            setEditError(null);
-          }}
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 999,
-            border: "1px solid rgba(148,163,184,0.18)",
-            background: "rgba(2,6,23,0.2)",
-            color: "rgba(226,232,240,0.92)",
-            cursor: editSaving ? "default" : "pointer",
-            opacity: editSaving ? 0.6 : 1,
-          }}
-        >
-          ✕
-        </button>
-      </div>
-
-      <div style={{ padding: 16 }}>
-        <textarea
-  value={editingBody}
-  onChange={(e) => setEditingBody(e.target.value)}
-  style={{
-    width: "100%",
-    minHeight: 160,
-    borderRadius: 14,
-    border: "1px solid rgba(148,163,184,0.2)",
-    background: "rgba(2,6,23,0.26)",
-    color: "rgba(226,232,240,0.94)",
-    padding: 14,
-    fontSize: 15,
-    lineHeight: 1.45,
-    outline: "none",
-    resize: "vertical",
-    whiteSpace: "pre-wrap",
-  }}
-/>
-
-        {editError && (
-          <div
-            style={{
-              marginTop: 10,
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(248,113,113,0.35)",
-              background: "rgba(248,113,113,0.10)",
-              color: "rgba(254,226,226,0.95)",
-              fontSize: 13,
-              lineHeight: 1.35,
-            }}
-          >
-            {editError}
-          </div>
-        )}
-
         <div
           style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(2,6,23,0.62)",
+            backdropFilter: "blur(8px)",
             display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-            marginTop: 14,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
           }}
-        >
-          <button
-            type="button"
-            disabled={editSaving}
-            onClick={() => {
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !editSaving) {
               setEditingPostId(null);
               setEditingBody("");
               setEditError(null);
-            }}
+            }
+          }}
+        >
+          <div
             style={{
-              ...pillBtnStyle,
-              opacity: editSaving ? 0.6 : 1,
-              cursor: editSaving ? "default" : "pointer",
+              width: "min(640px, 100%)",
+              borderRadius: 18,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background:
+                "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
+              boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
+              overflow: "hidden",
             }}
           >
-            Cancel
-          </button>
+            <div
+              style={{
+                padding: "14px 16px",
+                borderBottom: "1px solid rgba(148,163,184,0.14)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ fontWeight: 800, fontSize: 15 }}>Edit post</div>
+              <button
+                type="button"
+                disabled={editSaving}
+                onClick={() => {
+                  setEditingPostId(null);
+                  setEditingBody("");
+                  setEditError(null);
+                }}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(2,6,23,0.2)",
+                  color: "rgba(226,232,240,0.92)",
+                  cursor: editSaving ? "default" : "pointer",
+                  opacity: editSaving ? 0.6 : 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-          <button
-            type="button"
-            disabled={editSaving || !editingBody.trim()}
-            onClick={handleSaveEditedPost}
-            style={{
-              ...pillBtnStyle,
-              border: "none",
-              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-              color: "#0f172a",
-              fontWeight: 800,
-              opacity: editSaving || !editingBody.trim() ? 0.6 : 1,
-              cursor: editSaving || !editingBody.trim() ? "default" : "pointer",
-            }}
-          >
-            {editSaving ? "Saving..." : "Save changes"}
-          </button>
+            <div style={{ padding: 16 }}>
+              <textarea
+                value={editingBody}
+                onChange={(e) => setEditingBody(e.target.value)}
+                style={{
+                  width: "100%",
+                  minHeight: 160,
+                  borderRadius: 14,
+                  border: "1px solid rgba(148,163,184,0.2)",
+                  background: "rgba(2,6,23,0.26)",
+                  color: "rgba(226,232,240,0.94)",
+                  padding: 14,
+                  fontSize: 15,
+                  lineHeight: 1.45,
+                  outline: "none",
+                  resize: "vertical",
+                  whiteSpace: "pre-wrap",
+                }}
+              />
+
+              {editError && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(248,113,113,0.35)",
+                    background: "rgba(248,113,113,0.10)",
+                    color: "rgba(254,226,226,0.95)",
+                    fontSize: 13,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {editError}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 10,
+                  marginTop: 14,
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={editSaving}
+                  onClick={() => {
+                    setEditingPostId(null);
+                    setEditingBody("");
+                    setEditError(null);
+                  }}
+                  style={{
+                    ...pillBtnStyle,
+                    opacity: editSaving ? 0.6 : 1,
+                    cursor: editSaving ? "default" : "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={editSaving || !editingBody.trim()}
+                  onClick={handleSaveEditedPost}
+                  style={{
+                    ...pillBtnStyle,
+                    border: "none",
+                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                    color: "#0f172a",
+                    fontWeight: 800,
+                    opacity: editSaving || !editingBody.trim() ? 0.6 : 1,
+                    cursor:
+                      editSaving || !editingBody.trim() ? "default" : "pointer",
+                  }}
+                >
+                  {editSaving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 }
