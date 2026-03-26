@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -19,6 +19,11 @@ export type FeedOrg = {
   logo_url: string | null;
 };
 
+export type PostMediaItem = {
+  url: string;
+  type: "image" | "video";
+};
+
 export type PostRow = {
   id: string;
   user_id: string;
@@ -27,6 +32,7 @@ export type PostRow = {
   image_url: string | null;
   video_url?: string | null;
   org_id?: string | null;
+  media?: PostMediaItem[] | null;
 };
 
 export type CommentRow = {
@@ -271,6 +277,167 @@ function AdaptiveVideo({
   );
 }
 
+function GridMediaImage({
+  src,
+  alt,
+}: {
+  src: string;
+  alt: string;
+}) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
+      }}
+    />
+  );
+}
+
+function GridMediaVideo({
+  src,
+}: {
+  src: string;
+}) {
+  return (
+    <AutoPlayVideo
+      src={src}
+      style={{
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
+        background: "rgba(15,23,42,0.95)",
+      }}
+    />
+  );
+}
+
+function PostMediaGrid({
+  media,
+  postHref,
+}: {
+  media: PostMediaItem[];
+  postHref: string;
+}) {
+  const visible = media.slice(0, 3);
+  if (visible.length === 0) return null;
+
+  if (visible.length === 1) {
+    const item = visible[0];
+    return item.type === "video" ? (
+      <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
+        <AdaptiveVideo src={item.url} />
+      </Link>
+    ) : (
+      <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
+        <AdaptiveImage src={item.url} alt="Post media" />
+      </Link>
+    );
+  }
+
+  if (visible.length === 2) {
+    return (
+      <Link
+        href={postHref}
+        style={{
+          textDecoration: "none",
+          color: "inherit",
+          display: "block",
+          marginTop: 10,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 6,
+            height: 260,
+            borderRadius: 14,
+            overflow: "hidden",
+            border: "1px solid rgba(148,163,184,0.16)",
+            background: "rgba(2,6,23,0.35)",
+          }}
+        >
+          {visible.map((item, idx) => (
+            <div key={idx} style={{ minWidth: 0, minHeight: 0 }}>
+              {item.type === "video" ? (
+                <GridMediaVideo src={item.url} />
+              ) : (
+                <GridMediaImage src={item.url} alt={`Post media ${idx + 1}`} />
+              )}
+            </div>
+          ))}
+        </div>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href={postHref}
+      style={{
+        textDecoration: "none",
+        color: "inherit",
+        display: "block",
+        marginTop: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.35fr 1fr",
+          gap: 6,
+          height: 280,
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid rgba(148,163,184,0.16)",
+          background: "rgba(2,6,23,0.35)",
+        }}
+      >
+        <div style={{ minWidth: 0, minHeight: 0 }}>
+          {visible[0].type === "video" ? (
+            <GridMediaVideo src={visible[0].url} />
+          ) : (
+            <GridMediaImage src={visible[0].url} alt="Post media 1" />
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateRows: "1fr 1fr",
+            gap: 6,
+            minWidth: 0,
+            minHeight: 0,
+          }}
+        >
+          <div style={{ minWidth: 0, minHeight: 0 }}>
+            {visible[1].type === "video" ? (
+              <GridMediaVideo src={visible[1].url} />
+            ) : (
+              <GridMediaImage src={visible[1].url} alt="Post media 2" />
+            )}
+          </div>
+
+          <div style={{ minWidth: 0, minHeight: 0 }}>
+            {visible[2].type === "video" ? (
+              <GridMediaVideo src={visible[2].url} />
+            ) : (
+              <GridMediaImage src={visible[2].url} alt="Post media 3" />
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function FeedCards({
   items,
   user,
@@ -451,8 +618,19 @@ export default function FeedCards({
         const isDeletingThisPost = deletingPostId === p.id;
         const isSharingThisPost = sharingPostId === p.id;
 
-        const hasVideo = !!p.video_url;
-        const hasImage = !!p.image_url && !hasVideo;
+        const validMedia =
+          Array.isArray(p.media) && p.media.length > 0
+            ? p.media.filter(
+                (item) =>
+                  item &&
+                  typeof item.url === "string" &&
+                  (item.type === "image" || item.type === "video")
+              )
+            : [];
+
+        const hasStructuredMedia = validMedia.length > 0;
+        const hasVideo = !hasStructuredMedia && !!p.video_url;
+        const hasImage = !hasStructuredMedia && !!p.image_url && !hasVideo;
 
         const actorName = org?.name || author?.full_name || "Quantum member";
         const actorHref = org
@@ -741,6 +919,10 @@ export default function FeedCards({
                     {isExpanded ? "See less" : "See more"}
                   </button>
                 </div>
+              )}
+
+              {hasStructuredMedia && (
+                <PostMediaGrid media={validMedia} postHref={postHref} />
               )}
 
               {hasVideo && (
