@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 export type FeedProfile = {
@@ -8,8 +8,6 @@ export type FeedProfile = {
   avatar_url: string | null;
   highest_education?: string | null;
   affiliation?: string | null;
-  role?: string | null;
-  current_title?: string | null;
 };
 
 export type FeedOrg = {
@@ -435,13 +433,6 @@ export default function FeedCards({
     cursor: "pointer",
   };
 
-  const formatFeedIdentity = (profile?: FeedProfile | null) => {
-    const currentTitle =
-      (profile?.current_title || "").trim() || (profile?.role || "").trim();
-    const affiliation = (profile?.affiliation || "").trim();
-    return [currentTitle, affiliation].filter(Boolean).join(" · ");
-  };
-
   return (
     <div>
       {items.map((vm) => {
@@ -471,18 +462,16 @@ export default function FeedCards({
         const avatarSrc =
           org != null ? org.logo_url : author?.avatar_url || null;
 
-        const authorTitleLine = formatFeedIdentity(author);
-
         const subtitle = org
           ? [
               author?.full_name
                 ? `Posted by ${author.full_name}`
                 : "Posted by member",
-              authorTitleLine,
+              formatSubtitle(author),
             ]
               .filter(Boolean)
               .join(" · ")
-          : authorTitleLine;
+          : formatSubtitle(author);
 
         const initials = initialsOf(actorName);
         const postHref = `/posts/${p.id}`;
@@ -582,9 +571,7 @@ export default function FeedCards({
                   </div>
                   <div style={subtle}>{formatRelativeTime(p.created_at)}</div>
                 </div>
-                {!!subtitle && (
-                  <div style={{ ...subtle, marginTop: 2 }}>{subtitle}</div>
-                )}
+                <div style={{ ...subtle, marginTop: 2 }}>{subtitle}</div>
               </div>
 
               <div
