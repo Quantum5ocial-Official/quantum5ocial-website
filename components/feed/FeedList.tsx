@@ -19,8 +19,8 @@ export default function FeedList({
   filterUserId?: string | null;
   filterOrgId?: string | null;
   limit?: number;
-  hideCopyLink?: boolean; // kept for compatibility
-  imageFit?: "cover" | "contain"; // kept for compatibility
+  hideCopyLink?: boolean;
+  imageFit?: "cover" | "contain";
 }) {
   const { user, loading: userLoading } = useSupabaseUser();
   const router = useRouter();
@@ -83,17 +83,15 @@ export default function FeedList({
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-  console.log("formatSubtitle input", p);
+    const primaryLabel =
+      (p?.current_title || "").trim() ||
+      (p?.role || "").trim() ||
+      (p?.highest_education || "").trim();
 
-  const primaryLabel =
-    (p?.current_title || "").trim() ||
-    (p?.role || "").trim() ||
-    (p?.highest_education || "").trim();
+    const affiliation = (p?.affiliation || "").trim();
 
-  const affiliation = (p?.affiliation || "").trim();
-
-  return [primaryLabel, affiliation].filter(Boolean).join(" · ");
-};
+    return [primaryLabel, affiliation].filter(Boolean).join(" · ");
+  };
 
   const initialsOf = (name: string | null | undefined) =>
     (name || "")
@@ -202,7 +200,7 @@ export default function FeedList({
       try {
         let q = supabase
           .from("posts")
-          .select("id, user_id, org_id, body, created_at, image_url, video_url")
+          .select("id, user_id, org_id, body, created_at, image_url, video_url, media")
           .order("created_at", { ascending: false })
           .limit(limit);
 
