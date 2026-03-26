@@ -633,7 +633,7 @@ function HomeGlobalFeed() {
       return [...freshVMs, ...older];
     });
 
-    setHasMore(freshPosts.length === PAGE_SIZE || items.length > freshPosts.length);
+    setHasMore(freshPosts.length === PAGE_SIZE);
   } catch (e) {
     console.error("refreshTopPageKeepingOlder error", e);
   }
@@ -760,7 +760,7 @@ function HomeGlobalFeed() {
       );
     }
   };
-}, [user?.id, items.length]);
+}, [user?.id]);
 
   const toggleLike = async (postId: string) => {
     if (!user) {
