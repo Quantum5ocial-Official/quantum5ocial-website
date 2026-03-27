@@ -33,65 +33,36 @@ type Job = {
   seniority_level: string | null;
 };
 
-const EMPLOYMENT_FILTERS = [
+const COUNTRY_FILTERS = [
   "All",
-  "Full-time",
-  "Part-time",
-  "Internship",
-  "PhD",
-  "Postdoc",
-  "Contract",
-  "Fellowship",
+  "Switzerland",
+  "Germany",
+  "France",
+  "UK",
+  "USA",
+  "Canada",
+  "Netherlands",
+  "Finland",
+  "Australia",
   "Other",
 ];
 
-const REMOTE_FILTERS = ["All", "On-site", "Hybrid", "Remote"];
-
-const TECHNOLOGY_FILTERS = [
+const JOB_CATEGORY_CHIPS = [
   "All",
-  "Hardware",
-  "Software",
-  "Consulting",
-  "Cryogenics / Electronics",
-  "Other",
-];
+  "Quantum Hardware",
+  "Quantum Software",
+  "Quantum AI & ML",
+  "Quantum Algorithms & Theory",
+  "Quantum Communication",
+  "Quantum Cryptography",
+  "Quantum Sensing",
+  "Quantum Materials",
+  "Quantum Finance & Optimization",
+  "Business & Strategy",
+  "Consulting & Policy",
+] as const;
 
-const ORG_TYPE_FILTERS = [
-  "All",
-  "University / Lab",
-  "Startup",
-  "Company",
-  "Consortium / Institute",
-  "Other",
-];
-
-const DOMAIN_FILTERS = [
-  "All",
-  "Quantum computing",
-  "Quantum communication",
-  "Quantum sensing / metrology",
-  "Quantum materials / fabrication",
-  "Quantum control / electronics",
-  "Other",
-];
-
-const ROLE_TRACK_FILTERS = [
-  "All",
-  "Research",
-  "Engineering",
-  "Theory / algorithms",
-  "Product / business",
-  "Other",
-];
-
-const SENIORITY_FILTERS = [
-  "All",
-  "Student / Intern",
-  "Early-career",
-  "Mid-level",
-  "Senior / Lead",
-  "PI / Professor",
-];
+type JobCategoryChip = (typeof JOB_CATEGORY_CHIPS)[number];
 
 type JobsCtx = {
   jobs: Job[];
@@ -106,26 +77,11 @@ type JobsCtx = {
   search: string;
   setSearch: (v: string) => void;
 
-  employmentFilter: string;
-  setEmploymentFilter: (v: string) => void;
+  countryFilter: string;
+  setCountryFilter: (v: string) => void;
 
-  remoteFilter: string;
-  setRemoteFilter: (v: string) => void;
-
-  technologyFilter: string;
-  setTechnologyFilter: (v: string) => void;
-
-  orgTypeFilter: string;
-  setOrgTypeFilter: (v: string) => void;
-
-  domainFilter: string;
-  setDomainFilter: (v: string) => void;
-
-  roleTrackFilter: string;
-  setRoleTrackFilter: (v: string) => void;
-
-  seniorityFilter: string;
-  setSeniorityFilter: (v: string) => void;
+  categoryChip: JobCategoryChip;
+  setCategoryChip: (v: JobCategoryChip) => void;
 
   resetFilters: () => void;
 
@@ -143,6 +99,7 @@ function useJobsCtx() {
   if (!ctx) throw new Error("useJobsCtx must be used inside <JobsProvider />");
   return ctx;
 }
+
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -150,6 +107,148 @@ function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function normalize(v: string | null | undefined) {
+  return (v || "").toLowerCase().trim();
+}
+
+function detectCountry(location: string | null): string {
+  const loc = normalize(location);
+
+  if (!loc) return "Other";
+  if (loc.includes("switzerland")) return "Switzerland";
+  if (loc.includes("germany")) return "Germany";
+  if (loc.includes("france")) return "France";
+  if (
+    loc.includes("united kingdom") ||
+    loc.includes(" uk") ||
+    loc.endsWith("uk") ||
+    loc.includes("england") ||
+    loc.includes("scotland")
+  ) {
+    return "UK";
+  }
+  if (
+    loc.includes("united states") ||
+    loc.includes("usa") ||
+    loc.includes("u.s.") ||
+    loc.includes("california") ||
+    loc.includes("massachusetts") ||
+    loc.includes("washington") ||
+    loc.includes("new york")
+  ) {
+    return "USA";
+  }
+  if (loc.includes("canada")) return "Canada";
+  if (loc.includes("netherlands")) return "Netherlands";
+  if (loc.includes("finland")) return "Finland";
+  if (loc.includes("australia")) return "Australia";
+
+  return "Other";
+}
+
+function matchesChip(job: Job, chip: JobCategoryChip) {
+  if (chip === "All") return true;
+
+  const title = normalize(job.title);
+  const desc = normalize(job.short_description);
+  const keywords = normalize(job.keywords);
+  const tech = normalize(job.technology_type);
+  const domain = normalize(job.quantum_domain);
+  const role = normalize(job.role_track);
+
+  const hay = `${title} ${desc} ${keywords} ${tech} ${domain} ${role}`;
+
+  switch (chip) {
+    case "Quantum Hardware":
+      return (
+        hay.includes("hardware") ||
+        hay.includes("cryogenic") ||
+        hay.includes("electronics") ||
+        hay.includes("device") ||
+        hay.includes("fabrication")
+      );
+
+    case "Quantum Software":
+      return (
+        hay.includes("software") ||
+        hay.includes("developer") ||
+        hay.includes("backend") ||
+        hay.includes("frontend") ||
+        hay.includes("full stack") ||
+        hay.includes("platform")
+      );
+
+    case "Quantum AI & ML":
+      return (
+        hay.includes("machine learning") ||
+        hay.includes("ml") ||
+        hay.includes("ai") ||
+        hay.includes("artificial intelligence")
+      );
+
+    case "Quantum Algorithms & Theory":
+      return (
+        hay.includes("algorithm") ||
+        hay.includes("theory") ||
+        hay.includes("theoretical") ||
+        hay.includes("simulation") ||
+        hay.includes("research")
+      );
+
+    case "Quantum Communication":
+      return hay.includes("communication") || hay.includes("network");
+
+    case "Quantum Cryptography":
+      return (
+        hay.includes("cryptography") ||
+        hay.includes("security") ||
+        hay.includes("qkd")
+      );
+
+    case "Quantum Sensing":
+      return (
+        hay.includes("sensing") ||
+        hay.includes("sensor") ||
+        hay.includes("metrology")
+      );
+
+    case "Quantum Materials":
+      return (
+        hay.includes("material") ||
+        hay.includes("chemistry") ||
+        hay.includes("superconduct") ||
+        hay.includes("fabrication")
+      );
+
+    case "Quantum Finance & Optimization":
+      return (
+        hay.includes("finance") ||
+        hay.includes("optimization") ||
+        hay.includes("optimisation")
+      );
+
+    case "Business & Strategy":
+      return (
+        hay.includes("business") ||
+        hay.includes("strategy") ||
+        hay.includes("product") ||
+        hay.includes("marketing") ||
+        hay.includes("sales")
+      );
+
+    case "Consulting & Policy":
+      return (
+        hay.includes("consulting") ||
+        hay.includes("policy") ||
+        hay.includes("government") ||
+        hay.includes("public affairs")
+      );
+
+    default:
+      return true;
+  }
 }
 
 function JobsProvider({ children }: { children: ReactNode }) {
@@ -161,14 +260,8 @@ function JobsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [employmentFilter, setEmploymentFilter] = useState("All");
-  const [remoteFilter, setRemoteFilter] = useState("All");
-
-  const [technologyFilter, setTechnologyFilter] = useState("All");
-  const [orgTypeFilter, setOrgTypeFilter] = useState("All");
-  const [domainFilter, setDomainFilter] = useState("All");
-  const [roleTrackFilter, setRoleTrackFilter] = useState("All");
-  const [seniorityFilter, setSeniorityFilter] = useState("All");
+  const [countryFilter, setCountryFilter] = useState("All");
+  const [categoryChip, setCategoryChip] = useState<JobCategoryChip>("All");
 
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -225,7 +318,6 @@ function JobsProvider({ children }: { children: ReactNode }) {
     loadSaved();
   }, [user]);
 
-  // Load AI Recommendations + Check Missing Skills
   useEffect(() => {
     const fetchRecommendationsAndProfile = async () => {
       if (!user) {
@@ -235,9 +327,8 @@ function JobsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Check profile skills
       try {
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
           .select("skills")
           .eq("id", user.id)
@@ -250,11 +341,10 @@ function JobsProvider({ children }: { children: ReactNode }) {
             setMissingSkills(false);
           }
         }
-      } catch (e) {
-        // ignore profile fetch error
+      } catch {
+        // ignore
       }
 
-      // Fetch recs
       try {
         const res = await fetch("/api/jobs/recommend", {
           method: "POST",
@@ -312,74 +402,43 @@ function JobsProvider({ children }: { children: ReactNode }) {
   const filteredJobs = useMemo(() => {
     const q = search.toLowerCase().trim();
 
-    const normalize = (v: string | null) => (v || "").toLowerCase();
-    const matchesCategory = (filterValue: string, fieldValue: string | null) => {
-      if (filterValue === "All") return true;
-      return normalize(fieldValue) === filterValue.toLowerCase();
-    };
-
     return jobs.filter((job) => {
-      if (employmentFilter !== "All" && job.employment_type !== employmentFilter) return false;
-      if (remoteFilter !== "All" && job.remote_type !== remoteFilter) return false;
+      if (countryFilter !== "All" && detectCountry(job.location) !== countryFilter) {
+        return false;
+      }
 
-      if (!matchesCategory(technologyFilter, job.technology_type)) return false;
-      if (!matchesCategory(orgTypeFilter, job.organisation_type)) return false;
-      if (!matchesCategory(domainFilter, job.quantum_domain)) return false;
-      if (!matchesCategory(roleTrackFilter, job.role_track)) return false;
-      if (!matchesCategory(seniorityFilter, job.seniority_level)) return false;
+      if (!matchesChip(job, categoryChip)) {
+        return false;
+      }
 
       if (!q) return true;
 
       const haystack = (
-        `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${job.short_description || ""
-        } ${job.keywords || ""} ${job.technology_type || ""} ${job.quantum_domain || ""} ${job.role_track || ""
-        } ${job.seniority_level || ""}`
+        `${job.title || ""} ${job.company_name || ""} ${job.location || ""} ${
+          job.short_description || ""
+        } ${job.keywords || ""} ${job.technology_type || ""} ${
+          job.quantum_domain || ""
+        } ${job.role_track || ""} ${job.seniority_level || ""}`
       ).toLowerCase();
 
       return haystack.includes(q);
     });
-  }, [
-    jobs,
-    search,
-    employmentFilter,
-    remoteFilter,
-    technologyFilter,
-    orgTypeFilter,
-    domainFilter,
-    roleTrackFilter,
-    seniorityFilter,
-  ]);
-
-
+  }, [jobs, search, countryFilter, categoryChip]);
 
   const recommendedJobs = useMemo(() => {
     if (recommendedJobIds.length > 0) {
-      // If we have AI recommendations, prioritize them
-      // But only if they match current filters? 
-      // Strategy: Show them if they are in the filtered list.
-      // If none of the recommended jobs are in the filtered list, fallback to generic.
-
-      const aiJobs = filteredJobs.filter(j => recommendedJobIds.includes(j.id));
-      // Sort them by order in recommendedJobIds to keep relevance?
-      // Since filter doesn't guarantee order, let's just stick to what we found.
-
+      const aiJobs = filteredJobs.filter((j) => recommendedJobIds.includes(j.id));
       if (aiJobs.length > 0) return aiJobs;
     }
-    // Fallback
     return filteredJobs.slice(0, 2);
   }, [filteredJobs, recommendedJobIds]);
 
-  const remainingJobs = filteredJobs.filter(j => !recommendedJobs.includes(j));
+  const remainingJobs = filteredJobs.filter((j) => !recommendedJobs.includes(j));
 
   const resetFilters = () => {
     setSearch("");
-    setEmploymentFilter("All");
-    setRemoteFilter("All");
-    setTechnologyFilter("All");
-    setOrgTypeFilter("All");
-    setDomainFilter("All");
-    setRoleTrackFilter("All");
-    setSeniorityFilter("All");
+    setCountryFilter("All");
+    setCategoryChip("All");
   };
 
   const value: JobsCtx = {
@@ -395,26 +454,11 @@ function JobsProvider({ children }: { children: ReactNode }) {
     search,
     setSearch,
 
-    employmentFilter,
-    setEmploymentFilter,
+    countryFilter,
+    setCountryFilter,
 
-    remoteFilter,
-    setRemoteFilter,
-
-    technologyFilter,
-    setTechnologyFilter,
-
-    orgTypeFilter,
-    setOrgTypeFilter,
-
-    domainFilter,
-    setDomainFilter,
-
-    roleTrackFilter,
-    setRoleTrackFilter,
-
-    seniorityFilter,
-    setSeniorityFilter,
+    categoryChip,
+    setCategoryChip,
 
     resetFilters,
 
@@ -429,298 +473,78 @@ function JobsProvider({ children }: { children: ReactNode }) {
 }
 
 function JobsRightSidebar() {
-  const ctx = useJobsCtx();
-
   return (
     <div className="sidebar-card">
-      <div className="products-filters-section">
-        <div className="products-filters-title">Employment type</div>
-        <select
-          className="products-filters-input"
-          value={ctx.employmentFilter}
-          onChange={(e) => ctx.setEmploymentFilter(e.target.value)}
-        >
-          {EMPLOYMENT_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Work mode</div>
-        <select
-          className="products-filters-input"
-          value={ctx.remoteFilter}
-          onChange={(e) => ctx.setRemoteFilter(e.target.value)}
-        >
-          {REMOTE_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Technology type</div>
-        <select
-          className="products-filters-input"
-          value={ctx.technologyFilter}
-          onChange={(e) => ctx.setTechnologyFilter(e.target.value)}
-        >
-          {TECHNOLOGY_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Organisation</div>
-        <select
-          className="products-filters-input"
-          value={ctx.orgTypeFilter}
-          onChange={(e) => ctx.setOrgTypeFilter(e.target.value)}
-        >
-          {ORG_TYPE_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Quantum domain</div>
-        <select
-          className="products-filters-input"
-          value={ctx.domainFilter}
-          onChange={(e) => ctx.setDomainFilter(e.target.value)}
-        >
-          {DOMAIN_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Role focus</div>
-        <select
-          className="products-filters-input"
-          value={ctx.roleTrackFilter}
-          onChange={(e) => ctx.setRoleTrackFilter(e.target.value)}
-        >
-          {ROLE_TRACK_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="products-filters-section">
-        <div className="products-filters-title">Seniority</div>
-        <select
-          className="products-filters-input"
-          value={ctx.seniorityFilter}
-          onChange={(e) => ctx.setSeniorityFilter(e.target.value)}
-        >
-          {SENIORITY_FILTERS.map((t) => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <button
-        type="button"
-        className="nav-ghost-btn"
-        style={{ width: "100%", marginTop: 8 }}
-        onClick={ctx.resetFilters}
-      >
-        Reset filters
-      </button>
-    </div>
-  );
-}
-
-/** ✅ Mobile detector (same pattern as products) */
-function useIsMobile(maxWidth = 820) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
-    const set = () => setIsMobile(mq.matches);
-
-    set();
-
-    const anyMq = mq as any;
-    if (mq.addEventListener) {
-      mq.addEventListener("change", set);
-      return () => mq.removeEventListener("change", set);
-    }
-    if (anyMq.addListener) {
-      anyMq.addListener(set);
-      return () => anyMq.removeListener(set);
-    }
-    return;
-  }, [maxWidth]);
-
-  return isMobile;
-}
-
-/** ✅ Drawer ONLY on mobile (returns null on desktop) */
-function JobsFiltersDrawer() {
-  const isMobile = useIsMobile(820);
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!isMobile) return null;
-
-  return (
-    <>
-      {/* right-edge tab */}
-      <button
-        type="button"
-        aria-label={open ? "Close filters" : "Open filters"}
-        onClick={() => setOpen((v) => !v)}
+      <div
         style={{
-          position: "fixed",
-          right: 0,
-          top: "80%",
-          transform: "translateY(-50%)",
-          zIndex: 60,
-          width: 30,
-          height: 80,
-          border: "1px solid rgba(148,163,184,0.35)",
-          borderRight: "none",
-          borderTopLeftRadius: 16,
-          borderBottomLeftRadius: 16,
-          background: "rgba(2,6,23,0.72)",
-          backdropFilter: "blur(10px)",
-          WebkitBackdropFilter: "blur(10px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+          fontWeight: 800,
+          fontSize: 15,
+          marginBottom: 10,
+          color: "rgba(226,232,240,0.96)",
         }}
       >
-        <span
-          aria-hidden="true"
-          style={{
-            fontSize: 22,
-            lineHeight: 1,
-            color: "rgba(226,232,240,0.95)",
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform 160ms ease",
-            userSelect: "none",
-          }}
-        >
-          ❮
-        </span>
-      </button>
+        Featured space
+      </div>
 
-      {/* overlay */}
-      {open && (
-        <div
-          aria-hidden="true"
-          onClick={() => setOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 55,
-            background: "rgba(0,0,0,0.45)",
-          }}
-        />
-      )}
-
-      {/* drawer */}
-      <aside
-        aria-label="Job filters drawer"
+      <div
         style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 280,
-          zIndex: 56,
-          transform: open ? "translateX(0)" : "translateX(105%)",
-          transition: "transform 200ms ease",
-          background: "rgba(2,6,23,0.92)",
-          backdropFilter: "blur(14px)",
-          WebkitBackdropFilter: "blur(14px)",
-          borderLeft: "1px solid rgba(148,163,184,0.35)",
-          overflowY: "auto",
-          padding: 12,
+          borderRadius: 16,
+          border: "1px solid rgba(148,163,184,0.18)",
+          background: "rgba(15,23,42,0.55)",
+          padding: 14,
         }}
       >
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-            marginBottom: 10,
+            fontSize: 12,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#7dd3fc",
+            marginBottom: 8,
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 13, color: "rgba(226,232,240,0.95)" }}>
-            Filters
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="nav-ghost-btn"
-            style={{ padding: "7px 10px", borderRadius: 999, fontSize: 12, fontWeight: 900 }}
-          >
-            Close
-          </button>
+          Coming soon
         </div>
 
-        <JobsRightSidebar />
-      </aside>
-    </>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: 1.35,
+            marginBottom: 8,
+          }}
+        >
+          Spotlight for companies and hiring campaigns
+        </div>
+
+        <div
+          style={{
+            fontSize: 13,
+            lineHeight: 1.5,
+            color: "rgba(226,232,240,0.78)",
+          }}
+        >
+          This area can later highlight featured employers, sponsored roles,
+          startup hiring campaigns, or important announcements from the quantum ecosystem.
+        </div>
+      </div>
+    </div>
   );
 }
 
 function JobsMiddle() {
   const router = useRouter();
   const ctx = useJobsCtx();
-  const isMobile = useIsMobile(820);
 
   return (
     <section className="section">
-      {/* ✅ Drawer ONLY in mobile main */}
-      {isMobile && <JobsFiltersDrawer />}
-
       <div className="jobs-main-header">
         <div className="section-header">
           <div>
-            <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              className="section-title"
+              style={{ display: "flex", alignItems: "center", gap: 10 }}
+            >
               Quantum Jobs Universe
               {!ctx.loading && !ctx.error && (
                 <span
@@ -737,25 +561,32 @@ function JobsMiddle() {
                 </span>
               )}
             </div>
-            {/*
-            <div className="section-sub" style={{ maxWidth: 480, lineHeight: 1.45 }}>
-              Browse internships, PhD positions, postdocs, and industry roles across labs and companies.
-            </div>
-            */}
           </div>
 
-          <button className="nav-cta" style={{ cursor: "pointer" }} onClick={() => router.push("/jobs/new")}>
+          <button
+            className="nav-cta"
+            style={{ cursor: "pointer" }}
+            onClick={() => router.push("/jobs/new")}
+          >
             Post a job
           </button>
         </div>
 
-        <div className="jobs-main-search">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) 260px",
+            gap: 14,
+            alignItems: "center",
+          }}
+        >
           <div
             style={{
               width: "100%",
               borderRadius: 999,
               padding: "2px",
-              background: "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
+              background:
+                "linear-gradient(90deg, rgba(56,189,248,0.5), rgba(129,140,248,0.5))",
             }}
           >
             <div
@@ -778,16 +609,78 @@ function JobsMiddle() {
                   fontSize: 14,
                   width: "100%",
                 }}
-                placeholder="Search by title, company, location, keywords…"
+                placeholder="Role, company, or keywords"
                 value={ctx.search}
                 onChange={(e) => ctx.setSearch(e.target.value)}
               />
             </div>
           </div>
+
+          <select
+            className="products-filters-input"
+            value={ctx.countryFilter}
+            onChange={(e) => ctx.setCountryFilter(e.target.value)}
+            style={{
+              height: 44,
+              borderRadius: 12,
+            }}
+          >
+            {COUNTRY_FILTERS.map((country) => (
+              <option key={country} value={country}>
+                {country === "All" ? "Where?" : country}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            marginTop: 16,
+          }}
+        >
+          {JOB_CATEGORY_CHIPS.map((chip) => {
+            const active = ctx.categoryChip === chip;
+            return (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => ctx.setCategoryChip(chip)}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: active
+                    ? "1px solid rgba(56,189,248,0.55)"
+                    : "1px solid rgba(148,163,184,0.20)",
+                  background: active
+                    ? "rgba(56,189,248,0.14)"
+                    : "rgba(15,23,42,0.45)",
+                  color: active
+                    ? "rgba(186,230,253,0.98)"
+                    : "rgba(226,232,240,0.92)",
+                  fontSize: 14,
+                  lineHeight: 1.25,
+                  cursor: "pointer",
+                }}
+              >
+                {chip}
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            className="nav-ghost-btn"
+            style={{ borderRadius: 12, padding: "10px 14px" }}
+            onClick={ctx.resetFilters}
+          >
+            Reset
+          </button>
         </div>
       </div>
 
-      {/* ✅ Missing Skills Warning */}
       {ctx.missingSkills && (
         <div
           style={{
@@ -804,7 +697,14 @@ function JobsMiddle() {
         >
           <div style={{ fontSize: 24 }}>⚠️</div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2, color: "#fef08a" }}>
+            <div
+              style={{
+                fontWeight: 700,
+                fontSize: 15,
+                marginBottom: 2,
+                color: "#fef08a",
+              }}
+            >
               Complete your profile for AI recommendations
             </div>
             <div style={{ fontSize: 13.5, opacity: 0.9 }}>
@@ -834,7 +734,9 @@ function JobsMiddle() {
       {!ctx.loading && ctx.error && <p className="products-empty">{ctx.error}</p>}
 
       {!ctx.loading && !ctx.error && ctx.filteredJobs.length === 0 && (
-        <p className="products-empty">No roles match your filters yet. Try broadening your search.</p>
+        <p className="products-empty">
+          No roles match your filters yet. Try broadening your search.
+        </p>
       )}
 
       {!ctx.loading && !ctx.error && ctx.filteredJobs.length > 0 && (
@@ -846,7 +748,8 @@ function JobsMiddle() {
                 padding: 16,
                 borderRadius: 16,
                 border: "1px solid rgba(56,189,248,0.35)",
-                background: "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
+                background:
+                  "radial-gradient(circle at top left, rgba(34,211,238,0.12), rgba(15,23,42,1))",
               }}
             >
               <div
@@ -885,7 +788,13 @@ function JobsMiddle() {
                   </div>
                 </div>
 
-                <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-muted)",
+                    textAlign: "right",
+                  }}
+                >
                   {ctx.isAiRecommended ? "AI-Powered Selection" : "Based on filters"}
                 </div>
               </div>
@@ -925,7 +834,9 @@ function JobsMiddle() {
 
                       <div className="job-card-footer">
                         <span className="job-salary">{job.salary_display || ""}</span>
-                        {job.employment_type && <span className="job-type">{job.employment_type}</span>}
+                        {job.employment_type && (
+                          <span className="job-type">{job.employment_type}</span>
+                        )}
                       </div>
                     </Link>
                   );
@@ -947,7 +858,14 @@ function JobsMiddle() {
                 />
               )}
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: 10,
+                }}
+              >
                 <div>
                   <div
                     style={{
@@ -960,7 +878,9 @@ function JobsMiddle() {
                   >
                     Browse everything
                   </div>
-                  <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>All roles</div>
+                  <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
+                    All roles
+                  </div>
                 </div>
               </div>
 
@@ -999,7 +919,9 @@ function JobsMiddle() {
 
                       <div className="job-card-footer">
                         <span className="job-salary">{job.salary_display || ""}</span>
-                        {job.employment_type && <span className="job-type">{job.employment_type}</span>}
+                        {job.employment_type && (
+                          <span className="job-type">{job.employment_type}</span>
+                        )}
                       </div>
                     </Link>
                   );
@@ -1022,12 +944,10 @@ function JobsTwoColumnShell() {
         alignItems: "stretch",
       }}
     >
-      {/* MIDDLE */}
       <div style={{ paddingRight: 16 }}>
         <JobsMiddle />
       </div>
 
-      {/* DIVIDER */}
       <div
         style={{
           width: 1,
@@ -1039,7 +959,6 @@ function JobsTwoColumnShell() {
         }}
       />
 
-      {/* RIGHT (DESKTOP FILTERS) */}
       <div
         style={{
           paddingLeft: 16,
