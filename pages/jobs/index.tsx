@@ -685,14 +685,16 @@ function JobsMiddle() {
   );
 })}
 
-          /* {<button
+          {/* 
+          <button
             type="button"
             className="nav-ghost-btn"
             style={{ borderRadius: 12, padding: "10px 14px" }}
             onClick={ctx.resetFilters}
           >
             Reset
-          </button> } */
+          </button> 
+          */}
         </div>
       </div>
 
