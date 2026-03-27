@@ -72,9 +72,9 @@ const JOB_CATEGORY_CHIP_LABELS: Record<JobCategoryChip, string> = {
   "Quantum Cryptography": "Cryptography",
   "Quantum Sensing": "Sensing",
   "Quantum Materials": "Materials",
-  "Quantum Finance & Optimization": "Finance & Optimization",
+  "Quantum Finance & Optimization": "Finance",
   "Business & Strategy": "Business & Strategy",
-  "Consulting & Policy": "Consulting & Policy",
+  "Consulting & Policy": "Consulting",
 };
 
 type JobCategoryChip = (typeof JOB_CATEGORY_CHIPS)[number];
