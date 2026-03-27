@@ -62,6 +62,21 @@ const JOB_CATEGORY_CHIPS = [
   "Consulting & Policy",
 ] as const;
 
+const JOB_CATEGORY_CHIP_LABELS: Record<JobCategoryChip, string> = {
+  All: "All",
+  "Quantum Hardware": "Hardware",
+  "Quantum Software": "Software",
+  "Quantum AI & ML": "AI & ML",
+  "Quantum Algorithms & Theory": "Algorithms & Theory",
+  "Quantum Communication": "Communication",
+  "Quantum Cryptography": "Cryptography",
+  "Quantum Sensing": "Sensing",
+  "Quantum Materials": "Materials",
+  "Quantum Finance & Optimization": "Finance & Optimization",
+  "Business & Strategy": "Business & Strategy",
+  "Consulting & Policy": "Consulting & Policy",
+};
+
 type JobCategoryChip = (typeof JOB_CATEGORY_CHIPS)[number];
 
 type JobsCtx = {
@@ -642,33 +657,33 @@ function JobsMiddle() {
           }}
         >
           {JOB_CATEGORY_CHIPS.map((chip) => {
-            const active = ctx.categoryChip === chip;
-            return (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => ctx.setCategoryChip(chip)}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  border: active
-                    ? "1px solid rgba(56,189,248,0.55)"
-                    : "1px solid rgba(148,163,184,0.20)",
-                  background: active
-                    ? "rgba(56,189,248,0.14)"
-                    : "rgba(15,23,42,0.45)",
-                  color: active
-                    ? "rgba(186,230,253,0.98)"
-                    : "rgba(226,232,240,0.92)",
-                  fontSize: 14,
-                  lineHeight: 1.25,
-                  cursor: "pointer",
-                }}
-              >
-                {chip}
-              </button>
-            );
-          })}
+  const active = ctx.categoryChip === chip;
+  return (
+    <button
+      key={chip}
+      type="button"
+      onClick={() => ctx.setCategoryChip(chip)}
+      style={{
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: active
+          ? "1px solid rgba(56,189,248,0.55)"
+          : "1px solid rgba(148,163,184,0.20)",
+        background: active
+          ? "rgba(56,189,248,0.14)"
+          : "rgba(15,23,42,0.45)",
+        color: active
+          ? "rgba(186,230,253,0.98)"
+          : "rgba(226,232,240,0.92)",
+        fontSize: 14,
+        lineHeight: 1.25,
+        cursor: "pointer",
+      }}
+    >
+      {JOB_CATEGORY_CHIP_LABELS[chip]}
+    </button>
+  );
+})}
 
           <button
             type="button"
