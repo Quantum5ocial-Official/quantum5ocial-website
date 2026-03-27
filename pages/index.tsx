@@ -2536,7 +2536,7 @@ function HomeRightSidebar() {
           </div>
 
           {loadingMember ? (
-            <p className="tile-text">Loading the newest member…</p>
+            <p className="tile-text">Loading…</p>
           ) : !latestMember ? (
             <p className="tile-text">No profiles found yet.</p>
           ) : (
