@@ -2518,6 +2518,121 @@ function HomeRightSidebar() {
     <div className="hero-tiles hero-tiles-vertical">
       {/* <HomeHeroTile /> */}
 
+      <Link href="/community" className="hero-tile">
+        <div className="hero-tile-inner">
+
+          <div className="tile-title-row">
+            <div
+              className="tile-title"
+              style={{
+                color: ACCENT.members,
+                fontWeight: 700,
+                letterSpacing: 0.3,
+              }}
+            >
+              Spotlight
+            </div>
+            <div className="tile-icon-orbit">🤝</div>
+          </div>
+
+          {loadingMember ? (
+            <p className="tile-text">Loading the newest member…</p>
+          ) : !latestMember ? (
+            <p className="tile-text">No profiles found yet.</p>
+          ) : (
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                gap: 10,
+                alignItems: "flex-start",
+              }}
+            >
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 999,
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                  color: "#fff",
+                  fontWeight: 700,
+                }}
+              >
+                {latestMember.avatar_url ? (
+                  <img
+                    src={latestMember.avatar_url}
+                    alt={memberFirstName}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  memberFirstName.charAt(0).toUpperCase()
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <Link
+                  href={memberProfileHref}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 14,
+                      lineHeight: 1.25,
+                    }}
+                  >
+                    {memberName}
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 12,
+                      opacity: 0.85,
+                      marginTop: 4,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {[
+                      latestMember.role,
+                      latestMember.affiliation,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") ||
+                      "Quantum5ocial community member"}
+                  </div>
+
+                  {latestMember.short_bio && (
+                    <div
+                      style={{
+                        fontSize: 12,
+                        opacity: 0.9,
+                        marginTop: 6,
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {latestMember.short_bio.length > 90
+                        ? latestMember.short_bio.slice(0, 87) + "..."
+                        : latestMember.short_bio}
+                    </div>
+                  )}
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </Link>
+
       <Link href="/jobs" className="hero-tile">
         <div className="hero-tile-inner">
 
@@ -2715,120 +2830,6 @@ function HomeRightSidebar() {
         </div>
       </Link>
 
-      <Link href="/community" className="hero-tile">
-        <div className="hero-tile-inner">
-
-          <div className="tile-title-row">
-            <div
-              className="tile-title"
-              style={{
-                color: ACCENT.members,
-                fontWeight: 700,
-                letterSpacing: 0.3,
-              }}
-            >
-              Spotlight
-            </div>
-            <div className="tile-icon-orbit">🤝</div>
-          </div>
-
-          {loadingMember ? (
-            <p className="tile-text">Loading the newest member…</p>
-          ) : !latestMember ? (
-            <p className="tile-text">No profiles found yet.</p>
-          ) : (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                gap: 10,
-                alignItems: "flex-start",
-              }}
-            >
-              <div
-                style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 999,
-                  overflow: "hidden",
-                  flexShrink: 0,
-                  border: "1px solid rgba(148,163,184,0.35)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                  color: "#fff",
-                  fontWeight: 700,
-                }}
-              >
-                {latestMember.avatar_url ? (
-                  <img
-                    src={latestMember.avatar_url}
-                    alt={memberFirstName}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      display: "block",
-                    }}
-                  />
-                ) : (
-                  memberFirstName.charAt(0).toUpperCase()
-                )}
-              </div>
-
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <Link
-                  href={memberProfileHref}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 14,
-                      lineHeight: 1.25,
-                    }}
-                  >
-                    {memberName}
-                  </div>
-
-                  <div
-                    style={{
-                      fontSize: 12,
-                      opacity: 0.85,
-                      marginTop: 4,
-                      lineHeight: 1.35,
-                    }}
-                  >
-                    {[
-                      latestMember.role,
-                      latestMember.affiliation,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") ||
-                      "Quantum5ocial community member"}
-                  </div>
-
-                  {latestMember.short_bio && (
-                    <div
-                      style={{
-                        fontSize: 12,
-                        opacity: 0.9,
-                        marginTop: 6,
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      {latestMember.short_bio.length > 90
-                        ? latestMember.short_bio.slice(0, 87) + "..."
-                        : latestMember.short_bio}
-                    </div>
-                  )}
-                </Link>
-              </div>
-            </div>
-          )}
-        </div>
-      </Link>
     </div>
   );
 }
