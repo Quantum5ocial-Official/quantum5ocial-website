@@ -260,7 +260,7 @@ export default function GlossaryIndexPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                     gap: 12,
                   }}
                 >
@@ -285,6 +285,7 @@ export default function GlossaryIndexPage() {
                           fontSize: 16,
                           fontWeight: 700,
                           lineHeight: 1.35,
+                          color: "white",
                         }}
                       >
                         {term.name}
