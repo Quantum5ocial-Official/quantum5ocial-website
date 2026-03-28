@@ -443,21 +443,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
   </div>
 ) : null}
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-          <MetaPill text={entry.category} />
-          <MetaPill text={entry.level} />
-        </div>
-
-        <div
-          style={{
-            fontSize: 13,
-            lineHeight: 1.6,
-            color: "rgba(226,232,240,0.75)",
-          }}
-        >
-          This page is part of the Quantum Glossary and will later support community
-          contributions, edits, and review.
-        </div>
+        
       </div>
 
       {entry.relatedTerms.length > 0 ? (
