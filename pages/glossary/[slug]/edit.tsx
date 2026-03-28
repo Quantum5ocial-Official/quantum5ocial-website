@@ -1,11 +1,14 @@
 // pages/glossary/[slug]/edit.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { supabase } from "../../../lib/supabaseClient";
+import { useSupabaseUser } from "../../../lib/useSupabaseUser";
 
 type GlossaryLevel = "Beginner" | "Intermediate" | "Advanced";
 
 type GlossaryEntry = {
+  id: string;
   name: string;
   slug: string;
   category: string;
@@ -26,41 +29,36 @@ type GlossaryEntry = {
   furtherReading?: { label: string; href: string }[];
 };
 
-const GLOSSARY_ENTRIES: Record<string, GlossaryEntry> = {
-  qubit: {
-    name: "Qubit",
-    slug: "qubit",
-    category: "Fundamentals",
-    level: "Beginner",
-    oneLine: "The fundamental unit of quantum information.",
-    overview:
-      "A qubit is the quantum analogue of a classical bit. It is the basic unit used to store and process information in a quantum system.",
-    explanation:
-      "A classical bit can only be in one of two states, 0 or 1. A qubit, however, can exist in a quantum state described by a superposition of the basis states |0⟩ and |1⟩ until it is measured. This means that the state of a qubit is not restricted to only the two classical endpoints, but can be any valid combination of them allowed by quantum mechanics.",
-    whyItMatters:
-      "Qubits are the basic building blocks of quantum computers. Quantum gates act on qubits, quantum circuits are built from qubits, and the power of quantum computation comes from how multiple qubits can be controlled, correlated, and entangled.",
-    intuition:
-      "A classical bit is like a switch that is either off or on. A qubit is different: it is a quantum state that can contain amplitudes for both basis states at the same time. This does not mean it is classically both values in a simple everyday sense, but rather that its state must be described using quantum mechanics.",
-    visual: {
-      title: "Visual idea",
-      description:
-        "A useful way to picture a qubit is with the Bloch sphere. The north and south poles correspond to |0⟩ and |1⟩, while points on the sphere represent other valid qubit states.",
-      caption: "Later this section can contain a Bloch sphere graphic or simple diagram.",
-    },
-    math:
-      "|ψ⟩ = α|0⟩ + β|1⟩\n\nwhere α and β are complex amplitudes satisfying:\n\n|α|² + |β|² = 1",
-    relatedTerms: [
-      { name: "Superposition", slug: "superposition" },
-      { name: "Bloch Sphere", slug: "bloch-sphere" },
-      { name: "Entanglement", slug: "entanglement" },
-      { name: "Quantum Circuit", slug: "quantum-circuit" },
-      { name: "Measurement", slug: "measurement" },
-    ],
-    furtherReading: [
-      { label: "Bloch Sphere", href: "/glossary/bloch-sphere" },
-      { label: "Superposition", href: "/glossary/superposition" },
-    ],
-  },
+type GlossaryTermRow = {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  level: GlossaryLevel;
+  one_line: string;
+  overview: string;
+  explanation: string;
+  why_it_matters: string | null;
+  intuition: string | null;
+  math: string | null;
+  visual_title: string | null;
+  visual_description: string | null;
+  visual_image_url: string | null;
+  visual_caption: string | null;
+  status: string;
+};
+
+type GlossaryRelationRow = {
+  related: {
+    name: string;
+    slug: string;
+  } | null;
+};
+
+type GlossaryFurtherReadingRow = {
+  label: string;
+  href: string;
+  sort_order: number | null;
 };
 
 type GlossaryFormState = {
@@ -105,6 +103,42 @@ const FORM_SECTIONS = [
   { id: "further-reading", label: "Further reading" },
   { id: "edit-note", label: "Edit note" },
 ] as const;
+
+function mapTermRowToEntry(
+  row: GlossaryTermRow,
+  relatedTerms: { name: string; slug: string }[],
+  furtherReading: { label: string; href: string }[]
+): GlossaryEntry {
+  const hasVisual =
+    !!row.visual_title ||
+    !!row.visual_description ||
+    !!row.visual_image_url ||
+    !!row.visual_caption;
+
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    category: row.category,
+    level: row.level,
+    oneLine: row.one_line,
+    overview: row.overview,
+    explanation: row.explanation,
+    whyItMatters: row.why_it_matters || undefined,
+    intuition: row.intuition || undefined,
+    visual: hasVisual
+      ? {
+          title: row.visual_title || undefined,
+          description: row.visual_description || undefined,
+          imageUrl: row.visual_image_url || undefined,
+          caption: row.visual_caption || undefined,
+        }
+      : undefined,
+    math: row.math || undefined,
+    relatedTerms,
+    furtherReading: furtherReading.length > 0 ? furtherReading : undefined,
+  };
+}
 
 function toInitialForm(entry: GlossaryEntry): GlossaryFormState {
   return {
@@ -308,48 +342,134 @@ function GlossaryEditRightSidebar() {
 
 function GlossaryEditMiddle() {
   const router = useRouter();
+  const { user, loading: userLoading } = useSupabaseUser();
+
   const slugParam = router.query.slug;
   const slug = Array.isArray(slugParam) ? slugParam[0] : slugParam || "";
-  const entry = slug ? GLOSSARY_ENTRIES[slug] : null;
+
+  const [loading, setLoading] = useState(true);
+  const [entry, setEntry] = useState<GlossaryEntry | null>(null);
+  const [form, setForm] = useState<GlossaryFormState | null>(null);
 
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState<GlossaryFormState | null>(
-    entry ? toInitialForm(entry) : null
-  );
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (entry) setForm(toInitialForm(entry));
-  }, [slug]);
+  useEffect(() => {
+    let alive = true;
 
-  if (!slug) return <section className="section" />;
+    const loadTerm = async () => {
+      if (!router.isReady || !slug) return;
 
-  if (!entry || !form) {
-    return (
-      <section className="section">
-        <div className="card" style={{ padding: 22 }}>
-          <div
-            style={{
-              fontSize: 22,
-              fontWeight: 800,
-              color: "rgba(226,232,240,0.96)",
-              marginBottom: 8,
-            }}
-          >
-            Term not found
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              lineHeight: 1.65,
-              color: "rgba(226,232,240,0.78)",
-            }}
-          >
-            We couldn’t load this glossary term for editing.
-          </div>
-        </div>
-      </section>
-    );
-  }
+      setLoading(true);
+      setEntry(null);
+      setForm(null);
+      setErrorMsg(null);
+
+      const { data: termRow, error: termError } = await supabase
+        .from("glossary_terms")
+        .select(
+          `
+            id,
+            name,
+            slug,
+            category,
+            level,
+            one_line,
+            overview,
+            explanation,
+            why_it_matters,
+            intuition,
+            math,
+            visual_title,
+            visual_description,
+            visual_image_url,
+            visual_caption,
+            status
+          `
+        )
+        .eq("slug", slug)
+        .eq("status", "published")
+        .maybeSingle<GlossaryTermRow>();
+
+      if (termError) {
+        console.error("Error loading glossary term:", termError);
+        if (alive) {
+          setLoading(false);
+          setEntry(null);
+          setForm(null);
+          setErrorMsg("Could not load this glossary term.");
+        }
+        return;
+      }
+
+      if (!termRow) {
+        if (alive) {
+          setLoading(false);
+          setEntry(null);
+          setForm(null);
+        }
+        return;
+      }
+
+      const { data: relationRows, error: relationError } = await supabase
+        .from("glossary_term_relations")
+        .select(
+          `
+            related:related_term_id (
+              name,
+              slug
+            )
+          `
+        )
+        .eq("term_id", termRow.id)
+        .returns<GlossaryRelationRow[]>();
+
+      if (relationError) {
+        console.error("Error loading glossary relations:", relationError);
+      }
+
+      const relatedTerms =
+        (relationRows || [])
+          .map((row) => row.related)
+          .filter(Boolean)
+          .map((related) => ({
+            name: related!.name,
+            slug: related!.slug,
+          })) || [];
+
+      const { data: furtherRows, error: furtherError } = await supabase
+        .from("glossary_further_reading")
+        .select("label, href, sort_order")
+        .eq("term_id", termRow.id)
+        .order("sort_order", { ascending: true })
+        .returns<GlossaryFurtherReadingRow[]>();
+
+      if (furtherError) {
+        console.error("Error loading glossary further reading:", furtherError);
+      }
+
+      const furtherReading =
+        (furtherRows || []).map((item) => ({
+          label: item.label,
+          href: item.href,
+        })) || [];
+
+      const mapped = mapTermRowToEntry(termRow, relatedTerms, furtherReading);
+
+      if (!alive) return;
+
+      setEntry(mapped);
+      setForm(toInitialForm(mapped));
+      setLoading(false);
+    };
+
+    void loadTerm();
+
+    return () => {
+      alive = false;
+    };
+  }, [router.isReady, slug]);
 
   const updateField = <K extends keyof GlossaryFormState>(
     key: K,
@@ -359,6 +479,7 @@ function GlossaryEditMiddle() {
   };
 
   const requiredMissing =
+    !form ||
     !form.category.trim() ||
     !form.level.trim() ||
     !form.oneLine.trim() ||
@@ -366,9 +487,17 @@ function GlossaryEditMiddle() {
     !form.explanation.trim() ||
     !form.editNote.trim();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (requiredMissing) return;
+    if (!entry || !form || requiredMissing || submitting) return;
+
+    if (!user) {
+      router.push(`/auth?redirect=/glossary/${entry.slug}/edit`);
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMsg(null);
 
     const payload = {
       originalSlug: entry.slug,
@@ -406,12 +535,64 @@ function GlossaryEditMiddle() {
           .filter(Boolean),
       },
       editNote: form.editNote.trim(),
-      status: "pending_review",
     };
 
-    console.log("Glossary edit suggestion payload:", payload);
+    const { error } = await supabase.from("glossary_edit_suggestions").insert({
+      term_id: entry.id,
+      submitted_by: user.id,
+      payload,
+      edit_note: form.editNote.trim(),
+      status: "pending",
+    });
+
+    if (error) {
+      console.error("Error submitting glossary edit suggestion:", error);
+      setErrorMsg("Could not submit your edit suggestion right now.");
+      setSubmitting(false);
+      return;
+    }
+
     setSubmitted(true);
+    setSubmitting(false);
   };
+
+  if (!slug) return <section className="section" />;
+
+  if (loading) {
+    return (
+      <section className="section">
+        <div className="products-status">Loading glossary term…</div>
+      </section>
+    );
+  }
+
+  if (!entry || !form) {
+    return (
+      <section className="section">
+        <div className="card" style={{ padding: 22 }}>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              color: "rgba(226,232,240,0.96)",
+              marginBottom: 8,
+            }}
+          >
+            Term not found
+          </div>
+          <div
+            style={{
+              fontSize: 14,
+              lineHeight: 1.65,
+              color: "rgba(226,232,240,0.78)",
+            }}
+          >
+            We couldn’t load this glossary term for editing.
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="section">
@@ -471,32 +652,55 @@ function GlossaryEditMiddle() {
           <button
             type="submit"
             form="glossary-edit-form"
-            disabled={requiredMissing}
+            disabled={requiredMissing || submitting || userLoading}
             style={{
               color: "white",
               padding: "11px 16px",
               borderRadius: 14,
-              border: requiredMissing
-                ? "1px solid rgba(148,163,184,0.22)"
-                : "1px solid rgba(34,211,238,0.45)",
-              background: requiredMissing
-                ? "rgba(51,65,85,0.55)"
-                : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
-              boxShadow: requiredMissing ? "none" : "0 10px 28px rgba(15,23,42,0.35)",
+              border:
+                requiredMissing || submitting || userLoading
+                  ? "1px solid rgba(148,163,184,0.22)"
+                  : "1px solid rgba(34,211,238,0.45)",
+              background:
+                requiredMissing || submitting || userLoading
+                  ? "rgba(51,65,85,0.55)"
+                  : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+              boxShadow:
+                requiredMissing || submitting || userLoading
+                  ? "none"
+                  : "0 10px 28px rgba(15,23,42,0.35)",
               fontSize: 13,
               fontWeight: 800,
               whiteSpace: "nowrap",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              cursor: requiredMissing ? "not-allowed" : "pointer",
+              cursor:
+                requiredMissing || submitting || userLoading ? "not-allowed" : "pointer",
             }}
           >
             <span style={{ fontSize: 14 }}>✍️</span>
-            <span>Submit edit suggestion</span>
+            <span>{submitting ? "Submitting..." : "Submit edit suggestion"}</span>
           </button>
         </div>
       </div>
+
+      {errorMsg ? (
+        <div
+          className="card"
+          style={{
+            padding: 18,
+            marginBottom: 14,
+            borderRadius: 18,
+            border: "1px solid rgba(248,113,113,0.28)",
+            background:
+              "radial-gradient(circle at top left, rgba(248,113,113,0.10), rgba(15,23,42,0.96))",
+            color: "rgba(254,226,226,0.95)",
+          }}
+        >
+          {errorMsg}
+        </div>
+      ) : null}
 
       {submitted ? (
         <div
@@ -528,7 +732,7 @@ function GlossaryEditMiddle() {
               color: "rgba(226,232,240,0.8)",
             }}
           >
-            Your proposed changes have been prepared and are ready for review.
+            Your proposed changes have been submitted for review.
           </div>
         </div>
       ) : null}
@@ -773,29 +977,37 @@ function GlossaryEditMiddle() {
 
             <button
               type="submit"
-              disabled={requiredMissing}
+              disabled={requiredMissing || submitting || userLoading}
               style={{
                 color: "white",
                 padding: "11px 16px",
                 borderRadius: 14,
-                border: requiredMissing
-                  ? "1px solid rgba(148,163,184,0.22)"
-                  : "1px solid rgba(34,211,238,0.45)",
-                background: requiredMissing
-                  ? "rgba(51,65,85,0.55)"
-                  : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
-                boxShadow: requiredMissing ? "none" : "0 10px 28px rgba(15,23,42,0.35)",
+                border:
+                  requiredMissing || submitting || userLoading
+                    ? "1px solid rgba(148,163,184,0.22)"
+                    : "1px solid rgba(34,211,238,0.45)",
+                background:
+                  requiredMissing || submitting || userLoading
+                    ? "rgba(51,65,85,0.55)"
+                    : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+                boxShadow:
+                  requiredMissing || submitting || userLoading
+                    ? "none"
+                    : "0 10px 28px rgba(15,23,42,0.35)",
                 fontSize: 13,
                 fontWeight: 800,
                 whiteSpace: "nowrap",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                cursor: requiredMissing ? "not-allowed" : "pointer",
+                cursor:
+                  requiredMissing || submitting || userLoading
+                    ? "not-allowed"
+                    : "pointer",
               }}
             >
               <span style={{ fontSize: 14 }}>✍️</span>
-              <span>Submit edit suggestion</span>
+              <span>{submitting ? "Submitting..." : "Submit edit suggestion"}</span>
             </button>
           </div>
         </div>
