@@ -500,15 +500,18 @@ function GlossaryMiddle({
                   />
                 ) : (
                   <img
-                    src={entry.visual.mediaUrl}
-                    alt={entry.name}
-                    style={{
-                      width: "100%",
-                      borderRadius: 14,
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      display: "block",
-                    }}
-                  />
+  src={entry.visual.mediaUrl}
+  alt={entry.name}
+  style={{
+    width: "100%",
+    maxHeight: 420,
+    objectFit: "contain",
+    borderRadius: 14,
+    border: "1px solid rgba(148,163,184,0.16)",
+    display: "block",
+    background: "rgba(2,6,23,0.35)",
+  }}
+/>
                 )
               ) : (
                 <div
