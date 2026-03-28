@@ -859,7 +859,7 @@ function GlossaryContributeMiddle() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <FieldLabel>Media URL</FieldLabel>
+            <FieldLabel>Uploaded media URL</FieldLabel>
             <input
               value={form.visualMediaUrl}
               readOnly
@@ -1034,7 +1034,7 @@ function GlossaryContributeMiddle() {
         <FormSection
           id="math"
           title="Mathematical form"
-          subtitle="Optional mathematical expression, notation, or equation."
+          subtitle="Optional visual block with media, caption, description, and link."
         >
           <FieldLabel>Mathematical form</FieldLabel>
           <textarea
