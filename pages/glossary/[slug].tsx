@@ -30,6 +30,7 @@ type GlossaryEntry = {
   math?: string;
   relatedTerms: { name: string; slug: string }[];
   furtherReading?: { label: string; href: string }[];
+  interestingFact?: string;
 };
 
 type GlossaryTermRow = {
@@ -51,6 +52,7 @@ type GlossaryTermRow = {
   visual_caption: string | null;
   visual_link: string | null;
   status: string;
+  interesting_fact: string | null;
 };
 
 type GlossaryRelationRow = {
@@ -102,6 +104,7 @@ function mapTermRowToEntry(
     math: row.math || undefined,
     relatedTerms,
     furtherReading: furtherReading.length > 0 ? furtherReading : undefined,
+    interestingFact: row.interesting_fact || undefined,
   };
 }
 
@@ -412,16 +415,33 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
       </div>
 
       <div className="sidebar-card">
-        <div
-          style={{
-            fontWeight: 800,
-            fontSize: 15,
-            marginBottom: 10,
-            color: "rgba(226,232,240,0.96)",
-          }}
-        >
-          Quick facts
-        </div>
+        {entry.interestingFact ? (
+  <div
+    style={{
+      marginTop: 10,
+      padding: "10px 12px",
+      borderRadius: 12,
+      border: "1px solid rgba(168,85,247,0.25)",
+      background: "rgba(168,85,247,0.08)",
+      fontSize: 13,
+      lineHeight: 1.6,
+      color: "rgba(226,232,240,0.9)",
+    }}
+  >
+    <div
+      style={{
+        fontWeight: 700,
+        fontSize: 12,
+        marginBottom: 4,
+        color: "#c084fc",
+      }}
+    >
+      Interesting fact
+    </div>
+
+    {entry.interestingFact}
+  </div>
+) : null}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
           <MetaPill text={entry.category} />
