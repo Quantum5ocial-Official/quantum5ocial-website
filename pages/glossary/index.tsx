@@ -234,37 +234,37 @@ export default function GlossaryIndexPage() {
           marginBottom: 16,
         }}
       >
-        {/* description="Qubits, superposition, entanglement, decoherence." put inside later */}
+        //description="Qubits, superposition, entanglement, decoherence." put inside later
         <TopicTile
           title="Fundamentals"
           count={TERMS.filter((t) => t.category === "Fundamentals").length}
           color="#22d3ee" 
         />
-        {/* description="Platforms, cryogenics, resonators, implementations." */}
+        //description="Platforms, cryogenics, resonators, implementations." 
         <TopicTile
           title="Hardware"
           count={TERMS.filter((t) => t.category === "Hardware").length}
           color="#22c55e"  
         />
-        {/* description="Quantum gates, circuit concepts, control operations." */}
+        //description="Quantum gates, circuit concepts, control operations."
         <TopicTile
           title="Gates & Circuits"
           count={TERMS.filter((t) => t.category === "Gates & Circuits").length}
           color="#a855f7"
         />
+        //description="Algorithms, circuit methods, software-side concepts."
         <TopicTile
           title="Software & Algorithms"
           count={TERMS.filter((t) => t.category === "Software & Algorithms").length}
           color="#f59e0b"
-          {/* description="Algorithms, circuit methods, software-side concepts." */}
         />
-        {/* description="Logical qubits, codes, scalable fault tolerance." */}
+        //description="Logical qubits, codes, scalable fault tolerance."
         <TopicTile
           title="Error Correction"
           count={TERMS.filter((t) => t.category === "Error Correction").length}
           color="#f97316"
         />
-        {/* description="Networking, secure transfer, quantum information." */}
+        //description="Networking, secure transfer, quantum information."
         <TopicTile
           title="Communication"
           count={TERMS.filter((t) => t.category === "Communication & Networking").length}
