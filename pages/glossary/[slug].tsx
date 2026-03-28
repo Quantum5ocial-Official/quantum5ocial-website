@@ -177,7 +177,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
             color: "rgba(226,232,240,0.75)",
           }}
         >
-          This page is part of the Quantum Glossary and will later support community
+          This page is part of the Quantum  and will later support community
           contributions, edits, and review.
         </div>
       </div>
@@ -198,7 +198,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
           {entry.relatedTerms.map((term) => (
             <Link
               key={term.slug}
-              href={`/glossary/${term.slug}`}
+              href={`//${term.slug}`}
               style={{
                 textDecoration: "none",
               }}
@@ -212,11 +212,11 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
   );
 }
 
-function GlossaryMiddle() {
+function Middle() {
   const router = useRouter();
   const slugParam = router.query.slug;
   const slug = Array.isArray(slugParam) ? slugParam[0] : slugParam || "";
-  const entry = slug ? GLOSSARY_ENTRIES[slug] : null;
+  const entry = slug ? _ENTRIES[slug] : null;
 
   if (!slug) {
     return <section className="section" />;
@@ -245,18 +245,18 @@ function GlossaryMiddle() {
               marginBottom: 14,
             }}
           >
-            We haven’t added this glossary term yet.
+            We haven’t added this  term yet.
           </div>
 
           <Link
-            href="/glossary"
+            href="/"
             style={{
               textDecoration: "none",
               color: "#7dd3fc",
               fontWeight: 700,
             }}
           >
-            ← Back to glossary
+            ← Back to 
           </Link>
         </div>
       </section>
@@ -275,19 +275,6 @@ function GlossaryMiddle() {
           border: "1px solid rgba(148,163,184,0.35)",
         }}
       >
-        <div style={{ marginBottom: 10 }}>
-          <Link
-            href="/glossary"
-            style={{
-              textDecoration: "none",
-              fontSize: 13,
-              color: "rgba(125,211,252,0.95)",
-              fontWeight: 700,
-            }}
-          >
-            ← Back to glossary
-          </Link>
-        </div>
 
         <div
           style={{
