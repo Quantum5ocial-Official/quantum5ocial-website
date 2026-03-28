@@ -115,11 +115,28 @@ export default function GlossaryIndexPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Link href="/glossary/contribute" className="section-link">
-              Contribute a term →
-            </Link>
-          </div>
+          <Link
+            href="/glossary/contribute"
+            style={{
+              textDecoration: "none",
+              color: "white",
+              padding: "11px 16px",
+              borderRadius: 14,
+              border: "1px solid rgba(34,211,238,0.45)",
+              background:
+                "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+              boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
+              fontSize: 13,
+              fontWeight: 800,
+              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 14 }}>✍️</span>
+            <span>Contribute a term →</span>
+          </Link>
         </div>
       </div>
 
@@ -212,8 +229,8 @@ export default function GlossaryIndexPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: 14,
+          gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
+          gap: 10,
           marginBottom: 16,
         }}
       >
@@ -221,37 +238,37 @@ export default function GlossaryIndexPage() {
           title="Fundamentals"
           count={TERMS.filter((t) => t.category === "Fundamentals").length}
           color="#22d3ee"
-          description="Core concepts like qubits, superposition, entanglement, and decoherence."
+          description="Qubits, superposition, entanglement, decoherence."
         />
         <TopicTile
           title="Hardware"
           count={TERMS.filter((t) => t.category === "Hardware").length}
           color="#22c55e"
-          description="Platforms, devices, cryogenics, resonators, and physical implementations."
+          description="Platforms, cryogenics, resonators, implementations."
         />
         <TopicTile
           title="Gates & Circuits"
           count={TERMS.filter((t) => t.category === "Gates & Circuits").length}
           color="#a855f7"
-          description="Quantum gates, circuit model concepts, and control operations."
+          description="Quantum gates, circuit concepts, control operations."
         />
         <TopicTile
           title="Software & Algorithms"
           count={TERMS.filter((t) => t.category === "Software & Algorithms").length}
           color="#f59e0b"
-          description="Algorithms, circuit methods, and software-side quantum concepts."
+          description="Algorithms, circuit methods, software-side concepts."
         />
         <TopicTile
           title="Error Correction"
           count={TERMS.filter((t) => t.category === "Error Correction").length}
           color="#f97316"
-          description="Logical qubits, codes, and concepts for scalable fault-tolerant systems."
+          description="Logical qubits, codes, scalable fault tolerance."
         />
         <TopicTile
           title="Communication"
           count={TERMS.filter((t) => t.category === "Communication & Networking").length}
           color="#60a5fa"
-          description="Networking, secure communication, and quantum information transfer."
+          description="Networking, secure transfer, quantum information."
         />
       </div>
 
@@ -306,6 +323,7 @@ export default function GlossaryIndexPage() {
                         border: "1px solid rgba(148,163,184,0.18)",
                         background:
                           "radial-gradient(circle at top left, rgba(168,85,247,0.08), rgba(15,23,42,0.96))",
+                        transition: "transform 140ms ease, border-color 140ms ease",
                       }}
                     >
                       <div
@@ -328,16 +346,6 @@ export default function GlossaryIndexPage() {
                       >
                         <MetaPill text={term.category} />
                         <MetaPill text={term.level} />
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: 10,
-                          fontSize: 12,
-                          color: "rgba(192,132,252,0.92)",
-                        }}
-                      >
-                        Open →
                       </div>
                     </Link>
                   ))}
@@ -366,26 +374,44 @@ function TopicTile({
     <div
       className="card"
       style={{
-        padding: 16,
+        padding: 14,
+        minHeight: 122,
         borderRadius: 16,
         border: `1px solid ${color}55`,
-        background: `radial-gradient(circle at top left, ${color}22, rgba(15,23,42,0.96))`,
+        background: `radial-gradient(circle at top left, ${color}18, rgba(15,23,42,0.96))`,
       }}
     >
       <div
         style={{
-          fontSize: 12,
+          fontSize: 11,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
           color,
+          fontWeight: 700,
         }}
       >
         {title}
       </div>
 
-      <div style={{ marginTop: 6, fontSize: 28, fontWeight: 800 }}>{count}</div>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 22,
+          fontWeight: 800,
+          lineHeight: 1,
+        }}
+      >
+        {count}
+      </div>
 
-      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.9 }}>
+      <div
+        style={{
+          marginTop: 10,
+          fontSize: 12,
+          lineHeight: 1.35,
+          opacity: 0.9,
+        }}
+      >
         {description}
       </div>
     </div>
