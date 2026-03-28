@@ -11,11 +11,19 @@ type GlossaryEntry = {
   category: string;
   level: GlossaryLevel;
   oneLine: string;
-  definition: string;
-  whyItMatters: string;
-  intuition: string;
+  overview: string;
+  explanation: string;
+  whyItMatters?: string;
+  intuition?: string;
+  visual?: {
+    title?: string;
+    description?: string;
+    imageUrl?: string;
+    caption?: string;
+  };
   math?: string;
   relatedTerms: { name: string; slug: string }[];
+  furtherReading?: { label: string; href: string }[];
 };
 
 const GLOSSARY_ENTRIES: Record<string, GlossaryEntry> = {
@@ -25,12 +33,20 @@ const GLOSSARY_ENTRIES: Record<string, GlossaryEntry> = {
     category: "Fundamentals",
     level: "Beginner",
     oneLine: "The fundamental unit of quantum information.",
-    definition:
-      "A qubit is the quantum analogue of a classical bit. While a classical bit can only be in one of two states, 0 or 1, a qubit can exist in a quantum state described by a superposition of the basis states |0⟩ and |1⟩ until it is measured.",
+    overview:
+      "A qubit is the quantum analogue of a classical bit. It is the basic unit used to store and process information in a quantum system.",
+    explanation:
+      "A classical bit can only be in one of two states, 0 or 1. A qubit, however, can exist in a quantum state described by a superposition of the basis states |0⟩ and |1⟩ until it is measured. This means that the state of a qubit is not restricted to only the two classical endpoints, but can be any valid combination of them allowed by quantum mechanics.",
     whyItMatters:
       "Qubits are the basic building blocks of quantum computers. Quantum gates act on qubits, quantum circuits are built from qubits, and the power of quantum computation comes from how multiple qubits can be controlled, correlated, and entangled.",
     intuition:
       "A classical bit is like a switch that is either off or on. A qubit is different: it is a quantum state that can contain amplitudes for both basis states at the same time. This does not mean it is classically both values in a simple everyday sense, but rather that its state must be described using quantum mechanics.",
+    visual: {
+      title: "Visual idea",
+      description:
+        "A useful way to picture a qubit is with the Bloch sphere. The north and south poles correspond to |0⟩ and |1⟩, while points on the sphere represent other valid qubit states.",
+      caption: "Later this section can contain a Bloch sphere graphic or simple diagram.",
+    },
     math:
       "|ψ⟩ = α|0⟩ + β|1⟩\n\nwhere α and β are complex amplitudes satisfying:\n\n|α|² + |β|² = 1",
     relatedTerms: [
@@ -40,16 +56,30 @@ const GLOSSARY_ENTRIES: Record<string, GlossaryEntry> = {
       { name: "Quantum Circuit", slug: "quantum-circuit" },
       { name: "Measurement", slug: "measurement" },
     ],
+    furtherReading: [
+      { label: "Bloch Sphere", href: "/glossary/bloch-sphere" },
+      { label: "Superposition", href: "/glossary/superposition" },
+    ],
   },
 };
 
-const SECTION_ITEMS = [
-  { id: "definition", label: "Definition" },
-  { id: "why-it-matters", label: "Why it matters" },
-  { id: "intuition", label: "Intuition" },
-  { id: "math", label: "Mathematical form" },
-  { id: "related-terms", label: "Related terms" },
-] as const;
+function getSectionItems(entry: GlossaryEntry) {
+  const items: { id: string; label: string }[] = [
+    { id: "overview", label: "Overview" },
+    { id: "explanation", label: "Explanation" },
+  ];
+
+  if (entry.whyItMatters) items.push({ id: "why-it-matters", label: "Why it matters" });
+  if (entry.intuition) items.push({ id: "intuition", label: "Intuition / Example" });
+  if (entry.visual) items.push({ id: "visual", label: "Visual" });
+  if (entry.math) items.push({ id: "math", label: "Mathematical form" });
+  items.push({ id: "related-terms", label: "Related terms" });
+  if (entry.furtherReading && entry.furtherReading.length > 0) {
+    items.push({ id: "further-reading", label: "Further reading" });
+  }
+
+  return items;
+}
 
 function MetaPill({ text }: { text: string }) {
   return (
@@ -118,6 +148,8 @@ function GlossarySection({
 }
 
 function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
+  const sectionItems = getSectionItems(entry);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div className="sidebar-card">
@@ -133,7 +165,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {SECTION_ITEMS.map((item) => (
+          {sectionItems.map((item) => (
             <a
               key={item.id}
               href={`#${item.id}`}
@@ -199,9 +231,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
             <Link
               key={term.slug}
               href={`/glossary/${term.slug}`}
-              style={{
-                textDecoration: "none",
-              }}
+              style={{ textDecoration: "none" }}
             >
               <MetaPill text={term.name} />
             </Link>
@@ -336,17 +366,70 @@ function GlossaryMiddle() {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <GlossarySection id="definition" title="Definition">
-          {entry.definition}
+        <GlossarySection id="overview" title="Overview">
+          {entry.overview}
         </GlossarySection>
 
-        <GlossarySection id="why-it-matters" title="Why it matters">
-          {entry.whyItMatters}
+        <GlossarySection id="explanation" title="Explanation">
+          {entry.explanation}
         </GlossarySection>
 
-        <GlossarySection id="intuition" title="Intuition">
-          {entry.intuition}
-        </GlossarySection>
+        {entry.whyItMatters ? (
+          <GlossarySection id="why-it-matters" title="Why it matters">
+            {entry.whyItMatters}
+          </GlossarySection>
+        ) : null}
+
+        {entry.intuition ? (
+          <GlossarySection id="intuition" title="Intuition / Example">
+            {entry.intuition}
+          </GlossarySection>
+        ) : null}
+
+        {entry.visual ? (
+          <GlossarySection id="visual" title={entry.visual.title || "Visual"}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {entry.visual.description ? <div>{entry.visual.description}</div> : null}
+
+              {entry.visual.imageUrl ? (
+                <img
+                  src={entry.visual.imageUrl}
+                  alt={entry.name}
+                  style={{
+                    width: "100%",
+                    borderRadius: 14,
+                    border: "1px solid rgba(148,163,184,0.16)",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    borderRadius: 14,
+                    border: "1px dashed rgba(148,163,184,0.28)",
+                    background: "rgba(255,255,255,0.02)",
+                    padding: "22px 16px",
+                    color: "rgba(226,232,240,0.62)",
+                    textAlign: "center",
+                    fontSize: 13,
+                  }}
+                >
+                  Graphic placeholder
+                </div>
+              )}
+
+              {entry.visual.caption ? (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(226,232,240,0.65)",
+                  }}
+                >
+                  {entry.visual.caption}
+                </div>
+              ) : null}
+            </div>
+          </GlossarySection>
+        ) : null}
 
         {entry.math ? (
           <GlossarySection id="math" title="Mathematical form">
@@ -367,6 +450,27 @@ function GlossaryMiddle() {
             ))}
           </div>
         </GlossarySection>
+
+        {entry.furtherReading && entry.furtherReading.length > 0 ? (
+          <GlossarySection id="further-reading" title="Further reading">
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {entry.furtherReading.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  style={{
+                    textDecoration: "none",
+                    color: "#7dd3fc",
+                    fontWeight: 600,
+                    fontSize: 14,
+                  }}
+                >
+                  {item.label} →
+                </Link>
+              ))}
+            </div>
+          </GlossarySection>
+        ) : null}
       </div>
     </section>
   );
