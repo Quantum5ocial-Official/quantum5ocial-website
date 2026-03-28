@@ -149,14 +149,14 @@ export default function GlossaryIndexPage() {
           background: "rgba(15,23,42,0.92)",
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: 12,
-            alignItems: "center",
-          }}
-        >
+              <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+          gap: 10,
+          marginBottom: 16,
+        }}
+      >
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -374,20 +374,24 @@ function TopicTile({
     <div
       className="card"
       style={{
-        padding: 14,
-        minHeight: 122,
-        borderRadius: 16,
+        padding: 12,
+        minHeight: 96,
+        borderRadius: 14,
         border: `1px solid ${color}55`,
-        background: `radial-gradient(circle at top left, ${color}18, rgba(15,23,42,0.96))`,
+        background: `radial-gradient(circle at top left, ${color}14, rgba(15,23,42,0.96))`,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
       }}
     >
       <div
         style={{
-          fontSize: 11,
+          fontSize: 10,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
           color,
-          fontWeight: 700,
+          fontWeight: 800,
+          lineHeight: 1.2,
         }}
       >
         {title}
@@ -395,8 +399,8 @@ function TopicTile({
 
       <div
         style={{
-          marginTop: 6,
-          fontSize: 22,
+          marginTop: 4,
+          fontSize: 18,
           fontWeight: 800,
           lineHeight: 1,
         }}
@@ -406,10 +410,10 @@ function TopicTile({
 
       <div
         style={{
-          marginTop: 10,
-          fontSize: 12,
-          lineHeight: 1.35,
-          opacity: 0.9,
+          marginTop: 6,
+          fontSize: 11,
+          lineHeight: 1.25,
+          opacity: 0.88,
         }}
       >
         {description}
