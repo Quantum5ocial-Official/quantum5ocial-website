@@ -87,7 +87,6 @@ export default function GlossaryIndexPage() {
 
   return (
     <section className="section">
-      {/* HEADER */}
       <div
         className="card"
         style={{
@@ -111,7 +110,8 @@ export default function GlossaryIndexPage() {
             <div className="section-title">Quantum Glossary</div>
             <div className="section-sub" style={{ maxWidth: 760 }}>
               Explore core concepts across quantum computing, hardware, algorithms,
-              error correction, communication, and the wider ecosystem.
+              error correction, communication, and the wider ecosystem. This will
+              grow into a community-built knowledge base over time.
             </div>
           </div>
 
@@ -125,19 +125,21 @@ export default function GlossaryIndexPage() {
               border: "1px solid rgba(34,211,238,0.45)",
               background:
                 "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+              boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
               fontSize: 13,
               fontWeight: 800,
+              whiteSpace: "nowrap",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
             }}
           >
-            ✍️ Contribute a term →
+            <span style={{ fontSize: 14 }}>✍️</span>
+            <span>Contribute a term →</span>
           </Link>
         </div>
       </div>
 
-      {/* SEARCH + LETTERS */}
       <div
         className="card"
         style={{
@@ -167,25 +169,41 @@ export default function GlossaryIndexPage() {
               color: "white",
               padding: "12px 14px",
               fontSize: 14,
+              outline: "none",
             }}
           />
 
-          <div style={{ fontSize: 12, opacity: 0.7 }}>
-            {visibleCount} terms
+          <div
+            style={{
+              fontSize: 12,
+              color: "rgba(226,232,240,0.72)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {visibleCount} term{visibleCount === 1 ? "" : "s"}
           </div>
         </div>
 
-        <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div
+          style={{
+            marginTop: 14,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
           {ALL_LETTERS.map((letter) => {
             const active = availableLetters.has(letter);
+
             return (
               <a
                 key={letter}
                 href={`#letter-${letter}`}
                 style={{
+                  textDecoration: "none",
                   minWidth: 34,
                   height: 34,
-                  display: "flex",
+                  display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   borderRadius: 10,
@@ -196,6 +214,7 @@ export default function GlossaryIndexPage() {
                     ? "rgba(168,85,247,0.12)"
                     : "rgba(255,255,255,0.02)",
                   color: active ? "#e9d5ff" : "rgba(148,163,184,0.4)",
+                  fontSize: 13,
                   fontWeight: 700,
                   pointerEvents: active ? "auto" : "none",
                 }}
@@ -207,35 +226,89 @@ export default function GlossaryIndexPage() {
         </div>
       </div>
 
-      {/* TERMS */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {ALL_LETTERS.map((letter) => {
-          const items = groupedTerms[letter];
-          if (!items.length) return null;
+      {visibleCount === 0 ? (
+        <div className="products-status">No glossary terms found for this search.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {ALL_LETTERS.map((letter) => {
+            const items = groupedTerms[letter] || [];
+            if (items.length === 0) return null;
 
-          return (
-            <div key={letter} id={`letter-${letter}`} className="card" style={{ padding: 18 }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color: "#c084fc" }}>
-                {letter}
-              </div>
+            return (
+              <div
+                id={`letter-${letter}`}
+                key={letter}
+                className="card"
+                style={{
+                  padding: 18,
+                  borderRadius: 18,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(15,23,42,0.96)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 28,
+                    fontWeight: 800,
+                    color: "#c084fc",
+                    marginBottom: 14,
+                  }}
+                >
+                  {letter}
+                </div>
 
-              <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                {items.map((term) => (
-                  <Link key={term.slug} href={`/glossary/${term.slug}`}>
-                    <div className="card" style={{ padding: 12 }}>
-                      <div style={{ fontWeight: 700 }}>{term.name}</div>
-                      <div style={{ marginTop: 6, display: "flex", gap: 6 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: 12,
+                  }}
+                >
+                  {items.map((term) => (
+                    <Link
+                      key={term.slug}
+                      href={`/glossary/${term.slug}`}
+                      className="card"
+                      style={{
+                        textDecoration: "none",
+                        color: "inherit",
+                        padding: 14,
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        background:
+                          "radial-gradient(circle at top left, rgba(168,85,247,0.08), rgba(15,23,42,0.96))",
+                        transition: "transform 140ms ease, border-color 140ms ease",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 700,
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        {term.name}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: 8,
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 6,
+                        }}
+                      >
                         <MetaPill text={term.category} />
                         <MetaPill text={term.level} />
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
@@ -244,10 +317,15 @@ function MetaPill({ text }: { text: string }) {
   return (
     <span
       style={{
+        display: "inline-flex",
+        alignItems: "center",
         borderRadius: 999,
         padding: "4px 8px",
         fontSize: 11,
+        fontWeight: 700,
         background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(148,163,184,0.16)",
+        color: "rgba(226,232,240,0.88)",
       }}
     >
       {text}
