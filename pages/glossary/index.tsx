@@ -1,64 +1,69 @@
 // pages/glossary/index.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { supabase } from "../../lib/supabaseClient";
 
 type GlossaryTerm = {
+  id: string;
   name: string;
   slug: string;
   category: string;
   level: "Beginner" | "Intermediate" | "Advanced";
 };
 
-const TERMS: GlossaryTerm[] = [
-  { name: "Algorithm", slug: "algorithm", category: "Software & Algorithms", level: "Beginner" },
-  { name: "Ancilla Qubit", slug: "ancilla-qubit", category: "Error Correction", level: "Intermediate" },
-  { name: "Bell State", slug: "bell-state", category: "Fundamentals", level: "Beginner" },
-  { name: "Bloch Sphere", slug: "bloch-sphere", category: "Fundamentals", level: "Beginner" },
-  { name: "Coherence", slug: "coherence", category: "Fundamentals", level: "Beginner" },
-  { name: "Controlled-NOT Gate", slug: "controlled-not-gate", category: "Gates & Circuits", level: "Beginner" },
-  { name: "Decoherence", slug: "decoherence", category: "Fundamentals", level: "Beginner" },
-  { name: "Dilution Refrigerator", slug: "dilution-refrigerator", category: "Hardware", level: "Intermediate" },
-  { name: "Entanglement", slug: "entanglement", category: "Fundamentals", level: "Beginner" },
-  { name: "Fault-Tolerant Quantum Computing", slug: "fault-tolerant-quantum-computing", category: "Error Correction", level: "Intermediate" },
-  { name: "Gate Fidelity", slug: "gate-fidelity", category: "Gates & Circuits", level: "Intermediate" },
-  { name: "Hadamard Gate", slug: "hadamard-gate", category: "Gates & Circuits", level: "Beginner" },
-  { name: "Logical Qubit", slug: "logical-qubit", category: "Error Correction", level: "Intermediate" },
-  { name: "NISQ", slug: "nisq", category: "Industry & Ecosystem", level: "Beginner" },
-  { name: "Pauli-X Gate", slug: "pauli-x-gate", category: "Gates & Circuits", level: "Beginner" },
-  { name: "Quantum Advantage", slug: "quantum-advantage", category: "Industry & Ecosystem", level: "Beginner" },
-  { name: "Quantum Circuit", slug: "quantum-circuit", category: "Gates & Circuits", level: "Beginner" },
-  { name: "Quantum Error Correction", slug: "quantum-error-correction", category: "Error Correction", level: "Intermediate" },
-  { name: "Quantum Fourier Transform", slug: "quantum-fourier-transform", category: "Software & Algorithms", level: "Intermediate" },
-  { name: "Quantum Key Distribution", slug: "quantum-key-distribution", category: "Communication & Networking", level: "Intermediate" },
-  { name: "Qubit", slug: "qubit", category: "Fundamentals", level: "Beginner" },
-  { name: "Readout Resonator", slug: "readout-resonator", category: "Hardware", level: "Intermediate" },
-  { name: "Shor's Algorithm", slug: "shors-algorithm", category: "Software & Algorithms", level: "Intermediate" },
-  { name: "Superconducting Qubit", slug: "superconducting-qubit", category: "Hardware", level: "Beginner" },
-  { name: "Superposition", slug: "superposition", category: "Fundamentals", level: "Beginner" },
-  { name: "Surface Code", slug: "surface-code", category: "Error Correction", level: "Advanced" },
-  { name: "T1 Relaxation Time", slug: "t1-relaxation-time", category: "Fundamentals", level: "Intermediate" },
-  { name: "Transmon Qubit", slug: "transmon-qubit", category: "Hardware", level: "Intermediate" },
-  { name: "Variational Quantum Eigensolver", slug: "variational-quantum-eigensolver", category: "Software & Algorithms", level: "Intermediate" },
-  { name: "Wave Function", slug: "wave-function", category: "Fundamentals", level: "Beginner" },
-];
-
 const ALL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 export default function GlossaryIndexPage() {
   const [search, setSearch] = useState("");
+  const [terms, setTerms] = useState<GlossaryTerm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadTerms = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const { data, error } = await supabase
+        .from("glossary_terms")
+        .select("id, name, slug, category, level")
+        .eq("status", "published")
+        .order("name", { ascending: true });
+
+      if (!alive) return;
+
+      if (error) {
+        console.error("Error loading glossary terms:", error);
+        setErrorMsg("Could not load glossary terms right now.");
+        setTerms([]);
+      } else {
+        setTerms((data || []) as GlossaryTerm[]);
+      }
+
+      setLoading(false);
+    };
+
+    void loadTerms();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const filteredTerms = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return TERMS;
+    if (!q) return terms;
 
-    return TERMS.filter((term) => {
+    return terms.filter((term) => {
       return (
         term.name.toLowerCase().includes(q) ||
         term.category.toLowerCase().includes(q) ||
         term.level.toLowerCase().includes(q)
       );
     });
-  }, [search]);
+  }, [search, terms]);
 
   const groupedTerms = useMemo(() => {
     const groups: Record<string, GlossaryTerm[]> = {};
@@ -226,7 +231,13 @@ export default function GlossaryIndexPage() {
         </div>
       </div>
 
-      {visibleCount === 0 ? (
+      {loading ? (
+        <div className="products-status">Loading glossary terms…</div>
+      ) : errorMsg ? (
+        <div className="products-status" style={{ color: "#f87171" }}>
+          {errorMsg}
+        </div>
+      ) : visibleCount === 0 ? (
         <div className="products-status">No glossary terms found for this search.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -266,7 +277,7 @@ export default function GlossaryIndexPage() {
                 >
                   {items.map((term) => (
                     <Link
-                      key={term.slug}
+                      key={term.id}
                       href={`/glossary/${term.slug}`}
                       className="card"
                       style={{
