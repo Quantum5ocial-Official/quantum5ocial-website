@@ -256,27 +256,40 @@ function GlossaryContributeMiddle() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [form, setForm] = useState<GlossaryFormState>({
-  name: "",
-  slug: "",
-  category: "Fundamentals",
-  level: "Beginner",
-  oneLine: "",
-  overview: "",
-  explanation: "",
-  whyItMatters: "",
-  intuition: "",
-  visualTitle: "",
-  visualDescription: "",
-  visualMediaUrl: "",
-  visualMediaType: "",
-  visualCaption: "",
-  visualLink: "",
-  math: "",
-  furtherReading: "",
-});
+    name: "",
+    slug: "",
+    category: "Fundamentals",
+    level: "Beginner",
+    oneLine: "",
+    overview: "",
+    explanation: "",
+    whyItMatters: "",
+    intuition: "",
+    visualTitle: "",
+    visualDescription: "",
+    visualMediaUrl: "",
+    visualMediaType: "",
+    visualCaption: "",
+    visualLink: "",
+    math: "",
+    furtherReading: "",
+  });
 
   const derivedSlug = useMemo(() => slugify(form.name), [form.name]);
   const effectiveSlug = form.slug.trim() || derivedSlug;
+
+  const inferredVisualType: "image" | "video" =
+    form.visualMediaType === "video" ||
+    /\.(mp4|webm|ogg|mov|m4v)$/i.test(form.visualMediaUrl)
+      ? "video"
+      : "image";
+
+  const hasVisualContent =
+    !!form.visualTitle.trim() ||
+    !!form.visualDescription.trim() ||
+    !!form.visualMediaUrl.trim() ||
+    !!form.visualCaption.trim() ||
+    !!form.visualLink.trim();
 
   const updateField = <K extends keyof GlossaryFormState>(
     key: K,
@@ -344,7 +357,7 @@ function GlossaryContributeMiddle() {
     }
   };
 
-  const requiredMissing =
+      const requiredMissing =
     !form.name.trim() ||
     !effectiveSlug.trim() ||
     !form.category.trim() ||
@@ -375,21 +388,21 @@ function GlossaryContributeMiddle() {
       explanation: form.explanation.trim(),
       whyItMatters: form.whyItMatters.trim() || undefined,
       intuition: form.intuition.trim() || undefined,
-      visual: form.visualMediaUrl.trim()
+      visual: hasVisualContent
         ? {
             title: form.visualTitle.trim() || undefined,
             description: form.visualDescription.trim() || undefined,
-            mediaUrl: form.visualMediaUrl.trim(),
-            mediaType: form.visualMediaType || undefined,
+            mediaUrl: form.visualMediaUrl.trim() || undefined,
+            mediaType: form.visualMediaUrl.trim() ? inferredVisualType : undefined,
             caption: form.visualCaption.trim() || undefined,
             link: form.visualLink.trim() || undefined,
           }
         : undefined,
       math: form.math.trim() || undefined,
       furtherReading: form.furtherReading
-  .split("\n")
-  .map((item) => item.trim())
-  .filter(Boolean),
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
     };
 
     const { error } = await supabase.from("glossary_contributions").insert({
@@ -764,7 +777,7 @@ function GlossaryContributeMiddle() {
           />
         </FormSection>
 
-        <FormSection
+                <FormSection
           id="visual"
           title="Visual"
           subtitle="Optional media that can later appear as an image or video card."
@@ -888,7 +901,7 @@ function GlossaryContributeMiddle() {
             />
           </div>
 
-          {form.visualMediaUrl.trim() ? (
+          {hasVisualContent ? (
             <div style={{ marginTop: 18 }}>
               <div
                 style={{
@@ -937,35 +950,51 @@ function GlossaryContributeMiddle() {
                   </div>
                 ) : null}
 
-                {form.visualMediaType === "video" ? (
-                  <video
-                    src={form.visualMediaUrl}
-                    controls
-                    style={{
-                      width: "100%",
-                      maxHeight: 420,
-                      borderRadius: 14,
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      marginBottom: form.visualCaption.trim() ? 10 : 0,
-                      display: "block",
-                      background: "rgba(2,6,23,0.35)",
-                    }}
-                  />
+                {form.visualMediaUrl.trim() ? (
+                  inferredVisualType === "video" ? (
+                    <video
+                      src={form.visualMediaUrl}
+                      controls
+                      style={{
+                        width: "100%",
+                        maxHeight: 420,
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.16)",
+                        marginBottom: form.visualCaption.trim() ? 10 : 0,
+                        display: "block",
+                        background: "rgba(2,6,23,0.35)",
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={form.visualMediaUrl}
+                      alt={form.visualTitle || "Visual preview"}
+                      style={{
+                        width: "100%",
+                        maxHeight: 420,
+                        objectFit: "contain",
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.16)",
+                        marginBottom: form.visualCaption.trim() ? 10 : 0,
+                        display: "block",
+                        background: "rgba(2,6,23,0.35)",
+                      }}
+                    />
+                  )
                 ) : (
-                  <img
-                    src={form.visualMediaUrl}
-                    alt={form.visualTitle || "Visual preview"}
+                  <div
                     style={{
-                      width: "100%",
-                      maxHeight: 420,
-                      objectFit: "contain",
                       borderRadius: 14,
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      marginBottom: form.visualCaption.trim() ? 10 : 0,
-                      display: "block",
-                      background: "rgba(2,6,23,0.35)",
+                      border: "1px dashed rgba(148,163,184,0.28)",
+                      background: "rgba(255,255,255,0.02)",
+                      padding: "20px 16px",
+                      color: "rgba(226,232,240,0.58)",
+                      textAlign: "center",
+                      fontSize: 13,
                     }}
-                  />
+                  >
+                    No media uploaded yet
+                  </div>
                 )}
 
                 {form.visualCaption.trim() ? (
@@ -1017,19 +1046,19 @@ function GlossaryContributeMiddle() {
         </FormSection>
 
         <FormSection
-  id="further-reading"
-  title="Further reading"
-  subtitle="Add references, reading materials, papers, articles, or useful links. Enter one item per line."
->
-  <FieldLabel>Further reading</FieldLabel>
-  <textarea
-    value={form.furtherReading}
-    onChange={(e) => updateField("furtherReading", e.target.value)}
-    placeholder={`e.g.\nhttps://example.com/article\nNielsen & Chuang, Quantum Computation and Quantum Information\nhttps://en.wikipedia.org/wiki/Qubit`}
-    style={inputStyle(true)}
-  />
-</FormSection>
-        
+          id="further-reading"
+          title="Further reading"
+          subtitle="Add references, reading materials, papers, articles, or useful links. Enter one item per line."
+        >
+          <FieldLabel>Further reading</FieldLabel>
+          <textarea
+            value={form.furtherReading}
+            onChange={(e) => updateField("furtherReading", e.target.value)}
+            placeholder={`e.g.\nhttps://example.com/article\nNielsen & Chuang, Quantum Computation and Quantum Information\nhttps://en.wikipedia.org/wiki/Qubit`}
+            style={inputStyle(true)}
+          />
+        </FormSection>
+
         <div
           className="card"
           style={{
