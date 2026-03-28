@@ -1,5 +1,5 @@
 // pages/glossary/[slug]/edit.tsx
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 
@@ -64,8 +64,6 @@ const GLOSSARY_ENTRIES: Record<string, GlossaryEntry> = {
 };
 
 type GlossaryFormState = {
-  name: string;
-  slug: string;
   category: string;
   level: GlossaryLevel;
   oneLine: string;
@@ -110,8 +108,6 @@ const FORM_SECTIONS = [
 
 function toInitialForm(entry: GlossaryEntry): GlossaryFormState {
   return {
-    name: entry.name,
-    slug: entry.slug,
     category: entry.category,
     level: entry.level,
     oneLine: entry.oneLine,
@@ -363,8 +359,6 @@ function GlossaryEditMiddle() {
   };
 
   const requiredMissing =
-    !form.name.trim() ||
-    !form.slug.trim() ||
     !form.category.trim() ||
     !form.level.trim() ||
     !form.oneLine.trim() ||
@@ -380,8 +374,8 @@ function GlossaryEditMiddle() {
       originalSlug: entry.slug,
       suggestionType: "edit_existing_term",
       proposedEntry: {
-        name: form.name.trim(),
-        slug: form.slug.trim(),
+        name: entry.name,
+        slug: entry.slug,
         category: form.category,
         level: form.level,
         oneLine: form.oneLine.trim(),
@@ -421,6 +415,23 @@ function GlossaryEditMiddle() {
 
   return (
     <section className="section">
+      <div style={{ marginBottom: 12 }}>
+        <Link
+          href={`/glossary/${entry.slug}`}
+          style={{
+            textDecoration: "none",
+            fontSize: 13,
+            color: "#7dd3fc",
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          ← Back to term
+        </Link>
+      </div>
+
       <div
         className="card"
         style={{
@@ -530,7 +541,7 @@ function GlossaryEditMiddle() {
         <FormSection
           id="basic-info"
           title="Basic info"
-          subtitle="You can update the term identity and summary if needed."
+          subtitle="The term identity is fixed. You can suggest changes to category, level, and summary."
         >
           <div
             style={{
@@ -540,21 +551,31 @@ function GlossaryEditMiddle() {
             }}
           >
             <div>
-              <FieldLabel required>Term name</FieldLabel>
-              <input
-                value={form.name}
-                onChange={(e) => updateField("name", e.target.value)}
-                style={inputStyle()}
-              />
+              <FieldLabel>Term name</FieldLabel>
+              <div
+                style={{
+                  ...inputStyle(),
+                  display: "flex",
+                  alignItems: "center",
+                  opacity: 0.85,
+                }}
+              >
+                {entry.name}
+              </div>
             </div>
 
             <div>
-              <FieldLabel required>Slug</FieldLabel>
-              <input
-                value={form.slug}
-                onChange={(e) => updateField("slug", e.target.value)}
-                style={inputStyle()}
-              />
+              <FieldLabel>Slug</FieldLabel>
+              <div
+                style={{
+                  ...inputStyle(),
+                  display: "flex",
+                  alignItems: "center",
+                  opacity: 0.85,
+                }}
+              >
+                {entry.slug}
+              </div>
             </div>
 
             <div>
@@ -746,7 +767,8 @@ function GlossaryEditMiddle() {
                 color: "rgba(226,232,240,0.72)",
               }}
             >
-              Required: basic info, overview, explanation, and a short edit note.
+              Required: category, level, one-line summary, overview, explanation, and
+              a short edit note.
             </div>
 
             <button
