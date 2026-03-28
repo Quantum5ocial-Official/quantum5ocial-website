@@ -192,16 +192,7 @@ function GlossarySection({
         {title}
       </div>
 
-      <div
-        style={{
-          fontSize: 14,
-          lineHeight: 1.7,
-          color: "rgba(226,232,240,0.86)",
-          whiteSpace: "pre-wrap",
-        }}
-      >
-        {children}
-      </div>
+      {children}
     </section>
   );
 }
@@ -431,22 +422,59 @@ function GlossaryMiddle({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <GlossarySection id="overview" title="Overview">
-          {entry.overview}
+          <div
+    style={{
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: "rgba(226,232,240,0.86)",
+      whiteSpace: "pre-wrap",
+    }}
+  >
+    {entry.overview}
+  </div>
         </GlossarySection>
 
         <GlossarySection id="explanation" title="Explanation">
-          {entry.explanation}
+          <div
+    style={{
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: "rgba(226,232,240,0.86)",
+      whiteSpace: "pre-wrap",
+    }}
+  >
+    {entry.explanation}
+  </div>
         </GlossarySection>
 
         {entry.whyItMatters ? (
           <GlossarySection id="why-it-matters" title="Why it matters">
-            {entry.whyItMatters}
+            <div
+    style={{
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: "rgba(226,232,240,0.86)",
+      whiteSpace: "pre-wrap",
+    }}
+  >
+    {entry.whyItMatters}
+  </div>
+            
           </GlossarySection>
         ) : null}
 
         {entry.intuition ? (
           <GlossarySection id="intuition" title="Intuition / Example">
-            {entry.intuition}
+            <div
+    style={{
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: "rgba(226,232,240,0.86)",
+      whiteSpace: "pre-wrap",
+    }}
+  >
+    {entry.intuition}
+  </div>
           </GlossarySection>
         ) : null}
 
@@ -461,11 +489,14 @@ function GlossaryMiddle({
                     src={entry.visual.mediaUrl}
                     controls
                     style={{
-                      width: "100%",
-                      borderRadius: 14,
-                      border: "1px solid rgba(148,163,184,0.16)",
-                      display: "block",
-                    }}
+  width: "100%",
+  maxHeight: 420,
+  objectFit: "contain",
+  borderRadius: 14,
+  border: "1px solid rgba(148,163,184,0.16)",
+  display: "block",
+  background: "rgba(2,6,23,0.35)",
+}}
                   />
                 ) : (
                   <img
@@ -527,7 +558,17 @@ function GlossaryMiddle({
 
         {entry.math ? (
           <GlossarySection id="math" title="Mathematical form">
-            {entry.math}
+            <div
+    style={{
+      fontSize: 14,
+      lineHeight: 1.7,
+      color: "rgba(226,232,240,0.86)",
+      whiteSpace: "pre-wrap",
+    }}
+  >
+    {entry.math}
+  </div>
+            
           </GlossarySection>
         ) : null}
 
@@ -535,20 +576,39 @@ function GlossaryMiddle({
         {entry.furtherReading && entry.furtherReading.length > 0 ? (
           <GlossarySection id="further-reading" title="Further reading">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {entry.furtherReading.map((item) => (
-                <Link
-                  key={`${item.label}-${item.href}`}
-                  href={item.href}
-                  style={{
-                    textDecoration: "none",
-                    color: "#7dd3fc",
-                    fontWeight: 600,
-                    fontSize: 14,
-                  }}
-                >
-                  {item.label} →
-                </Link>
-              ))}
+              {entry.furtherReading.map((item) => {
+  const isExternal = /^https?:\/\//i.test(item.href);
+
+  return isExternal ? (
+    <a
+      key={`${item.label}-${item.href}`}
+      href={item.href}
+      target="_blank"
+      rel="noreferrer"
+      style={{
+        textDecoration: "none",
+        color: "#7dd3fc",
+        fontWeight: 600,
+        fontSize: 14,
+      }}
+    >
+      {item.label} →
+    </a>
+  ) : (
+    <Link
+      key={`${item.label}-${item.href}`}
+      href={item.href}
+      style={{
+        textDecoration: "none",
+        color: "#7dd3fc",
+        fontWeight: 600,
+        fontSize: 14,
+      }}
+    >
+      {item.label} →
+    </Link>
+  );
+})}
             </div>
           </GlossarySection>
         ) : null}
