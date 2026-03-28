@@ -415,6 +415,16 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
       </div>
 
       <div className="sidebar-card">
+        <div
+    style={{
+      fontWeight: 800,
+      fontSize: 15,
+      marginBottom: 10,
+      color: "rgba(226,232,240,0.96)",
+    }}
+  >
+    Quick fact
+  </div>
         {entry.interestingFact ? (
   <div
     style={{
@@ -843,25 +853,26 @@ function GlossaryTwoColumnShell() {
       const { data: termRow, error: termError } = await supabase
         .from("glossary_terms")
         .select(`
-          id,
-          name,
-          slug,
-          category,
-          level,
-          one_line,
-          overview,
-          explanation,
-          why_it_matters,
-          intuition,
-          math,
-          visual_title,
-          visual_description,
-          visual_media_url,
-          visual_media_type,
-          visual_caption,
-          visual_link,
-          status
-        `)
+  id,
+  name,
+  slug,
+  category,
+  level,
+  one_line,
+  overview,
+  explanation,
+  why_it_matters,
+  intuition,
+  math,
+  visual_title,
+  visual_description,
+  visual_media_url,
+  visual_media_type,
+  visual_caption,
+  visual_link,
+  interesting_fact,
+  status
+`)
         .eq("slug", slug)
         .eq("status", "published")
         .maybeSingle<GlossaryTermRow>();
