@@ -177,7 +177,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
             color: "rgba(226,232,240,0.75)",
           }}
         >
-          This page is part of the Quantum  and will later support community
+          This page is part of the Quantum Glossary and will later support community
           contributions, edits, and review.
         </div>
       </div>
@@ -198,7 +198,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
           {entry.relatedTerms.map((term) => (
             <Link
               key={term.slug}
-              href={`//${term.slug}`}
+              href={`/glossary/${term.slug}`}
               style={{
                 textDecoration: "none",
               }}
@@ -212,11 +212,11 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
   );
 }
 
-function Middle() {
+function GlossaryMiddle() {
   const router = useRouter();
   const slugParam = router.query.slug;
   const slug = Array.isArray(slugParam) ? slugParam[0] : slugParam || "";
-  const entry = slug ? _ENTRIES[slug] : null;
+  const entry = slug ? GLOSSARY_ENTRIES[slug] : null;
 
   if (!slug) {
     return <section className="section" />;
@@ -245,19 +245,8 @@ function Middle() {
               marginBottom: 14,
             }}
           >
-            We haven’t added this  term yet.
+            We haven’t added this glossary term yet.
           </div>
-
-          <Link
-            href="/"
-            style={{
-              textDecoration: "none",
-              color: "#7dd3fc",
-              fontWeight: 700,
-            }}
-          >
-            ← Back to 
-          </Link>
         </div>
       </section>
     );
@@ -275,7 +264,6 @@ function Middle() {
           border: "1px solid rgba(148,163,184,0.35)",
         }}
       >
-
         <div
           style={{
             display: "flex",
