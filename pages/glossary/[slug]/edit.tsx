@@ -1,5 +1,5 @@
 // pages/glossary/[slug]/edit.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../../lib/supabaseClient";
@@ -21,12 +21,14 @@ type GlossaryEntry = {
   visual?: {
     title?: string;
     description?: string;
-    imageUrl?: string;
+    mediaUrl?: string;
+    mediaType?: "image" | "video";
     caption?: string;
+    link?: string;
   };
   math?: string;
   relatedTerms: { name: string; slug: string }[];
-  furtherReading?: { label: string; href: string }[];
+  furtherReading?: string[];
 };
 
 type GlossaryTermRow = {
@@ -43,8 +45,10 @@ type GlossaryTermRow = {
   math: string | null;
   visual_title: string | null;
   visual_description: string | null;
-  visual_image_url: string | null;
+  visual_media_url: string | null;
+  visual_media_type: "image" | "video" | null;
   visual_caption: string | null;
+  visual_link: string | null;
   status: string;
 };
 
@@ -71,10 +75,11 @@ type GlossaryFormState = {
   intuition: string;
   visualTitle: string;
   visualDescription: string;
-  visualImageUrl: string;
+  visualMediaUrl: string;
+  visualMediaType: "image" | "video" | "";
   visualCaption: string;
+  visualLink: string;
   math: string;
-  relatedTerms: string;
   furtherReading: string;
   editNote: string;
 };
@@ -99,7 +104,6 @@ const FORM_SECTIONS = [
   { id: "intuition", label: "Intuition / Example" },
   { id: "visual", label: "Visual" },
   { id: "math", label: "Mathematical form" },
-  { id: "related-terms", label: "Related terms" },
   { id: "further-reading", label: "Further reading" },
   { id: "edit-note", label: "Edit note" },
 ] as const;
@@ -107,13 +111,14 @@ const FORM_SECTIONS = [
 function mapTermRowToEntry(
   row: GlossaryTermRow,
   relatedTerms: { name: string; slug: string }[],
-  furtherReading: { label: string; href: string }[]
+  furtherReading: string[]
 ): GlossaryEntry {
   const hasVisual =
     !!row.visual_title ||
     !!row.visual_description ||
-    !!row.visual_image_url ||
-    !!row.visual_caption;
+    !!row.visual_media_url ||
+    !!row.visual_caption ||
+    !!row.visual_link;
 
   return {
     id: row.id,
@@ -130,8 +135,10 @@ function mapTermRowToEntry(
       ? {
           title: row.visual_title || undefined,
           description: row.visual_description || undefined,
-          imageUrl: row.visual_image_url || undefined,
+          mediaUrl: row.visual_media_url || undefined,
+          mediaType: row.visual_media_type || undefined,
           caption: row.visual_caption || undefined,
+          link: row.visual_link || undefined,
         }
       : undefined,
     math: row.math || undefined,
@@ -151,13 +158,12 @@ function toInitialForm(entry: GlossaryEntry): GlossaryFormState {
     intuition: entry.intuition || "",
     visualTitle: entry.visual?.title || "",
     visualDescription: entry.visual?.description || "",
-    visualImageUrl: entry.visual?.imageUrl || "",
+    visualMediaUrl: entry.visual?.mediaUrl || "",
+    visualMediaType: entry.visual?.mediaType || "",
     visualCaption: entry.visual?.caption || "",
+    visualLink: entry.visual?.link || "",
     math: entry.math || "",
-    relatedTerms: entry.relatedTerms.map((t) => t.name).join(", "),
-    furtherReading: (entry.furtherReading || [])
-      .map((item) => `${item.label} — ${item.href}`)
-      .join("\n"),
+    furtherReading: (entry.furtherReading || []).join("\n"),
     editNote: "",
   };
 }
@@ -368,26 +374,26 @@ function GlossaryEditMiddle() {
 
       const { data: termRow, error: termError } = await supabase
         .from("glossary_terms")
-        .select(
-          `
-            id,
-            name,
-            slug,
-            category,
-            level,
-            one_line,
-            overview,
-            explanation,
-            why_it_matters,
-            intuition,
-            math,
-            visual_title,
-            visual_description,
-            visual_image_url,
-            visual_caption,
-            status
-          `
-        )
+        .select(`
+          id,
+          name,
+          slug,
+          category,
+          level,
+          one_line,
+          overview,
+          explanation,
+          why_it_matters,
+          intuition,
+          math,
+          visual_title,
+          visual_description,
+          visual_media_url,
+          visual_media_type,
+          visual_caption,
+          visual_link,
+          status
+        `)
         .eq("slug", slug)
         .eq("status", "published")
         .maybeSingle<GlossaryTermRow>();
@@ -414,14 +420,12 @@ function GlossaryEditMiddle() {
 
       const { data: relationRows, error: relationError } = await supabase
         .from("glossary_term_relations")
-        .select(
-          `
-            related:related_term_id (
-              name,
-              slug
-            )
-          `
-        )
+        .select(`
+          related:related_term_id (
+            name,
+            slug
+          )
+        `)
         .eq("term_id", termRow.id)
         .returns<GlossaryRelationRow[]>();
 
@@ -450,10 +454,7 @@ function GlossaryEditMiddle() {
       }
 
       const furtherReading =
-        (furtherRows || []).map((item) => ({
-          label: item.label,
-          href: item.href,
-        })) || [];
+        (furtherRows || []).map((item) => item.href || item.label).filter(Boolean) || [];
 
       const mapped = mapTermRowToEntry(termRow, relatedTerms, furtherReading);
 
@@ -477,6 +478,19 @@ function GlossaryEditMiddle() {
   ) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
+
+  const inferredVisualType: "image" | "video" =
+    form?.visualMediaType === "video" ||
+    /\.(mp4|webm|ogg|mov|m4v)$/i.test(form?.visualMediaUrl || "")
+      ? "video"
+      : "image";
+
+  const hasVisualContent =
+    !!form?.visualTitle.trim() ||
+    !!form?.visualDescription.trim() ||
+    !!form?.visualMediaUrl.trim() ||
+    !!form?.visualCaption.trim() ||
+    !!form?.visualLink.trim();
 
   const requiredMissing =
     !form ||
@@ -512,23 +526,17 @@ function GlossaryEditMiddle() {
         explanation: form.explanation.trim(),
         whyItMatters: form.whyItMatters.trim() || undefined,
         intuition: form.intuition.trim() || undefined,
-        visual:
-          form.visualTitle.trim() ||
-          form.visualDescription.trim() ||
-          form.visualImageUrl.trim() ||
-          form.visualCaption.trim()
-            ? {
-                title: form.visualTitle.trim() || undefined,
-                description: form.visualDescription.trim() || undefined,
-                imageUrl: form.visualImageUrl.trim() || undefined,
-                caption: form.visualCaption.trim() || undefined,
-              }
-            : undefined,
+        visual: hasVisualContent
+          ? {
+              title: form.visualTitle.trim() || undefined,
+              description: form.visualDescription.trim() || undefined,
+              mediaUrl: form.visualMediaUrl.trim() || undefined,
+              mediaType: form.visualMediaUrl.trim() ? inferredVisualType : undefined,
+              caption: form.visualCaption.trim() || undefined,
+              link: form.visualLink.trim() || undefined,
+            }
+          : undefined,
         math: form.math.trim() || undefined,
-        relatedTerms: form.relatedTerms
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
         furtherReading: form.furtherReading
           .split("\n")
           .map((item) => item.trim())
@@ -703,96 +711,96 @@ function GlossaryEditMiddle() {
       ) : null}
 
       {submitted ? (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(2,6,23,0.68)",
-      backdropFilter: "blur(6px)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 1000,
-      padding: 20,
-    }}
-  >
-    <div
-      className="card"
-      style={{
-        width: "100%",
-        maxWidth: 520,
-        padding: 24,
-        borderRadius: 22,
-        border: "1px solid rgba(34,197,94,0.28)",
-        background:
-          "radial-gradient(circle at top left, rgba(34,197,94,0.12), rgba(15,23,42,0.98))",
-        boxShadow: "0 24px 60px rgba(2,6,23,0.55)",
-      }}
-    >
-      <div
-        style={{
-          width: 54,
-          height: 54,
-          borderRadius: 16,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 16,
-          fontSize: 24,
-          background: "rgba(34,197,94,0.12)",
-          border: "1px solid rgba(34,197,94,0.28)",
-        }}
-      >
-        ✅
-      </div>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(2,6,23,0.68)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              width: "100%",
+              maxWidth: 520,
+              padding: 24,
+              borderRadius: 22,
+              border: "1px solid rgba(34,197,94,0.28)",
+              background:
+                "radial-gradient(circle at top left, rgba(34,197,94,0.12), rgba(15,23,42,0.98))",
+              boxShadow: "0 24px 60px rgba(2,6,23,0.55)",
+            }}
+          >
+            <div
+              style={{
+                width: 54,
+                height: 54,
+                borderRadius: 16,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 16,
+                fontSize: 24,
+                background: "rgba(34,197,94,0.12)",
+                border: "1px solid rgba(34,197,94,0.28)",
+              }}
+            >
+              ✅
+            </div>
 
-      <div
-        style={{
-          fontSize: 22,
-          fontWeight: 800,
-          color: "rgba(226,232,240,0.97)",
-          marginBottom: 10,
-        }}
-      >
-        Edit under review
-      </div>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 800,
+                color: "rgba(226,232,240,0.97)",
+                marginBottom: 10,
+              }}
+            >
+              Edit under review
+            </div>
 
-      <div
-        style={{
-          fontSize: 14,
-          lineHeight: 1.7,
-          color: "rgba(226,232,240,0.82)",
-          marginBottom: 20,
-        }}
-      >
-        Your edit suggestion has been submitted successfully and is now under review.
-        It will appear in the main glossary once approved.
-      </div>
+            <div
+              style={{
+                fontSize: 14,
+                lineHeight: 1.7,
+                color: "rgba(226,232,240,0.82)",
+                marginBottom: 20,
+              }}
+            >
+              Your edit suggestion has been submitted successfully and is now under review.
+              It will appear in the main glossary once approved.
+            </div>
 
-      <button
-        type="button"
-        onClick={() => router.push("/glossary")}
-        style={{
-          color: "white",
-          padding: "11px 18px",
-          borderRadius: 14,
-          border: "1px solid rgba(34,211,238,0.45)",
-          background:
-            "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
-          boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
-          fontSize: 13,
-          fontWeight: 800,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-          cursor: "pointer",
-        }}
-      >
-        Okay
-      </button>
-    </div>
-  </div>
-) : null}
+            <button
+              type="button"
+              onClick={() => router.push("/glossary")}
+              style={{
+                color: "white",
+                padding: "11px 18px",
+                borderRadius: 14,
+                border: "1px solid rgba(34,211,238,0.45)",
+                background:
+                  "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+                boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
+                fontSize: 13,
+                fontWeight: 800,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+              }}
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <form
         id="glossary-edit-form"
@@ -916,31 +924,36 @@ function GlossaryEditMiddle() {
           />
         </FormSection>
 
-        <FormSection id="visual" title="Visual">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 14,
-            }}
-          >
-            <div>
-              <FieldLabel>Visual title</FieldLabel>
-              <input
-                value={form.visualTitle}
-                onChange={(e) => updateField("visualTitle", e.target.value)}
-                style={inputStyle()}
-              />
-            </div>
+        <FormSection
+          id="visual"
+          title="Visual"
+          subtitle="Optional visual block with media, caption, description, and link."
+        >
+          <div>
+            <FieldLabel>Visual title</FieldLabel>
+            <input
+              value={form.visualTitle}
+              onChange={(e) => updateField("visualTitle", e.target.value)}
+              style={inputStyle()}
+            />
+          </div>
 
-            <div>
-              <FieldLabel>Visual image URL</FieldLabel>
-              <input
-                value={form.visualImageUrl}
-                onChange={(e) => updateField("visualImageUrl", e.target.value)}
-                style={inputStyle()}
-              />
-            </div>
+          <div style={{ marginTop: 14 }}>
+            <FieldLabel>Media URL</FieldLabel>
+            <input
+              value={form.visualMediaUrl}
+              onChange={(e) => updateField("visualMediaUrl", e.target.value)}
+              style={inputStyle()}
+            />
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <FieldLabel>Visual caption</FieldLabel>
+            <input
+              value={form.visualCaption}
+              onChange={(e) => updateField("visualCaption", e.target.value)}
+              style={inputStyle()}
+            />
           </div>
 
           <div style={{ marginTop: 14 }}>
@@ -953,13 +966,140 @@ function GlossaryEditMiddle() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <FieldLabel>Visual caption</FieldLabel>
+            <FieldLabel>Additional link</FieldLabel>
             <input
-              value={form.visualCaption}
-              onChange={(e) => updateField("visualCaption", e.target.value)}
+              value={form.visualLink}
+              onChange={(e) => updateField("visualLink", e.target.value)}
               style={inputStyle()}
             />
           </div>
+
+          {hasVisualContent ? (
+            <div style={{ marginTop: 18 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: "#a5f3fc",
+                  marginBottom: 8,
+                }}
+              >
+                Preview
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  padding: 18,
+                  borderRadius: 18,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background:
+                    "radial-gradient(circle at top left, rgba(34,211,238,0.08), rgba(15,23,42,0.96))",
+                }}
+              >
+                {form.visualTitle.trim() ? (
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 800,
+                      color: "rgba(226,232,240,0.96)",
+                      marginBottom: 10,
+                    }}
+                  >
+                    {form.visualTitle}
+                  </div>
+                ) : null}
+
+                {form.visualDescription.trim() ? (
+                  <div
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.65,
+                      color: "rgba(226,232,240,0.82)",
+                      marginBottom: 14,
+                    }}
+                  >
+                    {form.visualDescription}
+                  </div>
+                ) : null}
+
+                {form.visualMediaUrl.trim() ? (
+                  inferredVisualType === "video" ? (
+                    <video
+                      src={form.visualMediaUrl}
+                      controls
+                      style={{
+                        width: "100%",
+                        maxHeight: 420,
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.16)",
+                        display: "block",
+                        background: "rgba(2,6,23,0.35)",
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={form.visualMediaUrl}
+                      alt={form.visualTitle || "Visual preview"}
+                      style={{
+                        width: "100%",
+                        maxHeight: 420,
+                        objectFit: "contain",
+                        borderRadius: 14,
+                        border: "1px solid rgba(148,163,184,0.16)",
+                        display: "block",
+                        background: "rgba(2,6,23,0.35)",
+                      }}
+                    />
+                  )
+                ) : (
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      border: "1px dashed rgba(148,163,184,0.28)",
+                      background: "rgba(255,255,255,0.02)",
+                      padding: "20px 16px",
+                      color: "rgba(226,232,240,0.58)",
+                      textAlign: "center",
+                      fontSize: 13,
+                    }}
+                  >
+                    No media added
+                  </div>
+                )}
+
+                {form.visualCaption.trim() ? (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(226,232,240,0.65)",
+                      marginTop: 10,
+                    }}
+                  >
+                    {form.visualCaption}
+                  </div>
+                ) : null}
+
+                {form.visualLink.trim() ? (
+                  <a
+                    href={form.visualLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-block",
+                      marginTop: 12,
+                      textDecoration: "none",
+                      color: "#7dd3fc",
+                      fontWeight: 700,
+                      fontSize: 13,
+                    }}
+                  >
+                    Open link →
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </FormSection>
 
         <FormSection id="math" title="Mathematical form">
@@ -971,16 +1111,11 @@ function GlossaryEditMiddle() {
           />
         </FormSection>
 
-        <FormSection id="related-terms" title="Related terms">
-          <FieldLabel>Related terms</FieldLabel>
-          <input
-            value={form.relatedTerms}
-            onChange={(e) => updateField("relatedTerms", e.target.value)}
-            style={inputStyle()}
-          />
-        </FormSection>
-
-        <FormSection id="further-reading" title="Further reading">
+        <FormSection
+          id="further-reading"
+          title="Further reading"
+          subtitle="Add references, reading materials, papers, articles, or useful links. Enter one item per line."
+        >
           <FieldLabel>Further reading</FieldLabel>
           <textarea
             value={form.furtherReading}
@@ -998,7 +1133,7 @@ function GlossaryEditMiddle() {
           <textarea
             value={form.editNote}
             onChange={(e) => updateField("editNote", e.target.value)}
-            placeholder="e.g. Clarified the explanation of superposition and improved the mathematical notation."
+            placeholder="e.g. Clarified the explanation, improved notation, and updated the visual block."
             style={inputStyle(true)}
           />
         </FormSection>
