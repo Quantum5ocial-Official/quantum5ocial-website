@@ -314,7 +314,10 @@ function GlossaryContributeMiddle() {
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+  console.error("Glossary media upload error:", uploadError);
+  throw uploadError;
+}
 
       const { data } = supabase.storage
         .from("glossary-media")
@@ -368,21 +371,16 @@ function GlossaryContributeMiddle() {
       explanation: form.explanation.trim(),
       whyItMatters: form.whyItMatters.trim() || undefined,
       intuition: form.intuition.trim() || undefined,
-      visual:
-        form.visualTitle.trim() ||
-        form.visualDescription.trim() ||
-        form.visualMediaUrl.trim() ||
-        form.visualCaption.trim() ||
-        form.visualLink.trim()
-          ? {
-              title: form.visualTitle.trim() || undefined,
-              description: form.visualDescription.trim() || undefined,
-              mediaUrl: form.visualMediaUrl.trim() || undefined,
-              mediaType: form.visualMediaType || undefined,
-              caption: form.visualCaption.trim() || undefined,
-              link: form.visualLink.trim() || undefined,
-            }
-          : undefined,
+      visual: form.visualMediaUrl.trim()
+  ? {
+      title: form.visualTitle.trim() || undefined,
+      description: form.visualDescription.trim() || undefined,
+      mediaUrl: form.visualMediaUrl.trim(),
+      mediaType: form.visualMediaType || undefined,
+      caption: form.visualCaption.trim() || undefined,
+      link: form.visualLink.trim() || undefined,
+    }
+  : undefined,
       math: form.math.trim() || undefined,
       relatedTerms: form.relatedTerms
         .split(",")
@@ -788,39 +786,23 @@ function GlossaryContributeMiddle() {
               />
             </div>
 
-            <div>
-              <FieldLabel>Media type</FieldLabel>
-              <select
-                value={form.visualMediaType}
-                onChange={(e) =>
-                  updateField(
-                    "visualMediaType",
-                    e.target.value as "image" | "video" | ""
-                  )
-                }
-                style={inputStyle()}
-              >
-                <option value="">Select type</option>
-                <option value="image">Image</option>
-                <option value="video">Video</option>
-              </select>
-            </div>
           </div>
 
           <div style={{ marginTop: 14 }}>
             <FieldLabel>Upload media</FieldLabel>
             <input
-              type="file"
-              accept="image/*,video/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleVisualUpload(file);
-              }}
-              style={{
-                ...inputStyle(),
-                padding: "10px 12px",
-              }}
-            />
+  type="file"
+  accept="image/*,video/*"
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (file) void handleVisualUpload(file);
+    e.currentTarget.value = "";
+  }}
+  style={{
+    ...inputStyle(),
+    padding: "10px 12px",
+  }}
+/>
             <div
               style={{
                 marginTop: 6,
@@ -937,12 +919,15 @@ function GlossaryContributeMiddle() {
             src={form.visualMediaUrl}
             alt={form.visualTitle || "Visual preview"}
             style={{
-              width: "100%",
-              borderRadius: 14,
-              border: "1px solid rgba(148,163,184,0.16)",
-              marginBottom: form.visualCaption.trim() ? 10 : 0,
-              display: "block",
-            }}
+  width: "100%",
+  maxHeight: 420,
+  objectFit: "contain",
+  borderRadius: 14,
+  border: "1px solid rgba(148,163,184,0.16)",
+  marginBottom: form.visualCaption.trim() ? 10 : 0,
+  display: "block",
+  background: "rgba(2,6,23,0.35)",
+}}
           />
         )
       ) : (
