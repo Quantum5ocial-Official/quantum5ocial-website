@@ -441,7 +441,33 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
 
     {entry.interestingFact}
   </div>
-) : null}
+) : (
+  <div
+    style={{
+      marginTop: 10,
+      padding: "10px 12px",
+      borderRadius: 12,
+      border: "1px dashed rgba(148,163,184,0.25)",
+      background: "rgba(255,255,255,0.02)",
+      fontSize: 13,
+      lineHeight: 1.6,
+      color: "rgba(226,232,240,0.6)",
+    }}
+  >
+    <div
+      style={{
+        fontWeight: 700,
+        fontSize: 12,
+        marginBottom: 4,
+        color: "rgba(148,163,184,0.8)",
+      }}
+    >
+      Interesting fact
+    </div>
+
+    Know something surprising about this concept? Add an interesting fact and help others see it differently.
+  </div>
+)}
 
         
       </div>
