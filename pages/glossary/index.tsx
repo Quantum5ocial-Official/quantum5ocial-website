@@ -238,37 +238,37 @@ export default function GlossaryIndexPage() {
           title="Fundamentals"
           count={TERMS.filter((t) => t.category === "Fundamentals").length}
           color="#22d3ee"
-          description="Qubits, superposition, entanglement, decoherence."
+          /description="Qubits, superposition, entanglement, decoherence."
         />
         <TopicTile
           title="Hardware"
           count={TERMS.filter((t) => t.category === "Hardware").length}
           color="#22c55e"
-          description="Platforms, cryogenics, resonators, implementations."
+          /description="Platforms, cryogenics, resonators, implementations."
         />
         <TopicTile
           title="Gates & Circuits"
           count={TERMS.filter((t) => t.category === "Gates & Circuits").length}
           color="#a855f7"
-          description="Quantum gates, circuit concepts, control operations."
+          /description="Quantum gates, circuit concepts, control operations."
         />
         <TopicTile
           title="Software & Algorithms"
           count={TERMS.filter((t) => t.category === "Software & Algorithms").length}
           color="#f59e0b"
-          description="Algorithms, circuit methods, software-side concepts."
+          /description="Algorithms, circuit methods, software-side concepts."
         />
         <TopicTile
           title="Error Correction"
           count={TERMS.filter((t) => t.category === "Error Correction").length}
           color="#f97316"
-          description="Logical qubits, codes, scalable fault tolerance."
+          /description="Logical qubits, codes, scalable fault tolerance."
         />
         <TopicTile
           title="Communication"
           count={TERMS.filter((t) => t.category === "Communication & Networking").length}
           color="#60a5fa"
-          description="Networking, secure transfer, quantum information."
+          /description="Networking, secure transfer, quantum information."
         />
       </div>
 
