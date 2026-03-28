@@ -315,9 +315,9 @@ function GlossaryContributeMiddle() {
         });
 
       if (uploadError) {
-  console.error("Glossary media upload error:", uploadError);
-  throw uploadError;
-}
+        console.error("Glossary media upload error:", uploadError);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage
         .from("glossary-media")
@@ -332,6 +332,13 @@ function GlossaryContributeMiddle() {
         visualMediaUrl: data.publicUrl,
         visualMediaType: mediaType,
       }));
+
+      setTimeout(() => {
+        document.getElementById("visual")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
     } catch (err) {
       console.error("Visual upload error:", err);
       setErrorMsg("Could not upload visual media right now.");
@@ -372,15 +379,15 @@ function GlossaryContributeMiddle() {
       whyItMatters: form.whyItMatters.trim() || undefined,
       intuition: form.intuition.trim() || undefined,
       visual: form.visualMediaUrl.trim()
-  ? {
-      title: form.visualTitle.trim() || undefined,
-      description: form.visualDescription.trim() || undefined,
-      mediaUrl: form.visualMediaUrl.trim(),
-      mediaType: form.visualMediaType || undefined,
-      caption: form.visualCaption.trim() || undefined,
-      link: form.visualLink.trim() || undefined,
-    }
-  : undefined,
+        ? {
+            title: form.visualTitle.trim() || undefined,
+            description: form.visualDescription.trim() || undefined,
+            mediaUrl: form.visualMediaUrl.trim(),
+            mediaType: form.visualMediaType || undefined,
+            caption: form.visualCaption.trim() || undefined,
+            link: form.visualLink.trim() || undefined,
+          }
+        : undefined,
       math: form.math.trim() || undefined,
       relatedTerms: form.relatedTerms
         .split(",")
@@ -769,40 +776,31 @@ function GlossaryContributeMiddle() {
           title="Visual"
           subtitle="Optional media that can later appear as an image or video card."
         >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 14,
-            }}
-          >
-            <div>
-              <FieldLabel>Visual title</FieldLabel>
-              <input
-                value={form.visualTitle}
-                onChange={(e) => updateField("visualTitle", e.target.value)}
-                placeholder="e.g. Bloch sphere representation"
-                style={inputStyle()}
-              />
-            </div>
-
+          <div>
+            <FieldLabel>Visual title</FieldLabel>
+            <input
+              value={form.visualTitle}
+              onChange={(e) => updateField("visualTitle", e.target.value)}
+              placeholder="e.g. Bloch sphere representation"
+              style={inputStyle()}
+            />
           </div>
 
           <div style={{ marginTop: 14 }}>
             <FieldLabel>Upload media</FieldLabel>
             <input
-  type="file"
-  accept="image/*,video/*"
-  onChange={(e) => {
-    const file = e.target.files?.[0];
-    if (file) void handleVisualUpload(file);
-    e.currentTarget.value = "";
-  }}
-  style={{
-    ...inputStyle(),
-    padding: "10px 12px",
-  }}
-/>
+              type="file"
+              accept="image/*,video/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleVisualUpload(file);
+                e.currentTarget.value = "";
+              }}
+              style={{
+                ...inputStyle(),
+                padding: "10px 12px",
+              }}
+            />
             <div
               style={{
                 marginTop: 6,
@@ -816,15 +814,54 @@ function GlossaryContributeMiddle() {
                 ? "Media uploaded successfully."
                 : "Upload an image or video file."}
             </div>
+
+            {form.visualMediaUrl ? (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  color: "#7dd3fc",
+                  wordBreak: "break-all",
+                }}
+              >
+                {form.visualMediaUrl}
+              </div>
+            ) : null}
+
+            {form.visualMediaUrl ? (
+              <button
+                type="button"
+                onClick={() => {
+                  updateField("visualMediaUrl", "");
+                  updateField("visualMediaType", "");
+                }}
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(248,113,113,0.28)",
+                  background: "rgba(127,29,29,0.18)",
+                  color: "rgba(254,226,226,0.95)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Remove media
+              </button>
+            ) : null}
           </div>
 
           <div style={{ marginTop: 14 }}>
             <FieldLabel>Media URL</FieldLabel>
             <input
               value={form.visualMediaUrl}
-              onChange={(e) => updateField("visualMediaUrl", e.target.value)}
-              placeholder="Uploaded media URL will appear here, or paste one manually"
-              style={inputStyle()}
+              readOnly
+              placeholder="Uploaded media URL will appear here"
+              style={{
+                ...inputStyle(),
+                opacity: 0.8,
+              }}
             />
           </div>
 
@@ -858,130 +895,118 @@ function GlossaryContributeMiddle() {
             />
           </div>
 
-          {(form.visualTitle.trim() ||
-  form.visualDescription.trim() ||
-  form.visualMediaUrl.trim() ||
-  form.visualCaption.trim() ||
-  form.visualLink.trim()) && (
-  <div style={{ marginTop: 18 }}>
-    <FieldLabel>Preview</FieldLabel>
+          {form.visualMediaUrl.trim() ? (
+            <div style={{ marginTop: 18 }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: "#a5f3fc",
+                  marginBottom: 8,
+                }}
+              >
+                Preview
+              </div>
 
-    <div
-      className="card"
-      style={{
-        padding: 18,
-        borderRadius: 18,
-        border: "1px solid rgba(148,163,184,0.18)",
-        background:
-          "radial-gradient(circle at top left, rgba(34,211,238,0.08), rgba(15,23,42,0.96))",
-      }}
-    >
-      {form.visualTitle.trim() ? (
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: 800,
-            color: "rgba(226,232,240,0.96)",
-            marginBottom: 10,
-          }}
-        >
-          {form.visualTitle}
-        </div>
-      ) : null}
+              <div
+                className="card"
+                style={{
+                  padding: 18,
+                  borderRadius: 18,
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  background:
+                    "radial-gradient(circle at top left, rgba(34,211,238,0.08), rgba(15,23,42,0.96))",
+                }}
+              >
+                {form.visualTitle.trim() ? (
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 800,
+                      color: "rgba(226,232,240,0.96)",
+                      marginBottom: 10,
+                    }}
+                  >
+                    {form.visualTitle}
+                  </div>
+                ) : null}
 
-      {form.visualDescription.trim() ? (
-        <div
-          style={{
-            fontSize: 14,
-            lineHeight: 1.65,
-            color: "rgba(226,232,240,0.82)",
-            marginBottom: 14,
-          }}
-        >
-          {form.visualDescription}
-        </div>
-      ) : null}
+                {form.visualDescription.trim() ? (
+                  <div
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.65,
+                      color: "rgba(226,232,240,0.82)",
+                      marginBottom: 14,
+                    }}
+                  >
+                    {form.visualDescription}
+                  </div>
+                ) : null}
 
-      {form.visualMediaUrl.trim() ? (
-        form.visualMediaType === "video" ? (
-          <video
-            src={form.visualMediaUrl}
-            controls
-            style={{
-              width: "100%",
-              borderRadius: 14,
-              border: "1px solid rgba(148,163,184,0.16)",
-              marginBottom: form.visualCaption.trim() ? 10 : 0,
-            }}
-          />
-        ) : (
-          <img
-            src={form.visualMediaUrl}
-            alt={form.visualTitle || "Visual preview"}
-            style={{
-  width: "100%",
-  maxHeight: 420,
-  objectFit: "contain",
-  borderRadius: 14,
-  border: "1px solid rgba(148,163,184,0.16)",
-  marginBottom: form.visualCaption.trim() ? 10 : 0,
-  display: "block",
-  background: "rgba(2,6,23,0.35)",
-}}
-          />
-        )
-      ) : (
-        <div
-          style={{
-            borderRadius: 14,
-            border: "1px dashed rgba(148,163,184,0.28)",
-            background: "rgba(255,255,255,0.02)",
-            padding: "20px 16px",
-            color: "rgba(226,232,240,0.58)",
-            textAlign: "center",
-            fontSize: 13,
-            marginBottom: form.visualCaption.trim() ? 10 : 0,
-          }}
-        >
-          Graphic placeholder
-        </div>
-      )}
+                {form.visualMediaType === "video" ? (
+                  <video
+                    src={form.visualMediaUrl}
+                    controls
+                    style={{
+                      width: "100%",
+                      maxHeight: 420,
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      marginBottom: form.visualCaption.trim() ? 10 : 0,
+                      display: "block",
+                      background: "rgba(2,6,23,0.35)",
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={form.visualMediaUrl}
+                    alt={form.visualTitle || "Visual preview"}
+                    style={{
+                      width: "100%",
+                      maxHeight: 420,
+                      objectFit: "contain",
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      marginBottom: form.visualCaption.trim() ? 10 : 0,
+                      display: "block",
+                      background: "rgba(2,6,23,0.35)",
+                    }}
+                  />
+                )}
 
-      {form.visualCaption.trim() ? (
-        <div
-          style={{
-            fontSize: 12,
-            color: "rgba(226,232,240,0.65)",
-            marginTop: 10,
-          }}
-        >
-          {form.visualCaption}
-        </div>
-      ) : null}
+                {form.visualCaption.trim() ? (
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(226,232,240,0.65)",
+                      marginTop: 10,
+                    }}
+                  >
+                    {form.visualCaption}
+                  </div>
+                ) : null}
 
-      {form.visualLink.trim() ? (
-        <a
-          href={form.visualLink}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: "inline-block",
-            marginTop: 12,
-            textDecoration: "none",
-            color: "#7dd3fc",
-            fontWeight: 700,
-            fontSize: 13,
-          }}
-        >
-          Open link →
-        </a>
-      ) : null}
-    </div>
-  </div>
-)}
-
-
-          
+                {form.visualLink.trim() ? (
+                  <a
+                    href={form.visualLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-block",
+                      marginTop: 12,
+                      textDecoration: "none",
+                      color: "#7dd3fc",
+                      fontWeight: 700,
+                      fontSize: 13,
+                    }}
+                  >
+                    Open link →
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </FormSection>
 
         <FormSection
