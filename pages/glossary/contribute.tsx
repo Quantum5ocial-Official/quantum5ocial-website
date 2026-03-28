@@ -472,38 +472,96 @@ function GlossaryContributeMiddle() {
       ) : null}
 
       {submitted ? (
-        <div
-          className="card"
-          style={{
-            padding: 22,
-            borderRadius: 18,
-            border: "1px solid rgba(34,197,94,0.28)",
-            background:
-              "radial-gradient(circle at top left, rgba(34,197,94,0.10), rgba(15,23,42,0.96))",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 20,
-              fontWeight: 800,
-              color: "rgba(226,232,240,0.96)",
-              marginBottom: 8,
-            }}
-          >
-            Submission received
-          </div>
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(2,6,23,0.68)",
+      backdropFilter: "blur(6px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 1000,
+      padding: 20,
+    }}
+  >
+    <div
+      className="card"
+      style={{
+        width: "100%",
+        maxWidth: 520,
+        padding: 24,
+        borderRadius: 22,
+        border: "1px solid rgba(34,197,94,0.28)",
+        background:
+          "radial-gradient(circle at top left, rgba(34,197,94,0.12), rgba(15,23,42,0.98))",
+        boxShadow: "0 24px 60px rgba(2,6,23,0.55)",
+      }}
+    >
+      <div
+        style={{
+          width: 54,
+          height: 54,
+          borderRadius: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 16,
+          fontSize: 24,
+          background: "rgba(34,197,94,0.12)",
+          border: "1px solid rgba(34,197,94,0.28)",
+        }}
+      >
+        ✅
+      </div>
 
-          <div
-            style={{
-              fontSize: 14,
-              lineHeight: 1.65,
-              color: "rgba(226,232,240,0.8)",
-            }}
-          >
-            Your glossary contribution has been submitted for review.
-          </div>
-        </div>
-      ) : null}
+      <div
+        style={{
+          fontSize: 22,
+          fontWeight: 800,
+          color: "rgba(226,232,240,0.97)",
+          marginBottom: 10,
+        }}
+      >
+        Submission under review
+      </div>
+
+      <div
+        style={{
+          fontSize: 14,
+          lineHeight: 1.7,
+          color: "rgba(226,232,240,0.82)",
+          marginBottom: 20,
+        }}
+      >
+        Your glossary contribution has been submitted successfully and is now under review.
+        It will appear in the main glossary once approved.
+      </div>
+
+      <button
+        type="button"
+        onClick={() => router.push("/glossary")}
+        style={{
+          color: "white",
+          padding: "11px 18px",
+          borderRadius: 14,
+          border: "1px solid rgba(34,211,238,0.45)",
+          background:
+            "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+          boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
+          fontSize: 13,
+          fontWeight: 800,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          cursor: "pointer",
+        }}
+      >
+        Okay
+      </button>
+    </div>
+  </div>
+) : null}
 
       <form
         id="glossary-contribute-form"
