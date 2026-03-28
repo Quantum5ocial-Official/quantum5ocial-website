@@ -875,6 +875,128 @@ function GlossaryContributeMiddle() {
               style={inputStyle()}
             />
           </div>
+
+          {(form.visualTitle.trim() ||
+  form.visualDescription.trim() ||
+  form.visualMediaUrl.trim() ||
+  form.visualCaption.trim() ||
+  form.visualLink.trim()) && (
+  <div style={{ marginTop: 18 }}>
+    <FieldLabel>Preview</FieldLabel>
+
+    <div
+      className="card"
+      style={{
+        padding: 18,
+        borderRadius: 18,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background:
+          "radial-gradient(circle at top left, rgba(34,211,238,0.08), rgba(15,23,42,0.96))",
+      }}
+    >
+      {form.visualTitle.trim() ? (
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 800,
+            color: "rgba(226,232,240,0.96)",
+            marginBottom: 10,
+          }}
+        >
+          {form.visualTitle}
+        </div>
+      ) : null}
+
+      {form.visualDescription.trim() ? (
+        <div
+          style={{
+            fontSize: 14,
+            lineHeight: 1.65,
+            color: "rgba(226,232,240,0.82)",
+            marginBottom: 14,
+          }}
+        >
+          {form.visualDescription}
+        </div>
+      ) : null}
+
+      {form.visualMediaUrl.trim() ? (
+        form.visualMediaType === "video" ? (
+          <video
+            src={form.visualMediaUrl}
+            controls
+            style={{
+              width: "100%",
+              borderRadius: 14,
+              border: "1px solid rgba(148,163,184,0.16)",
+              marginBottom: form.visualCaption.trim() ? 10 : 0,
+            }}
+          />
+        ) : (
+          <img
+            src={form.visualMediaUrl}
+            alt={form.visualTitle || "Visual preview"}
+            style={{
+              width: "100%",
+              borderRadius: 14,
+              border: "1px solid rgba(148,163,184,0.16)",
+              marginBottom: form.visualCaption.trim() ? 10 : 0,
+              display: "block",
+            }}
+          />
+        )
+      ) : (
+        <div
+          style={{
+            borderRadius: 14,
+            border: "1px dashed rgba(148,163,184,0.28)",
+            background: "rgba(255,255,255,0.02)",
+            padding: "20px 16px",
+            color: "rgba(226,232,240,0.58)",
+            textAlign: "center",
+            fontSize: 13,
+            marginBottom: form.visualCaption.trim() ? 10 : 0,
+          }}
+        >
+          Graphic placeholder
+        </div>
+      )}
+
+      {form.visualCaption.trim() ? (
+        <div
+          style={{
+            fontSize: 12,
+            color: "rgba(226,232,240,0.65)",
+            marginTop: 10,
+          }}
+        >
+          {form.visualCaption}
+        </div>
+      ) : null}
+
+      {form.visualLink.trim() ? (
+        <a
+          href={form.visualLink}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: "inline-block",
+            marginTop: 12,
+            textDecoration: "none",
+            color: "#7dd3fc",
+            fontWeight: 700,
+            fontSize: 13,
+          }}
+        >
+          Open link →
+        </a>
+      ) : null}
+    </div>
+  </div>
+)}
+
+
+          
         </FormSection>
 
         <FormSection
