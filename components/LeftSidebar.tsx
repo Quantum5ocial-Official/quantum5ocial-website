@@ -360,6 +360,53 @@ const postsCount = (postsRes.data || []).length;
         </div>
       </Link>
 
+            {/* LEARN QUANTUM CARD */}
+      <Link
+        href="/glossary"
+        className="sidebar-card"
+        style={{
+          textDecoration: "none",
+          color: "inherit",
+          borderRadius: 20,
+          border: "1px solid rgba(168,85,247,0.28)",
+          background:
+            "radial-gradient(circle at top left, rgba(168,85,247,0.16), transparent 60%), rgba(15,23,42,0.86)",
+          padding: "12px 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 11,
+            border: "1px solid rgba(168,85,247,0.55)",
+            background: "rgba(2,6,23,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 0 0 6px rgba(168,85,247,0.06)",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          📘
+        </div>
+
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 800,
+            color: "rgba(226,232,240,0.95)",
+            lineHeight: 1.1,
+          }}
+        >
+          Learn Quantum
+        </div>
+      </Link>
+
       {/* MY ECOSYSTEM CARD */}
       <div className="sidebar-card dashboard-sidebar-card">
         {/* Header row: clickable + Open pill + hover effect */}
