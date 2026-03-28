@@ -149,14 +149,14 @@ export default function GlossaryIndexPage() {
           background: "rgba(15,23,42,0.92)",
         }}
       >
-              <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-          gap: 10,
-          marginBottom: 16,
-        }}
-      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr auto",
+            gap: 12,
+            alignItems: "center",
+          }}
+        >
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -229,42 +229,36 @@ export default function GlossaryIndexPage() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))",
+          gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
           gap: 10,
           marginBottom: 16,
         }}
       >
-        //description="Qubits, superposition, entanglement, decoherence." put inside later
         <TopicTile
           title="Fundamentals"
           count={TERMS.filter((t) => t.category === "Fundamentals").length}
-          color="#22d3ee" 
+          color="#22d3ee"
         />
-        //description="Platforms, cryogenics, resonators, implementations." 
         <TopicTile
           title="Hardware"
           count={TERMS.filter((t) => t.category === "Hardware").length}
-          color="#22c55e"  
+          color="#22c55e"
         />
-        //description="Quantum gates, circuit concepts, control operations."
         <TopicTile
           title="Gates & Circuits"
           count={TERMS.filter((t) => t.category === "Gates & Circuits").length}
           color="#a855f7"
         />
-        //description="Algorithms, circuit methods, software-side concepts."
         <TopicTile
           title="Software & Algorithms"
           count={TERMS.filter((t) => t.category === "Software & Algorithms").length}
           color="#f59e0b"
         />
-        //description="Logical qubits, codes, scalable fault tolerance."
         <TopicTile
           title="Error Correction"
           count={TERMS.filter((t) => t.category === "Error Correction").length}
           color="#f97316"
         />
-        //description="Networking, secure transfer, quantum information."
         <TopicTile
           title="Communication"
           count={TERMS.filter((t) => t.category === "Communication & Networking").length}
@@ -367,7 +361,7 @@ function TopicTile({
 }: {
   title: string;
   count: number;
-  description: string;
+  description?: string;
   color: string;
 }) {
   return (
@@ -408,16 +402,18 @@ function TopicTile({
         {count}
       </div>
 
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: 11,
-          lineHeight: 1.25,
-          opacity: 0.88,
-        }}
-      >
-        {description}
-      </div>
+      {description ? (
+        <div
+          style={{
+            marginTop: 6,
+            fontSize: 11,
+            lineHeight: 1.25,
+            opacity: 0.88,
+          }}
+        >
+          {description}
+        </div>
+      ) : null}
     </div>
   );
 }
