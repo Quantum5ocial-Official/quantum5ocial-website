@@ -415,7 +415,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
       </div>
 
       <div className="sidebar-card">
-        <div
+  <div
     style={{
       fontWeight: 800,
       fontSize: 15,
@@ -423,61 +423,39 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
       color: "rgba(226,232,240,0.96)",
     }}
   >
-    Quick fact
+    Interesting fact
   </div>
-        {entry.interestingFact ? (
-  <div
-    style={{
-      marginTop: 10,
-      padding: "10px 12px",
-      borderRadius: 12,
-      border: "1px solid rgba(168,85,247,0.25)",
-      background: "rgba(168,85,247,0.08)",
-      fontSize: 13,
-      lineHeight: 1.6,
-      color: "rgba(226,232,240,0.9)",
-    }}
-  >
+
+  {entry.interestingFact ? (
     <div
       style={{
-        fontWeight: 700,
-        fontSize: 12,
-        marginBottom: 4,
-        color: "#c084fc",
+        padding: "10px 12px",
+        borderRadius: 12,
+        border: "1px solid rgba(168,85,247,0.25)",
+        background: "rgba(168,85,247,0.08)",
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: "rgba(226,232,240,0.9)",
       }}
     >
-      Interesting fact
+      {entry.interestingFact}
     </div>
-
-    {entry.interestingFact}
-  </div>
-) : (
-  <div
-    style={{
-      marginTop: 10,
-      padding: "10px 12px",
-      borderRadius: 12,
-      border: "1px dashed rgba(148,163,184,0.25)",
-      background: "rgba(255,255,255,0.02)",
-      fontSize: 13,
-      lineHeight: 1.6,
-      color: "rgba(226,232,240,0.6)",
-    }}
-  >
+  ) : (
     <div
       style={{
-        fontWeight: 700,
-        fontSize: 12,
-        marginBottom: 4,
-        color: "rgba(148,163,184,0.8)",
+        padding: "10px 12px",
+        borderRadius: 12,
+        border: "1px dashed rgba(148,163,184,0.25)",
+        background: "rgba(255,255,255,0.02)",
+        fontSize: 13,
+        lineHeight: 1.6,
+        color: "rgba(226,232,240,0.6)",
       }}
     >
-      Interesting fact
+      Know something surprising about this concept? Add an interesting fact and help others see it differently.
     </div>
-
-    Know something surprising about this concept? Add an interesting fact and help others see it differently.
-  </div>
-)}
+  )}
+</div>
 
         
       </div>
