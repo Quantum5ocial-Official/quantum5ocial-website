@@ -298,7 +298,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
             color: "rgba(226,232,240,0.96)",
           }}
         >
-          Related terms
+          Also Read
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
