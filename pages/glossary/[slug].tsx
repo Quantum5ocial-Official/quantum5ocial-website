@@ -1,5 +1,7 @@
 // pages/glossary/[slug].tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
@@ -120,6 +122,141 @@ function getSectionItems(entry: GlossaryEntry) {
   return items;
 }
 
+function useIsMobile(maxWidth = 820) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const set = () => setIsMobile(mq.matches);
+
+    set();
+
+    const anyMq = mq as any;
+    if (mq.addEventListener) {
+      mq.addEventListener("change", set);
+      return () => mq.removeEventListener("change", set);
+    }
+    if (anyMq.addListener) {
+      anyMq.addListener(set);
+      return () => anyMq.removeListener(set);
+    }
+  }, [maxWidth]);
+
+  return isMobile;
+}
+
+function RightDrawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", onKey);
+
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!mounted || !open) return null;
+
+  return createPortal(
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 2000,
+        background: "rgba(2,6,23,0.62)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          width: "min(420px, 92vw)",
+          height: "100%",
+          background:
+            "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(15,23,42,0.985))",
+          borderLeft: "1px solid rgba(148,163,184,0.18)",
+          boxShadow: "-24px 0 80px rgba(0,0,0,0.55)",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 14px",
+            borderBottom: "1px solid rgba(148,163,184,0.14)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 14,
+              color: "rgba(226,232,240,0.92)",
+            }}
+          >
+            {title || "Panel"}
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.18)",
+              background: "rgba(2,6,23,0.22)",
+              color: "rgba(226,232,240,0.92)",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: 12, overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function MetaPill({ text }: { text: string }) {
   return (
     <span
@@ -161,21 +298,6 @@ function RelatedMetaPill({ text }: { text: string }) {
   );
 }
 
-function BodyText({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 14,
-        lineHeight: 1.7,
-        color: "rgba(226,232,240,0.86)",
-        whiteSpace: "pre-wrap",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 function GlossarySection({
   id,
   title,
@@ -210,6 +332,21 @@ function GlossarySection({
 
       {children}
     </section>
+  );
+}
+
+function BodyText({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 14,
+        lineHeight: 1.7,
+        color: "rgba(226,232,240,0.86)",
+        whiteSpace: "pre-wrap",
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -340,18 +477,26 @@ function GlossaryMiddle({
   loading: boolean;
   entry: GlossaryEntry | null;
 }) {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
   if (loading) {
     return (
       <section className="section">
+        <div style={{ marginBottom: 12 }}>
+          <Link
+            href="/glossary"
+            style={{
+              textDecoration: "none",
+              color: "#7dd3fc",
+              fontWeight: 700,
+              fontSize: 13,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            ← Back to Glossary
+          </Link>
+        </div>
+
         <div className="products-status">Loading glossary term…</div>
       </section>
     );
@@ -360,6 +505,23 @@ function GlossaryMiddle({
   if (!entry) {
     return (
       <section className="section">
+        <div style={{ marginBottom: 12 }}>
+          <Link
+            href="/glossary"
+            style={{
+              textDecoration: "none",
+              color: "#7dd3fc",
+              fontWeight: 700,
+              fontSize: 13,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            ← Back to Glossary
+          </Link>
+        </div>
+
         <div className="card" style={{ padding: 22 }}>
           <div
             style={{
@@ -389,6 +551,23 @@ function GlossaryMiddle({
 
   return (
     <section className="section">
+      <div style={{ marginBottom: 12 }}>
+        <Link
+          href="/glossary"
+          style={{
+            textDecoration: "none",
+            color: "#7dd3fc",
+            fontWeight: 700,
+            fontSize: 13,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          ← Back to Glossary
+        </Link>
+      </div>
+
       <div
         className="card"
         style={{
@@ -471,7 +650,9 @@ function GlossaryMiddle({
         {entry.visual ? (
           <GlossarySection id="visual" title={entry.visual.title || "Visual"}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {entry.visual.description ? <BodyText>{entry.visual.description}</BodyText> : null}
+              {entry.visual.description ? (
+                <BodyText>{entry.visual.description}</BodyText>
+              ) : null}
 
               {entry.visual.mediaUrl ? (
                 entry.visual.mediaType === "video" ? (
@@ -480,7 +661,7 @@ function GlossaryMiddle({
                     controls
                     style={{
                       width: "100%",
-                      maxHeight: isMobile ? 260 : 420,
+                      maxHeight: 420,
                       objectFit: "contain",
                       borderRadius: 14,
                       border: "1px solid rgba(148,163,184,0.16)",
@@ -494,7 +675,7 @@ function GlossaryMiddle({
                     alt={entry.name}
                     style={{
                       width: "100%",
-                      maxHeight: isMobile ? 260 : 420,
+                      maxHeight: 420,
                       objectFit: "contain",
                       borderRadius: 14,
                       border: "1px solid rgba(148,163,184,0.16)",
@@ -503,7 +684,21 @@ function GlossaryMiddle({
                     }}
                   />
                 )
-              ) : null}
+              ) : (
+                <div
+                  style={{
+                    borderRadius: 14,
+                    border: "1px dashed rgba(148,163,184,0.28)",
+                    background: "rgba(255,255,255,0.02)",
+                    padding: "22px 16px",
+                    color: "rgba(226,232,240,0.62)",
+                    textAlign: "center",
+                    fontSize: 13,
+                  }}
+                >
+                  Graphic placeholder
+                </div>
+              )}
 
               {entry.visual.caption ? (
                 <div
@@ -580,22 +775,6 @@ function GlossaryMiddle({
             </div>
           </GlossarySection>
         ) : null}
-
-        {entry.relatedTerms.length > 0 ? (
-          <GlossarySection id="related-terms" title="Related terms">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {entry.relatedTerms.map((term) => (
-                <Link
-                  key={term.slug}
-                  href={`/glossary/${term.slug}`}
-                  style={{ textDecoration: "none" }}
-                >
-                  <RelatedMetaPill text={term.name} />
-                </Link>
-              ))}
-            </div>
-          </GlossarySection>
-        ) : null}
       </div>
     </section>
   );
@@ -606,16 +785,11 @@ function GlossaryTwoColumnShell() {
   const slugParam = router.query.slug;
   const slug = Array.isArray(slugParam) ? slugParam[0] : slugParam || "";
 
+  const isMobile = useIsMobile(820);
+  const [rightOpen, setRightOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [entry, setEntry] = useState<GlossaryEntry | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -731,44 +905,99 @@ function GlossaryTwoColumnShell() {
     };
   }, [router.isReady, slug]);
 
-  if (isMobile) {
-    return <GlossaryMiddle loading={loading} entry={entry} />;
-  }
-
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 1px 280px",
-        alignItems: "stretch",
-      }}
-    >
-      <div style={{ paddingRight: 16 }}>
-        <GlossaryMiddle loading={loading} entry={entry} />
-      </div>
+    <>
+      {isMobile && entry ? (
+        <button
+          type="button"
+          aria-label={rightOpen ? "Close glossary panel" : "Open glossary panel"}
+          onClick={() => setRightOpen((v) => !v)}
+          style={{
+            position: "fixed",
+            right: 0,
+            top: "80%",
+            transform: "translateY(-50%)",
+            zIndex: 60,
+            width: 30,
+            height: 80,
+            border: "1px solid rgba(148,163,184,0.35)",
+            borderRight: "none",
+            borderTopLeftRadius: 16,
+            borderBottomLeftRadius: 16,
+            background: "rgba(2,6,23,0.72)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: 22,
+              lineHeight: 1,
+              color: "rgba(226,232,240,0.95)",
+              transform: rightOpen ? "rotate(180deg)" : "none",
+              transition: "transform 160ms ease",
+              userSelect: "none",
+            }}
+          >
+            ❮
+          </span>
+        </button>
+      ) : null}
 
       <div
         style={{
-          width: 1,
-          background: "rgba(148,163,184,0.35)",
-          position: "sticky",
-          top: 0,
-          height: "100vh",
-          alignSelf: "start",
-        }}
-      />
-
-      <div
-        style={{
-          paddingLeft: 16,
-          position: "sticky",
-          top: 16,
-          alignSelf: "start",
+          display: "grid",
+          gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "minmax(0, 1fr) 1px 280px",
+          alignItems: "stretch",
         }}
       >
-        {!loading && entry ? <GlossaryRightSidebar entry={entry} /> : null}
+        <div style={{ paddingRight: isMobile ? 0 : 16 }}>
+          <GlossaryMiddle loading={loading} entry={entry} />
+        </div>
+
+        {!isMobile ? (
+          <>
+            <div
+              style={{
+                width: 1,
+                background: "rgba(148,163,184,0.35)",
+                position: "sticky",
+                top: 0,
+                height: "100vh",
+                alignSelf: "start",
+              }}
+            />
+
+            <div
+              style={{
+                paddingLeft: 16,
+                position: "sticky",
+                top: 16,
+                alignSelf: "start",
+              }}
+            >
+              {!loading && entry ? <GlossaryRightSidebar entry={entry} /> : null}
+            </div>
+          </>
+        ) : null}
       </div>
-    </div>
+
+      {isMobile && entry ? (
+        <RightDrawer
+          open={rightOpen}
+          onClose={() => setRightOpen(false)}
+          title={entry.name}
+        >
+          <GlossaryRightSidebar entry={entry} />
+        </RightDrawer>
+      ) : null}
+    </>
   );
 }
 
@@ -779,4 +1008,5 @@ export default function GlossarySlugPage() {
 (GlossarySlugPage as any).layoutProps = {
   variant: "two-left",
   right: null,
+  mobileMain: <GlossaryMiddle loading={true} entry={null} />,
 };
