@@ -106,7 +106,6 @@ function getSectionItems(entry: GlossaryEntry) {
   if (entry.intuition) items.push({ id: "intuition", label: "Intuition / Example" });
   if (entry.visual) items.push({ id: "visual", label: "Visual" });
   if (entry.math) items.push({ id: "math", label: "Mathematical form" });
-  items.push({ id: "related-terms", label: "Related terms" });
   if (entry.furtherReading && entry.furtherReading.length > 0) {
     items.push({ id: "further-reading", label: "Further reading" });
   }
@@ -127,6 +126,26 @@ function MetaPill({ text }: { text: string }) {
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(148,163,184,0.16)",
         color: "rgba(226,232,240,0.9)",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+function RelatedMetaPill({ text }: { text: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        borderRadius: 999,
+        padding: "5px 10px",
+        fontSize: 11,
+        fontWeight: 700,
+        background: "rgba(34,211,238,0.12)",
+        border: "1px solid rgba(34,211,238,0.35)",
+        color: "#a5f3fc",
+        transition: "all 140ms ease",
       }}
     >
       {text}
@@ -289,7 +308,7 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
               href={`/glossary/${term.slug}`}
               style={{ textDecoration: "none" }}
             >
-              <MetaPill text={term.name} />
+              <RelatedMetaPill text={term.name} />
             </Link>
           ))}
         </div>
@@ -475,19 +494,6 @@ function GlossaryMiddle({
           </GlossarySection>
         ) : null}
 
-        <GlossarySection id="related-terms" title="Related terms">
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {entry.relatedTerms.map((term) => (
-              <Link
-                key={term.slug}
-                href={`/glossary/${term.slug}`}
-                style={{ textDecoration: "none" }}
-              >
-                <MetaPill text={term.name} />
-              </Link>
-            ))}
-          </div>
-        </GlossarySection>
 
         {entry.furtherReading && entry.furtherReading.length > 0 ? (
           <GlossarySection id="further-reading" title="Further reading">
