@@ -341,7 +341,7 @@ function GlossaryMiddle() {
           </div>
 
           <Link
-            href="/glossary/contribute"
+  href={`/glossary/${entry.slug}/edit`}
             style={{
               textDecoration: "none",
               color: "white",
