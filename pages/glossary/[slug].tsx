@@ -1008,5 +1008,4 @@ export default function GlossarySlugPage() {
 (GlossarySlugPage as any).layoutProps = {
   variant: "two-left",
   right: null,
-  mobileMain: <GlossaryMiddle loading={true} entry={null} />,
 };
