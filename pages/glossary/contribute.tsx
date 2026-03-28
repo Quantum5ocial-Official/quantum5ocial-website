@@ -1,5 +1,9 @@
 // pages/glossary/contribute.tsx
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/router";
+import Link from "next/link";
+import { supabase } from "../../lib/supabaseClient";
+import { useSupabaseUser } from "../../lib/useSupabaseUser";
 
 type GlossaryLevel = "Beginner" | "Intermediate" | "Advanced";
 
@@ -224,7 +228,7 @@ function GlossaryContributeRightSidebar() {
           }}
         >
           <MetaPill text="Reviewed before publishing" />
-          <MetaPill text="Glossary format" />
+          <MetaPill text="Stored in pending queue" />
         </div>
 
         <div
@@ -243,7 +247,12 @@ function GlossaryContributeRightSidebar() {
 }
 
 function GlossaryContributeMiddle() {
+  const router = useRouter();
+  const { user, loading: userLoading } = useSupabaseUser();
+
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [form, setForm] = useState<GlossaryFormState>({
     name: "",
@@ -283,9 +292,17 @@ function GlossaryContributeMiddle() {
     !form.overview.trim() ||
     !form.explanation.trim();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (requiredMissing) return;
+    if (requiredMissing || submitting) return;
+
+    if (!user) {
+      router.push("/auth?redirect=/glossary/contribute");
+      return;
+    }
+
+    setSubmitting(true);
+    setErrorMsg(null);
 
     const payload = {
       name: form.name.trim(),
@@ -318,15 +335,44 @@ function GlossaryContributeMiddle() {
         .split("\n")
         .map((item) => item.trim())
         .filter(Boolean),
-      status: "pending_review",
     };
 
-    console.log("Glossary contribution payload:", payload);
+    const { error } = await supabase.from("glossary_contributions").insert({
+      submitted_by: user.id,
+      payload,
+      status: "pending",
+    });
+
+    if (error) {
+      console.error("Error submitting glossary contribution:", error);
+      setErrorMsg("Could not submit your glossary contribution right now.");
+      setSubmitting(false);
+      return;
+    }
+
     setSubmitted(true);
+    setSubmitting(false);
   };
 
-  return (
+      return (
     <section className="section">
+      <div style={{ marginBottom: 12 }}>
+        <Link
+          href="/glossary"
+          style={{
+            textDecoration: "none",
+            fontSize: 13,
+            color: "#7dd3fc",
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+          }}
+        >
+          ← Back to glossary
+        </Link>
+      </div>
+
       <div
         className="card"
         style={{
@@ -356,7 +402,7 @@ function GlossaryContributeMiddle() {
               }}
             >
               Submit a new glossary entry using the same structure as a published term page.
-              Contributions can be reviewed before going live.
+              Contributions are reviewed before they go live.
             </div>
 
             <div
@@ -375,32 +421,55 @@ function GlossaryContributeMiddle() {
           <button
             type="submit"
             form="glossary-contribute-form"
-            disabled={requiredMissing}
+            disabled={requiredMissing || submitting || userLoading}
             style={{
               color: "white",
               padding: "11px 16px",
               borderRadius: 14,
-              border: requiredMissing
-                ? "1px solid rgba(148,163,184,0.22)"
-                : "1px solid rgba(34,211,238,0.45)",
-              background: requiredMissing
-                ? "rgba(51,65,85,0.55)"
-                : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
-              boxShadow: requiredMissing ? "none" : "0 10px 28px rgba(15,23,42,0.35)",
+              border:
+                requiredMissing || submitting || userLoading
+                  ? "1px solid rgba(148,163,184,0.22)"
+                  : "1px solid rgba(34,211,238,0.45)",
+              background:
+                requiredMissing || submitting || userLoading
+                  ? "rgba(51,65,85,0.55)"
+                  : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+              boxShadow:
+                requiredMissing || submitting || userLoading
+                  ? "none"
+                  : "0 10px 28px rgba(15,23,42,0.35)",
               fontSize: 13,
               fontWeight: 800,
               whiteSpace: "nowrap",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              cursor: requiredMissing ? "not-allowed" : "pointer",
+              cursor:
+                requiredMissing || submitting || userLoading ? "not-allowed" : "pointer",
             }}
           >
             <span style={{ fontSize: 14 }}>✍️</span>
-            <span>Submit for review</span>
+            <span>{submitting ? "Submitting..." : "Submit for review"}</span>
           </button>
         </div>
       </div>
+
+      {errorMsg ? (
+        <div
+          className="card"
+          style={{
+            padding: 18,
+            marginBottom: 14,
+            borderRadius: 18,
+            border: "1px solid rgba(248,113,113,0.28)",
+            background:
+              "radial-gradient(circle at top left, rgba(248,113,113,0.10), rgba(15,23,42,0.96))",
+            color: "rgba(254,226,226,0.95)",
+          }}
+        >
+          {errorMsg}
+        </div>
+      ) : null}
 
       {submitted ? (
         <div
@@ -431,8 +500,7 @@ function GlossaryContributeMiddle() {
               color: "rgba(226,232,240,0.8)",
             }}
           >
-            Your glossary contribution has been prepared in the correct structure and is
-            ready for review.
+            Your glossary contribution has been submitted for review.
           </div>
         </div>
       ) : null}
@@ -708,29 +776,37 @@ function GlossaryContributeMiddle() {
 
             <button
               type="submit"
-              disabled={requiredMissing}
+              disabled={requiredMissing || submitting || userLoading}
               style={{
                 color: "white",
                 padding: "11px 16px",
                 borderRadius: 14,
-                border: requiredMissing
-                  ? "1px solid rgba(148,163,184,0.22)"
-                  : "1px solid rgba(34,211,238,0.45)",
-                background: requiredMissing
-                  ? "rgba(51,65,85,0.55)"
-                  : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
-                boxShadow: requiredMissing ? "none" : "0 10px 28px rgba(15,23,42,0.35)",
+                border:
+                  requiredMissing || submitting || userLoading
+                    ? "1px solid rgba(148,163,184,0.22)"
+                    : "1px solid rgba(34,211,238,0.45)",
+                background:
+                  requiredMissing || submitting || userLoading
+                    ? "rgba(51,65,85,0.55)"
+                    : "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+                boxShadow:
+                  requiredMissing || submitting || userLoading
+                    ? "none"
+                    : "0 10px 28px rgba(15,23,42,0.35)",
                 fontSize: 13,
                 fontWeight: 800,
                 whiteSpace: "nowrap",
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
-                cursor: requiredMissing ? "not-allowed" : "pointer",
+                cursor:
+                  requiredMissing || submitting || userLoading
+                    ? "not-allowed"
+                    : "pointer",
               }}
             >
               <span style={{ fontSize: 14 }}>✍️</span>
-              <span>Submit for review</span>
+              <span>{submitting ? "Submitting..." : "Submit for review"}</span>
             </button>
           </div>
         </div>
