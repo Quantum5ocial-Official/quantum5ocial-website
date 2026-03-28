@@ -457,9 +457,6 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
   )}
 </div>
 
-        
-      </div>
-
       {entry.relatedTerms.length > 0 ? (
         <div className="sidebar-card">
           <div
