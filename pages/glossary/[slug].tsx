@@ -17,7 +17,7 @@ type GlossaryEntry = {
   explanation: string;
   whyItMatters?: string;
   intuition?: string;
-    visual?: {
+  visual?: {
     title?: string;
     description?: string;
     mediaUrl?: string;
@@ -139,6 +139,7 @@ function MetaPill({ text }: { text: string }) {
     </span>
   );
 }
+
 function RelatedMetaPill({ text }: { text: string }) {
   return (
     <span
@@ -157,6 +158,21 @@ function RelatedMetaPill({ text }: { text: string }) {
     >
       {text}
     </span>
+  );
+}
+
+function BodyText({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontSize: 14,
+        lineHeight: 1.7,
+        color: "rgba(226,232,240,0.86)",
+        whiteSpace: "pre-wrap",
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -287,30 +303,32 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
         </div>
       </div>
 
-      <div className="sidebar-card">
-        <div
-          style={{
-            fontWeight: 800,
-            fontSize: 15,
-            marginBottom: 10,
-            color: "rgba(226,232,240,0.96)",
-          }}
-        >
-          Also Read
-        </div>
+      {entry.relatedTerms.length > 0 ? (
+        <div className="sidebar-card">
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: 15,
+              marginBottom: 10,
+              color: "rgba(226,232,240,0.96)",
+            }}
+          >
+            Also Read
+          </div>
 
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {entry.relatedTerms.map((term) => (
-            <Link
-              key={term.slug}
-              href={`/glossary/${term.slug}`}
-              style={{ textDecoration: "none" }}
-            >
-              <RelatedMetaPill text={term.name} />
-            </Link>
-          ))}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {entry.relatedTerms.map((term) => (
+              <Link
+                key={term.slug}
+                href={`/glossary/${term.slug}`}
+                style={{ textDecoration: "none" }}
+              >
+                <RelatedMetaPill text={term.name} />
+              </Link>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -322,6 +340,15 @@ function GlossaryMiddle({
   loading: boolean;
   entry: GlossaryEntry | null;
 }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
   if (loading) {
     return (
       <section className="section">
@@ -422,66 +449,29 @@ function GlossaryMiddle({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <GlossarySection id="overview" title="Overview">
-          <div
-    style={{
-      fontSize: 14,
-      lineHeight: 1.7,
-      color: "rgba(226,232,240,0.86)",
-      whiteSpace: "pre-wrap",
-    }}
-  >
-    {entry.overview}
-  </div>
+          <BodyText>{entry.overview}</BodyText>
         </GlossarySection>
 
         <GlossarySection id="explanation" title="Explanation">
-          <div
-    style={{
-      fontSize: 14,
-      lineHeight: 1.7,
-      color: "rgba(226,232,240,0.86)",
-      whiteSpace: "pre-wrap",
-    }}
-  >
-    {entry.explanation}
-  </div>
+          <BodyText>{entry.explanation}</BodyText>
         </GlossarySection>
 
         {entry.whyItMatters ? (
           <GlossarySection id="why-it-matters" title="Why it matters">
-            <div
-    style={{
-      fontSize: 14,
-      lineHeight: 1.7,
-      color: "rgba(226,232,240,0.86)",
-      whiteSpace: "pre-wrap",
-    }}
-  >
-    {entry.whyItMatters}
-  </div>
-            
+            <BodyText>{entry.whyItMatters}</BodyText>
           </GlossarySection>
         ) : null}
 
         {entry.intuition ? (
           <GlossarySection id="intuition" title="Intuition / Example">
-            <div
-    style={{
-      fontSize: 14,
-      lineHeight: 1.7,
-      color: "rgba(226,232,240,0.86)",
-      whiteSpace: "pre-wrap",
-    }}
-  >
-    {entry.intuition}
-  </div>
+            <BodyText>{entry.intuition}</BodyText>
           </GlossarySection>
         ) : null}
 
-                {entry.visual ? (
+        {entry.visual ? (
           <GlossarySection id="visual" title={entry.visual.title || "Visual"}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {entry.visual.description ? <div>{entry.visual.description}</div> : null}
+              {entry.visual.description ? <BodyText>{entry.visual.description}</BodyText> : null}
 
               {entry.visual.mediaUrl ? (
                 entry.visual.mediaType === "video" ? (
@@ -489,45 +479,31 @@ function GlossaryMiddle({
                     src={entry.visual.mediaUrl}
                     controls
                     style={{
-  width: "100%",
-  maxHeight: 420,
-  objectFit: "contain",
-  borderRadius: 14,
-  border: "1px solid rgba(148,163,184,0.16)",
-  display: "block",
-  background: "rgba(2,6,23,0.35)",
-}}
+                      width: "100%",
+                      maxHeight: isMobile ? 260 : 420,
+                      objectFit: "contain",
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      display: "block",
+                      background: "rgba(2,6,23,0.35)",
+                    }}
                   />
                 ) : (
                   <img
-  src={entry.visual.mediaUrl}
-  alt={entry.name}
-  style={{
-    width: "100%",
-    maxHeight: 420,
-    objectFit: "contain",
-    borderRadius: 14,
-    border: "1px solid rgba(148,163,184,0.16)",
-    display: "block",
-    background: "rgba(2,6,23,0.35)",
-  }}
-/>
+                    src={entry.visual.mediaUrl}
+                    alt={entry.name}
+                    style={{
+                      width: "100%",
+                      maxHeight: isMobile ? 260 : 420,
+                      objectFit: "contain",
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      display: "block",
+                      background: "rgba(2,6,23,0.35)",
+                    }}
+                  />
                 )
-              ) : (
-                <div
-                  style={{
-                    borderRadius: 14,
-                    border: "1px dashed rgba(148,163,184,0.28)",
-                    background: "rgba(255,255,255,0.02)",
-                    padding: "22px 16px",
-                    color: "rgba(226,232,240,0.62)",
-                    textAlign: "center",
-                    fontSize: 13,
-                  }}
-                >
-                  Graphic placeholder
-                </div>
-              )}
+              ) : null}
 
               {entry.visual.caption ? (
                 <div
@@ -561,57 +537,62 @@ function GlossaryMiddle({
 
         {entry.math ? (
           <GlossarySection id="math" title="Mathematical form">
-            <div
-    style={{
-      fontSize: 14,
-      lineHeight: 1.7,
-      color: "rgba(226,232,240,0.86)",
-      whiteSpace: "pre-wrap",
-    }}
-  >
-    {entry.math}
-  </div>
-            
+            <BodyText>{entry.math}</BodyText>
           </GlossarySection>
         ) : null}
-
 
         {entry.furtherReading && entry.furtherReading.length > 0 ? (
           <GlossarySection id="further-reading" title="Further reading">
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {entry.furtherReading.map((item) => {
-  const isExternal = /^https?:\/\//i.test(item.href);
+                const isExternal = /^https?:\/\//i.test(item.href);
 
-  return isExternal ? (
-    <a
-      key={`${item.label}-${item.href}`}
-      href={item.href}
-      target="_blank"
-      rel="noreferrer"
-      style={{
-        textDecoration: "none",
-        color: "#7dd3fc",
-        fontWeight: 600,
-        fontSize: 14,
-      }}
-    >
-      {item.label} →
-    </a>
-  ) : (
-    <Link
-      key={`${item.label}-${item.href}`}
-      href={item.href}
-      style={{
-        textDecoration: "none",
-        color: "#7dd3fc",
-        fontWeight: 600,
-        fontSize: 14,
-      }}
-    >
-      {item.label} →
-    </Link>
-  );
-})}
+                return isExternal ? (
+                  <a
+                    key={`${item.label}-${item.href}`}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      textDecoration: "none",
+                      color: "#7dd3fc",
+                      fontWeight: 600,
+                      fontSize: 14,
+                    }}
+                  >
+                    {item.label} →
+                  </a>
+                ) : (
+                  <Link
+                    key={`${item.label}-${item.href}`}
+                    href={item.href}
+                    style={{
+                      textDecoration: "none",
+                      color: "#7dd3fc",
+                      fontWeight: 600,
+                      fontSize: 14,
+                    }}
+                  >
+                    {item.label} →
+                  </Link>
+                );
+              })}
+            </div>
+          </GlossarySection>
+        ) : null}
+
+        {entry.relatedTerms.length > 0 ? (
+          <GlossarySection id="related-terms" title="Related terms">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {entry.relatedTerms.map((term) => (
+                <Link
+                  key={term.slug}
+                  href={`/glossary/${term.slug}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  <RelatedMetaPill text={term.name} />
+                </Link>
+              ))}
             </div>
           </GlossarySection>
         ) : null}
@@ -627,40 +608,54 @@ function GlossaryTwoColumnShell() {
 
   const [loading, setLoading] = useState(true);
   const [entry, setEntry] = useState<GlossaryEntry | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     let alive = true;
 
     const loadTerm = async () => {
-      if (!router.isReady || !slug) return;
+      if (!router.isReady) return;
+
+      if (!slug) {
+        if (alive) {
+          setEntry(null);
+          setLoading(false);
+        }
+        return;
+      }
 
       setLoading(true);
       setEntry(null);
 
       const { data: termRow, error: termError } = await supabase
         .from("glossary_terms")
-        .select(
-  `
-    id,
-    name,
-    slug,
-    category,
-    level,
-    one_line,
-    overview,
-    explanation,
-    why_it_matters,
-    intuition,
-    math,
-    visual_title,
-    visual_description,
-    visual_media_url,
-    visual_media_type,
-    visual_caption,
-    visual_link,
-    status
-  `
-)
+        .select(`
+          id,
+          name,
+          slug,
+          category,
+          level,
+          one_line,
+          overview,
+          explanation,
+          why_it_matters,
+          intuition,
+          math,
+          visual_title,
+          visual_description,
+          visual_media_url,
+          visual_media_type,
+          visual_caption,
+          visual_link,
+          status
+        `)
         .eq("slug", slug)
         .eq("status", "published")
         .maybeSingle<GlossaryTermRow>();
@@ -684,14 +679,12 @@ function GlossaryTwoColumnShell() {
 
       const { data: relationRows, error: relationError } = await supabase
         .from("glossary_term_relations")
-        .select(
-          `
-            related:related_term_id (
-              name,
-              slug
-            )
-          `
-        )
+        .select(`
+          related:related_term_id (
+            name,
+            slug
+          )
+        `)
         .eq("term_id", termRow.id)
         .returns<GlossaryRelationRow[]>();
 
@@ -738,6 +731,10 @@ function GlossaryTwoColumnShell() {
     };
   }, [router.isReady, slug]);
 
+  if (isMobile) {
+    return <GlossaryMiddle loading={loading} entry={entry} />;
+  }
+
   return (
     <div
       style={{
@@ -782,5 +779,4 @@ export default function GlossarySlugPage() {
 (GlossarySlugPage as any).layoutProps = {
   variant: "two-left",
   right: null,
-  mobileMain: <GlossaryMiddle loading={true} entry={null} />,
 };
