@@ -19,8 +19,10 @@ type GlossaryFormState = {
   intuition: string;
   visualTitle: string;
   visualDescription: string;
-  visualImageUrl: string;
+  visualMediaUrl: string;
+  visualMediaType: "image" | "video" | "";
   visualCaption: string;
+  visualLink: string;
   math: string;
   relatedTerms: string;
   furtherReading: string;
@@ -254,24 +256,69 @@ function GlossaryContributeMiddle() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const [form, setForm] = useState<GlossaryFormState>({
-    name: "",
-    slug: "",
-    category: "Fundamentals",
-    level: "Beginner",
-    oneLine: "",
-    overview: "",
-    explanation: "",
-    whyItMatters: "",
-    intuition: "",
-    visualTitle: "",
-    visualDescription: "",
-    visualImageUrl: "",
-    visualCaption: "",
-    math: "",
-    relatedTerms: "",
-    furtherReading: "",
-  });
+  const [uploadingVisual, setUploadingVisual] = useState(false);
+
+  const handleVisualUpload = async (file: File) => {
+  if (!user) {
+    router.push("/auth?redirect=/glossary/contribute");
+    return;
+  }
+
+  setUploadingVisual(true);
+  setErrorMsg(null);
+
+  try {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+    const safeSlug = effectiveSlug || "glossary-term";
+    const filePath = `${user.id}/${safeSlug}-${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("glossary-media")
+      .upload(filePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from("glossary-media").getPublicUrl(filePath);
+
+    const mime = file.type || "";
+    const mediaType = mime.startsWith("video/") ? "video" : "image";
+
+    setForm((prev) => ({
+      ...prev,
+      visualMediaUrl: data.publicUrl,
+      visualMediaType: mediaType,
+    }));
+  } catch (err) {
+    console.error("Visual upload error:", err);
+    setErrorMsg("Could not upload visual media right now.");
+  } finally {
+    setUploadingVisual(false);
+  }
+};
+
+const [form, setForm] = useState<GlossaryFormState>({
+  name: "",
+  slug: "",
+  category: "Fundamentals",
+  level: "Beginner",
+  oneLine: "",
+  overview: "",
+  explanation: "",
+  whyItMatters: "",
+  intuition: "",
+  visualTitle: "",
+  visualDescription: "",
+  visualMediaUrl: "",
+  visualMediaType: "",
+  visualCaption: "",
+  visualLink: "",
+  math: "",
+  relatedTerms: "",
+  furtherReading: "",
+});
 
   const derivedSlug = useMemo(() => slugify(form.name), [form.name]);
   const effectiveSlug = form.slug.trim() || derivedSlug;
@@ -317,13 +364,16 @@ function GlossaryContributeMiddle() {
       visual:
         form.visualTitle.trim() ||
         form.visualDescription.trim() ||
-        form.visualImageUrl.trim() ||
-        form.visualCaption.trim()
+        form.visualMediaUrl.trim() ||
+        form.visualCaption.trim() ||
+        form.visualLink.trim()
           ? {
               title: form.visualTitle.trim() || undefined,
               description: form.visualDescription.trim() || undefined,
-              imageUrl: form.visualImageUrl.trim() || undefined,
+              mediaUrl: form.visualMediaUrl.trim() || undefined,
+              mediaType: form.visualMediaType || undefined,
               caption: form.visualCaption.trim() || undefined,
+              link: form.visualLink.trim() || undefined,
             }
           : undefined,
       math: form.math.trim() || undefined,
@@ -708,58 +758,112 @@ function GlossaryContributeMiddle() {
         </FormSection>
 
         <FormSection
-          id="visual"
-          title="Visual"
-          subtitle="Optional visual information that can later appear as an image, diagram, or graphic card."
-        >
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 14,
-            }}
-          >
-            <div>
-              <FieldLabel>Visual title</FieldLabel>
-              <input
-                value={form.visualTitle}
-                onChange={(e) => updateField("visualTitle", e.target.value)}
-                placeholder="e.g. Bloch sphere representation"
-                style={inputStyle()}
-              />
-            </div>
+  id="visual"
+  title="Visual"
+  subtitle="Optional media that can later appear as an image or video card."
+>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+      gap: 14,
+    }}
+  >
+    <div>
+      <FieldLabel>Visual title</FieldLabel>
+      <input
+        value={form.visualTitle}
+        onChange={(e) => updateField("visualTitle", e.target.value)}
+        placeholder="e.g. Bloch sphere representation"
+        style={inputStyle()}
+      />
+    </div>
 
-            <div>
-              <FieldLabel>Visual image URL</FieldLabel>
-              <input
-                value={form.visualImageUrl}
-                onChange={(e) => updateField("visualImageUrl", e.target.value)}
-                placeholder="Optional image URL"
-                style={inputStyle()}
-              />
-            </div>
-          </div>
+    <div>
+      <FieldLabel>Media type</FieldLabel>
+      <select
+        value={form.visualMediaType}
+        onChange={(e) =>
+          updateField("visualMediaType", e.target.value as "image" | "video" | "")
+        }
+        style={inputStyle()}
+      >
+        <option value="">Select type</option>
+        <option value="image">Image</option>
+        <option value="video">Video</option>
+      </select>
+    </div>
+  </div>
 
-          <div style={{ marginTop: 14 }}>
-            <FieldLabel>Visual description</FieldLabel>
-            <textarea
-              value={form.visualDescription}
-              onChange={(e) => updateField("visualDescription", e.target.value)}
-              placeholder="Describe what the visual should show."
-              style={inputStyle(true)}
-            />
-          </div>
+  <div style={{ marginTop: 14 }}>
+    <FieldLabel>Upload media</FieldLabel>
+    <input
+      type="file"
+      accept="image/*,video/*"
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) void handleVisualUpload(file);
+      }}
+      style={{
+        ...inputStyle(),
+        padding: "10px 12px",
+      }}
+    />
+    <div
+      style={{
+        marginTop: 6,
+        fontSize: 12,
+        color: "rgba(226,232,240,0.58)",
+      }}
+    >
+      {uploadingVisual
+        ? "Uploading media..."
+        : form.visualMediaUrl
+        ? "Media uploaded successfully."
+        : "Upload an image or video file."}
+    </div>
+  </div>
 
-          <div style={{ marginTop: 14 }}>
-            <FieldLabel>Visual caption</FieldLabel>
-            <input
-              value={form.visualCaption}
-              onChange={(e) => updateField("visualCaption", e.target.value)}
-              placeholder="Short caption below the visual"
-              style={inputStyle()}
-            />
-          </div>
-        </FormSection>
+  <div style={{ marginTop: 14 }}>
+    <FieldLabel>Media URL</FieldLabel>
+    <input
+      value={form.visualMediaUrl}
+      onChange={(e) => updateField("visualMediaUrl", e.target.value)}
+      placeholder="Uploaded media URL will appear here, or paste one manually"
+      style={inputStyle()}
+    />
+  </div>
+
+  <div style={{ marginTop: 14 }}>
+    <FieldLabel>Visual caption</FieldLabel>
+    <input
+      value={form.visualCaption}
+      onChange={(e) => updateField("visualCaption", e.target.value)}
+      placeholder="Short caption below the visual"
+      style={inputStyle()}
+    />
+  </div>
+
+  <div style={{ marginTop: 14 }}>
+    <FieldLabel>Visual description</FieldLabel>
+    <textarea
+      value={form.visualDescription}
+      onChange={(e) => updateField("visualDescription", e.target.value)}
+      placeholder="Describe what the visual shows."
+      style={inputStyle(true)}
+    />
+  </div>
+
+  <div style={{ marginTop: 14 }}>
+    <FieldLabel>Additional link</FieldLabel>
+    <input
+      value={form.visualLink}
+      onChange={(e) => updateField("visualLink", e.target.value)}
+      placeholder="Optional external or internal link"
+      style={inputStyle()}
+    />
+  </div>
+</FormSection>
 
         <FormSection
           id="math"
