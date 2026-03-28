@@ -17,11 +17,13 @@ type GlossaryEntry = {
   explanation: string;
   whyItMatters?: string;
   intuition?: string;
-  visual?: {
+    visual?: {
     title?: string;
     description?: string;
-    imageUrl?: string;
+    mediaUrl?: string;
+    mediaType?: "image" | "video";
     caption?: string;
+    link?: string;
   };
   math?: string;
   relatedTerms: { name: string; slug: string }[];
@@ -42,8 +44,10 @@ type GlossaryTermRow = {
   math: string | null;
   visual_title: string | null;
   visual_description: string | null;
-  visual_image_url: string | null;
+  visual_media_url: string | null;
+  visual_media_type: "image" | "video" | null;
   visual_caption: string | null;
+  visual_link: string | null;
   status: string;
 };
 
@@ -68,8 +72,9 @@ function mapTermRowToEntry(
   const hasVisual =
     !!row.visual_title ||
     !!row.visual_description ||
-    !!row.visual_image_url ||
-    !!row.visual_caption;
+    !!row.visual_media_url ||
+    !!row.visual_caption ||
+    !!row.visual_link;
 
   return {
     id: row.id,
@@ -86,8 +91,10 @@ function mapTermRowToEntry(
       ? {
           title: row.visual_title || undefined,
           description: row.visual_description || undefined,
-          imageUrl: row.visual_image_url || undefined,
+          mediaUrl: row.visual_media_url || undefined,
+          mediaType: row.visual_media_type || undefined,
           caption: row.visual_caption || undefined,
+          link: row.visual_link || undefined,
         }
       : undefined,
     math: row.math || undefined,
@@ -443,21 +450,35 @@ function GlossaryMiddle({
           </GlossarySection>
         ) : null}
 
-        {entry.visual ? (
+                {entry.visual ? (
           <GlossarySection id="visual" title={entry.visual.title || "Visual"}>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {entry.visual.description ? <div>{entry.visual.description}</div> : null}
 
-              {entry.visual.imageUrl ? (
-                <img
-                  src={entry.visual.imageUrl}
-                  alt={entry.name}
-                  style={{
-                    width: "100%",
-                    borderRadius: 14,
-                    border: "1px solid rgba(148,163,184,0.16)",
-                  }}
-                />
+              {entry.visual.mediaUrl ? (
+                entry.visual.mediaType === "video" ? (
+                  <video
+                    src={entry.visual.mediaUrl}
+                    controls
+                    style={{
+                      width: "100%",
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      display: "block",
+                    }}
+                  />
+                ) : (
+                  <img
+                    src={entry.visual.mediaUrl}
+                    alt={entry.name}
+                    style={{
+                      width: "100%",
+                      borderRadius: 14,
+                      border: "1px solid rgba(148,163,184,0.16)",
+                      display: "block",
+                    }}
+                  />
+                )
               ) : (
                 <div
                   style={{
@@ -483,6 +504,22 @@ function GlossaryMiddle({
                 >
                   {entry.visual.caption}
                 </div>
+              ) : null}
+
+              {entry.visual.link ? (
+                <a
+                  href={entry.visual.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    textDecoration: "none",
+                    color: "#7dd3fc",
+                    fontWeight: 700,
+                    fontSize: 13,
+                  }}
+                >
+                  Open link →
+                </a>
               ) : null}
             </div>
           </GlossarySection>
@@ -540,25 +577,27 @@ function GlossaryTwoColumnShell() {
       const { data: termRow, error: termError } = await supabase
         .from("glossary_terms")
         .select(
-          `
-            id,
-            name,
-            slug,
-            category,
-            level,
-            one_line,
-            overview,
-            explanation,
-            why_it_matters,
-            intuition,
-            math,
-            visual_title,
-            visual_description,
-            visual_image_url,
-            visual_caption,
-            status
-          `
-        )
+  `
+    id,
+    name,
+    slug,
+    category,
+    level,
+    one_line,
+    overview,
+    explanation,
+    why_it_matters,
+    intuition,
+    math,
+    visual_title,
+    visual_description,
+    visual_media_url,
+    visual_media_type,
+    visual_caption,
+    visual_link,
+    status
+  `
+)
         .eq("slug", slug)
         .eq("status", "published")
         .maybeSingle<GlossaryTermRow>();
