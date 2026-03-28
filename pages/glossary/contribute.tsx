@@ -24,7 +24,6 @@ type GlossaryFormState = {
   visualCaption: string;
   visualLink: string;
   math: string;
-  relatedTerms: string;
   furtherReading: string;
 };
 
@@ -48,7 +47,6 @@ const FORM_SECTIONS = [
   { id: "intuition", label: "Intuition / Example" },
   { id: "visual", label: "Visual" },
   { id: "math", label: "Mathematical form" },
-  { id: "related-terms", label: "Related terms" },
   { id: "further-reading", label: "Further reading" },
 ] as const;
 
@@ -258,25 +256,24 @@ function GlossaryContributeMiddle() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [form, setForm] = useState<GlossaryFormState>({
-    name: "",
-    slug: "",
-    category: "Fundamentals",
-    level: "Beginner",
-    oneLine: "",
-    overview: "",
-    explanation: "",
-    whyItMatters: "",
-    intuition: "",
-    visualTitle: "",
-    visualDescription: "",
-    visualMediaUrl: "",
-    visualMediaType: "",
-    visualCaption: "",
-    visualLink: "",
-    math: "",
-    relatedTerms: "",
-    furtherReading: "",
-  });
+  name: "",
+  slug: "",
+  category: "Fundamentals",
+  level: "Beginner",
+  oneLine: "",
+  overview: "",
+  explanation: "",
+  whyItMatters: "",
+  intuition: "",
+  visualTitle: "",
+  visualDescription: "",
+  visualMediaUrl: "",
+  visualMediaType: "",
+  visualCaption: "",
+  visualLink: "",
+  math: "",
+  furtherReading: "",
+});
 
   const derivedSlug = useMemo(() => slugify(form.name), [form.name]);
   const effectiveSlug = form.slug.trim() || derivedSlug;
@@ -389,14 +386,10 @@ function GlossaryContributeMiddle() {
           }
         : undefined,
       math: form.math.trim() || undefined,
-      relatedTerms: form.relatedTerms
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
       furtherReading: form.furtherReading
-        .split("\n")
-        .map((item) => item.trim())
-        .filter(Boolean),
+  .split("\n")
+  .map((item) => item.trim())
+  .filter(Boolean),
     };
 
     const { error } = await supabase.from("glossary_contributions").insert({
@@ -1024,33 +1017,19 @@ function GlossaryContributeMiddle() {
         </FormSection>
 
         <FormSection
-          id="related-terms"
-          title="Related terms"
-          subtitle="Separate terms with commas."
-        >
-          <FieldLabel>Related terms</FieldLabel>
-          <input
-            value={form.relatedTerms}
-            onChange={(e) => updateField("relatedTerms", e.target.value)}
-            placeholder="e.g. Superposition, Bloch Sphere, Entanglement"
-            style={inputStyle()}
-          />
-        </FormSection>
-
-        <FormSection
-          id="further-reading"
-          title="Further reading"
-          subtitle="One item per line. You can add titles, links, or short references."
-        >
-          <FieldLabel>Further reading</FieldLabel>
-          <textarea
-            value={form.furtherReading}
-            onChange={(e) => updateField("furtherReading", e.target.value)}
-            placeholder={`e.g.\nBloch Sphere — /glossary/bloch-sphere\nSuperposition — /glossary/superposition`}
-            style={inputStyle(true)}
-          />
-        </FormSection>
-
+  id="further-reading"
+  title="Further reading"
+  subtitle="Add references, reading materials, papers, articles, or useful links. Enter one item per line."
+>
+  <FieldLabel>Further reading</FieldLabel>
+  <textarea
+    value={form.furtherReading}
+    onChange={(e) => updateField("furtherReading", e.target.value)}
+    placeholder={`e.g.\nhttps://example.com/article\nNielsen & Chuang, Quantum Computation and Quantum Information\nhttps://en.wikipedia.org/wiki/Qubit`}
+    style={inputStyle(true)}
+  />
+</FormSection>
+        
         <div
           className="card"
           style={{
