@@ -1,4 +1,3 @@
-// pages/glossary/[slug]/edit.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -104,6 +103,7 @@ const FORM_SECTIONS = [
   { id: "intuition", label: "Intuition / Example" },
   { id: "visual", label: "Visual" },
   { id: "math", label: "Mathematical form" },
+  { id: "related-terms", label: "Related terms" },
   { id: "further-reading", label: "Further reading" },
   { id: "edit-note", label: "Edit note" },
 ] as const;
@@ -181,6 +181,26 @@ function MetaPill({ text }: { text: string }) {
         background: "rgba(255,255,255,0.05)",
         border: "1px solid rgba(148,163,184,0.16)",
         color: "rgba(226,232,240,0.9)",
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function RelatedMetaPill({ text }: { text: string }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        borderRadius: 999,
+        padding: "5px 10px",
+        fontSize: 11,
+        fontWeight: 700,
+        background: "rgba(34,211,238,0.12)",
+        border: "1px solid rgba(34,211,238,0.35)",
+        color: "#a5f3fc",
       }}
     >
       {text}
@@ -277,7 +297,6 @@ function FormSection({
     </section>
   );
 }
-
 function GlossaryEditRightSidebar() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -359,6 +378,7 @@ function GlossaryEditMiddle() {
 
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingVisual, setUploadingVisual] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -492,6 +512,67 @@ function GlossaryEditMiddle() {
     !!form?.visualCaption.trim() ||
     !!form?.visualLink.trim();
 
+  const handleVisualUpload = async (file: File) => {
+    if (!user) {
+      router.push(`/auth?redirect=/glossary/${slug}/edit`);
+      return;
+    }
+
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      setErrorMsg("Only image and video files are supported.");
+      return;
+    }
+
+    setUploadingVisual(true);
+    setErrorMsg(null);
+
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
+      const safeSlug = slug || "glossary-term";
+      const filePath = `${user.id}/${safeSlug}-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("glossary-media")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error("Glossary media upload error:", uploadError);
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from("glossary-media").getPublicUrl(filePath);
+
+      const mediaType: "image" | "video" = file.type.startsWith("video/")
+        ? "video"
+        : "image";
+
+      setForm((prev) =>
+        prev
+          ? {
+              ...prev,
+              visualMediaUrl: data.publicUrl,
+              visualMediaType: mediaType,
+            }
+          : prev
+      );
+
+      setTimeout(() => {
+        document.getElementById("visual")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+    } catch (err) {
+      console.error("Visual upload error:", err);
+      setErrorMsg("Could not upload visual media right now.");
+    } finally {
+      setUploadingVisual(false);
+    }
+  };
+
   const requiredMissing =
     !form ||
     !form.category.trim() ||
@@ -601,8 +682,7 @@ function GlossaryEditMiddle() {
       </section>
     );
   }
-
-  return (
+      return (
     <section className="section">
       <div style={{ marginBottom: 12 }}>
         <Link
@@ -783,16 +863,13 @@ function GlossaryEditMiddle() {
               style={{
                 color: "white",
                 padding: "11px 18px",
-                borderRadius: 14,
                 border: "1px solid rgba(34,211,238,0.45)",
+                borderRadius: 14,
                 background:
                   "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
                 boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
                 fontSize: 13,
                 fontWeight: 800,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
                 cursor: "pointer",
               }}
             >
@@ -934,16 +1011,88 @@ function GlossaryEditMiddle() {
             <input
               value={form.visualTitle}
               onChange={(e) => updateField("visualTitle", e.target.value)}
+              placeholder="e.g. Bloch sphere representation"
               style={inputStyle()}
             />
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <FieldLabel>Upload media</FieldLabel>
+            <input
+              type="file"
+              accept="image/*,video/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleVisualUpload(file);
+                e.currentTarget.value = "";
+              }}
+              style={{
+                ...inputStyle(),
+                padding: "10px 12px",
+              }}
+            />
+
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: 12,
+                color: "rgba(226,232,240,0.58)",
+              }}
+            >
+              {uploadingVisual
+                ? "Uploading media..."
+                : form.visualMediaUrl
+                ? "Media uploaded successfully."
+                : "Upload an image or video file."}
+            </div>
+
+            {form.visualMediaUrl ? (
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 12,
+                  color: "#7dd3fc",
+                  wordBreak: "break-all",
+                }}
+              >
+                {form.visualMediaUrl}
+              </div>
+            ) : null}
+
+            {form.visualMediaUrl ? (
+              <button
+                type="button"
+                onClick={() => {
+                  updateField("visualMediaUrl", "");
+                  updateField("visualMediaType", "");
+                }}
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(248,113,113,0.28)",
+                  background: "rgba(127,29,29,0.18)",
+                  color: "rgba(254,226,226,0.95)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Remove media
+              </button>
+            ) : null}
           </div>
 
           <div style={{ marginTop: 14 }}>
             <FieldLabel>Media URL</FieldLabel>
             <input
               value={form.visualMediaUrl}
-              onChange={(e) => updateField("visualMediaUrl", e.target.value)}
-              style={inputStyle()}
+              readOnly
+              placeholder="Uploaded media URL will appear here"
+              style={{
+                ...inputStyle(),
+                opacity: 0.8,
+              }}
             />
           </div>
 
@@ -952,6 +1101,7 @@ function GlossaryEditMiddle() {
             <input
               value={form.visualCaption}
               onChange={(e) => updateField("visualCaption", e.target.value)}
+              placeholder="Short caption below the visual"
               style={inputStyle()}
             />
           </div>
@@ -961,6 +1111,7 @@ function GlossaryEditMiddle() {
             <textarea
               value={form.visualDescription}
               onChange={(e) => updateField("visualDescription", e.target.value)}
+              placeholder="Describe what the visual shows."
               style={inputStyle(true)}
             />
           </div>
@@ -970,6 +1121,7 @@ function GlossaryEditMiddle() {
             <input
               value={form.visualLink}
               onChange={(e) => updateField("visualLink", e.target.value)}
+              placeholder="Optional external or internal link"
               style={inputStyle()}
             />
           </div>
@@ -1064,7 +1216,7 @@ function GlossaryEditMiddle() {
                       fontSize: 13,
                     }}
                   >
-                    No media added
+                    No media uploaded yet
                   </div>
                 )}
 
@@ -1112,6 +1264,36 @@ function GlossaryEditMiddle() {
         </FormSection>
 
         <FormSection
+          id="related-terms"
+          title="Related terms"
+          subtitle="Related terms are currently managed in the backend and shown here for reference only."
+        >
+          {entry.relatedTerms.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {entry.relatedTerms.map((term) => (
+                <Link
+                  key={term.slug}
+                  href={`/glossary/${term.slug}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  <RelatedMetaPill text={term.name} />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: "rgba(226,232,240,0.68)",
+              }}
+            >
+              No related terms mapped yet.
+            </div>
+          )}
+        </FormSection>
+
+        <FormSection
           id="further-reading"
           title="Further reading"
           subtitle="Add references, reading materials, papers, articles, or useful links. Enter one item per line."
@@ -1120,6 +1302,7 @@ function GlossaryEditMiddle() {
           <textarea
             value={form.furtherReading}
             onChange={(e) => updateField("furtherReading", e.target.value)}
+            placeholder={`e.g.\nhttps://example.com/article\nNielsen & Chuang, Quantum Computation and Quantum Information\nhttps://en.wikipedia.org/wiki/Qubit`}
             style={inputStyle(true)}
           />
         </FormSection>
@@ -1173,11 +1356,11 @@ function GlossaryEditMiddle() {
               style={{
                 color: "white",
                 padding: "11px 16px",
-                borderRadius: 14,
                 border:
                   requiredMissing || submitting || userLoading
                     ? "1px solid rgba(148,163,184,0.22)"
                     : "1px solid rgba(34,211,238,0.45)",
+                borderRadius: 14,
                 background:
                   requiredMissing || submitting || userLoading
                     ? "rgba(51,65,85,0.55)"
@@ -1193,9 +1376,7 @@ function GlossaryEditMiddle() {
                 alignItems: "center",
                 gap: 8,
                 cursor:
-                  requiredMissing || submitting || userLoading
-                    ? "not-allowed"
-                    : "pointer",
+                  requiredMissing || submitting || userLoading ? "not-allowed" : "pointer",
               }}
             >
               <span style={{ fontSize: 14 }}>✍️</span>
