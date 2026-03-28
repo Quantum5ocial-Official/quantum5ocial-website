@@ -18,6 +18,14 @@ export default function GlossaryIndexPage() {
   const [terms, setTerms] = useState<GlossaryTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -157,7 +165,7 @@ export default function GlossaryIndexPage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr auto",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr auto",
             gap: 12,
             alignItems: "center",
           }}
@@ -271,7 +279,9 @@ export default function GlossaryIndexPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gridTemplateColumns: isMobile
+                      ? "minmax(0, 1fr)"
+                      : "repeat(3, minmax(0, 1fr))",
                     gap: 12,
                   }}
                 >
@@ -283,36 +293,44 @@ export default function GlossaryIndexPage() {
                       style={{
                         textDecoration: "none",
                         color: "inherit",
-                        padding: 14,
+                        padding: isMobile ? 18 : 14,
                         borderRadius: 14,
                         border: "1px solid rgba(148,163,184,0.18)",
                         background:
                           "radial-gradient(circle at top left, rgba(168,85,247,0.08), rgba(15,23,42,0.96))",
                         transition: "transform 140ms ease, border-color 140ms ease",
+                        minHeight: isMobile ? 110 : 140,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: isMobile ? "center" : "flex-start",
+                        alignItems: isMobile ? "center" : "flex-start",
+                        textAlign: isMobile ? "center" : "left",
                       }}
                     >
                       <div
                         style={{
-                          fontSize: 16,
+                          fontSize: isMobile ? 28 : 16,
                           fontWeight: 700,
-                          lineHeight: 1.35,
+                          lineHeight: 1.25,
                           color: "white",
                         }}
                       >
                         {term.name}
                       </div>
 
-                      <div
-                        style={{
-                          marginTop: 8,
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: 6,
-                        }}
-                      >
-                        <MetaPill text={term.category} />
-                        <MetaPill text={term.level} />
-                      </div>
+                      {!isMobile ? (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 6,
+                          }}
+                        >
+                          <MetaPill text={term.category} />
+                          <MetaPill text={term.level} />
+                        </div>
+                      ) : null}
                     </Link>
                   ))}
                 </div>
