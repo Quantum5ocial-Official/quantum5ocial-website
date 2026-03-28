@@ -185,6 +185,29 @@ function GlossaryRightSidebar({ entry }: { entry: GlossaryEntry }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <Link
+        href={`/glossary/${entry.slug}/edit`}
+        style={{
+          textDecoration: "none",
+          color: "white",
+          padding: "11px 16px",
+          borderRadius: 14,
+          border: "1px solid rgba(34,211,238,0.45)",
+          background:
+            "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
+          boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
+          fontSize: 13,
+          fontWeight: 800,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+        }}
+      >
+        <span style={{ fontSize: 14 }}>✍️</span>
+        <span>Suggest an edit</span>
+      </Link>
+
       <div className="sidebar-card">
         <div
           style={{
@@ -377,29 +400,6 @@ function GlossaryMiddle({
               <MetaPill text={entry.level} />
             </div>
           </div>
-
-          <Link
-            href={`/glossary/${entry.slug}/edit`}
-            style={{
-              textDecoration: "none",
-              color: "white",
-              padding: "11px 16px",
-              borderRadius: 14,
-              border: "1px solid rgba(34,211,238,0.45)",
-              background:
-                "linear-gradient(135deg, rgba(34,211,238,0.22), rgba(168,85,247,0.18))",
-              boxShadow: "0 10px 28px rgba(15,23,42,0.35)",
-              fontSize: 13,
-              fontWeight: 800,
-              whiteSpace: "nowrap",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span style={{ fontSize: 14 }}>✍️</span>
-            <span>Suggest an edit →</span>
-          </Link>
         </div>
       </div>
 
