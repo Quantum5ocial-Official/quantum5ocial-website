@@ -511,6 +511,7 @@ function PostMediaGrid({
 ) : (
   <GridMediaImage src={visible[0].url} alt="Post media 1" />
 )}
+        </div>
 
         <div
           style={{
