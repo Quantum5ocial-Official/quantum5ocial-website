@@ -5,7 +5,7 @@ import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { initPostHog } from "../lib/posthogClient";
+import posthog, { initPostHog } from "../lib/posthogClient";
 import AppLayout from "../components/AppLayout";
 
 export type LayoutProps = {
@@ -36,8 +36,8 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-  initPostHog();
-}, []);
+    initPostHog();
+  }, []);
 
   const isPublicRoute =
     router.pathname === "/auth" || router.pathname.startsWith("/auth/");
@@ -58,6 +58,8 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
       const user = data?.user;
 
       if (!user) {
+        posthog.reset();
+
         if (!cancelled) {
           setAllowed(false);
           setCheckingAuth(false);
@@ -66,6 +68,10 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
         return;
       }
 
+      posthog.identify(user.id, {
+        email: user.email,
+      });
+
       if (!cancelled) {
         setAllowed(true);
         setCheckingAuth(false);
@@ -73,10 +79,11 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
     };
 
     checkAuth();
+
     return () => {
       cancelled = true;
     };
-  }, [isPublicRoute, router.pathname]);
+  }, [isPublicRoute, router]);
 
   if (checkingAuth) {
     return (
@@ -103,11 +110,11 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
 
   const lp = Component.layoutProps ?? {};
 
-  // ✅ Wrap ONLY the page content so AppLayout (and sidebars) never remount
+  // Wrap ONLY the page content so AppLayout (and sidebars) never remount
   const pageInner = <Component {...pageProps} />;
   const page = lp.wrap ? lp.wrap(pageInner) : pageInner;
 
-  // ✅ IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
+  // IMPORTANT: wrap mobileMain too (so JobsMiddle gets JobsProvider)
   const mobileMain = lp.mobileMain
     ? lp.wrap
       ? lp.wrap(lp.mobileMain)
