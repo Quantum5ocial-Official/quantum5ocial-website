@@ -5,6 +5,7 @@ import type { NextPage } from "next";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { initPostHog } from "../lib/posthogClient";
 import AppLayout from "../components/AppLayout";
 
 export type LayoutProps = {
@@ -33,6 +34,10 @@ export default function MyApp({ Component, pageProps }: AppPropsWithLayout) {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [allowed, setAllowed] = useState(false);
+
+  useEffect(() => {
+  initPostHog();
+}, []);
 
   const isPublicRoute =
     router.pathname === "/auth" || router.pathname.startsWith("/auth/");
