@@ -21,7 +21,7 @@ export type FeedOrg = {
 
 export type PostMediaItem = {
   url: string;
-  type: "image" | "video";
+  type: "image" | "video" | "pdf";
 };
 
 export type PostRow = {
@@ -318,6 +318,63 @@ function GridMediaVideo({
   );
 }
 
+function PdfPreviewCard({
+  postHref,
+}: {
+  postHref: string;
+}) {
+  return (
+    <Link
+      href={postHref}
+      style={{
+        textDecoration: "none",
+        color: "inherit",
+        display: "block",
+        marginTop: 10,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          minHeight: 220,
+          borderRadius: 14,
+          overflow: "hidden",
+          border: "1px solid rgba(148,163,184,0.16)",
+          background: "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94))",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          padding: 20,
+          textAlign: "center",
+        }}
+      >
+        <div style={{ fontSize: 48, lineHeight: 1 }}>📄</div>
+        <div
+          style={{
+            fontSize: 15,
+            fontWeight: 800,
+            color: "rgba(226,232,240,0.96)",
+          }}
+        >
+          PDF document
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            lineHeight: 1.4,
+            color: "rgba(148,163,184,0.88)",
+            maxWidth: 320,
+          }}
+        >
+          Open post to browse the document page by page
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function PostMediaGrid({
   media,
   postHref,
@@ -329,17 +386,22 @@ function PostMediaGrid({
   if (visible.length === 0) return null;
 
   if (visible.length === 1) {
-    const item = visible[0];
-    return item.type === "video" ? (
-      <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
-        <AdaptiveVideo src={item.url} />
-      </Link>
-    ) : (
-      <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
-        <AdaptiveImage src={item.url} alt="Post media" />
-      </Link>
-    );
+  const item = visible[0];
+
+  if (item.type === "pdf") {
+    return <PdfPreviewCard postHref={postHref} />;
   }
+
+  return item.type === "video" ? (
+    <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
+      <AdaptiveVideo src={item.url} />
+    </Link>
+  ) : (
+    <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
+      <AdaptiveImage src={item.url} alt="Post media" />
+    </Link>
+  );
+}
 
   if (visible.length === 2) {
     return (
@@ -365,14 +427,40 @@ function PostMediaGrid({
           }}
         >
           {visible.map((item, idx) => (
-            <div key={idx} style={{ minWidth: 0, minHeight: 0 }}>
-              {item.type === "video" ? (
-                <GridMediaVideo src={item.url} />
-              ) : (
-                <GridMediaImage src={item.url} alt={`Post media ${idx + 1}`} />
-              )}
-            </div>
-          ))}
+  <div
+    key={idx}
+    style={{
+      minWidth: 0,
+      minHeight: 0,
+      background: "rgba(15,23,42,0.92)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    {item.type === "video" ? (
+      <GridMediaVideo src={item.url} />
+    ) : item.type === "pdf" ? (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          color: "rgba(226,232,240,0.94)",
+          textAlign: "center",
+          padding: 12,
+        }}
+      >
+        <div style={{ fontSize: 34 }}>📄</div>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+      </div>
+    ) : (
+      <GridMediaImage src={item.url} alt={`Post media ${idx + 1}`} />
+    )}
+  </div>
+))}
         </div>
       </Link>
     );
@@ -402,11 +490,27 @@ function PostMediaGrid({
       >
         <div style={{ minWidth: 0, minHeight: 0 }}>
           {visible[0].type === "video" ? (
-            <GridMediaVideo src={visible[0].url} />
-          ) : (
-            <GridMediaImage src={visible[0].url} alt="Post media 1" />
-          )}
-        </div>
+  <GridMediaVideo src={visible[0].url} />
+) : visible[0].type === "pdf" ? (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      background: "rgba(15,23,42,0.92)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      color: "rgba(226,232,240,0.94)",
+    }}
+  >
+    <div style={{ fontSize: 40 }}>📄</div>
+    <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+  </div>
+) : (
+  <GridMediaImage src={visible[0].url} alt="Post media 1" />
+)}
 
         <div
           style={{
@@ -419,18 +523,52 @@ function PostMediaGrid({
         >
           <div style={{ minWidth: 0, minHeight: 0 }}>
             {visible[1].type === "video" ? (
-              <GridMediaVideo src={visible[1].url} />
-            ) : (
-              <GridMediaImage src={visible[1].url} alt="Post media 2" />
-            )}
+  <GridMediaVideo src={visible[1].url} />
+) : visible[1].type === "pdf" ? (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      background: "rgba(15,23,42,0.92)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      color: "rgba(226,232,240,0.94)",
+    }}
+  >
+    <div style={{ fontSize: 40 }}>📄</div>
+    <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+  </div>
+) : (
+  <GridMediaImage src={visible[1].url} alt="Post media 1" />
+)}
           </div>
 
           <div style={{ minWidth: 0, minHeight: 0 }}>
             {visible[2].type === "video" ? (
-              <GridMediaVideo src={visible[2].url} />
-            ) : (
-              <GridMediaImage src={visible[2].url} alt="Post media 3" />
-            )}
+  <GridMediaVideo src={visible[2].url} />
+) : visible[2].type === "pdf" ? (
+  <div
+    style={{
+      width: "100%",
+      height: "100%",
+      background: "rgba(15,23,42,0.92)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      color: "rgba(226,232,240,0.94)",
+    }}
+  >
+    <div style={{ fontSize: 40 }}>📄</div>
+    <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+  </div>
+) : (
+  <GridMediaImage src={visible[2].url} alt="Post media 1" />
+)}
           </div>
         </div>
       </div>
@@ -668,14 +806,14 @@ export default function FeedCards({
         const isSharingThisPost = sharingPostId === p.id;
 
         const validMedia =
-          Array.isArray(p.media) && p.media.length > 0
-            ? p.media.filter(
-                (item) =>
-                  item &&
-                  typeof item.url === "string" &&
-                  (item.type === "image" || item.type === "video")
-              )
-            : [];
+  Array.isArray(p.media) && p.media.length > 0
+    ? p.media.filter(
+        (item) =>
+          item &&
+          typeof item.url === "string" &&
+          (item.type === "image" || item.type === "video" || item.type === "pdf")
+      )
+    : [];
 
         const hasStructuredMedia = validMedia.length > 0;
         const hasVideo = !hasStructuredMedia && !!p.video_url;
