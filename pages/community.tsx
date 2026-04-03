@@ -13,30 +13,11 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { useEntanglements } from "../lib/useEntanglements";
 import Q5BadgeChips from "../components/Q5BadgeChips";
+import { computePublicProfileCompleteness } from "../lib/profileCompleteness";
 
 /* =========================
    TYPES
    ========================= */
-{/*
-type CommunityProfile = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-
-  role: string | null;
-  current_title?: string | null;
-
-  affiliation: string | null;
-  country: string | null;
-  city: string | null;
-  created_at?: string | null;
-
-  q5_badge_level?: number | null;
-  q5_badge_label?: string | null;
-  q5_badge_review_status?: string | null;
-  q5_badge_claimed_at?: string | null;
-};
-*/}
 
 type CommunityProfile = {
   id: string;
@@ -91,24 +72,23 @@ type CommunityItem = {
   name: string;
   avatar_url: string | null;
 
-  // only for person
   role?: string | null;
   current_title?: string | null;
   affiliation?: string | null;
 
-  // location
   city?: string | null;
   country?: string | null;
 
-  // org only
-  typeLabel: string; // org only (Company/Research group)
-  roleLabel: string; // org meta label
+  typeLabel: string;
+  roleLabel: string;
 
   created_at: string | null;
 
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
+
+  completenessPct: number;
 };
 
 type CommunityCtx = {
@@ -155,6 +135,28 @@ function useCommunityCtx() {
   const ctx = useContext(CommunityContext);
   if (!ctx) throw new Error("useCommunityCtx must be used inside <CommunityProvider />");
   return ctx;
+}
+
+function hasValue(v: any) {
+  if (v == null) return false;
+  if (typeof v === "string") return v.trim().length > 0;
+  return true;
+}
+
+function computeOrgCompleteness(o: CommunityOrg): number {
+  const items = [
+    { w: 25, ok: hasValue(o.name) },
+    { w: 25, ok: hasValue(o.logo_url) },
+    { w: 10, ok: hasValue(o.slug) },
+    { w: 20, ok: hasValue(o.kind === "company" ? o.industry : o.institution) },
+    { w: 10, ok: hasValue(o.city) },
+    { w: 10, ok: hasValue(o.country) },
+  ];
+
+  const total = items.reduce((s, x) => s + x.w, 0);
+  const score = items.reduce((s, x) => s + (x.ok ? x.w : 0), 0);
+
+  return total ? Math.round((score / total) * 100) : 0;
 }
 
 /* =========================
@@ -245,22 +247,33 @@ function CommunityProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase
           .from("profiles")
           .select(
-            `
-            id,
-            full_name,
-            avatar_url,
-            role,
-            current_title,
-            affiliation,
-            country,
-            city,
-            created_at,
-            q5_badge_level,
-            q5_badge_label,
-            q5_badge_review_status,
-            q5_badge_claimed_at
-          `
-          )
+  `
+  id,
+  full_name,
+  short_bio,
+  avatar_url,
+  role,
+  current_title,
+  affiliation,
+  country,
+  city,
+  created_at,
+  focus_areas,
+  skills,
+  highest_education,
+  key_experience,
+  orcid,
+  google_scholar,
+  linkedin_url,
+  github_url,
+  personal_website,
+  lab_website,
+  q5_badge_level,
+  q5_badge_label,
+  q5_badge_review_status,
+  q5_badge_claimed_at
+`
+)
           .order("created_at", { ascending: false });
 
         if (error) {
@@ -378,47 +391,57 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   }, [orgs, search]);
 
   const communityItems: CommunityItem[] = useMemo(() => {
-    const personItems: CommunityItem[] = filteredProfiles.map((p) => ({
-      kind: "person",
-      id: p.id,
-      name: p.full_name || "Quantum5ocial member",
-      avatar_url: p.avatar_url || null,
-      role: p.role || null,
-      current_title: p.current_title || null,
-      affiliation: p.affiliation || null,
-      // carry location
-      city: p.city || null,
-      country: p.country || null,
-      typeLabel: "Member",
-      roleLabel: p.role || "Quantum5ocial member",
-      created_at: p.created_at || null,
-      q5_badge_level: p.q5_badge_level ?? null,
-      q5_badge_label: p.q5_badge_label ?? null,
-      q5_badge_review_status: p.q5_badge_review_status ?? null,
-    }));
+  const personItems: CommunityItem[] = filteredProfiles.map((p) => ({
+    kind: "person",
+    id: p.id,
+    name: p.full_name || "Quantum5ocial member",
+    avatar_url: p.avatar_url || null,
+    role: p.role || null,
+    current_title: p.current_title || null,
+    affiliation: p.affiliation || null,
+    city: p.city || null,
+    country: p.country || null,
+    typeLabel: "Member",
+    roleLabel: p.role || "Quantum5ocial member",
+    created_at: p.created_at || null,
+    q5_badge_level: p.q5_badge_level ?? null,
+    q5_badge_label: p.q5_badge_label ?? null,
+    q5_badge_review_status: p.q5_badge_review_status ?? null,
+    completenessPct: computePublicProfileCompleteness(p),
+  }));
 
-    const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
-      const typeLabel = o.kind === "company" ? "Company" : "Research group";
-      const roleLabel = o.kind === "company" ? o.industry || "Quantum company" : o.institution || "Research group";
+  const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
+    const typeLabel = o.kind === "company" ? "Company" : "Research group";
+    const roleLabel =
+      o.kind === "company"
+        ? o.industry || "Quantum company"
+        : o.institution || "Research group";
 
-      return {
-        kind: "organization",
-        id: o.id,
-        slug: o.slug,
-        name: o.name,
-        avatar_url: o.logo_url || null,
-        typeLabel,
-        roleLabel,
-        created_at: o.created_at || null,
-      };
-    });
+    return {
+      kind: "organization",
+      id: o.id,
+      slug: o.slug,
+      name: o.name,
+      avatar_url: o.logo_url || null,
+      city: o.city || null,
+      country: o.country || null,
+      typeLabel,
+      roleLabel,
+      created_at: o.created_at || null,
+      completenessPct: computeOrgCompleteness(o),
+    };
+  });
 
-    return [...personItems, ...orgItems].sort((a, b) => {
-      const ta = a.created_at ? Date.parse(a.created_at) : 0;
-      const tb = b.created_at ? Date.parse(b.created_at) : 0;
-      return tb - ta;
-    });
-  }, [filteredProfiles, filteredOrgs]);
+  return [...personItems, ...orgItems].sort((a, b) => {
+    if (b.completenessPct !== a.completenessPct) {
+      return b.completenessPct - a.completenessPct;
+    }
+
+    const ta = a.created_at ? Date.parse(a.created_at) : 0;
+    const tb = b.created_at ? Date.parse(b.created_at) : 0;
+    return tb - ta;
+  });
+}, [filteredProfiles, filteredOrgs]);
 
   const hasAnyCommunity = communityItems.length > 0;
 
