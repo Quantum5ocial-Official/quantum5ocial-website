@@ -165,35 +165,42 @@ function PdfInlineViewer({
     let objectUrl: string | null = null;
 
     const loadPdf = async () => {
-      try {
-        setLoadingPdf(true);
-        setPdfError(null);
-        setPdfBlobUrl(null);
-        setPageNumber(1);
-        setNumPages(0);
+  try {
+    setLoadingPdf(true);
+    setPdfError(null);
+    setPdfBlobUrl(null);
+    setPageNumber(1);
+    setNumPages(0);
 
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
 
-        const blob = await res.blob();
-        objectUrl = URL.createObjectURL(blob);
+    const blob = await res.blob();
 
-        if (!cancelled) {
-          setPdfBlobUrl(objectUrl);
-        }
-      } catch (err: any) {
-        console.error("PDF fetch error", err);
-        if (!cancelled) {
-          setPdfError(err?.message || "Could not fetch PDF.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingPdf(false);
-        }
-      }
-    };
+    console.log("Fetched PDF blob type:", blob.type, "size:", blob.size);
+
+    if (blob.size === 0) {
+      throw new Error("Fetched PDF is empty.");
+    }
+
+    objectUrl = URL.createObjectURL(blob);
+
+    if (!cancelled) {
+      setPdfBlobUrl(objectUrl);
+    }
+  } catch (err: any) {
+    console.error("PDF fetch error", err);
+    if (!cancelled) {
+      setPdfError(err?.message || "Could not fetch PDF.");
+    }
+  } finally {
+    if (!cancelled) {
+      setLoadingPdf(false);
+    }
+  }
+};
 
     loadPdf();
 
