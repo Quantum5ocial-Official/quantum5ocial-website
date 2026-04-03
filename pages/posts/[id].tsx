@@ -88,9 +88,6 @@ function normalizePostMedia(post: PostRow | null): PostMediaItem[] {
   return legacy;
 }
 
-const [pdfPageCount, setPdfPageCount] = useState<Record<string, number>>({});
-const [currentPdfPage, setCurrentPdfPage] = useState(1);
-
 const pillBtnStyle: CSSProperties = {
   fontSize: 13,
   padding: "6px 10px",
@@ -1049,37 +1046,10 @@ export default function PostDetailPage() {
     }}
   />
 ) : mediaItems[currentMediaIndex]?.type === "pdf" ? (
-  <div
-    style={{
-      width: "100%",
-      minHeight: isMobile ? 260 : 360,
-      maxHeight: isMobile ? "70vh" : "72vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexDirection: "column",
-      gap: 12,
-      background: "rgba(15,23,42,0.95)",
-      color: "rgba(226,232,240,0.94)",
-      textAlign: "center",
-      padding: 24,
-    }}
-  >
-    <div style={{ fontSize: 52, lineHeight: 1 }}>📄</div>
-    <div style={{ fontSize: 16, fontWeight: 800 }}>PDF document</div>
-    <a
-      href={mediaItems[currentMediaIndex].url}
-      target="_blank"
-      rel="noreferrer"
-      style={{
-        color: "rgba(56,189,248,0.95)",
-        textDecoration: "underline",
-        fontSize: 14,
-      }}
-    >
-      Open PDF
-    </a>
-  </div>
+  <PdfInlineViewer
+    url={mediaItems[currentMediaIndex].url}
+    isMobile={isMobile}
+  />
 ) : (
   <img
     src={mediaItems[currentMediaIndex].url}
