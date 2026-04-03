@@ -156,33 +156,33 @@ function PdfInlineViewer({
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(true);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let objectUrl: string | null = null;
 
     const loadPdf = async () => {
       try {
         setLoadingPdf(true);
         setPdfError(null);
-        setPdfData(null);
+        setPdfBlobUrl(null);
         setPageNumber(1);
         setNumPages(0);
 
         const res = await fetch(url);
-
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
 
-        const buffer = await res.arrayBuffer();
-const bytes = new Uint8Array(buffer);
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
 
-if (!cancelled) {
-  setPdfData(bytes);
-}
+        if (!cancelled) {
+          setPdfBlobUrl(objectUrl);
+        }
       } catch (err: any) {
         console.error("PDF fetch error", err);
         if (!cancelled) {
@@ -199,6 +199,7 @@ if (!cancelled) {
 
     return () => {
       cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [url]);
 
@@ -236,7 +237,7 @@ if (!cancelled) {
         </div>
       )}
 
-      {!loadingPdf && !pdfError && pdfData && (
+      {!loadingPdf && !pdfError && pdfBlobUrl && (
         <>
           <div
             style={{
@@ -247,23 +248,23 @@ if (!cancelled) {
             }}
           >
             <Document
-  file={{ data: pdfData }}
-  onLoadSuccess={({ numPages }) => {
-    setNumPages(numPages);
-    setPageNumber(1);
-  }}
-  onLoadError={(err) => {
-    console.error("PDF render error", err);
-    setPdfError(
-      err instanceof Error ? err.message : "Could not render PDF."
-    );
-  }}
-  loading={
-    <div style={{ color: "rgba(226,232,240,0.9)" }}>
-      Rendering PDF...
-    </div>
-  }
->
+              file={pdfBlobUrl}
+              onLoadSuccess={({ numPages }) => {
+                setNumPages(numPages);
+                setPageNumber(1);
+              }}
+              onLoadError={(err) => {
+                console.error("PDF render error", err);
+                setPdfError(
+                  err instanceof Error ? err.message : "Could not render PDF."
+                );
+              }}
+              loading={
+                <div style={{ color: "rgba(226,232,240,0.9)" }}>
+                  Rendering PDF...
+                </div>
+              }
+            >
               <Page
                 pageNumber={pageNumber}
                 width={isMobile ? 320 : 700}
