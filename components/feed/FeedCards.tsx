@@ -1,6 +1,9 @@
 // components/feed/FeedCards.tsx
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Document, Page, pdfjs } from "react-pdf";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export type FeedProfile = {
   id: string;
@@ -277,6 +280,304 @@ function AdaptiveVideo({
   );
 }
 
+function InlinePdfCard({
+  url,
+  postHref,
+}: {
+  url: string;
+  postHref: string;
+}) {
+  const isMobile = useIsMobile();
+  const [numPages, setNumPages] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(true);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [pageWidth, setPageWidth] = useState(520);
+
+  useEffect(() => {
+    const updateSize = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const stageWidth = stage.clientWidth;
+      const stageHeight = stage.clientHeight;
+
+      const widthFromHeight = Math.floor(stageHeight / 1.414);
+      const nextWidth = Math.min(stageWidth - 24, widthFromHeight);
+
+      setPageWidth(Math.max(220, nextWidth));
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [isMobile, pdfBlobUrl, pageNumber]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    const loadPdf = async () => {
+      try {
+        setLoadingPdf(true);
+        setPdfError(null);
+        setPdfBlobUrl(null);
+        setPageNumber(1);
+        setNumPages(0);
+
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        if (blob.size === 0) {
+          throw new Error("Fetched PDF is empty.");
+        }
+
+        objectUrl = URL.createObjectURL(blob);
+
+        if (!cancelled) {
+          setPdfBlobUrl(objectUrl);
+        }
+      } catch (err: any) {
+        console.error("PDF fetch error", err);
+        if (!cancelled) {
+          setPdfError(err?.message || "Could not fetch PDF.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingPdf(false);
+        }
+      }
+    };
+
+    loadPdf();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        width: "100%",
+        borderRadius: 14,
+        overflow: "hidden",
+        border: "1px solid rgba(148,163,184,0.16)",
+        background: "rgba(2,6,23,0.35)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          background: "rgba(15,23,42,0.95)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 12,
+        }}
+      >
+        {loadingPdf && (
+          <div style={{ color: "rgba(226,232,240,0.9)" }}>
+            Loading PDF...
+          </div>
+        )}
+
+        {pdfError && (
+          <Link
+            href={postHref}
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                minHeight: 220,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                padding: 20,
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 42, lineHeight: 1 }}>📄</div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 800,
+                  color: "rgba(226,232,240,0.96)",
+                }}
+              >
+                PDF document
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  lineHeight: 1.4,
+                  color: "rgba(248,113,113,0.95)",
+                  maxWidth: 320,
+                }}
+              >
+                Preview unavailable. Open post to browse page by page.
+              </div>
+            </div>
+          </Link>
+        )}
+
+        {!loadingPdf && !pdfError && pdfBlobUrl && (
+          <Link
+            href={postHref}
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              display: "block",
+              width: "100%",
+            }}
+          >
+            <div
+              ref={stageRef}
+              style={{
+                position: "relative",
+                width: "100%",
+                height: isMobile ? 360 : 520,
+                maxHeight: "65vh",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                borderRadius: 12,
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <Document
+                file={pdfBlobUrl}
+                onLoadSuccess={({ numPages }) => {
+                  setNumPages(numPages);
+                  setPageNumber(1);
+                }}
+                onLoadError={(err) => {
+                  console.error("PDF render error", err);
+                  setPdfError(
+                    err instanceof Error ? err.message : "Could not render PDF."
+                  );
+                }}
+                loading={
+                  <div style={{ color: "rgba(226,232,240,0.9)" }}>
+                    Rendering PDF...
+                  </div>
+                }
+              >
+                <Page
+                  pageNumber={pageNumber}
+                  width={pageWidth}
+                  renderTextLayer={false}
+                  renderAnnotationLayer={false}
+                />
+              </Document>
+
+              {numPages > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPageNumber((p) => Math.max(1, p - 1));
+                    }}
+                    disabled={pageNumber <= 1}
+                    style={{
+                      position: "absolute",
+                      left: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 40,
+                      height: 40,
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.22)",
+                      background: "rgba(2,6,23,0.72)",
+                      color: "rgba(226,232,240,0.96)",
+                      cursor: pageNumber <= 1 ? "default" : "pointer",
+                      opacity: pageNumber <= 1 ? 0.45 : 1,
+                      fontSize: 22,
+                      zIndex: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    ‹
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setPageNumber((p) => Math.min(numPages, p + 1));
+                    }}
+                    disabled={pageNumber >= numPages}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 40,
+                      height: 40,
+                      borderRadius: 999,
+                      border: "1px solid rgba(148,163,184,0.22)",
+                      background: "rgba(2,6,23,0.72)",
+                      color: "rgba(226,232,240,0.96)",
+                      cursor: pageNumber >= numPages ? "default" : "pointer",
+                      opacity: pageNumber >= numPages ? 0.45 : 1,
+                      fontSize: 22,
+                      zIndex: 3,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    ›
+                  </button>
+
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: 12,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      fontSize: 12,
+                      color: "rgba(226,232,240,0.92)",
+                      background: "rgba(2,6,23,0.62)",
+                      border: "1px solid rgba(148,163,184,0.18)",
+                      borderRadius: 999,
+                      padding: "6px 12px",
+                      zIndex: 3,
+                    }}
+                  >
+                    Page {pageNumber} of {numPages}
+                  </div>
+                </>
+              )}
+            </div>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GridMediaImage({
   src,
   alt,
@@ -318,63 +619,6 @@ function GridMediaVideo({
   );
 }
 
-function PdfPreviewCard({
-  postHref,
-}: {
-  postHref: string;
-}) {
-  return (
-    <Link
-      href={postHref}
-      style={{
-        textDecoration: "none",
-        color: "inherit",
-        display: "block",
-        marginTop: 10,
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          minHeight: 220,
-          borderRadius: 14,
-          overflow: "hidden",
-          border: "1px solid rgba(148,163,184,0.16)",
-          background: "linear-gradient(135deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94))",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 10,
-          padding: 20,
-          textAlign: "center",
-        }}
-      >
-        <div style={{ fontSize: 48, lineHeight: 1 }}>📄</div>
-        <div
-          style={{
-            fontSize: 15,
-            fontWeight: 800,
-            color: "rgba(226,232,240,0.96)",
-          }}
-        >
-          PDF document
-        </div>
-        <div
-          style={{
-            fontSize: 13,
-            lineHeight: 1.4,
-            color: "rgba(148,163,184,0.88)",
-            maxWidth: 320,
-          }}
-        >
-          Open post to browse the document page by page
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 function PostMediaGrid({
   media,
   postHref,
@@ -389,7 +633,7 @@ function PostMediaGrid({
   const item = visible[0];
 
   if (item.type === "pdf") {
-    return <PdfPreviewCard postHref={postHref} />;
+    return <InlinePdfCard url={item.url} postHref={postHref} />;
   }
 
   return item.type === "video" ? (
