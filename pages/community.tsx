@@ -17,7 +17,7 @@ import Q5BadgeChips from "../components/Q5BadgeChips";
 /* =========================
    TYPES
    ========================= */
-
+{/*
 type CommunityProfile = {
   id: string;
   full_name: string | null;
@@ -30,6 +30,39 @@ type CommunityProfile = {
   country: string | null;
   city: string | null;
   created_at?: string | null;
+
+  q5_badge_level?: number | null;
+  q5_badge_label?: string | null;
+  q5_badge_review_status?: string | null;
+  q5_badge_claimed_at?: string | null;
+};
+*/}
+
+type CommunityProfile = {
+  id: string;
+  full_name: string | null;
+  short_bio?: string | null;
+  avatar_url: string | null;
+
+  role: string | null;
+  current_title?: string | null;
+
+  affiliation: string | null;
+  country: string | null;
+  city: string | null;
+  created_at?: string | null;
+
+  focus_areas?: string | null;
+  skills?: string | null;
+  highest_education?: string | null;
+  key_experience?: string | null;
+
+  orcid?: string | null;
+  google_scholar?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  personal_website?: string | null;
+  lab_website?: string | null;
 
   q5_badge_level?: number | null;
   q5_badge_label?: string | null;
