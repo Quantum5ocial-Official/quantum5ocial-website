@@ -88,7 +88,7 @@ type CommunityItem = {
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
 
-  completenessPct: computePublicProfileCompleteness(p).pct,
+  completenessPct: number;
 };
 
 type CommunityCtx = {
