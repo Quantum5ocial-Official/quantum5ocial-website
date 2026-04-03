@@ -1,5 +1,5 @@
 // pages/posts/[id].tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -93,6 +93,56 @@ const pillBtnStyle: CSSProperties = {
   cursor: "pointer",
   whiteSpace: "nowrap",
 };
+
+function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    el.style.height = "0px";
+    const next = Math.min(el.scrollHeight, 150);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > 150 ? "auto" : "hidden";
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      rows={1}
+      style={{
+        width: "100%",
+        minHeight: 52,
+        maxHeight: 150,
+        borderRadius: 14,
+        border: "1px solid rgba(148,163,184,0.2)",
+        background: "rgba(2,6,23,0.22)",
+        color: "rgba(226,232,240,0.92)",
+        padding: "10px 12px",
+        fontSize: 15,
+        lineHeight: 1.45,
+        outline: "none",
+        resize: "none",
+      }}
+    />
+  );
+}
+
 
 export default function PostDetailPage() {
   const router = useRouter();
@@ -990,29 +1040,17 @@ export default function PostDetailPage() {
 
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <textarea
-                    value={commentDraft[item.post.id] || ""}
-                    onChange={(e) =>
-                      setCommentDraft((prev) => ({
-                        ...prev,
-                        [item.post.id]: e.target.value,
-                      }))
-                    }
-                    placeholder={user ? "Write a comment…" : "Login to comment…"}
-                    disabled={!user || !!commentSaving[item.post.id]}
-                    style={{
-                      width: "100%",
-                      minHeight: 52,
-                      borderRadius: 14,
-                      border: "1px solid rgba(148,163,184,0.2)",
-                      background: "rgba(2,6,23,0.22)",
-                      color: "rgba(226,232,240,0.92)",
-                      padding: "10px 12px",
-                      fontSize: 15,
-                      outline: "none",
-                      resize: "vertical",
-                    }}
-                  />
+                  <AutoResizeTextarea
+  value={commentDraft[item.post.id] || ""}
+  onChange={(e) =>
+    setCommentDraft((prev) => ({
+      ...prev,
+      [item.post.id]: e.target.value,
+    }))
+  }
+  placeholder={user ? "Write a comment…" : "Login to comment…"}
+  disabled={!user || !!commentSaving[item.post.id]}
+/>
 
                   <div
                     style={{
