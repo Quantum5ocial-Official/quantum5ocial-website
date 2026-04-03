@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
 import { useSupabaseUser } from "./useSupabaseUser";
+import posthog from "./posthogClient";
 
 export type ConnectionStatus =
   | "none"
@@ -27,9 +28,6 @@ export function useEntanglements() {
   >({});
   const [entangleLoadingIds, setEntangleLoadingIds] = useState<string[]>([]);
 
-  // --------------------------------------------------
-  // Connection status helper
-  // --------------------------------------------------
   const getConnectionStatus = (otherUserId: string): ConnectionStatus => {
     if (!user) return "none";
     const row = connectionsByOtherId[otherUserId];
@@ -49,9 +47,6 @@ export function useEntanglements() {
   const isEntangleLoading = (otherUserId: string) =>
     entangleLoadingIds.includes(otherUserId);
 
-  // --------------------------------------------------
-  // LOADING CONNECTIONS FROM SUPABASE
-  // --------------------------------------------------
   useEffect(() => {
     const loadConnections = async () => {
       if (!user) {
@@ -83,22 +78,17 @@ export function useEntanglements() {
     loadConnections();
   }, [user]);
 
-  // --------------------------------------------------
-  // SEND or ACCEPT entangle
-  // --------------------------------------------------
   const handleEntangle = async (targetUserId: string) => {
     if (!user) return;
 
     const currentRow = connectionsByOtherId[targetUserId];
     const status = getConnectionStatus(targetUserId);
 
-    // Prevent self-entangle
     if (targetUserId === user.id) return;
 
     setEntangleLoadingIds((prev) => [...prev, targetUserId]);
 
     try {
-      // Accept incoming request
       if (status === "pending_incoming" && currentRow) {
         const { error } = await supabase
           .from("connections")
@@ -110,12 +100,18 @@ export function useEntanglements() {
             ...prev,
             [targetUserId]: { ...currentRow, status: "accepted" },
           }));
+
+          posthog.capture("entanglement_accepted", {
+            source_user_id: currentRow.user_id,
+            target_user_id: currentRow.target_user_id,
+            other_user_id: targetUserId,
+            connection_id: currentRow.id,
+          });
         }
 
         return;
       }
 
-      // Create new request
       if (status === "none" || status === "declined") {
         const { data, error } = await supabase
           .from("connections")
@@ -132,6 +128,12 @@ export function useEntanglements() {
             ...prev,
             [targetUserId]: data as ConnectionRow,
           }));
+
+          posthog.capture("entanglement_requested", {
+            source_user_id: user.id,
+            target_user_id: targetUserId,
+            connection_id: (data as ConnectionRow).id,
+          });
         }
       }
     } catch (err) {
@@ -143,10 +145,6 @@ export function useEntanglements() {
     }
   };
 
-  // --------------------------------------------------
-  // DECLINE request
-  // resets to "none" so user can send again
-  // --------------------------------------------------
   const handleDeclineEntangle = async (targetUserId: string) => {
     if (!user) return;
 
@@ -159,18 +157,23 @@ export function useEntanglements() {
     setEntangleLoadingIds((prev) => [...prev, targetUserId]);
 
     try {
-      // Update status to declined
       const { error } = await supabase
         .from("connections")
         .update({ status: "declined" })
         .eq("id", row.id);
 
       if (!error) {
-        // REMOVE from active map so user can send again
         setConnectionsByOtherId((prev) => {
           const copy = { ...prev };
           delete copy[targetUserId];
           return copy;
+        });
+
+        posthog.capture("entanglement_declined", {
+          source_user_id: row.user_id,
+          target_user_id: row.target_user_id,
+          other_user_id: targetUserId,
+          connection_id: row.id,
         });
       }
     } catch (err) {
@@ -182,9 +185,6 @@ export function useEntanglements() {
     }
   };
 
-  // --------------------------------------------------
-  // Return public API
-  // --------------------------------------------------
   return {
     connectionsByOtherId,
     getConnectionStatus,
