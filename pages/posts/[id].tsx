@@ -243,7 +243,6 @@ function PdfInlineViewer({
         alignItems: "center",
         justifyContent: "center",
         padding: 12,
-        gap: 12,
       }}
     >
       {loadingPdf && (
@@ -266,109 +265,123 @@ function PdfInlineViewer({
       )}
 
       {!loadingPdf && !pdfError && pdfBlobUrl && (
-        <>
-          <div
-            ref={stageRef}
-            style={{
-              width: "100%",
-              height: isMobile ? 520 : 820,
-              maxHeight: "80vh",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden",
-              borderRadius: 14,
-              background: "rgba(255,255,255,0.03)",
+        <div
+          ref={stageRef}
+          style={{
+            position: "relative",
+            width: "100%",
+            height: isMobile ? 520 : 820,
+            maxHeight: "80vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.03)",
+          }}
+        >
+          <Document
+            file={pdfBlobUrl}
+            onLoadSuccess={({ numPages }) => {
+              setNumPages(numPages);
+              setPageNumber(1);
             }}
+            onLoadError={(err) => {
+              console.error("PDF render error", err);
+              setPdfError(
+                err instanceof Error ? err.message : "Could not render PDF."
+              );
+            }}
+            loading={
+              <div style={{ color: "rgba(226,232,240,0.9)" }}>
+                Rendering PDF...
+              </div>
+            }
           >
-            <Document
-              file={pdfBlobUrl}
-              onLoadSuccess={({ numPages }) => {
-                setNumPages(numPages);
-                setPageNumber(1);
-              }}
-              onLoadError={(err) => {
-                console.error("PDF render error", err);
-                setPdfError(
-                  err instanceof Error ? err.message : "Could not render PDF."
-                );
-              }}
-              loading={
-                <div style={{ color: "rgba(226,232,240,0.9)" }}>
-                  Rendering PDF...
-                </div>
-              }
-            >
-              <Page
-                pageNumber={pageNumber}
-                width={pageWidth}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-              />
-            </Document>
-          </div>
+            <Page
+              pageNumber={pageNumber}
+              width={pageWidth}
+              renderTextLayer={false}
+              renderAnnotationLayer={false}
+            />
+          </Document>
 
           {numPages > 0 && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                flexWrap: "wrap",
-              }}
-            >
+            <>
               <button
                 type="button"
                 onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                 disabled={pageNumber <= 1}
                 style={{
-                  width: 38,
-                  height: 38,
+                  position: "absolute",
+                  left: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: 42,
+                  height: 42,
                   borderRadius: 999,
                   border: "1px solid rgba(148,163,184,0.22)",
                   background: "rgba(2,6,23,0.72)",
                   color: "rgba(226,232,240,0.96)",
                   cursor: pageNumber <= 1 ? "default" : "pointer",
-                  opacity: pageNumber <= 1 ? 0.5 : 1,
-                  fontSize: 20,
+                  opacity: pageNumber <= 1 ? 0.45 : 1,
+                  fontSize: 22,
+                  zIndex: 3,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 ‹
               </button>
-
-              <div
-                style={{
-                  fontSize: 13,
-                  color: "rgba(226,232,240,0.92)",
-                  minWidth: 100,
-                  textAlign: "center",
-                }}
-              >
-                Page {pageNumber} of {numPages}
-              </div>
 
               <button
                 type="button"
                 onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
                 disabled={pageNumber >= numPages}
                 style={{
-                  width: 38,
-                  height: 38,
+                  position: "absolute",
+                  right: 14,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  width: 42,
+                  height: 42,
                   borderRadius: 999,
                   border: "1px solid rgba(148,163,184,0.22)",
                   background: "rgba(2,6,23,0.72)",
                   color: "rgba(226,232,240,0.96)",
                   cursor: pageNumber >= numPages ? "default" : "pointer",
-                  opacity: pageNumber >= numPages ? 0.5 : 1,
-                  fontSize: 20,
+                  opacity: pageNumber >= numPages ? 0.45 : 1,
+                  fontSize: 22,
+                  zIndex: 3,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
                 ›
               </button>
-            </div>
+
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 14,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  fontSize: 13,
+                  color: "rgba(226,232,240,0.92)",
+                  background: "rgba(2,6,23,0.62)",
+                  border: "1px solid rgba(148,163,184,0.18)",
+                  borderRadius: 999,
+                  padding: "6px 12px",
+                  zIndex: 3,
+                }}
+              >
+                Page {pageNumber} of {numPages}
+              </div>
+            </>
           )}
-        </>
+        </div>
       )}
     </div>
   );
