@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
 import { useEntanglements } from "../lib/useEntanglements";
 import Q5BadgeChips from "../components/Q5BadgeChips";
-import { computePublicProfileCompleteness } from "../lib/profileCompleteness";
+import { computeCommunityProfileScore } from "../lib/profileCompleteness";
 
 /* =========================
    TYPES
@@ -407,7 +407,7 @@ function CommunityProvider({ children }: { children: ReactNode }) {
   q5_badge_level: p.q5_badge_level ?? null,
   q5_badge_label: p.q5_badge_label ?? null,
   q5_badge_review_status: p.q5_badge_review_status ?? null,
-  completenessPct: computePublicProfileCompleteness(p).pct,
+  completenessPct: computeCommunityProfileScore(p).pct,
 }));
 
   const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
