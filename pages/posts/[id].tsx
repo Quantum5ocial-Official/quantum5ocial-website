@@ -147,28 +147,6 @@ function AutoResizeTextarea({
   );
 }
 
-const stageRef = useRef<HTMLDivElement | null>(null);
-const [pageWidth, setPageWidth] = useState(720);
-
-useEffect(() => {
-  const updateSize = () => {
-    const stage = stageRef.current;
-    if (!stage) return;
-
-    const stageWidth = stage.clientWidth;
-    const stageHeight = stage.clientHeight;
-
-    // A4 aspect ratio ≈ 1 : 1.414
-    const widthFromHeight = Math.floor(stageHeight / 1.414);
-    const nextWidth = Math.min(stageWidth - 24, widthFromHeight);
-
-    setPageWidth(Math.max(260, nextWidth));
-  };
-
-  updateSize();
-  window.addEventListener("resize", updateSize);
-  return () => window.removeEventListener("resize", updateSize);
-}, [isMobile, pdfBlobUrl, pageNumber]);
 
 function PdfInlineViewer({
   url,
@@ -183,47 +161,69 @@ function PdfInlineViewer({
   const [loadingPdf, setLoadingPdf] = useState(true);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [pageWidth, setPageWidth] = useState(720);
+
+  useEffect(() => {
+    const updateSize = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const stageWidth = stage.clientWidth;
+      const stageHeight = stage.clientHeight;
+
+      const widthFromHeight = Math.floor(stageHeight / 1.414);
+      const nextWidth = Math.min(stageWidth - 24, widthFromHeight);
+
+      setPageWidth(Math.max(260, nextWidth));
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [isMobile, pdfBlobUrl, pageNumber]);
+
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
 
     const loadPdf = async () => {
-  try {
-    setLoadingPdf(true);
-    setPdfError(null);
-    setPdfBlobUrl(null);
-    setPageNumber(1);
-    setNumPages(0);
+      try {
+        setLoadingPdf(true);
+        setPdfError(null);
+        setPdfBlobUrl(null);
+        setPageNumber(1);
+        setNumPages(0);
 
-    const res = await fetch(url);
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
 
-    const blob = await res.blob();
+        const blob = await res.blob();
 
-    console.log("Fetched PDF blob type:", blob.type, "size:", blob.size);
+        console.log("Fetched PDF blob type:", blob.type, "size:", blob.size);
 
-    if (blob.size === 0) {
-      throw new Error("Fetched PDF is empty.");
-    }
+        if (blob.size === 0) {
+          throw new Error("Fetched PDF is empty.");
+        }
 
-    objectUrl = URL.createObjectURL(blob);
+        objectUrl = URL.createObjectURL(blob);
 
-    if (!cancelled) {
-      setPdfBlobUrl(objectUrl);
-    }
-  } catch (err: any) {
-    console.error("PDF fetch error", err);
-    if (!cancelled) {
-      setPdfError(err?.message || "Could not fetch PDF.");
-    }
-  } finally {
-    if (!cancelled) {
-      setLoadingPdf(false);
-    }
-  }
-};
+        if (!cancelled) {
+          setPdfBlobUrl(objectUrl);
+        }
+      } catch (err: any) {
+        console.error("PDF fetch error", err);
+        if (!cancelled) {
+          setPdfError(err?.message || "Could not fetch PDF.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingPdf(false);
+        }
+      }
+    };
 
     loadPdf();
 
@@ -234,144 +234,144 @@ function PdfInlineViewer({
   }, [url]);
 
   return (
-  <div
-    style={{
-      width: "100%",
-      background: "rgba(15,23,42,0.95)",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 12,
-      gap: 12,
-    }}
-  >
-    {loadingPdf && (
-      <div style={{ color: "rgba(226,232,240,0.9)" }}>
-        Loading PDF...
-      </div>
-    )}
+    <div
+      style={{
+        width: "100%",
+        background: "rgba(15,23,42,0.95)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 12,
+        gap: 12,
+      }}
+    >
+      {loadingPdf && (
+        <div style={{ color: "rgba(226,232,240,0.9)" }}>
+          Loading PDF...
+        </div>
+      )}
 
-    {pdfError && (
-      <div
-        style={{
-          color: "rgba(248,113,113,0.95)",
-          fontSize: 14,
-          textAlign: "center",
-          maxWidth: 500,
-        }}
-      >
-        Failed to load PDF file: {pdfError}
-      </div>
-    )}
-
-    {!loadingPdf && !pdfError && pdfBlobUrl && (
-      <>
+      {pdfError && (
         <div
-          ref={stageRef}
           style={{
-            width: "100%",
-            height: isMobile ? 520 : 820,
-            maxHeight: "80vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.03)",
+            color: "rgba(248,113,113,0.95)",
+            fontSize: 14,
+            textAlign: "center",
+            maxWidth: 500,
           }}
         >
-          <Document
-            file={pdfBlobUrl}
-            onLoadSuccess={({ numPages }) => {
-              setNumPages(numPages);
-              setPageNumber(1);
-            }}
-            onLoadError={(err) => {
-              console.error("PDF render error", err);
-              setPdfError(
-                err instanceof Error ? err.message : "Could not render PDF."
-              );
-            }}
-            loading={
-              <div style={{ color: "rgba(226,232,240,0.9)" }}>
-                Rendering PDF...
-              </div>
-            }
-          >
-            <Page
-              pageNumber={pageNumber}
-              width={pageWidth}
-              renderTextLayer={false}
-              renderAnnotationLayer={false}
-            />
-          </Document>
+          Failed to load PDF file: {pdfError}
         </div>
+      )}
 
-        {numPages > 0 && (
+      {!loadingPdf && !pdfError && pdfBlobUrl && (
+        <>
           <div
+            ref={stageRef}
             style={{
+              width: "100%",
+              height: isMobile ? 520 : 820,
+              maxHeight: "80vh",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 10,
-              flexWrap: "wrap",
+              overflow: "hidden",
+              borderRadius: 14,
+              background: "rgba(255,255,255,0.03)",
             }}
           >
-            <button
-              type="button"
-              onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-              disabled={pageNumber <= 1}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.22)",
-                background: "rgba(2,6,23,0.72)",
-                color: "rgba(226,232,240,0.96)",
-                cursor: pageNumber <= 1 ? "default" : "pointer",
-                opacity: pageNumber <= 1 ? 0.5 : 1,
-                fontSize: 20,
+            <Document
+              file={pdfBlobUrl}
+              onLoadSuccess={({ numPages }) => {
+                setNumPages(numPages);
+                setPageNumber(1);
               }}
+              onLoadError={(err) => {
+                console.error("PDF render error", err);
+                setPdfError(
+                  err instanceof Error ? err.message : "Could not render PDF."
+                );
+              }}
+              loading={
+                <div style={{ color: "rgba(226,232,240,0.9)" }}>
+                  Rendering PDF...
+                </div>
+              }
             >
-              ‹
-            </button>
+              <Page
+                pageNumber={pageNumber}
+                width={pageWidth}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
+            </Document>
+          </div>
 
+          {numPages > 0 && (
             <div
               style={{
-                fontSize: 13,
-                color: "rgba(226,232,240,0.92)",
-                minWidth: 100,
-                textAlign: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                flexWrap: "wrap",
               }}
             >
-              Page {pageNumber} of {numPages}
-            </div>
+              <button
+                type="button"
+                onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                disabled={pageNumber <= 1}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.22)",
+                  background: "rgba(2,6,23,0.72)",
+                  color: "rgba(226,232,240,0.96)",
+                  cursor: pageNumber <= 1 ? "default" : "pointer",
+                  opacity: pageNumber <= 1 ? 0.5 : 1,
+                  fontSize: 20,
+                }}
+              >
+                ‹
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
-              disabled={pageNumber >= numPages}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 999,
-                border: "1px solid rgba(148,163,184,0.22)",
-                background: "rgba(2,6,23,0.72)",
-                color: "rgba(226,232,240,0.96)",
-                cursor: pageNumber >= numPages ? "default" : "pointer",
-                opacity: pageNumber >= numPages ? 0.5 : 1,
-                fontSize: 20,
-              }}
-            >
-              ›
-            </button>
-          </div>
-        )}
-      </>
-    )}
-  </div>
-);
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "rgba(226,232,240,0.92)",
+                  minWidth: 100,
+                  textAlign: "center",
+                }}
+              >
+                Page {pageNumber} of {numPages}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+                disabled={pageNumber >= numPages}
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 999,
+                  border: "1px solid rgba(148,163,184,0.22)",
+                  background: "rgba(2,6,23,0.72)",
+                  color: "rgba(226,232,240,0.96)",
+                  cursor: pageNumber >= numPages ? "default" : "pointer",
+                  opacity: pageNumber >= numPages ? 0.5 : 1,
+                  fontSize: 20,
+                }}
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function PostDetailPage() {
