@@ -101,3 +101,63 @@ export function computeFullProfileCompleteness(
   const missing = [...base.missing, ...extra.filter((x) => !x.ok)].sort((a, b) => b.w - a.w);
   return { pct, score, total, missing };
 }
+
+export function computeCommunityProfileScore(p: {
+  full_name?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
+  current_title?: string | null;
+  affiliation?: string | null;
+  highest_education?: string | null;
+  short_bio?: string | null;
+  focus_areas?: string | null;
+  skills?: string | null;
+  country?: string | null;
+  city?: string | null;
+  orcid?: string | null;
+  google_scholar?: string | null;
+  linkedin_url?: string | null;
+  github_url?: string | null;
+  personal_website?: string | null;
+  lab_website?: string | null;
+}) {
+  const has = (v: any) => {
+    if (v == null) return false;
+    if (typeof v === "string") return v.trim().length > 0;
+    return true;
+  };
+
+  const headlineOk = has(p.current_title) || has(p.role);
+
+  const items = [
+    { key: "full_name", w: 10, ok: has(p.full_name) },
+    { key: "avatar_url", w: 18, ok: has(p.avatar_url) },
+    { key: "headline", w: 18, ok: headlineOk },
+    { key: "affiliation", w: 16, ok: has(p.affiliation) },
+    { key: "highest_education", w: 12, ok: has(p.highest_education) },
+
+    { key: "short_bio", w: 8, ok: has(p.short_bio) },
+    { key: "focus_areas", w: 6, ok: has(p.focus_areas) },
+    { key: "skills", w: 6, ok: has(p.skills) },
+
+    { key: "country", w: 3, ok: has(p.country) },
+    { key: "city", w: 3, ok: has(p.city) },
+
+    { key: "orcid", w: 2, ok: has(p.orcid) },
+    { key: "google_scholar", w: 2, ok: has(p.google_scholar) },
+    { key: "linkedin_url", w: 4, ok: has(p.linkedin_url) },
+    { key: "github_url", w: 2, ok: has(p.github_url) },
+    { key: "personal_website", w: 4, ok: has(p.personal_website) },
+    { key: "lab_website", w: 4, ok: has(p.lab_website) },
+  ];
+
+  const total = items.reduce((s, x) => s + x.w, 0);
+  const score = items.reduce((s, x) => s + (x.ok ? x.w : 0), 0);
+  const pct = total ? Math.round((score / total) * 100) : 0;
+
+  return {
+    pct,
+    score,
+    total,
+  };
+}
