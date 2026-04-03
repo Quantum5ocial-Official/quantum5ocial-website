@@ -247,23 +247,23 @@ if (!cancelled) {
             }}
           >
             <Document
-  file={pdfData}
-              onLoadSuccess={({ numPages }) => {
-                setNumPages(numPages);
-                setPageNumber(1);
-              }}
-              onLoadError={(err) => {
-                console.error("PDF render error", err);
-                setPdfError(
-                  err instanceof Error ? err.message : "Could not render PDF."
-                );
-              }}
-              loading={
-                <div style={{ color: "rgba(226,232,240,0.9)" }}>
-                  Rendering PDF...
-                </div>
-              }
-            >
+  file={{ data: pdfData }}
+  onLoadSuccess={({ numPages }) => {
+    setNumPages(numPages);
+    setPageNumber(1);
+  }}
+  onLoadError={(err) => {
+    console.error("PDF render error", err);
+    setPdfError(
+      err instanceof Error ? err.message : "Could not render PDF."
+    );
+  }}
+  loading={
+    <div style={{ color: "rgba(226,232,240,0.9)" }}>
+      Rendering PDF...
+    </div>
+  }
+>
               <Page
                 pageNumber={pageNumber}
                 width={isMobile ? 320 : 700}
