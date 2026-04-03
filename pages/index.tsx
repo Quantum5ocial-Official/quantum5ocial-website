@@ -71,7 +71,7 @@ type FeedOrg = {
 
 type PostMediaItem = {
   url: string;
-  type: "image" | "video";
+  type: "image" | "video" | "pdf";
 };
 
 type PostRow = {
@@ -1392,7 +1392,7 @@ function HomeComposerStrip() {
   // ✅ Image OR video
   const [postMediaFiles, setPostMediaFiles] = useState<File[]>([]);
 const [postMediaPreviews, setPostMediaPreviews] = useState<
-  { url: string; type: "image" | "video" }[]
+  { url: string; type: "image" | "video" | "pdf" }[]
 >([]);
   
   const [askTitle, setAskTitle] = useState("");
@@ -1697,27 +1697,32 @@ const modalBody: CSSProperties = {
   const limited = files.slice(0, 3);
 
   for (const file of limited) {
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+  const isPdf = file.type === "application/pdf";
 
-    if (!isImage && !isVideo) {
-      setMediaError("Only image or video files are allowed.");
-      return;
-    }
-
-    if (file.size > MAX_MEDIA_SIZE) {
-      setMediaError("Each media file must be smaller than 25 MB.");
-      return;
-    }
+  if (!isImage && !isVideo && !isPdf) {
+    setMediaError("Only image, video, or PDF files are allowed.");
+    return;
   }
+
+  if (file.size > MAX_MEDIA_SIZE) {
+    setMediaError("Each media file must be smaller than 25 MB.");
+    return;
+  }
+}
 
   setPostMediaFiles(limited);
   setPostMediaPreviews(
-    limited.map((file) => ({
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith("video/") ? "video" : "image",
-    }))
-  );
+  limited.map((file) => ({
+    url: URL.createObjectURL(file),
+    type: file.type === "application/pdf"
+      ? "pdf"
+      : file.type.startsWith("video/")
+      ? "video"
+      : "image",
+  }))
+);
 };
 
   const clearMedia = () => {
@@ -1734,7 +1739,7 @@ const modalBody: CSSProperties = {
 };
 
   const uploadPostMediaIfAny = async (): Promise<
-  { url: string; type: "image" | "video" }[]
+  { url: string; type: "image" | "video" | "pdf" }[]
 > => {
   if (!user || postMediaFiles.length === 0) {
     return [];
@@ -1763,9 +1768,14 @@ const modalBody: CSSProperties = {
 
     if (url) {
       uploaded.push({
-        url,
-        type: file.type.startsWith("video/") ? "video" : "image",
-      });
+  url,
+  type:
+    file.type === "application/pdf"
+      ? "pdf"
+      : file.type.startsWith("video/")
+      ? "video"
+      : "image",
+});
     }
   }
 
@@ -2122,43 +2132,61 @@ const { error } = await supabase.from("posts").insert({
     }}
   >
     {postMediaPreviews.map((item, idx) => (
-      <div
-        key={idx}
+  <div
+    key={idx}
+    style={{
+      height: isMobile ? 140 : 180,
+      borderRadius: 12,
+      overflow: "hidden",
+      background: "rgba(2,6,23,0.35)",
+      border: "1px solid rgba(148,163,184,0.18)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
+    {item.type === "video" ? (
+      <video
+        src={item.url}
+        controls
         style={{
-          height: isMobile ? 140 : 180,
-          borderRadius: 12,
-          overflow: "hidden",
-          background: "rgba(2,6,23,0.35)",
-          border: "1px solid rgba(148,163,184,0.18)",
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+        }}
+      />
+    ) : item.type === "pdf" ? (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          gap: 8,
+          color: "rgba(226,232,240,0.94)",
+          textAlign: "center",
+          padding: 12,
         }}
       >
-        {item.type === "video" ? (
-          <video
-            src={item.url}
-            controls
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-            }}
-          />
-        ) : (
-          <img
-            src={item.url}
-            alt={`Preview ${idx + 1}`}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              display: "block",
-            }}
-          />
-        )}
+        <div style={{ fontSize: 34, lineHeight: 1 }}>📄</div>
+        <div style={{ fontSize: 12, fontWeight: 800 }}>PDF attached</div>
       </div>
-    ))}
+    ) : (
+      <img
+        src={item.url}
+        alt={`Preview ${idx + 1}`}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+        }}
+      />
+    )}
+  </div>
+))}
   </div>
 </div>
                     </div>
@@ -2333,7 +2361,7 @@ const { error } = await supabase.from("posts").insert({
             <input
   ref={fileInputRef}
   type="file"
-  accept="image/*,video/*"
+  accept="image/*,video/*,application/pdf"
   multiple
   style={{ display: "none" }}
   onChange={(e) => {
