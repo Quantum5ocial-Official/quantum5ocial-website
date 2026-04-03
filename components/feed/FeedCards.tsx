@@ -543,7 +543,7 @@ function PostMediaGrid({
     <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
   </div>
 ) : (
-  <GridMediaImage src={visible[1].url} alt="Post media 1" />
+  <GridMediaImage src={visible[1].url} alt="Post media 2" />
 )}
           </div>
 
@@ -568,7 +568,7 @@ function PostMediaGrid({
     <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
   </div>
 ) : (
-  <GridMediaImage src={visible[2].url} alt="Post media 1" />
+  <GridMediaImage src={visible[2].url} alt="Post media 3" />
 )}
           </div>
         </div>
