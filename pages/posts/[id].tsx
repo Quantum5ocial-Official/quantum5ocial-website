@@ -8,7 +8,7 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import LinkifyText from "../../components/LinkifyText";
 import { Document, Page, pdfjs } from "react-pdf";
 
-pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.mjs";
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 
 type FeedProfile = {
