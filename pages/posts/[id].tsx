@@ -156,7 +156,7 @@ function PdfInlineViewer({
 }) {
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
+  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(true);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
@@ -178,10 +178,11 @@ function PdfInlineViewer({
         }
 
         const buffer = await res.arrayBuffer();
+const bytes = new Uint8Array(buffer);
 
-        if (!cancelled) {
-          setPdfData(buffer);
-        }
+if (!cancelled) {
+  setPdfData(bytes);
+}
       } catch (err: any) {
         console.error("PDF fetch error", err);
         if (!cancelled) {
@@ -246,7 +247,7 @@ function PdfInlineViewer({
             }}
           >
             <Document
-              file={{ data: pdfData }}
+  file={pdfData}
               onLoadSuccess={({ numPages }) => {
                 setNumPages(numPages);
                 setPageNumber(1);
