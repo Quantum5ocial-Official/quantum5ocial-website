@@ -6,6 +6,11 @@ import { useRouter } from "next/router";
 import { supabase } from "../../lib/supabaseClient";
 import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import LinkifyText from "../../components/LinkifyText";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 type FeedProfile = {
   id: string;
@@ -83,6 +88,9 @@ function normalizePostMedia(post: PostRow | null): PostMediaItem[] {
   return legacy;
 }
 
+const [pdfPageCount, setPdfPageCount] = useState<Record<string, number>>({});
+const [currentPdfPage, setCurrentPdfPage] = useState(1);
+
 const pillBtnStyle: CSSProperties = {
   fontSize: 13,
   padding: "6px 10px",
@@ -143,6 +151,130 @@ function AutoResizeTextarea({
   );
 }
 
+function PdfInlineViewer({
+  url,
+  isMobile,
+}: {
+  url: string;
+  isMobile: boolean;
+}) {
+  const [numPages, setNumPages] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
+
+  useEffect(() => {
+    setPageNumber(1);
+  }, [url]);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        minHeight: isMobile ? 260 : 360,
+        maxHeight: isMobile ? "70vh" : "72vh",
+        background: "rgba(15,23,42,0.95)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 12,
+        gap: 12,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          overflow: "auto",
+        }}
+      >
+        <Document
+          file={url}
+          onLoadSuccess={({ numPages }) => {
+            setNumPages(numPages);
+            setPageNumber(1);
+          }}
+          onLoadError={(err) => {
+            console.error("PDF load error", err);
+          }}
+          loading={
+            <div style={{ color: "rgba(226,232,240,0.9)" }}>
+              Loading PDF...
+            </div>
+          }
+        >
+          <Page
+            pageNumber={pageNumber}
+            width={isMobile ? 320 : 700}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+          />
+        </Document>
+      </div>
+
+      {numPages > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+            disabled={pageNumber <= 1}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background: "rgba(2,6,23,0.72)",
+              color: "rgba(226,232,240,0.96)",
+              cursor: pageNumber <= 1 ? "default" : "pointer",
+              opacity: pageNumber <= 1 ? 0.5 : 1,
+              fontSize: 20,
+            }}
+          >
+            ‹
+          </button>
+
+          <div
+            style={{
+              fontSize: 13,
+              color: "rgba(226,232,240,0.92)",
+              minWidth: 90,
+              textAlign: "center",
+            }}
+          >
+            Page {pageNumber} of {numPages}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+            disabled={pageNumber >= numPages}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.22)",
+              background: "rgba(2,6,23,0.72)",
+              color: "rgba(226,232,240,0.96)",
+              cursor: pageNumber >= numPages ? "default" : "pointer",
+              opacity: pageNumber >= numPages ? 0.5 : 1,
+              fontSize: 20,
+            }}
+          >
+            ›
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PostDetailPage() {
   const router = useRouter();
