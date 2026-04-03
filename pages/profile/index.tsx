@@ -7,6 +7,7 @@ import { useSupabaseUser } from "../../lib/useSupabaseUser";
 import { useEntanglements } from "../../lib/useEntanglements";
 import ClaimQ5BadgeModal from "../../components/ClaimQ5BadgeModal";
 import Q5BadgeChips from "../../components/Q5BadgeChips";
+import { computeFullProfileCompleteness } from "../../lib/profileCompleteness";
 
 type Profile = {
   id: string;
@@ -49,13 +50,6 @@ type ProfilePrivate = {
   institutional_email: string | null;
 };
 
-type CompletenessItem = {
-  key: string;
-  label: string;
-  w: number;
-  ok: boolean;
-};
-
 type PostRow = {
   id: string;
   user_id: string;
@@ -70,49 +64,6 @@ type PostVM = {
   commentCount: number;
   likedByMe: boolean;
 };
-
-import { computeFullProfileCompleteness } from "../../lib/profileCompleteness";
-
-{/* function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
-  const has = (v: any) => {
-    if (v == null) return false;
-    if (typeof v === "string") return v.trim().length > 0;
-    return true;
-  };
-
-  const headlineOk = has(p?.current_title) || has(p?.role);
-
-  const items: CompletenessItem[] = [
-    { key: "full_name", label: "Add your full name", w: 10, ok: has(p?.full_name) },
-    { key: "short_bio", label: "Write a short bio", w: 10, ok: has(p?.short_bio) },
-    { key: "headline", label: "Add a current title or primary role", w: 10, ok: headlineOk },
-
-    { key: "affiliation", label: "Add your affiliation", w: 7, ok: has(p?.affiliation) },
-    { key: "country", label: "Add your country", w: 4, ok: has(p?.country) },
-    { key: "city", label: "Add your city", w: 4, ok: has(p?.city) },
-
-    { key: "focus_areas", label: "Add focus areas", w: 10, ok: has(p?.focus_areas) },
-    { key: "skills", label: "Add skills", w: 10, ok: has(p?.skills) },
-
-    { key: "highest_education", label: "Select your highest education", w: 5, ok: has(p?.highest_education) },
-    { key: "key_experience", label: "Add key experience", w: 5, ok: has(p?.key_experience) },
-
-    { key: "orcid", label: "Add your ORCID", w: 5, ok: has(p?.orcid) },
-    { key: "google_scholar", label: "Add Google Scholar", w: 5, ok: has(p?.google_scholar) },
-    { key: "linkedin_url", label: "Add LinkedIn", w: 5, ok: has(p?.linkedin_url) },
-
-    { key: "institutional_email", label: "Add an institutional email", w: 6, ok: has(priv?.institutional_email) },
-    { key: "phone", label: "Add a phone number (optional)", w: 4, ok: has(priv?.phone) },
-  ];
-
-  const total = items.reduce((s, x) => s + x.w, 0);
-  const score = items.reduce((s, x) => s + (x.ok ? x.w : 0), 0);
-  const pct = total ? Math.round((score / total) * 100) : 0;
-
-  const missing = items.filter((x) => !x.ok).sort((a, b) => b.w - a.w);
-  return { pct, missing };
-}
-*/}
 
 // hover effect without touching global CSS
 function ClaimPill({
@@ -810,7 +761,6 @@ export default function ProfileViewPage() {
       privateProfile?.institutional_email ||
       privateProfile?.phone);
 
-  /const completeness = computeCompleteness(profile, privateProfile);
   const completeness = computeFullProfileCompleteness(profile, privateProfile);
   
   const topAddInline = completeness.missing
