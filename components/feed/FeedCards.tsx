@@ -438,6 +438,55 @@ function PostMediaGrid({
   );
 }
 
+function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    el.style.height = "0px";
+    const next = Math.min(el.scrollHeight, 150); // around 5–6 lines
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > 150 ? "auto" : "hidden";
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      rows={1}
+      style={{
+        width: "100%",
+        minHeight: 46,
+        maxHeight: 150,
+        borderRadius: 14,
+        border: "1px solid rgba(148,163,184,0.2)",
+        background: "rgba(2,6,23,0.22)",
+        color: "rgba(226,232,240,0.92)",
+        padding: "10px 12px",
+        fontSize: 16,
+        lineHeight: 1.45,
+        outline: "none",
+        resize: "none",
+      }}
+    />
+  );
+}
+
 export default function FeedCards({
   items,
   user,
@@ -1003,31 +1052,17 @@ export default function FeedCards({
                   }}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <textarea
-                      value={commentDraft[p.id] || ""}
-                      onChange={(e) =>
-                        setCommentDraft((prev) => ({
-                          ...prev,
-                          [p.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={
-                        user ? "Write a comment…" : "Login to comment…"
-                      }
-                      disabled={!user || !!commentSaving[p.id]}
-                      style={{
-                        width: "100%",
-                        minHeight: 46,
-                        borderRadius: 14,
-                        border: "1px solid rgba(148,163,184,0.2)",
-                        background: "rgba(2,6,23,0.22)",
-                        color: "rgba(226,232,240,0.92)",
-                        padding: "10px 12px",
-                        fontSize: 16,
-                        outline: "none",
-                        resize: "vertical",
-                      }}
-                    />
+                    <AutoResizeTextarea
+  value={commentDraft[p.id] || ""}
+  onChange={(e) =>
+    setCommentDraft((prev) => ({
+      ...prev,
+      [p.id]: e.target.value,
+    }))
+  }
+  placeholder={user ? "Write a comment…" : "Login to comment…"}
+  disabled={!user || !!commentSaving[p.id]}
+/>
 
                     <div
                       style={{
