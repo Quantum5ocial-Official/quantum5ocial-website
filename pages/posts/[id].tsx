@@ -26,7 +26,7 @@ type FeedOrg = {
 
 type PostMediaItem = {
   url: string;
-  type: "image" | "video";
+  type: "image" | "video" | "pdf";
 };
 
 type PostRow = {
@@ -904,31 +904,63 @@ export default function PostDetailPage() {
                     }}
                   >
                     {mediaItems[currentMediaIndex]?.type === "video" ? (
-                      <video
-                        src={mediaItems[currentMediaIndex].url}
-                        controls
-                        playsInline
-                        style={{
-                          width: "100%",
-                          maxHeight: isMobile ? "70vh" : "72vh",
-                          objectFit: "contain",
-                          display: "block",
-                          background: "rgba(15,23,42,0.95)",
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={mediaItems[currentMediaIndex].url}
-                        alt={`Post media ${currentMediaIndex + 1}`}
-                        style={{
-                          width: "100%",
-                          maxHeight: isMobile ? "70vh" : "72vh",
-                          objectFit: "contain",
-                          display: "block",
-                          background: "rgba(15,23,42,0.95)",
-                        }}
-                      />
-                    )}
+  <video
+    src={mediaItems[currentMediaIndex].url}
+    controls
+    playsInline
+    style={{
+      width: "100%",
+      maxHeight: isMobile ? "70vh" : "72vh",
+      objectFit: "contain",
+      display: "block",
+      background: "rgba(15,23,42,0.95)",
+    }}
+  />
+) : mediaItems[currentMediaIndex]?.type === "pdf" ? (
+  <div
+    style={{
+      width: "100%",
+      minHeight: isMobile ? 260 : 360,
+      maxHeight: isMobile ? "70vh" : "72vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "column",
+      gap: 12,
+      background: "rgba(15,23,42,0.95)",
+      color: "rgba(226,232,240,0.94)",
+      textAlign: "center",
+      padding: 24,
+    }}
+  >
+    <div style={{ fontSize: 52, lineHeight: 1 }}>📄</div>
+    <div style={{ fontSize: 16, fontWeight: 800 }}>PDF document</div>
+    <a
+      href={mediaItems[currentMediaIndex].url}
+      target="_blank"
+      rel="noreferrer"
+      style={{
+        color: "rgba(56,189,248,0.95)",
+        textDecoration: "underline",
+        fontSize: 14,
+      }}
+    >
+      Open PDF
+    </a>
+  </div>
+) : (
+  <img
+    src={mediaItems[currentMediaIndex].url}
+    alt={`Post media ${currentMediaIndex + 1}`}
+    style={{
+      width: "100%",
+      maxHeight: isMobile ? "70vh" : "72vh",
+      objectFit: "contain",
+      display: "block",
+      background: "rgba(15,23,42,0.95)",
+    }}
+  />
+)}
                   </div>
 
                   {mediaItems.length > 1 && (
