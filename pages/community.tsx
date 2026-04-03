@@ -88,7 +88,7 @@ type CommunityItem = {
   q5_badge_label?: string | null;
   q5_badge_review_status?: string | null;
 
-  completenessPct: number;
+  completenessPct: computePublicProfileCompleteness(p).pct,
 };
 
 type CommunityCtx = {
@@ -392,23 +392,23 @@ function CommunityProvider({ children }: { children: ReactNode }) {
 
   const communityItems: CommunityItem[] = useMemo(() => {
   const personItems: CommunityItem[] = filteredProfiles.map((p) => ({
-    kind: "person",
-    id: p.id,
-    name: p.full_name || "Quantum5ocial member",
-    avatar_url: p.avatar_url || null,
-    role: p.role || null,
-    current_title: p.current_title || null,
-    affiliation: p.affiliation || null,
-    city: p.city || null,
-    country: p.country || null,
-    typeLabel: "Member",
-    roleLabel: p.role || "Quantum5ocial member",
-    created_at: p.created_at || null,
-    q5_badge_level: p.q5_badge_level ?? null,
-    q5_badge_label: p.q5_badge_label ?? null,
-    q5_badge_review_status: p.q5_badge_review_status ?? null,
-    completenessPct: computePublicProfileCompleteness(p),
-  }));
+  kind: "person",
+  id: p.id,
+  name: p.full_name || "Quantum5ocial member",
+  avatar_url: p.avatar_url || null,
+  role: p.role || null,
+  current_title: p.current_title || null,
+  affiliation: p.affiliation || null,
+  city: p.city || null,
+  country: p.country || null,
+  typeLabel: "Member",
+  roleLabel: p.role || "Quantum5ocial member",
+  created_at: p.created_at || null,
+  q5_badge_level: p.q5_badge_level ?? null,
+  q5_badge_label: p.q5_badge_label ?? null,
+  q5_badge_review_status: p.q5_badge_review_status ?? null,
+  completenessPct: computePublicProfileCompleteness(p).pct,
+}));
 
   const orgItems: CommunityItem[] = filteredOrgs.map((o) => {
     const typeLabel = o.kind === "company" ? "Company" : "Research group";
