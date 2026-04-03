@@ -13,9 +13,11 @@
     "ai": "^6.0.27",
     "next": "latest",
     "openai": "^6.16.0",
+    "pdfjs-dist": "^4.8.69",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
+    "react-pdf": "^9.1.1",
     "remark-gfm": "^4.0.1",
     "zod": "^4.3.5"
   },
