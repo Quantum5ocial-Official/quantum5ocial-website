@@ -15,7 +15,7 @@ import { useEntanglements } from "../lib/useEntanglements";
 import Q5BadgeChips from "../components/Q5BadgeChips";
 import { computeCommunityProfileScore } from "../lib/profileCompleteness";
 
-/* =========================
+/* ========================
    TYPES
    ========================= */
 
