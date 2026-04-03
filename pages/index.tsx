@@ -1389,7 +1389,7 @@ function HomeComposerStrip() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // ✅ Image OR video
+  // ✅ Image, video, or PDF
   const [postMediaFiles, setPostMediaFiles] = useState<File[]>([]);
 const [postMediaPreviews, setPostMediaPreviews] = useState<
   { url: string; type: "image" | "video" | "pdf" }[]
@@ -1745,8 +1745,9 @@ const modalBody: CSSProperties = {
     return [];
   }
 
-  const uploaded: { url: string; type: "image" | "video" }[] = [];
+  const uploaded: { url: string; type: "image" | "video" | "pdf" }[] = [];
 
+    
   for (const file of postMediaFiles) {
     const ext = (file.name.split(".").pop() || "bin").toLowerCase();
     const path = `posts/${user.id}/${Date.now()}-${Math.random()
