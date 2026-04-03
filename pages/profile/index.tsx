@@ -71,7 +71,9 @@ type PostVM = {
   likedByMe: boolean;
 };
 
-function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
+import { computeFullProfileCompleteness } from "../../lib/profileCompleteness";
+
+{/* function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const has = (v: any) => {
     if (v == null) return false;
     if (typeof v === "string") return v.trim().length > 0;
@@ -110,6 +112,7 @@ function computeCompleteness(p: Profile | null, priv: ProfilePrivate | null) {
   const missing = items.filter((x) => !x.ok).sort((a, b) => b.w - a.w);
   return { pct, missing };
 }
+*/}
 
 // hover effect without touching global CSS
 function ClaimPill({
@@ -807,7 +810,9 @@ export default function ProfileViewPage() {
       privateProfile?.institutional_email ||
       privateProfile?.phone);
 
-  const completeness = computeCompleteness(profile, privateProfile);
+  /const completeness = computeCompleteness(profile, privateProfile);
+  const completeness = computeFullProfileCompleteness(profile, privateProfile);
+  
   const topAddInline = completeness.missing
     .slice(0, 3)
     .map((m) => m.label)
