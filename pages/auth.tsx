@@ -1070,7 +1070,7 @@ export default function AuthPage() {
               Quantum5ocial
             </span>
           </div>
-          <div>© 2025 Quantum5ocial</div>
+          <div>© 2026 Quantum5ocial</div>
         </div>
       </div>
     </div>
