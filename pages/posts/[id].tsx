@@ -728,13 +728,13 @@ const toggleLike = async (pid: string) => {
     const alreadyPresent = prevLikers.some((p) => p.id === user.id);
     if (!alreadyPresent) {
       setLikerProfiles((prev) => [
-        {
-          id: user.id,
-          full_name: item.author?.id === user.id ? item.author.full_name : "You",
-          avatar_url: item.author?.id === user.id ? item.author.avatar_url : null,
-        },
-        ...prev,
-      ].slice(0, 8));
+  {
+    id: user.id,
+    full_name: "You",
+    avatar_url: null,
+  },
+  ...prev,
+].slice(0, 8));
     }
   } else {
     setLikerProfiles((prev) => prev.filter((p) => p.id !== user.id));
