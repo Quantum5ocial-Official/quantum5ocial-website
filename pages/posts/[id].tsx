@@ -10,6 +10,9 @@ import { Document, Page, pdfjs } from "react-pdf";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
+/* =========================
+   TYPES
+========================= */
 
 type FeedProfile = {
   id: string;
@@ -50,7 +53,10 @@ type PostRow = {
   org_id: string | null;
 };
 
-type LikeRow = { post_id: string; user_id: string };
+type LikeRow = {
+  post_id: string;
+  user_id: string;
+};
 
 type CommentRow = {
   id: string;
@@ -58,6 +64,20 @@ type CommentRow = {
   user_id: string;
   body: string;
   created_at: string | null;
+  parent_comment_id?: string | null;
+};
+
+type CommentLikeRow = {
+  comment_id: string;
+  user_id: string;
+};
+
+type CommentVM = {
+  comment: CommentRow;
+  author: FeedProfile | null;
+  likeCount: number;
+  likedByMe: boolean;
+  replies: CommentVM[];
 };
 
 type PostVM = {
@@ -68,6 +88,10 @@ type PostVM = {
   commentCount: number;
   likedByMe: boolean;
 };
+
+/* =========================
+   HELPERS
+========================= */
 
 function useIsMobile(breakpoint = 768) {
   const [isMobile, setIsMobile] = useState(false);
@@ -93,6 +117,46 @@ function normalizePostMedia(post: PostRow | null): PostMediaItem[] {
   return legacy;
 }
 
+function buildCommentTree(
+  comments: CommentRow[],
+  profiles: Record<string, FeedProfile>,
+  likeRows: CommentLikeRow[],
+  currentUserId?: string
+): CommentVM[] {
+  const likesMap: Record<string, CommentLikeRow[]> = {};
+
+  likeRows.forEach((row) => {
+    if (!likesMap[row.comment_id]) likesMap[row.comment_id] = [];
+    likesMap[row.comment_id].push(row);
+  });
+
+  const byId: Record<string, CommentVM> = {};
+  const roots: CommentVM[] = [];
+
+  comments.forEach((comment) => {
+    const likes = likesMap[comment.id] || [];
+    byId[comment.id] = {
+      comment,
+      author: profiles[comment.user_id] || null,
+      likeCount: likes.length,
+      likedByMe:
+        !!currentUserId && likes.some((l) => l.user_id === currentUserId),
+      replies: [],
+    };
+  });
+
+  comments.forEach((comment) => {
+    const vm = byId[comment.id];
+    if (comment.parent_comment_id && byId[comment.parent_comment_id]) {
+      byId[comment.parent_comment_id].replies.push(vm);
+    } else {
+      roots.push(vm);
+    }
+  });
+
+  return roots;
+}
+
 const pillBtnStyle: CSSProperties = {
   fontSize: 13,
   padding: "6px 10px",
@@ -101,58 +165,11 @@ const pillBtnStyle: CSSProperties = {
   background: "rgba(15,23,42,0.65)",
   color: "rgba(226,232,240,0.95)",
   cursor: "pointer",
-  whiteSpace: "nowrap",
 };
 
-function AutoResizeTextarea({
-  value,
-  onChange,
-  placeholder,
-  disabled,
-}: {
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
-  placeholder?: string;
-  disabled?: boolean;
-}) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    el.style.height = "0px";
-    const next = Math.min(el.scrollHeight, 150);
-    el.style.height = `${next}px`;
-    el.style.overflowY = el.scrollHeight > 150 ? "auto" : "hidden";
-  }, [value]);
-
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      rows={1}
-      style={{
-        width: "100%",
-        minHeight: 52,
-        maxHeight: 150,
-        borderRadius: 14,
-        border: "1px solid rgba(148,163,184,0.2)",
-        background: "rgba(2,6,23,0.22)",
-        color: "rgba(226,232,240,0.92)",
-        padding: "10px 12px",
-        fontSize: 15,
-        lineHeight: 1.45,
-        outline: "none",
-        resize: "none",
-      }}
-    />
-  );
-}
-
+/* =========================
+   PDF VIEWER (SMART RESIZE)
+========================= */
 
 function PdfInlineViewer({
   url,
@@ -161,308 +178,102 @@ function PdfInlineViewer({
   url: string;
   isMobile: boolean;
 }) {
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
-  const [loadingPdf, setLoadingPdf] = useState(true);
-  const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const [pdfDoc, setPdfDoc] = useState<any>(null);
-  const [pageNaturalWidth, setPageNaturalWidth] = useState(595);
-  const [pageNaturalHeight, setPageNaturalHeight] = useState(842);
-  const [renderWidth, setRenderWidth] = useState(720);
+  const [naturalWidth, setNaturalWidth] = useState(595);
+  const [naturalHeight, setNaturalHeight] = useState(842);
+  const [renderWidth, setRenderWidth] = useState(700);
 
   const stageRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
+    let objUrl: string | null = null;
 
-    const loadPdf = async () => {
-      try {
-        setLoadingPdf(true);
-        setPdfError(null);
-        setPdfBlobUrl(null);
-        setPdfDoc(null);
-        setPageNumber(1);
-        setNumPages(0);
-
-        const res = await fetch(url);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-
-        const blob = await res.blob();
-
-        if (blob.size === 0) {
-          throw new Error("Fetched PDF is empty.");
-        }
-
-        objectUrl = URL.createObjectURL(blob);
-
-        if (!cancelled) {
-          setPdfBlobUrl(objectUrl);
-        }
-      } catch (err: any) {
-        console.error("PDF fetch error", err);
-        if (!cancelled) {
-          setPdfError(err?.message || "Could not fetch PDF.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingPdf(false);
-        }
-      }
-    };
-
-    loadPdf();
+    (async () => {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      objUrl = URL.createObjectURL(blob);
+      setPdfBlobUrl(objUrl);
+    })();
 
     return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objUrl) URL.revokeObjectURL(objUrl);
     };
   }, [url]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const updatePageDimensions = async () => {
-      if (!pdfDoc) return;
-
-      try {
-        const page = await pdfDoc.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1 });
-
-        if (!cancelled) {
-          setPageNaturalWidth(viewport.width);
-          setPageNaturalHeight(viewport.height);
-        }
-      } catch (err) {
-        console.error("Failed to read page dimensions", err);
-      }
-    };
-
-    updatePageDimensions();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfDoc, pageNumber]);
-
-  useEffect(() => {
-    const updateSize = () => {
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      const stageWidth = stage.clientWidth;
-      const stageHeight = stage.clientHeight;
-
-      const horizontalPadding = isMobile ? 28 : 96;
-      const verticalPadding = 28;
-
-      const maxWidth = Math.max(220, stageWidth - horizontalPadding);
-      const maxHeight = Math.max(220, stageHeight - verticalPadding);
-
-      const widthScale = maxWidth / pageNaturalWidth;
-      const heightScale = maxHeight / pageNaturalHeight;
-
-      // keep smaller pages natural, shrink larger pages to fit
-      const scale = Math.min(widthScale, heightScale, 1);
-
-      setRenderWidth(Math.floor(pageNaturalWidth * scale));
-    };
-
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
-  }, [isMobile, pageNaturalWidth, pageNaturalHeight, pdfBlobUrl, pageNumber]);
-
   return (
     <div
+      ref={stageRef}
       style={{
         width: "100%",
-        background: "rgba(15,23,42,0.95)",
+        height: isMobile ? 520 : 800,
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: 12,
+        background: "rgba(255,255,255,0.02)",
+        borderRadius: 12,
       }}
     >
-      {loadingPdf && (
-        <div style={{ color: "rgba(226,232,240,0.9)" }}>
-          Loading PDF...
-        </div>
-      )}
-
-      {pdfError && (
-        <div
-          style={{
-            color: "rgba(248,113,113,0.95)",
-            fontSize: 14,
-            textAlign: "center",
-            maxWidth: 500,
+      {pdfBlobUrl && (
+        <Document
+          file={pdfBlobUrl}
+          onLoadSuccess={(pdf) => {
+            setNumPages(pdf.numPages);
           }}
         >
-          Failed to load PDF file: {pdfError}
-        </div>
-      )}
-
-      {!loadingPdf && !pdfError && pdfBlobUrl && (
-        <div
-          ref={stageRef}
-          style={{
-            position: "relative",
-            width: "100%",
-            height: isMobile ? 520 : 820,
-            maxHeight: "80vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            overflow: "hidden",
-            borderRadius: 14,
-            background: "rgba(255,255,255,0.03)",
-          }}
-        >
-          <div
-            style={{
-              lineHeight: 0,
-              borderRadius: 8,
-              overflow: "hidden",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.28)",
-            }}
-          >
-            <Document
-              file={pdfBlobUrl}
-              onLoadSuccess={(loadedPdf) => {
-                setPdfDoc(loadedPdf);
-                setNumPages(loadedPdf.numPages);
-                setPageNumber(1);
-              }}
-              onLoadError={(err) => {
-                console.error("PDF render error", err);
-                setPdfError(
-                  err instanceof Error ? err.message : "Could not render PDF."
-                );
-              }}
-              loading={
-                <div style={{ color: "rgba(226,232,240,0.9)" }}>
-                  Rendering PDF...
-                </div>
-              }
-            >
-              <Page
-                pageNumber={pageNumber}
-                width={renderWidth}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-              />
-            </Document>
-          </div>
-
-          {numPages > 0 && (
-            <>
-              <button
-                type="button"
-                onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                disabled={pageNumber <= 1}
-                style={{
-                  position: "absolute",
-                  left: 14,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 42,
-                  height: 42,
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.22)",
-                  background: "rgba(2,6,23,0.72)",
-                  color: "rgba(226,232,240,0.96)",
-                  cursor: pageNumber <= 1 ? "default" : "pointer",
-                  opacity: pageNumber <= 1 ? 0.45 : 1,
-                  fontSize: 22,
-                  zIndex: 3,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ‹
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
-                disabled={pageNumber >= numPages}
-                style={{
-                  position: "absolute",
-                  right: 14,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  width: 42,
-                  height: 42,
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.22)",
-                  background: "rgba(2,6,23,0.72)",
-                  color: "rgba(226,232,240,0.96)",
-                  cursor: pageNumber >= numPages ? "default" : "pointer",
-                  opacity: pageNumber >= numPages ? 0.45 : 1,
-                  fontSize: 22,
-                  zIndex: 3,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                ›
-              </button>
-
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 14,
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  fontSize: 13,
-                  color: "rgba(226,232,240,0.92)",
-                  background: "rgba(2,6,23,0.62)",
-                  border: "1px solid rgba(148,163,184,0.18)",
-                  borderRadius: 999,
-                  padding: "6px 12px",
-                  zIndex: 3,
-                }}
-              >
-                Page {pageNumber} of {numPages}
-              </div>
-            </>
-          )}
-        </div>
+          <Page pageNumber={pageNumber} width={renderWidth} />
+        </Document>
       )}
     </div>
   );
 }
 
+/* =========================
+   MAIN COMPONENT
+========================= */
+
 export default function PostDetailPage() {
   const router = useRouter();
   const { id } = router.query;
   const postId = typeof id === "string" ? id : null;
-  const [likerProfiles, setLikerProfiles] = useState<LikerProfile[]>([]);
 
-  const { user, loading: userLoading } = useSupabaseUser();
+  const { user } = useSupabaseUser();
   const isMobile = useIsMobile();
 
+  const [item, setItem] = useState<PostVM | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [item, setItem] = useState<PostVM | null>(null);
+  const [likerProfiles, setLikerProfiles] = useState<LikerProfile[]>([]);
 
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [savingPostId, setSavingPostId] = useState<string | null>(null);
 
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentRow[]>
+  >({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [commenterProfiles, setCommenterProfiles] = useState<
+    Record<string, FeedProfile>
+  >({});
+
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({});
+  const [replySaving, setReplySaving] = useState<Record<string, boolean>>({});
+  const [repliesOpen, setRepliesOpen] = useState<Record<string, boolean>>({});
+
+  const [commentLikesById, setCommentLikesById] = useState<
+    Record<string, number>
+  >({});
+  const [commentLikedByMe, setCommentLikedByMe] = useState<
+    Record<string, boolean>
+  >({});
 
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingBody, setEditingBody] = useState("");
@@ -546,7 +357,9 @@ export default function PostDetailPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, highest_education, role, current_title, affiliation")
+      .select(
+        "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+      )
       .in("id", missing);
 
     if (error || !data) return;
@@ -563,15 +376,45 @@ export default function PostDetailPage() {
     try {
       const { data: rows, error } = await supabase
         .from("post_comments")
-        .select("id, post_id, user_id, body, created_at")
+        .select("id, post_id, user_id, body, created_at, parent_comment_id")
         .eq("post_id", pid)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
 
       const list = (rows || []) as CommentRow[];
       setCommentsByPost((prev) => ({ ...prev, [pid]: list }));
+
       await loadProfilesForUserIds(list.map((c) => c.user_id));
+
+      const commentIds = list.map((c) => c.id);
+      if (commentIds.length === 0) {
+        setCommentLikesById({});
+        setCommentLikedByMe({});
+        return;
+      }
+
+      const { data: likeRows, error: likeErr } = await supabase
+        .from("post_comment_likes")
+        .select("comment_id, user_id")
+        .in("comment_id", commentIds);
+
+      if (likeErr) throw likeErr;
+
+      const likes = (likeRows || []) as CommentLikeRow[];
+
+      const counts: Record<string, number> = {};
+      const likedMap: Record<string, boolean> = {};
+
+      likes.forEach((row) => {
+        counts[row.comment_id] = (counts[row.comment_id] || 0) + 1;
+        if (user && row.user_id === user.id) {
+          likedMap[row.comment_id] = true;
+        }
+      });
+
+      setCommentLikesById(counts);
+      setCommentLikedByMe(likedMap);
     } catch (e) {
       console.warn("loadComments error", e);
     }
@@ -603,7 +446,9 @@ export default function PostDetailPage() {
       let author: FeedProfile | null = null;
       const { data: prof } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, highest_education, role, current_title, affiliation")
+        .select(
+          "id, full_name, avatar_url, highest_education, role, current_title, affiliation"
+        )
         .eq("id", post.user_id)
         .maybeSingle();
 
@@ -627,42 +472,42 @@ export default function PostDetailPage() {
 
       const { data: comments } = await supabase
         .from("post_comments")
-        .select("id, post_id, user_id, body, created_at")
+        .select("id, post_id, user_id, body, created_at, parent_comment_id")
         .eq("post_id", postId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       const likeRows = (likes || []) as LikeRow[];
-const commentRows = (comments || []) as CommentRow[];
+      const commentRows = (comments || []) as CommentRow[];
 
-let likers: LikerProfile[] = [];
+      let likers: LikerProfile[] = [];
+      if (likeRows.length > 0) {
+        const likerIds = Array.from(
+          new Set(likeRows.map((r) => r.user_id))
+        ).slice(0, 8);
 
-if (likeRows.length > 0) {
-  const likerIds = Array.from(new Set(likeRows.map((r) => r.user_id))).slice(0, 8);
+        const { data: likerData } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", likerIds);
 
-  const { data: likerData } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url")
-    .in("id", likerIds);
+        likers = (likerData || []) as LikerProfile[];
+      }
 
-  likers = (likerData || []) as LikerProfile[];
-}
+      setLikerProfiles(likers);
 
-setLikerProfiles(likers);
-
-const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
+      const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
 
       setItem({
         post,
         author,
-        org,
+        org: org || undefined,
         likeCount: likeRows.length,
         commentCount: commentRows.length,
         likedByMe,
       });
 
       setOpenComments((prev) => ({ ...prev, [postId]: true }));
-      setCommentsByPost((prev) => ({ ...prev, [postId]: commentRows }));
-      await loadProfilesForUserIds(commentRows.map((c) => c.user_id));
+      await loadComments(postId);
     } catch (e: any) {
       console.error("loadPost error", e);
       setError(e?.message || "Could not load post.");
@@ -699,68 +544,116 @@ const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
       setSavedPostIds((data || []).map((row: any) => row.post_id as string));
     };
 
-    if (!userLoading) {
-      void loadSavedPosts();
-    }
-  }, [user, userLoading]);
+    void loadSavedPosts();
+  }, [user]);
 
   useEffect(() => {
     setCurrentMediaIndex(0);
   }, [postId]);
 
-const toggleLike = async (pid: string) => {
-  if (!user || !item) {
-    router.push(`/auth?redirect=/posts/${pid}`);
-    return;
-  }
-
-  const cur = item;
-  const prevLikers = likerProfiles;
-  const nextLiked = !cur.likedByMe;
-
-  setItem({
-    ...cur,
-    likedByMe: nextLiked,
-    likeCount: Math.max(0, cur.likeCount + (nextLiked ? 1 : -1)),
-  });
-
-  if (nextLiked) {
-    const alreadyPresent = prevLikers.some((p) => p.id === user.id);
-    if (!alreadyPresent) {
-      setLikerProfiles((prev) => [
-  {
-    id: user.id,
-    full_name: "You",
-    avatar_url: null,
-  },
-  ...prev,
-].slice(0, 8));
+  const toggleLike = async (pid: string) => {
+    if (!user || !item) {
+      router.push(`/auth?redirect=/posts/${pid}`);
+      return;
     }
-  } else {
-    setLikerProfiles((prev) => prev.filter((p) => p.id !== user.id));
-  }
 
-  try {
+    const cur = item;
+    const prevLikers = likerProfiles;
+    const nextLiked = !cur.likedByMe;
+
+    setItem({
+      ...cur,
+      likedByMe: nextLiked,
+      likeCount: Math.max(0, cur.likeCount + (nextLiked ? 1 : -1)),
+    });
+
     if (nextLiked) {
-      const { error } = await supabase.from("post_likes").insert({
-        post_id: pid,
-        user_id: user.id,
-      });
-      if (error) throw error;
+      const alreadyPresent = prevLikers.some((p) => p.id === user.id);
+      if (!alreadyPresent) {
+        setLikerProfiles((prev) =>
+          [
+            {
+              id: user.id,
+              full_name: "You",
+              avatar_url: null,
+            },
+            ...prev,
+          ].slice(0, 8)
+        );
+      }
     } else {
-      const { error } = await supabase
-        .from("post_likes")
-        .delete()
-        .eq("post_id", pid)
-        .eq("user_id", user.id);
-      if (error) throw error;
+      setLikerProfiles((prev) => prev.filter((p) => p.id !== user.id));
     }
-  } catch (e) {
-    console.warn("toggleLike error", e);
-    setItem(cur);
-    setLikerProfiles(prevLikers);
-  }
-};
+
+    try {
+      if (nextLiked) {
+        const { error } = await supabase.from("post_likes").insert({
+          post_id: pid,
+          user_id: user.id,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("post_likes")
+          .delete()
+          .eq("post_id", pid)
+          .eq("user_id", user.id);
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.warn("toggleLike error", e);
+      setItem(cur);
+      setLikerProfiles(prevLikers);
+    }
+  };
+
+  const toggleCommentLike = async (commentId: string) => {
+    if (!user) {
+      if (postId) router.push(`/auth?redirect=/posts/${postId}`);
+      return;
+    }
+
+    const alreadyLiked = !!commentLikedByMe[commentId];
+
+    setCommentLikedByMe((prev) => ({ ...prev, [commentId]: !alreadyLiked }));
+    setCommentLikesById((prev) => ({
+      ...prev,
+      [commentId]: Math.max(
+        0,
+        (prev[commentId] || 0) + (alreadyLiked ? -1 : 1)
+      ),
+    }));
+
+    try {
+      if (alreadyLiked) {
+        const { error } = await supabase
+          .from("post_comment_likes")
+          .delete()
+          .eq("comment_id", commentId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("post_comment_likes").insert({
+          comment_id: commentId,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.warn("toggleCommentLike error", e);
+
+      setCommentLikedByMe((prev) => ({ ...prev, [commentId]: alreadyLiked }));
+      setCommentLikesById((prev) => ({
+        ...prev,
+        [commentId]: Math.max(
+          0,
+          (prev[commentId] || 0) + (alreadyLiked ? 1 : -1)
+        ),
+      }));
+    }
+  };
 
   const submitComment = async (pid: string) => {
     if (!user) {
@@ -774,27 +667,19 @@ const toggleLike = async (pid: string) => {
     setCommentSaving((p) => ({ ...p, [pid]: true }));
 
     try {
-      const { data, error } = await supabase
-        .from("post_comments")
-        .insert({
-          post_id: pid,
-          user_id: user.id,
-          body: body.trim(),
-        })
-        .select("id, post_id, user_id, body, created_at")
-        .maybeSingle();
+      const { error } = await supabase.from("post_comments").insert({
+        post_id: pid,
+        user_id: user.id,
+        body: body.trim(),
+        parent_comment_id: null,
+      });
 
       if (error) throw error;
 
       setCommentDraft((p) => ({ ...p, [pid]: "" }));
       setOpenComments((p) => ({ ...p, [pid]: true }));
 
-      setCommentsByPost((prev) => {
-        const cur = prev[pid] || [];
-        return { ...prev, [pid]: data ? [data as CommentRow, ...cur] : cur };
-      });
-
-      await loadProfilesForUserIds([user.id]);
+      await loadComments(pid);
 
       setItem((prev) =>
         prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev
@@ -807,6 +692,47 @@ const toggleLike = async (pid: string) => {
       console.warn("submitComment error", e);
     } finally {
       setCommentSaving((p) => ({ ...p, [pid]: false }));
+    }
+  };
+
+  const submitReply = async (parentCommentId: string, pid: string) => {
+    if (!user) {
+      router.push(`/auth?redirect=/posts/${pid}`);
+      return;
+    }
+
+    const body = (replyDraft[parentCommentId] || "").trim();
+    if (!body) return;
+
+    setReplySaving((prev) => ({ ...prev, [parentCommentId]: true }));
+
+    try {
+      const { error } = await supabase.from("post_comments").insert({
+        post_id: pid,
+        user_id: user.id,
+        body,
+        parent_comment_id: parentCommentId,
+      });
+
+      if (error) throw error;
+
+      setReplyDraft((prev) => ({ ...prev, [parentCommentId]: "" }));
+      setReplyOpen((prev) => ({ ...prev, [parentCommentId]: false }));
+      setRepliesOpen((prev) => ({ ...prev, [parentCommentId]: true }));
+
+      await loadComments(pid);
+
+      setItem((prev) =>
+        prev ? { ...prev, commentCount: prev.commentCount + 1 } : prev
+      );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:feed-changed"));
+      }
+    } catch (e) {
+      console.warn("submitReply error", e);
+    } finally {
+      setReplySaving((prev) => ({ ...prev, [parentCommentId]: false }));
     }
   };
 
@@ -857,7 +783,9 @@ const toggleLike = async (pid: string) => {
   const handleDeletePost = async (pid: string) => {
     if (!user || !item || item.post.id !== pid) return;
 
-    const confirmed = window.confirm("Delete this post? This action cannot be undone.");
+    const confirmed = window.confirm(
+      "Delete this post? This action cannot be undone."
+    );
     if (!confirmed) return;
 
     setDeletingPostId(pid);
@@ -932,7 +860,45 @@ const toggleLike = async (pid: string) => {
   const editingPost =
     editingPostId && item?.post.id === editingPostId ? item.post : null;
 
-  const mediaItems = useMemo(() => normalizePostMedia(item?.post || null), [item]);
+  const mediaItems = useMemo(
+    () => normalizePostMedia(item?.post || null),
+    [item]
+  );
+
+  const threadedComments = useMemo(() => {
+    const flat = commentsByPost[item?.post.id || ""] || [];
+
+    const actualLikeRows: CommentLikeRow[] = flat.flatMap((comment) => {
+      const liked = commentLikedByMe[comment.id];
+      const count = commentLikesById[comment.id] || 0;
+
+      const rows: CommentLikeRow[] = [];
+      if (liked && user) {
+        rows.push({ comment_id: comment.id, user_id: user.id });
+      }
+      for (let i = rows.length; i < count; i++) {
+        rows.push({
+          comment_id: comment.id,
+          user_id: `placeholder-${comment.id}-${i}`,
+        });
+      }
+      return rows;
+    });
+
+    return buildCommentTree(
+      flat,
+      commenterProfiles,
+      actualLikeRows,
+      user?.id
+    );
+  }, [
+    commentsByPost,
+    commentLikesById,
+    commentLikedByMe,
+    commenterProfiles,
+    item?.post.id,
+    user,
+  ]);
 
   const actorName =
     item?.org?.name || item?.author?.full_name || "Quantum member";
@@ -1075,6 +1041,7 @@ const toggleLike = async (pid: string) => {
                         actorName
                       )}
                     </div>
+
                     <div style={{ opacity: 0.72, fontSize: 12 }}>
                       {formatRelativeTime(item.post.created_at)}
                     </div>
@@ -1224,45 +1191,45 @@ const toggleLike = async (pid: string) => {
                   }}
                 >
                   <div
-  style={{
-    width: "100%",
-    background: "rgba(15,23,42,0.95)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  }}
->
+                    style={{
+                      width: "100%",
+                      background: "rgba(15,23,42,0.95)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
                     {mediaItems[currentMediaIndex]?.type === "video" ? (
-  <video
-    src={mediaItems[currentMediaIndex].url}
-    controls
-    playsInline
-    style={{
-      width: "100%",
-      maxHeight: isMobile ? "70vh" : "72vh",
-      objectFit: "contain",
-      display: "block",
-      background: "rgba(15,23,42,0.95)",
-    }}
-  />
-) : mediaItems[currentMediaIndex]?.type === "pdf" ? (
-  <PdfInlineViewer
-    url={mediaItems[currentMediaIndex].url}
-    isMobile={isMobile}
-  />
-) : (
-  <img
-    src={mediaItems[currentMediaIndex].url}
-    alt={`Post media ${currentMediaIndex + 1}`}
-    style={{
-      width: "100%",
-      maxHeight: isMobile ? "70vh" : "72vh",
-      objectFit: "contain",
-      display: "block",
-      background: "rgba(15,23,42,0.95)",
-    }}
-  />
-)}
+                      <video
+                        src={mediaItems[currentMediaIndex].url}
+                        controls
+                        playsInline
+                        style={{
+                          width: "100%",
+                          maxHeight: isMobile ? "70vh" : "72vh",
+                          objectFit: "contain",
+                          display: "block",
+                          background: "rgba(15,23,42,0.95)",
+                        }}
+                      />
+                    ) : mediaItems[currentMediaIndex]?.type === "pdf" ? (
+                      <PdfInlineViewer
+                        url={mediaItems[currentMediaIndex].url}
+                        isMobile={isMobile}
+                      />
+                    ) : (
+                      <img
+                        src={mediaItems[currentMediaIndex].url}
+                        alt={`Post media ${currentMediaIndex + 1}`}
+                        style={{
+                          width: "100%",
+                          maxHeight: isMobile ? "70vh" : "72vh",
+                          objectFit: "contain",
+                          display: "block",
+                          background: "rgba(15,23,42,0.95)",
+                        }}
+                      />
+                    )}
                   </div>
 
                   {mediaItems.length > 1 && (
@@ -1356,187 +1323,187 @@ const toggleLike = async (pid: string) => {
             )}
 
             {likerProfiles.length > 0 && (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: 12,
-      padding: "0 16px 12px 16px",
-    }}
-  >
-    <div style={{ display: "flex", alignItems: "center" }}>
-      {likerProfiles.slice(0, 6).map((liker, idx) => (
-        <Link
-          key={liker.id}
-          href={`/profile/${liker.id}`}
-          style={{
-            display: "block",
-            marginLeft: idx === 0 ? 0 : -8,
-            position: "relative",
-            zIndex: 20 - idx,
-          }}
-          title={liker.full_name || "Member"}
-        >
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 999,
-              overflow: "hidden",
-              border: "2px solid rgba(15,23,42,0.95)",
-              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 800,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.24)",
-            }}
-          >
-            {liker.avatar_url ? (
-              <img
-                src={liker.avatar_url}
-                alt={liker.full_name || "Member"}
+              <div
                 style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  display: "block",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "0 16px 12px 16px",
                 }}
-              />
-            ) : (
-              initialsOf(liker.full_name)
-            )}
-          </div>
-        </Link>
-      ))}
-    </div>
+              >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  {likerProfiles.slice(0, 6).map((liker, idx) => (
+                    <Link
+                      key={liker.id}
+                      href={`/profile/${liker.id}`}
+                      style={{
+                        display: "block",
+                        marginLeft: idx === 0 ? 0 : -8,
+                        position: "relative",
+                        zIndex: 20 - idx,
+                      }}
+                      title={liker.full_name || "Member"}
+                    >
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          border: "2px solid rgba(15,23,42,0.95)",
+                          background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                          color: "#fff",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.24)",
+                        }}
+                      >
+                        {liker.avatar_url ? (
+                          <img
+                            src={liker.avatar_url}
+                            alt={liker.full_name || "Member"}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                          />
+                        ) : (
+                          initialsOf(liker.full_name)
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
 
-    <div
-      style={{
-        fontSize: 12,
-        color: "rgba(226,232,240,0.72)",
-      }}
-    >
-      Liked by {item.likeCount} {item.likeCount === 1 ? "person" : "people"}
-    </div>
-  </div>
-)}
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(226,232,240,0.72)",
+                  }}
+                >
+                  Liked by {item.likeCount} {item.likeCount === 1 ? "person" : "people"}
+                </div>
+              </div>
+            )}
 
             <div
-  style={{
-    display: "flex",
-    gap: 10,
-    alignItems: "center",
-    flexWrap: "wrap",
-    padding: "0 16px 16px 16px",
-    borderTop:
-      mediaItems.length > 0
-        ? "1px solid rgba(148,163,184,0.14)"
-        : undefined,
-  }}
->
-  <button
-    type="button"
-    onClick={() => toggleLike(item.post.id)}
-    style={{
-      ...pillBtnStyle,
-      borderColor: item.likedByMe
-        ? "rgba(248,113,113,0.55)"
-        : "rgba(148,163,184,0.28)",
-      background: item.likedByMe
-        ? "rgba(248,113,113,0.12)"
-        : "rgba(2,6,23,0.22)",
-      color: item.likedByMe
-        ? "rgba(254,226,226,0.98)"
-        : "rgba(226,232,240,0.92)",
-    }}
-  >
-    <span style={{ color: item.likedByMe ? "#f87171" : "inherit" }}>
-      {item.likedByMe ? "♥" : "♡"}
-    </span>{" "}
-    {item.likeCount}
-  </button>
+              style={{
+                display: "flex",
+                gap: 10,
+                alignItems: "center",
+                flexWrap: "wrap",
+                padding: "0 16px 16px 16px",
+                borderTop:
+                  mediaItems.length > 0
+                    ? "1px solid rgba(148,163,184,0.14)"
+                    : undefined,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => toggleLike(item.post.id)}
+                style={{
+                  ...pillBtnStyle,
+                  borderColor: item.likedByMe
+                    ? "rgba(248,113,113,0.55)"
+                    : "rgba(148,163,184,0.28)",
+                  background: item.likedByMe
+                    ? "rgba(248,113,113,0.12)"
+                    : "rgba(2,6,23,0.22)",
+                  color: item.likedByMe
+                    ? "rgba(254,226,226,0.98)"
+                    : "rgba(226,232,240,0.92)",
+                }}
+              >
+                <span style={{ color: item.likedByMe ? "#f87171" : "inherit" }}>
+                  {item.likedByMe ? "♥" : "♡"}
+                </span>{" "}
+                {item.likeCount}
+              </button>
 
-  <button
-    type="button"
-    onClick={() =>
-      setOpenComments((prev) => ({
-        ...prev,
-        [item.post.id]: !prev[item.post.id],
-      }))
-    }
-    style={pillBtnStyle}
-  >
-    💬 {item.commentCount}
-  </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenComments((prev) => ({
+                    ...prev,
+                    [item.post.id]: !prev[item.post.id],
+                  }))
+                }
+                style={pillBtnStyle}
+              >
+                💬 {item.commentCount}
+              </button>
 
-  <button
-    type="button"
-    onClick={async () => {
-      if (typeof window === "undefined") return;
-      const shareUrl = `${window.location.origin}/posts/${postId}`;
-      try {
-        if (navigator.share) {
-          await navigator.share({ url: shareUrl });
-        } else if (navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(shareUrl);
-        }
-      } catch {}
-    }}
-    style={pillBtnStyle}
-  >
-    🔗 Share
-  </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (typeof window === "undefined") return;
+                  const shareUrl = `${window.location.origin}/posts/${postId}`;
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({ url: shareUrl });
+                    } else if (navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(shareUrl);
+                    }
+                  } catch {}
+                }}
+                style={pillBtnStyle}
+              >
+                🔗 Share
+              </button>
 
-  <button
-    type="button"
-    disabled={savingPostId === item.post.id}
-    onClick={() => handleSavePost(item.post.id)}
-    style={{
-      ...pillBtnStyle,
-      opacity: savingPostId === item.post.id ? 0.6 : 1,
-      cursor: savingPostId === item.post.id ? "default" : "pointer",
-    }}
-  >
-    {savingPostId === item.post.id
-      ? "Saving..."
-      : isPostSaved(item.post.id)
-      ? "💾 Saved"
-      : "📌 Save"}
-  </button>
+              <button
+                type="button"
+                disabled={savingPostId === item.post.id}
+                onClick={() => handleSavePost(item.post.id)}
+                style={{
+                  ...pillBtnStyle,
+                  opacity: savingPostId === item.post.id ? 0.6 : 1,
+                  cursor: savingPostId === item.post.id ? "default" : "pointer",
+                }}
+              >
+                {savingPostId === item.post.id
+                  ? "Saving..."
+                  : isPostSaved(item.post.id)
+                  ? "💾 Saved"
+                  : "📌 Save"}
+              </button>
 
-  {!!user && user.id === item.post.user_id && (
-    <>
-      <button
-        type="button"
-        onClick={() => handleEditPost(item.post.id)}
-        style={pillBtnStyle}
-      >
-        ✏️ Edit
-      </button>
+              {!!user && user.id === item.post.user_id && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleEditPost(item.post.id)}
+                    style={pillBtnStyle}
+                  >
+                    ✏️ Edit
+                  </button>
 
-      <button
-        type="button"
-        disabled={deletingPostId === item.post.id}
-        onClick={() => handleDeletePost(item.post.id)}
-        style={{
-          ...pillBtnStyle,
-          border: "1px solid rgba(248,113,113,0.28)",
-          background: "rgba(127,29,29,0.18)",
-          color: "rgba(254,202,202,0.95)",
-          opacity: deletingPostId === item.post.id ? 0.6 : 1,
-          cursor:
-            deletingPostId === item.post.id ? "default" : "pointer",
-        }}
-      >
-        {deletingPostId === item.post.id ? "Deleting..." : "🗑 Delete"}
-      </button>
-    </>
-  )}
-</div>
+                  <button
+                    type="button"
+                    disabled={deletingPostId === item.post.id}
+                    onClick={() => handleDeletePost(item.post.id)}
+                    style={{
+                      ...pillBtnStyle,
+                      border: "1px solid rgba(248,113,113,0.28)",
+                      background: "rgba(127,29,29,0.18)",
+                      color: "rgba(254,202,202,0.95)",
+                      opacity: deletingPostId === item.post.id ? 0.6 : 1,
+                      cursor:
+                        deletingPostId === item.post.id ? "default" : "pointer",
+                    }}
+                  >
+                    {deletingPostId === item.post.id ? "Deleting..." : "🗑 Delete"}
+                  </button>
+                </>
+              )}
+            </div>
 
             <div
               style={{
@@ -1558,16 +1525,16 @@ const toggleLike = async (pid: string) => {
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <AutoResizeTextarea
-  value={commentDraft[item.post.id] || ""}
-  onChange={(e) =>
-    setCommentDraft((prev) => ({
-      ...prev,
-      [item.post.id]: e.target.value,
-    }))
-  }
-  placeholder={user ? "Write a comment…" : "Login to comment…"}
-  disabled={!user || !!commentSaving[item.post.id]}
-/>
+                    value={commentDraft[item.post.id] || ""}
+                    onChange={(e) =>
+                      setCommentDraft((prev) => ({
+                        ...prev,
+                        [item.post.id]: e.target.value,
+                      }))
+                    }
+                    placeholder={user ? "Write a comment…" : "Login to comment…"}
+                    disabled={!user || !!commentSaving[item.post.id]}
+                  />
 
                   <div
                     style={{
@@ -1606,24 +1573,35 @@ const toggleLike = async (pid: string) => {
                 </div>
               </div>
 
-              {openComments[item.post.id] !== false && (
+                            {openComments[item.post.id] !== false && (
                 <div
                   style={{
                     marginTop: 14,
                     display: "flex",
                     flexDirection: "column",
-                    gap: 12,
+                    gap: 14,
                   }}
                 >
-                  {(commentsByPost[item.post.id] || []).length === 0 ? (
+                  {threadedComments.length === 0 ? (
                     <div style={{ opacity: 0.7, fontSize: 12 }}>No comments yet.</div>
                   ) : (
-                    (commentsByPost[item.post.id] || []).map((c) => {
-                      const cp = commenterProfiles[c.user_id];
+                    threadedComments.map((commentVm) => {
+                      const c = commentVm.comment;
+                      const cp = commentVm.author;
                       const name = cp?.full_name || "Member";
+                      const repliesAreOpen = !!repliesOpen[c.id];
+                      const replyBoxOpen = !!replyOpen[c.id];
+                      const replyCount = commentVm.replies.length;
 
                       return (
-                        <div key={c.id} style={{ display: "flex", gap: 10 }}>
+                        <div
+                          key={c.id}
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "flex-start",
+                          }}
+                        >
                           <div style={avatarStyle(30)}>
                             {cp?.avatar_url ? (
                               <img
@@ -1700,6 +1678,284 @@ const toggleLike = async (pid: string) => {
                             >
                               <LinkifyText text={c.body || ""} />
                             </div>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 14,
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                marginTop: 8,
+                                fontSize: 12,
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => toggleCommentLike(c.id)}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  color: commentLikedByMe[c.id]
+                                    ? "#f87171"
+                                    : "rgba(226,232,240,0.78)",
+                                  fontWeight: commentLikedByMe[c.id] ? 700 : 500,
+                                }}
+                              >
+                                {commentLikedByMe[c.id] ? "♥" : "Like"}
+                                {(commentLikesById[c.id] || 0) > 0
+                                  ? ` ${commentLikesById[c.id]}`
+                                  : ""}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReplyOpen((prev) => ({
+                                    ...prev,
+                                    [c.id]: !prev[c.id],
+                                  }))
+                                }
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  color: "rgba(226,232,240,0.78)",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Reply
+                              </button>
+
+                              {replyCount > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRepliesOpen((prev) => ({
+                                      ...prev,
+                                      [c.id]: !prev[c.id],
+                                    }))
+                                  }
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    padding: 0,
+                                    cursor: "pointer",
+                                    color: "rgba(56,189,248,0.9)",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {repliesAreOpen
+                                    ? "Hide replies"
+                                    : `View replies (${replyCount})`}
+                                </button>
+                              )}
+                            </div>
+
+                            {replyBoxOpen && (
+                              <div
+                                style={{
+                                  marginTop: 10,
+                                  paddingLeft: 0,
+                                }}
+                              >
+                                <AutoResizeTextarea
+                                  value={replyDraft[c.id] || ""}
+                                  onChange={(e) =>
+                                    setReplyDraft((prev) => ({
+                                      ...prev,
+                                      [c.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={user ? "Write a reply…" : "Login to reply…"}
+                                  disabled={!user || !!replySaving[c.id]}
+                                />
+
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                    gap: 8,
+                                    marginTop: 8,
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyOpen((prev) => ({
+                                        ...prev,
+                                        [c.id]: false,
+                                      }))
+                                    }
+                                    style={{
+                                      ...pillBtnStyle,
+                                      background: "rgba(2,6,23,0.22)",
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => submitReply(c.id, item.post.id)}
+                                    disabled={
+                                      !user ||
+                                      !!replySaving[c.id] ||
+                                      !(replyDraft[c.id] || "").trim()
+                                    }
+                                    style={{
+                                      ...pillBtnStyle,
+                                      opacity:
+                                        !user ||
+                                        !!replySaving[c.id] ||
+                                        !(replyDraft[c.id] || "").trim()
+                                          ? 0.5
+                                          : 1,
+                                      cursor:
+                                        !user ||
+                                        !!replySaving[c.id] ||
+                                        !(replyDraft[c.id] || "").trim()
+                                          ? "default"
+                                          : "pointer",
+                                    }}
+                                  >
+                                    {replySaving[c.id] ? "Replying…" : "Reply"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {repliesAreOpen && replyCount > 0 && (
+                              <div
+                                style={{
+                                  marginTop: 12,
+                                  marginLeft: 10,
+                                  paddingLeft: 14,
+                                  borderLeft: "1px solid rgba(148,163,184,0.18)",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 12,
+                                }}
+                              >
+                                {commentVm.replies.map((replyVm) => {
+                                  const rc = replyVm.comment;
+                                  const rp = replyVm.author;
+                                  const replyName = rp?.full_name || "Member";
+
+                                  return (
+                                    <div
+                                      key={rc.id}
+                                      style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        alignItems: "flex-start",
+                                      }}
+                                    >
+                                      <div style={avatarStyle(26)}>
+                                        {rp?.avatar_url ? (
+                                          <img
+                                            src={rp.avatar_url}
+                                            alt={replyName}
+                                            style={{
+                                              width: "100%",
+                                              height: "100%",
+                                              objectFit: "cover",
+                                              display: "block",
+                                            }}
+                                          />
+                                        ) : (
+                                          initialsOf(replyName)
+                                        )}
+                                      </div>
+
+                                      <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            gap: 10,
+                                            alignItems: "baseline",
+                                            flexWrap: "wrap",
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              fontWeight: 800,
+                                              fontSize: 12,
+                                            }}
+                                          >
+                                            {rp?.id ? (
+                                              <Link
+                                                href={`/profile/${rp.id}`}
+                                                style={{
+                                                  textDecoration: "none",
+                                                  color: "inherit",
+                                                }}
+                                              >
+                                                {replyName}
+                                              </Link>
+                                            ) : (
+                                              replyName
+                                            )}
+                                          </div>
+
+                                          <div style={{ opacity: 0.7, fontSize: 11 }}>
+                                            {formatRelativeTime(rc.created_at)}
+                                          </div>
+                                        </div>
+
+                                        <div
+                                          style={{
+                                            marginTop: 4,
+                                            fontSize: 12,
+                                            lineHeight: 1.45,
+                                            opacity: 0.92,
+                                            whiteSpace: "pre-wrap",
+                                            wordBreak: "break-word",
+                                          }}
+                                        >
+                                          <LinkifyText text={rc.body || ""} />
+                                        </div>
+
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            gap: 14,
+                                            alignItems: "center",
+                                            flexWrap: "wrap",
+                                            marginTop: 6,
+                                            fontSize: 11,
+                                          }}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentLike(rc.id)}
+                                            style={{
+                                              border: "none",
+                                              background: "transparent",
+                                              padding: 0,
+                                              cursor: "pointer",
+                                              color: commentLikedByMe[rc.id]
+                                                ? "#f87171"
+                                                : "rgba(226,232,240,0.78)",
+                                              fontWeight: commentLikedByMe[rc.id]
+                                                ? 700
+                                                : 500,
+                                            }}
+                                          >
+                                            {commentLikedByMe[rc.id] ? "♥" : "Like"}
+                                            {(commentLikesById[rc.id] || 0) > 0
+                                              ? ` ${commentLikesById[rc.id]}`
+                                              : ""}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -1708,166 +1964,59 @@ const toggleLike = async (pid: string) => {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {editingPost && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            background: "rgba(2,6,23,0.62)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 18,
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !editSaving) {
-              setEditingPostId(null);
-              setEditingBody("");
-              setEditError(null);
-            }
-          }}
-        >
-          <div
-            style={{
-              width: "min(640px, 100%)",
-              borderRadius: 18,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background:
-                "linear-gradient(135deg, rgba(15,23,42,0.92), rgba(15,23,42,0.98))",
-              boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                padding: "14px 16px",
-                borderBottom: "1px solid rgba(148,163,184,0.14)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ fontWeight: 800, fontSize: 15 }}>Edit post</div>
-              <button
-                type="button"
-                disabled={editSaving}
-                onClick={() => {
-                  setEditingPostId(null);
-                  setEditingBody("");
-                  setEditError(null);
-                }}
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 999,
-                  border: "1px solid rgba(148,163,184,0.18)",
-                  background: "rgba(2,6,23,0.2)",
-                  color: "rgba(226,232,240,0.92)",
-                  cursor: editSaving ? "default" : "pointer",
-                  opacity: editSaving ? 0.6 : 1,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ padding: 16 }}>
-              <textarea
-                value={editingBody}
-                onChange={(e) => setEditingBody(e.target.value)}
-                style={{
-                  width: "100%",
-                  minHeight: 160,
-                  borderRadius: 14,
-                  border: "1px solid rgba(148,163,184,0.2)",
-                  background: "rgba(2,6,23,0.26)",
-                  color: "rgba(226,232,240,0.94)",
-                  padding: 14,
-                  fontSize: 15,
-                  lineHeight: 1.45,
-                  outline: "none",
-                  resize: "vertical",
-                  whiteSpace: "pre-wrap",
-                }}
-              />
-
-              {editError && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    padding: "10px 12px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(248,113,113,0.35)",
-                    background: "rgba(248,113,113,0.10)",
-                    color: "rgba(254,226,226,0.95)",
-                    fontSize: 13,
-                  }}
-                >
-                  {editError}
-                </div>
-              )}
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: 10,
-                  marginTop: 14,
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={editSaving}
-                  onClick={() => {
-                    setEditingPostId(null);
-                    setEditingBody("");
-                    setEditError(null);
-                  }}
-                  style={{
-                    fontSize: 13,
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "1px solid rgba(148,163,184,0.45)",
-                    background: "rgba(15,23,42,0.65)",
-                    color: "rgba(226,232,240,0.95)",
-                    cursor: editSaving ? "default" : "pointer",
-                    opacity: editSaving ? 0.6 : 1,
-                  }}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  disabled={editSaving || !editingBody.trim()}
-                  onClick={handleSaveEditedPost}
-                  style={{
-                    fontSize: 13,
-                    padding: "6px 10px",
-                    borderRadius: 999,
-                    border: "none",
-                    background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
-                    color: "#0f172a",
-                    fontWeight: 800,
-                    cursor:
-                      editSaving || !editingBody.trim() ? "default" : "pointer",
-                    opacity: editSaving || !editingBody.trim() ? 0.6 : 1,
-                  }}
-                >
-                  {editSaving ? "Saving..." : "Save changes"}
-                </button>
-              </div>
-            </div>
+                        </div>
           </div>
         </div>
       )}
     </section>
+  );
+}
+
+/* =========================
+   AUTO RESIZE TEXTAREA
+========================= */
+
+function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.height = "0px";
+    ref.current.style.height = ref.current.scrollHeight + "px";
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      disabled={disabled}
+      rows={1}
+      style={{
+        width: "100%",
+        resize: "none",
+        overflow: "hidden",
+        borderRadius: 12,
+        border: "1px solid rgba(148,163,184,0.25)",
+        background: "rgba(2,6,23,0.35)",
+        color: "rgba(226,232,240,0.95)",
+        fontSize: 13,
+        lineHeight: 1.5,
+        padding: "10px 12px",
+        outline: "none",
+      }}
+    />
   );
 }
 
