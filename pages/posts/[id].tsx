@@ -1964,7 +1964,6 @@ export default function PostDetailPage() {
                 </div>
               )}
             </div>
-                        </div>
           </div>
         </div>
       )}
