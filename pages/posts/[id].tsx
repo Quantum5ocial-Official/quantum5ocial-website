@@ -21,6 +21,12 @@ type FeedProfile = {
   current_title?: string | null;
 };
 
+type LikerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
 type FeedOrg = {
   id: string;
   name: string;
@@ -439,6 +445,7 @@ export default function PostDetailPage() {
   const router = useRouter();
   const { id } = router.query;
   const postId = typeof id === "string" ? id : null;
+  const [likerProfiles, setLikerProfiles] = useState<LikerProfile[]>([]);
 
   const { user, loading: userLoading } = useSupabaseUser();
   const isMobile = useIsMobile();
@@ -625,6 +632,24 @@ export default function PostDetailPage() {
         .order("created_at", { ascending: false });
 
       const likeRows = (likes || []) as LikeRow[];
+const commentRows = (comments || []) as CommentRow[];
+
+let likers: LikerProfile[] = [];
+
+if (likeRows.length > 0) {
+  const likerIds = Array.from(new Set(likeRows.map((r) => r.user_id))).slice(0, 8);
+
+  const { data: likerData } = await supabase
+    .from("profiles")
+    .select("id, full_name, avatar_url")
+    .in("id", likerIds);
+
+  likers = (likerData || []) as LikerProfile[];
+}
+
+setLikerProfiles(likers);
+
+const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
       const commentRows = (comments || []) as CommentRow[];
 
       const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
@@ -686,41 +711,59 @@ export default function PostDetailPage() {
     setCurrentMediaIndex(0);
   }, [postId]);
 
-  const toggleLike = async (pid: string) => {
-    if (!user || !item) {
-      router.push(`/auth?redirect=/posts/${pid}`);
-      return;
+const toggleLike = async (pid: string) => {
+  if (!user || !item) {
+    router.push(`/auth?redirect=/posts/${pid}`);
+    return;
+  }
+
+  const cur = item;
+  const prevLikers = likerProfiles;
+  const nextLiked = !cur.likedByMe;
+
+  setItem({
+    ...cur,
+    likedByMe: nextLiked,
+    likeCount: Math.max(0, cur.likeCount + (nextLiked ? 1 : -1)),
+  });
+
+  if (nextLiked) {
+    const alreadyPresent = prevLikers.some((p) => p.id === user.id);
+    if (!alreadyPresent) {
+      setLikerProfiles((prev) => [
+        {
+          id: user.id,
+          full_name: item.author?.id === user.id ? item.author.full_name : "You",
+          avatar_url: item.author?.id === user.id ? item.author.avatar_url : null,
+        },
+        ...prev,
+      ].slice(0, 8));
     }
+  } else {
+    setLikerProfiles((prev) => prev.filter((p) => p.id !== user.id));
+  }
 
-    const cur = item;
-    const nextLiked = !cur.likedByMe;
-
-    setItem({
-      ...cur,
-      likedByMe: nextLiked,
-      likeCount: Math.max(0, cur.likeCount + (nextLiked ? 1 : -1)),
-    });
-
-    try {
-      if (nextLiked) {
-        const { error } = await supabase.from("post_likes").insert({
-          post_id: pid,
-          user_id: user.id,
-        });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("post_likes")
-          .delete()
-          .eq("post_id", pid)
-          .eq("user_id", user.id);
-        if (error) throw error;
-      }
-    } catch (e) {
-      console.warn("toggleLike error", e);
-      setItem(cur);
+  try {
+    if (nextLiked) {
+      const { error } = await supabase.from("post_likes").insert({
+        post_id: pid,
+        user_id: user.id,
+      });
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from("post_likes")
+        .delete()
+        .eq("post_id", pid)
+        .eq("user_id", user.id);
+      if (error) throw error;
     }
-  };
+  } catch (e) {
+    console.warn("toggleLike error", e);
+    setItem(cur);
+    setLikerProfiles(prevLikers);
+  }
+};
 
   const submitComment = async (pid: string) => {
     if (!user) {
@@ -1314,6 +1357,76 @@ export default function PostDetailPage() {
                 )}
               </div>
             )}
+
+            {likerProfiles.length > 0 && (
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 12,
+      padding: "0 16px 12px 16px",
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center" }}>
+      {likerProfiles.slice(0, 6).map((liker, idx) => (
+        <Link
+          key={liker.id}
+          href={`/profile/${liker.id}`}
+          style={{
+            display: "block",
+            marginLeft: idx === 0 ? 0 : -8,
+            position: "relative",
+            zIndex: 20 - idx,
+          }}
+          title={liker.full_name || "Member"}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 999,
+              overflow: "hidden",
+              border: "2px solid rgba(15,23,42,0.95)",
+              background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 800,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.24)",
+            }}
+          >
+            {liker.avatar_url ? (
+              <img
+                src={liker.avatar_url}
+                alt={liker.full_name || "Member"}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+            ) : (
+              initialsOf(liker.full_name)
+            )}
+          </div>
+        </Link>
+      ))}
+    </div>
+
+    <div
+      style={{
+        fontSize: 12,
+        color: "rgba(226,232,240,0.72)",
+      }}
+    >
+      Liked by {item.likeCount} {item.likeCount === 1 ? "person" : "people"}
+    </div>
+  </div>
+)}
 
             <div
   style={{
