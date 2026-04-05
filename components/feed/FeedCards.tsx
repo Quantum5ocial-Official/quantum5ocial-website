@@ -296,25 +296,36 @@ function InlinePdfCard({
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const [pageWidth, setPageWidth] = useState(520);
-
+  const [frameWidth, setFrameWidth] = useState(520); 
+  const [frameHeight, setFrameHeight] = useState(735);
+  
   useEffect(() => {
-    const updateSize = () => {
-      const stage = stageRef.current;
-      if (!stage) return;
+  const updateSize = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
 
-      const stageWidth = stage.clientWidth;
-      const stageHeight = stage.clientHeight;
+    const stageWidth = stage.clientWidth;
+    const stageHeight = stage.clientHeight;
 
-      const widthFromHeight = Math.floor(stageHeight / 1.414);
-      const nextWidth = Math.min(stageWidth - 24, widthFromHeight);
+    const maxFrameWidth = stageWidth - (isMobile ? 32 : 120);
+    const maxFrameHeight = stageHeight - 24;
 
-      setPageWidth(Math.max(220, nextWidth));
-    };
+    const widthFromHeight = Math.floor(maxFrameHeight / 1.414);
+    const nextFrameWidth = Math.min(maxFrameWidth, widthFromHeight);
+    const safeFrameWidth = Math.max(220, nextFrameWidth);
+    const safeFrameHeight = Math.floor(safeFrameWidth * 1.414);
 
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
-  }, [isMobile, pdfBlobUrl, pageNumber]);
+    setFrameWidth(safeFrameWidth);
+    setFrameHeight(safeFrameHeight);
+
+    // small inset so page fills the frame nicely
+    setPageWidth(Math.max(200, safeFrameWidth - 8));
+  };
+
+  updateSize();
+  window.addEventListener("resize", updateSize);
+  return () => window.removeEventListener("resize", updateSize);
+}, [isMobile, pdfBlobUrl]);
 
   useEffect(() => {
     let cancelled = false;
@@ -439,143 +450,156 @@ function InlinePdfCard({
         {!loadingPdf && !pdfError && pdfBlobUrl && (
   <>
     <div
-      ref={stageRef}
-      style={{
-        position: "relative",
-        width: "100%",
-        height: isMobile ? 360 : 520,
-        maxHeight: "65vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "hidden",
-        borderRadius: 12,
-        background: "rgba(255,255,255,0.03)",
+  ref={stageRef}
+  style={{
+    position: "relative",
+    width: "100%",
+    height: isMobile ? 420 : 760,
+    maxHeight: "78vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 12,
+    background: "rgba(255,255,255,0.03)",
+  }}
+>
+  <div
+    style={{
+      width: frameWidth,
+      height: frameHeight,
+      borderRadius: 10,
+      overflow: "hidden",
+      background: "#ffffff",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.28)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      position: "relative",
+      zIndex: 0,
+    }}
+  >
+    <Document
+      file={pdfBlobUrl}
+      onLoadSuccess={({ numPages }) => {
+        setNumPages(numPages);
+        setPageNumber(1);
       }}
+      onLoadError={(err) => {
+        console.error("PDF render error", err);
+        setPdfError(
+          err instanceof Error ? err.message : "Could not render PDF."
+        );
+      }}
+      loading={
+        <div style={{ color: "rgba(15,23,42,0.9)" }}>
+          Rendering PDF...
+        </div>
+      }
     >
-      <Document
-        file={pdfBlobUrl}
-        onLoadSuccess={({ numPages }) => {
-          setNumPages(numPages);
-          setPageNumber(1);
-        }}
-        onLoadError={(err) => {
-          console.error("PDF render error", err);
-          setPdfError(
-            err instanceof Error ? err.message : "Could not render PDF."
-          );
-        }}
-        loading={
-          <div style={{ color: "rgba(226,232,240,0.9)" }}>
-            Rendering PDF...
-          </div>
-        }
-      >
-        <Page
-          pageNumber={pageNumber}
-          width={pageWidth}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-        />
-      </Document>
+      <Page
+        pageNumber={pageNumber}
+        width={pageWidth}
+        renderTextLayer={false}
+        renderAnnotationLayer={false}
+      />
+    </Document>
+  </div>
 
-      <Link
-        href={postHref}
-        aria-label="Open post"
+  <Link
+    href={postHref}
+    aria-label="Open post"
+    style={{
+      position: "absolute",
+      inset: 0,
+      zIndex: 1,
+    }}
+  />
+
+  {numPages > 0 && (
+    <>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setPageNumber((p) => Math.max(1, p - 1));
+        }}
+        disabled={pageNumber <= 1}
         style={{
           position: "absolute",
-          inset: 0,
-          zIndex: 1,
+          left: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: 40,
+          height: 40,
+          borderRadius: 999,
+          border: "1px solid rgba(148,163,184,0.22)",
+          background: "rgba(2,6,23,0.72)",
+          color: "rgba(226,232,240,0.96)",
+          cursor: pageNumber <= 1 ? "default" : "pointer",
+          opacity: pageNumber <= 1 ? 0.45 : 1,
+          fontSize: 22,
+          zIndex: 3,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
-      />
+      >
+        ‹
+      </button>
 
-      {numPages > 0 && (
-        <>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setPageNumber((p) => Math.max(1, p - 1));
-            }}
-            disabled={pageNumber <= 1}
-            style={{
-              position: "absolute",
-              left: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: 40,
-              height: 40,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background: "rgba(2,6,23,0.72)",
-              color: "rgba(226,232,240,0.96)",
-              cursor: pageNumber <= 1 ? "default" : "pointer",
-              opacity: pageNumber <= 1 ? 0.45 : 1,
-              fontSize: 22,
-              zIndex: 3,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ‹
-          </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setPageNumber((p) => Math.min(numPages, p + 1));
+        }}
+        disabled={pageNumber >= numPages}
+        style={{
+          position: "absolute",
+          right: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: 40,
+          height: 40,
+          borderRadius: 999,
+          border: "1px solid rgba(148,163,184,0.22)",
+          background: "rgba(2,6,23,0.72)",
+          color: "rgba(226,232,240,0.96)",
+          cursor: pageNumber >= numPages ? "default" : "pointer",
+          opacity: pageNumber >= numPages ? 0.45 : 1,
+          fontSize: 22,
+          zIndex: 3,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        ›
+      </button>
 
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setPageNumber((p) => Math.min(numPages, p + 1));
-            }}
-            disabled={pageNumber >= numPages}
-            style={{
-              position: "absolute",
-              right: 12,
-              top: "50%",
-              transform: "translateY(-50%)",
-              width: 40,
-              height: 40,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.22)",
-              background: "rgba(2,6,23,0.72)",
-              color: "rgba(226,232,240,0.96)",
-              cursor: pageNumber >= numPages ? "default" : "pointer",
-              opacity: pageNumber >= numPages ? 0.45 : 1,
-              fontSize: 22,
-              zIndex: 3,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ›
-          </button>
-
-          <div
-            style={{
-              position: "absolute",
-              bottom: 12,
-              left: "50%",
-              transform: "translateX(-50%)",
-              fontSize: 12,
-              color: "rgba(226,232,240,0.92)",
-              background: "rgba(2,6,23,0.62)",
-              border: "1px solid rgba(148,163,184,0.18)",
-              borderRadius: 999,
-              padding: "6px 12px",
-              zIndex: 3,
-            }}
-          >
-            Page {pageNumber} of {numPages}
-          </div>
-        </>
-      )}
-    </div>
-  </>
-)}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          fontSize: 12,
+          color: "rgba(226,232,240,0.92)",
+          background: "rgba(2,6,23,0.62)",
+          border: "1px solid rgba(148,163,184,0.18)",
+          borderRadius: 999,
+          padding: "6px 12px",
+          zIndex: 3,
+        }}
+      >
+        Page {pageNumber} of {numPages}
       </div>
+    </>
+  )}
+</div>
     </div>
   );
 }
