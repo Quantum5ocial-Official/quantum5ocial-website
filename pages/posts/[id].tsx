@@ -650,9 +650,6 @@ if (likeRows.length > 0) {
 setLikerProfiles(likers);
 
 const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
-      const commentRows = (comments || []) as CommentRow[];
-
-      const likedByMe = !!user && likeRows.some((r) => r.user_id === user.id);
 
       setItem({
         post,
