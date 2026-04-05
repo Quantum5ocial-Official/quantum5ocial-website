@@ -1316,6 +1316,119 @@ export default function PostDetailPage() {
             )}
 
             <div
+  style={{
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    flexWrap: "wrap",
+    padding: "0 16px 16px 16px",
+    borderTop:
+      mediaItems.length > 0
+        ? "1px solid rgba(148,163,184,0.14)"
+        : undefined,
+  }}
+>
+  <button
+    type="button"
+    onClick={() => toggleLike(item.post.id)}
+    style={{
+      ...pillBtnStyle,
+      borderColor: item.likedByMe
+        ? "rgba(248,113,113,0.55)"
+        : "rgba(148,163,184,0.28)",
+      background: item.likedByMe
+        ? "rgba(248,113,113,0.12)"
+        : "rgba(2,6,23,0.22)",
+      color: item.likedByMe
+        ? "rgba(254,226,226,0.98)"
+        : "rgba(226,232,240,0.92)",
+    }}
+  >
+    <span style={{ color: item.likedByMe ? "#f87171" : "inherit" }}>
+      {item.likedByMe ? "♥" : "♡"}
+    </span>{" "}
+    {item.likeCount}
+  </button>
+
+  <button
+    type="button"
+    onClick={() =>
+      setOpenComments((prev) => ({
+        ...prev,
+        [item.post.id]: !prev[item.post.id],
+      }))
+    }
+    style={pillBtnStyle}
+  >
+    💬 {item.commentCount}
+  </button>
+
+  <button
+    type="button"
+    onClick={async () => {
+      if (typeof window === "undefined") return;
+      const shareUrl = `${window.location.origin}/posts/${postId}`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ url: shareUrl });
+        } else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(shareUrl);
+        }
+      } catch {}
+    }}
+    style={pillBtnStyle}
+  >
+    🔗 Share
+  </button>
+
+  <button
+    type="button"
+    disabled={savingPostId === item.post.id}
+    onClick={() => handleSavePost(item.post.id)}
+    style={{
+      ...pillBtnStyle,
+      opacity: savingPostId === item.post.id ? 0.6 : 1,
+      cursor: savingPostId === item.post.id ? "default" : "pointer",
+    }}
+  >
+    {savingPostId === item.post.id
+      ? "Saving..."
+      : isPostSaved(item.post.id)
+      ? "💾 Saved"
+      : "📌 Save"}
+  </button>
+
+  {!!user && user.id === item.post.user_id && (
+    <>
+      <button
+        type="button"
+        onClick={() => handleEditPost(item.post.id)}
+        style={pillBtnStyle}
+      >
+        ✏️ Edit
+      </button>
+
+      <button
+        type="button"
+        disabled={deletingPostId === item.post.id}
+        onClick={() => handleDeletePost(item.post.id)}
+        style={{
+          ...pillBtnStyle,
+          border: "1px solid rgba(248,113,113,0.28)",
+          background: "rgba(127,29,29,0.18)",
+          color: "rgba(254,202,202,0.95)",
+          opacity: deletingPostId === item.post.id ? 0.6 : 1,
+          cursor:
+            deletingPostId === item.post.id ? "default" : "pointer",
+        }}
+      >
+        {deletingPostId === item.post.id ? "Deleting..." : "🗑 Delete"}
+      </button>
+    </>
+  )}
+</div>
+
+            <div
               style={{
                 borderTop: "1px solid rgba(148,163,184,0.14)",
                 padding: 16,
