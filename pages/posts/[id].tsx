@@ -161,27 +161,12 @@ function PdfInlineViewer({
   const [loadingPdf, setLoadingPdf] = useState(true);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [pageNaturalWidth, setPageNaturalWidth] = useState(595);
+  const [pageNaturalHeight, setPageNaturalHeight] = useState(842);
+  const [renderWidth, setRenderWidth] = useState(720);
+
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const [pageWidth, setPageWidth] = useState(720);
-
-  useEffect(() => {
-    const updateSize = () => {
-      const stage = stageRef.current;
-      if (!stage) return;
-
-      const stageWidth = stage.clientWidth;
-      const stageHeight = stage.clientHeight;
-
-      const widthFromHeight = Math.floor(stageHeight / 1.414);
-      const nextWidth = Math.min(stageWidth - 24, widthFromHeight);
-
-      setPageWidth(Math.max(260, nextWidth));
-    };
-
-    updateSize();
-    window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
-  }, [isMobile, pdfBlobUrl, pageNumber]);
 
   useEffect(() => {
     let cancelled = false;
@@ -192,6 +177,7 @@ function PdfInlineViewer({
         setLoadingPdf(true);
         setPdfError(null);
         setPdfBlobUrl(null);
+        setPdfDoc(null);
         setPageNumber(1);
         setNumPages(0);
 
@@ -201,8 +187,6 @@ function PdfInlineViewer({
         }
 
         const blob = await res.blob();
-
-        console.log("Fetched PDF blob type:", blob.type, "size:", blob.size);
 
         if (blob.size === 0) {
           throw new Error("Fetched PDF is empty.");
@@ -232,6 +216,60 @@ function PdfInlineViewer({
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [url]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const updatePageDimensions = async () => {
+      if (!pdfDoc) return;
+
+      try {
+        const page = await pdfDoc.getPage(pageNumber);
+        const viewport = page.getViewport({ scale: 1 });
+
+        if (!cancelled) {
+          setPageNaturalWidth(viewport.width);
+          setPageNaturalHeight(viewport.height);
+        }
+      } catch (err) {
+        console.error("Failed to read page dimensions", err);
+      }
+    };
+
+    updatePageDimensions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDoc, pageNumber]);
+
+  useEffect(() => {
+    const updateSize = () => {
+      const stage = stageRef.current;
+      if (!stage) return;
+
+      const stageWidth = stage.clientWidth;
+      const stageHeight = stage.clientHeight;
+
+      const horizontalPadding = isMobile ? 28 : 96;
+      const verticalPadding = 28;
+
+      const maxWidth = Math.max(220, stageWidth - horizontalPadding);
+      const maxHeight = Math.max(220, stageHeight - verticalPadding);
+
+      const widthScale = maxWidth / pageNaturalWidth;
+      const heightScale = maxHeight / pageNaturalHeight;
+
+      // keep smaller pages natural, shrink larger pages to fit
+      const scale = Math.min(widthScale, heightScale, 1);
+
+      setRenderWidth(Math.floor(pageNaturalWidth * scale));
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [isMobile, pageNaturalWidth, pageNaturalHeight, pdfBlobUrl, pageNumber]);
 
   return (
     <div
@@ -280,31 +318,41 @@ function PdfInlineViewer({
             background: "rgba(255,255,255,0.03)",
           }}
         >
-          <Document
-            file={pdfBlobUrl}
-            onLoadSuccess={({ numPages }) => {
-              setNumPages(numPages);
-              setPageNumber(1);
+          <div
+            style={{
+              lineHeight: 0,
+              borderRadius: 8,
+              overflow: "hidden",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.28)",
             }}
-            onLoadError={(err) => {
-              console.error("PDF render error", err);
-              setPdfError(
-                err instanceof Error ? err.message : "Could not render PDF."
-              );
-            }}
-            loading={
-              <div style={{ color: "rgba(226,232,240,0.9)" }}>
-                Rendering PDF...
-              </div>
-            }
           >
-            <Page
-              pageNumber={pageNumber}
-              width={pageWidth}
-              renderTextLayer={false}
-              renderAnnotationLayer={false}
-            />
-          </Document>
+            <Document
+              file={pdfBlobUrl}
+              onLoadSuccess={(loadedPdf) => {
+                setPdfDoc(loadedPdf);
+                setNumPages(loadedPdf.numPages);
+                setPageNumber(1);
+              }}
+              onLoadError={(err) => {
+                console.error("PDF render error", err);
+                setPdfError(
+                  err instanceof Error ? err.message : "Could not render PDF."
+                );
+              }}
+              loading={
+                <div style={{ color: "rgba(226,232,240,0.9)" }}>
+                  Rendering PDF...
+                </div>
+              }
+            >
+              <Page
+                pageNumber={pageNumber}
+                width={renderWidth}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+              />
+            </Document>
+          </div>
 
           {numPages > 0 && (
             <>
