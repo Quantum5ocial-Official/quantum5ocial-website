@@ -1,5 +1,5 @@
 // components/feed/FeedCards.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Document, Page, pdfjs } from "react-pdf";
 
@@ -44,6 +44,26 @@ export type CommentRow = {
   user_id: string;
   body: string;
   created_at: string | null;
+  parent_comment_id?: string | null;
+};
+
+export type LikerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+export type CommentLikeRow = {
+  comment_id: string;
+  user_id: string;
+};
+
+export type CommentVM = {
+  comment: CommentRow;
+  author: FeedProfile | null;
+  likeCount: number;
+  likedByMe: boolean;
+  replies: CommentVM[];
 };
 
 export type PostVM = {
@@ -76,9 +96,30 @@ type Props = {
 
   commentSaving: Record<string, boolean>;
 
+  replyDraft: Record<string, string>;
+  setReplyDraft: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
+  replyOpen: Record<string, boolean>;
+  setReplyOpen: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+  replySaving: Record<string, boolean>;
+  repliesOpen: Record<string, boolean>;
+  setRepliesOpen: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+
+  commentLikesById: Record<string, number>;
+  commentLikedByMe: Record<string, boolean>;
+
+  likerProfilesByPost: Record<string, LikerProfile[]>;
+
   onToggleLike: (postId: string) => void;
   onLoadComments: (postId: string) => Promise<void> | void;
   onSubmitComment: (postId: string) => Promise<void> | void;
+  onSubmitReply: (parentCommentId: string, postId: string) => Promise<void> | void;
+  onToggleCommentLike: (commentId: string, postId: string) => Promise<void> | void;
 
   formatRelativeTime: (created_at: string | null) => string;
   formatSubtitle: (p?: FeedProfile | null) => string;
@@ -116,6 +157,58 @@ function useIsMobile(breakpoint = 768) {
   }, [breakpoint]);
 
   return isMobile;
+}
+
+function buildCommentTree(
+  comments: CommentRow[],
+  profiles: Record<string, FeedProfile>,
+  likeRows: CommentLikeRow[],
+  currentUserId?: string
+): CommentVM[] {
+  const likesMap: Record<string, CommentLikeRow[]> = {};
+
+  likeRows.forEach((row) => {
+    if (!likesMap[row.comment_id]) likesMap[row.comment_id] = [];
+    likesMap[row.comment_id].push(row);
+  });
+
+  const byId: Record<string, CommentVM> = {};
+  const roots: CommentVM[] = [];
+
+  comments.forEach((comment) => {
+    const likes = likesMap[comment.id] || [];
+    byId[comment.id] = {
+      comment,
+      author: profiles[comment.user_id] || null,
+      likeCount: likes.length,
+      likedByMe:
+        !!currentUserId && likes.some((l) => l.user_id === currentUserId),
+      replies: [],
+    };
+  });
+
+  comments.forEach((comment) => {
+    const vm = byId[comment.id];
+    if (comment.parent_comment_id && byId[comment.parent_comment_id]) {
+      byId[comment.parent_comment_id].replies.push(vm);
+    } else {
+      roots.push(vm);
+    }
+  });
+
+  roots.sort(
+    (a, b) =>
+      Date.parse(b.comment.created_at || "") - Date.parse(a.comment.created_at || "")
+  );
+
+  Object.values(byId).forEach((vm) => {
+    vm.replies.sort(
+      (a, b) =>
+        Date.parse(a.comment.created_at || "") - Date.parse(b.comment.created_at || "")
+    );
+  });
+
+  return roots;
 }
 
 function AutoPlayVideo({
@@ -279,7 +372,6 @@ function AdaptiveVideo({
     </div>
   );
 }
-
 function InlinePdfCard({
   url,
   postHref,
@@ -392,8 +484,6 @@ function InlinePdfCard({
 
       const widthScale = maxWidth / pageNaturalWidth;
       const heightScale = maxHeight / pageNaturalHeight;
-
-      // Do not upscale smaller PDFs above natural size
       const scale = Math.min(widthScale, heightScale, 1);
 
       setRenderWidth(Math.floor(pageNaturalWidth * scale));
@@ -683,22 +773,22 @@ function PostMediaGrid({
   if (visible.length === 0) return null;
 
   if (visible.length === 1) {
-  const item = visible[0];
+    const item = visible[0];
 
-  if (item.type === "pdf") {
-    return <InlinePdfCard url={item.url} postHref={postHref} />;
+    if (item.type === "pdf") {
+      return <InlinePdfCard url={item.url} postHref={postHref} />;
+    }
+
+    return item.type === "video" ? (
+      <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
+        <AdaptiveVideo src={item.url} />
+      </Link>
+    ) : (
+      <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
+        <AdaptiveImage src={item.url} alt="Post media" />
+      </Link>
+    );
   }
-
-  return item.type === "video" ? (
-    <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
-      <AdaptiveVideo src={item.url} />
-    </Link>
-  ) : (
-    <Link href={postHref} style={{ textDecoration: "none", color: "inherit" }}>
-      <AdaptiveImage src={item.url} alt="Post media" />
-    </Link>
-  );
-}
 
   if (visible.length === 2) {
     return (
@@ -724,40 +814,40 @@ function PostMediaGrid({
           }}
         >
           {visible.map((item, idx) => (
-  <div
-    key={idx}
-    style={{
-      minWidth: 0,
-      minHeight: 0,
-      background: "rgba(15,23,42,0.92)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    {item.type === "video" ? (
-      <GridMediaVideo src={item.url} />
-    ) : item.type === "pdf" ? (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 8,
-          color: "rgba(226,232,240,0.94)",
-          textAlign: "center",
-          padding: 12,
-        }}
-      >
-        <div style={{ fontSize: 34 }}>📄</div>
-        <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
-      </div>
-    ) : (
-      <GridMediaImage src={item.url} alt={`Post media ${idx + 1}`} />
-    )}
-  </div>
-))}
+            <div
+              key={idx}
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                background: "rgba(15,23,42,0.92)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {item.type === "video" ? (
+                <GridMediaVideo src={item.url} />
+              ) : item.type === "pdf" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    color: "rgba(226,232,240,0.94)",
+                    textAlign: "center",
+                    padding: 12,
+                  }}
+                >
+                  <div style={{ fontSize: 34 }}>📄</div>
+                  <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+                </div>
+              ) : (
+                <GridMediaImage src={item.url} alt={`Post media ${idx + 1}`} />
+              )}
+            </div>
+          ))}
         </div>
       </Link>
     );
@@ -787,27 +877,27 @@ function PostMediaGrid({
       >
         <div style={{ minWidth: 0, minHeight: 0 }}>
           {visible[0].type === "video" ? (
-  <GridMediaVideo src={visible[0].url} />
-) : visible[0].type === "pdf" ? (
-  <div
-    style={{
-      width: "100%",
-      height: "100%",
-      background: "rgba(15,23,42,0.92)",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      color: "rgba(226,232,240,0.94)",
-    }}
-  >
-    <div style={{ fontSize: 40 }}>📄</div>
-    <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
-  </div>
-) : (
-  <GridMediaImage src={visible[0].url} alt="Post media 1" />
-)}
+            <GridMediaVideo src={visible[0].url} />
+          ) : visible[0].type === "pdf" ? (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "rgba(15,23,42,0.92)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                color: "rgba(226,232,240,0.94)",
+              }}
+            >
+              <div style={{ fontSize: 40 }}>📄</div>
+              <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+            </div>
+          ) : (
+            <GridMediaImage src={visible[0].url} alt="Post media 1" />
+          )}
         </div>
 
         <div
@@ -821,52 +911,52 @@ function PostMediaGrid({
         >
           <div style={{ minWidth: 0, minHeight: 0 }}>
             {visible[1].type === "video" ? (
-  <GridMediaVideo src={visible[1].url} />
-) : visible[1].type === "pdf" ? (
-  <div
-    style={{
-      width: "100%",
-      height: "100%",
-      background: "rgba(15,23,42,0.92)",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      color: "rgba(226,232,240,0.94)",
-    }}
-  >
-    <div style={{ fontSize: 40 }}>📄</div>
-    <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
-  </div>
-) : (
-  <GridMediaImage src={visible[1].url} alt="Post media 2" />
-)}
+              <GridMediaVideo src={visible[1].url} />
+            ) : visible[1].type === "pdf" ? (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "rgba(15,23,42,0.92)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  color: "rgba(226,232,240,0.94)",
+                }}
+              >
+                <div style={{ fontSize: 40 }}>📄</div>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+              </div>
+            ) : (
+              <GridMediaImage src={visible[1].url} alt="Post media 2" />
+            )}
           </div>
 
           <div style={{ minWidth: 0, minHeight: 0 }}>
             {visible[2].type === "video" ? (
-  <GridMediaVideo src={visible[2].url} />
-) : visible[2].type === "pdf" ? (
-  <div
-    style={{
-      width: "100%",
-      height: "100%",
-      background: "rgba(15,23,42,0.92)",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      color: "rgba(226,232,240,0.94)",
-    }}
-  >
-    <div style={{ fontSize: 40 }}>📄</div>
-    <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
-  </div>
-) : (
-  <GridMediaImage src={visible[2].url} alt="Post media 3" />
-)}
+              <GridMediaVideo src={visible[2].url} />
+            ) : visible[2].type === "pdf" ? (
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  background: "rgba(15,23,42,0.92)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  color: "rgba(226,232,240,0.94)",
+                }}
+              >
+                <div style={{ fontSize: 40 }}>📄</div>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>PDF</div>
+              </div>
+            ) : (
+              <GridMediaImage src={visible[2].url} alt="Post media 3" />
+            )}
           </div>
         </div>
       </div>
@@ -892,7 +982,7 @@ function AutoResizeTextarea({
     if (!el) return;
 
     el.style.height = "0px";
-    const next = Math.min(el.scrollHeight, 150); // around 5–6 lines
+    const next = Math.min(el.scrollHeight, 150);
     el.style.height = `${next}px`;
     el.style.overflowY = el.scrollHeight > 150 ? "auto" : "hidden";
   }, [value]);
@@ -933,9 +1023,21 @@ export default function FeedCards({
   commentDraft,
   setCommentDraft,
   commentSaving,
+  replyDraft,
+  setReplyDraft,
+  replyOpen,
+  setReplyOpen,
+  replySaving,
+  repliesOpen,
+  setRepliesOpen,
+  commentLikesById,
+  commentLikedByMe,
+  likerProfilesByPost,
   onToggleLike,
   onLoadComments,
   onSubmitComment,
+  onSubmitReply,
+  onToggleCommentLike,
   formatRelativeTime,
   formatSubtitle,
   initialsOf,
@@ -958,7 +1060,6 @@ export default function FeedCards({
     {}
   );
   const menuRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as Node;
@@ -1087,6 +1188,48 @@ export default function FeedCards({
     cursor: "pointer",
   };
 
+  const threadedCommentsByPost = useMemo(() => {
+    const result: Record<string, CommentVM[]> = {};
+
+    items.forEach((vm) => {
+      const postId = vm.post.id;
+      const flat = commentsByPost[postId] || [];
+
+      const actualLikeRows: CommentLikeRow[] = flat.flatMap((comment) => {
+        const liked = commentLikedByMe[comment.id];
+        const count = commentLikesById[comment.id] || 0;
+
+        const rows: CommentLikeRow[] = [];
+        if (liked && user) {
+          rows.push({ comment_id: comment.id, user_id: user.id });
+        }
+        for (let i = rows.length; i < count; i++) {
+          rows.push({
+            comment_id: comment.id,
+            user_id: `placeholder-${comment.id}-${i}`,
+          });
+        }
+        return rows;
+      });
+
+      result[postId] = buildCommentTree(
+        flat,
+        commenterProfiles,
+        actualLikeRows,
+        user?.id
+      );
+    });
+
+    return result;
+  }, [
+    items,
+    commentsByPost,
+    commenterProfiles,
+    commentLikesById,
+    commentLikedByMe,
+    user,
+  ]);
+
   return (
     <div>
       {items.map((vm) => {
@@ -1095,8 +1238,10 @@ export default function FeedCards({
         const org = vm.org ?? null;
         const isOpen = !!openComments[p.id];
         const comments = commentsByPost[p.id] || [];
+        const threadedComments = threadedCommentsByPost[p.id] || [];
         const isOwnPost = !!user && user.id === p.user_id;
         const postSaved = isPostSaved ? !!isPostSaved(p.id) : false;
+        const likerProfiles = likerProfilesByPost[p.id] || [];
 
         const isSavingThisPost = savingPostId === p.id;
         const isEditingThisPost = editingPostId === p.id;
@@ -1104,14 +1249,16 @@ export default function FeedCards({
         const isSharingThisPost = sharingPostId === p.id;
 
         const validMedia =
-  Array.isArray(p.media) && p.media.length > 0
-    ? p.media.filter(
-        (item) =>
-          item &&
-          typeof item.url === "string" &&
-          (item.type === "image" || item.type === "video" || item.type === "pdf")
-      )
-    : [];
+          Array.isArray(p.media) && p.media.length > 0
+            ? p.media.filter(
+                (item) =>
+                  item &&
+                  typeof item.url === "string" &&
+                  (item.type === "image" ||
+                    item.type === "video" ||
+                    item.type === "pdf")
+              )
+            : [];
 
         const hasStructuredMedia = validMedia.length > 0;
         const hasVideo = !hasStructuredMedia && !!p.video_url;
@@ -1377,8 +1524,7 @@ export default function FeedCards({
                   )}
                 </div>
               </Link>
-
-              {shouldShowExpand && (
+                            {shouldShowExpand && (
                 <div
                   style={{
                     display: "flex",
@@ -1425,6 +1571,76 @@ export default function FeedCards({
                 </Link>
               )}
             </div>
+
+            {likerProfiles.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  marginTop: 12,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  {likerProfiles.slice(0, 6).map((liker, idx) => (
+                    <Link
+                      key={liker.id}
+                      href={`/profile/${liker.id}`}
+                      style={{
+                        display: "block",
+                        marginLeft: idx === 0 ? 0 : -8,
+                        position: "relative",
+                        zIndex: 20 - idx,
+                      }}
+                      title={liker.full_name || "Member"}
+                    >
+                      <div
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 999,
+                          overflow: "hidden",
+                          border: "2px solid rgba(15,23,42,0.95)",
+                          background: "linear-gradient(135deg,#3bc7f3,#8468ff)",
+                          color: "#fff",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.24)",
+                        }}
+                      >
+                        {liker.avatar_url ? (
+                          <img
+                            src={liker.avatar_url}
+                            alt={liker.full_name || "Member"}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                          />
+                        ) : (
+                          initialsOf(liker.full_name)
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "rgba(226,232,240,0.72)",
+                  }}
+                >
+                  Liked by {vm.likeCount} {vm.likeCount === 1 ? "person" : "people"}
+                </div>
+              </div>
+            )}
 
             <div
               style={{
@@ -1489,16 +1705,16 @@ export default function FeedCards({
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <AutoResizeTextarea
-  value={commentDraft[p.id] || ""}
-  onChange={(e) =>
-    setCommentDraft((prev) => ({
-      ...prev,
-      [p.id]: e.target.value,
-    }))
-  }
-  placeholder={user ? "Write a comment…" : "Login to comment…"}
-  disabled={!user || !!commentSaving[p.id]}
-/>
+                      value={commentDraft[p.id] || ""}
+                      onChange={(e) =>
+                        setCommentDraft((prev) => ({
+                          ...prev,
+                          [p.id]: e.target.value,
+                        }))
+                      }
+                      placeholder={user ? "Write a comment…" : "Login to comment…"}
+                      disabled={!user || !!commentSaving[p.id]}
+                    />
 
                     <div
                       style={{
@@ -1542,19 +1758,31 @@ export default function FeedCards({
                     marginTop: 12,
                     display: "flex",
                     flexDirection: "column",
-                    gap: 10,
+                    gap: 12,
                   }}
                 >
-                  {comments.length === 0 ? (
+                  {threadedComments.length === 0 ? (
                     <div style={{ opacity: 0.7, fontSize: 12 }}>
                       No comments yet.
                     </div>
                   ) : (
-                    comments.map((c) => {
-                      const cp = commenterProfiles[c.user_id];
+                    threadedComments.map((commentVm) => {
+                      const c = commentVm.comment;
+                      const cp = commentVm.author;
                       const name = cp?.full_name || "Member";
+                      const repliesAreOpen = !!repliesOpen[c.id];
+                      const replyBoxOpen = !!replyOpen[c.id];
+                      const replyCount = commentVm.replies.length;
+
                       return (
-                        <div key={c.id} style={{ display: "flex", gap: 10 }}>
+                        <div
+                          key={c.id}
+                          style={{
+                            display: "flex",
+                            gap: 10,
+                            alignItems: "flex-start",
+                          }}
+                        >
                           <div style={avatarStyle(30)}>
                             {cp?.avatar_url ? (
                               <img
@@ -1587,17 +1815,43 @@ export default function FeedCards({
                                   fontSize: 13,
                                 }}
                               >
-                                {name}
+                                {cp?.id ? (
+                                  <Link
+                                    href={`/profile/${cp.id}`}
+                                    style={{
+                                      textDecoration: "none",
+                                      color: "inherit",
+                                    }}
+                                  >
+                                    {name}
+                                  </Link>
+                                ) : (
+                                  name
+                                )}
                               </div>
+
                               <div style={{ opacity: 0.7, fontSize: 12 }}>
                                 {formatRelativeTime(c.created_at)}
                               </div>
                             </div>
+
+                            {!!formatSubtitle(cp) && (
+                              <div
+                                style={{
+                                  opacity: 0.7,
+                                  fontSize: 12,
+                                  marginTop: 1,
+                                }}
+                              >
+                                {formatSubtitle(cp)}
+                              </div>
+                            )}
+
                             <div
                               style={{
                                 marginTop: 4,
                                 fontSize: 13,
-                                lineHeight: 1.4,
+                                lineHeight: 1.45,
                                 opacity: 0.92,
                                 whiteSpace: "pre-wrap",
                                 wordBreak: "break-word",
@@ -1605,6 +1859,297 @@ export default function FeedCards({
                             >
                               <LinkifyText text={c.body || ""} />
                             </div>
+
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 14,
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                marginTop: 8,
+                                fontSize: 12,
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => onToggleCommentLike(c.id, p.id)}
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  color: commentLikedByMe[c.id]
+                                    ? "#f87171"
+                                    : "rgba(226,232,240,0.78)",
+                                  fontWeight: commentLikedByMe[c.id] ? 700 : 500,
+                                }}
+                              >
+                                {commentLikedByMe[c.id] ? "♥" : "Like"}
+                                {(commentLikesById[c.id] || 0) > 0
+                                  ? ` ${commentLikesById[c.id]}`
+                                  : ""}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setReplyOpen((prev) => ({
+                                    ...prev,
+                                    [c.id]: !prev[c.id],
+                                  }))
+                                }
+                                style={{
+                                  border: "none",
+                                  background: "transparent",
+                                  padding: 0,
+                                  cursor: "pointer",
+                                  color: "rgba(226,232,240,0.78)",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                Reply
+                              </button>
+
+                              {replyCount > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setRepliesOpen((prev) => ({
+                                      ...prev,
+                                      [c.id]: !prev[c.id],
+                                    }))
+                                  }
+                                  style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    padding: 0,
+                                    cursor: "pointer",
+                                    color: "rgba(56,189,248,0.9)",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {repliesAreOpen
+                                    ? "Hide replies"
+                                    : `View replies (${replyCount})`}
+                                </button>
+                              )}
+                            </div>
+                                                        {replyBoxOpen && (
+                              <div
+                                style={{
+                                  marginTop: 10,
+                                  paddingLeft: 0,
+                                }}
+                              >
+                                <AutoResizeTextarea
+                                  value={replyDraft[c.id] || ""}
+                                  onChange={(e) =>
+                                    setReplyDraft((prev) => ({
+                                      ...prev,
+                                      [c.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={user ? "Write a reply…" : "Login to reply…"}
+                                  disabled={!user || !!replySaving[c.id]}
+                                />
+
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "flex-end",
+                                    gap: 8,
+                                    marginTop: 8,
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setReplyOpen((prev) => ({
+                                        ...prev,
+                                        [c.id]: false,
+                                      }))
+                                    }
+                                    style={{
+                                      ...pillBtn,
+                                      background: "rgba(2,6,23,0.22)",
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => onSubmitReply(c.id, p.id)}
+                                    disabled={
+                                      !user ||
+                                      !!replySaving[c.id] ||
+                                      !(replyDraft[c.id] || "").trim()
+                                    }
+                                    style={{
+                                      ...pillBtn,
+                                      opacity:
+                                        !user ||
+                                        !!replySaving[c.id] ||
+                                        !(replyDraft[c.id] || "").trim()
+                                          ? 0.5
+                                          : 1,
+                                      cursor:
+                                        !user ||
+                                        !!replySaving[c.id] ||
+                                        !(replyDraft[c.id] || "").trim()
+                                          ? "default"
+                                          : "pointer",
+                                    }}
+                                  >
+                                    {replySaving[c.id] ? "Replying…" : "Reply"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {repliesAreOpen && replyCount > 0 && (
+                              <div
+                                style={{
+                                  marginTop: 12,
+                                  marginLeft: 10,
+                                  paddingLeft: 14,
+                                  borderLeft: "1px solid rgba(148,163,184,0.18)",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 12,
+                                }}
+                              >
+                                {commentVm.replies.map((replyVm) => {
+                                  const rc = replyVm.comment;
+                                  const rp = replyVm.author;
+                                  const replyName = rp?.full_name || "Member";
+
+                                  return (
+                                    <div
+                                      key={rc.id}
+                                      style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        alignItems: "flex-start",
+                                      }}
+                                    >
+                                      <div style={avatarStyle(26)}>
+                                        {rp?.avatar_url ? (
+                                          <img
+                                            src={rp.avatar_url}
+                                            alt={replyName}
+                                            style={{
+                                              width: "100%",
+                                              height: "100%",
+                                              objectFit: "cover",
+                                              display: "block",
+                                            }}
+                                          />
+                                        ) : (
+                                          initialsOf(replyName)
+                                        )}
+                                      </div>
+
+                                      <div style={{ minWidth: 0, flex: 1 }}>
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            gap: 10,
+                                            alignItems: "baseline",
+                                            flexWrap: "wrap",
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              fontWeight: 800,
+                                              fontSize: 12,
+                                            }}
+                                          >
+                                            {rp?.id ? (
+                                              <Link
+                                                href={`/profile/${rp.id}`}
+                                                style={{
+                                                  textDecoration: "none",
+                                                  color: "inherit",
+                                                }}
+                                              >
+                                                {replyName}
+                                              </Link>
+                                            ) : (
+                                              replyName
+                                            )}
+                                          </div>
+
+                                          <div style={{ opacity: 0.7, fontSize: 11 }}>
+                                            {formatRelativeTime(rc.created_at)}
+                                          </div>
+                                        </div>
+
+                                        {!!formatSubtitle(rp) && (
+                                          <div
+                                            style={{
+                                              opacity: 0.68,
+                                              fontSize: 11,
+                                              marginTop: 1,
+                                            }}
+                                          >
+                                            {formatSubtitle(rp)}
+                                          </div>
+                                        )}
+
+                                        <div
+                                          style={{
+                                            marginTop: 4,
+                                            fontSize: 12,
+                                            lineHeight: 1.45,
+                                            opacity: 0.92,
+                                            whiteSpace: "pre-wrap",
+                                            wordBreak: "break-word",
+                                          }}
+                                        >
+                                          <LinkifyText text={rc.body || ""} />
+                                        </div>
+
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            gap: 14,
+                                            alignItems: "center",
+                                            flexWrap: "wrap",
+                                            marginTop: 6,
+                                            fontSize: 11,
+                                          }}
+                                        >
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              onToggleCommentLike(rc.id, p.id)
+                                            }
+                                            style={{
+                                              border: "none",
+                                              background: "transparent",
+                                              padding: 0,
+                                              cursor: "pointer",
+                                              color: commentLikedByMe[rc.id]
+                                                ? "#f87171"
+                                                : "rgba(226,232,240,0.78)",
+                                              fontWeight: commentLikedByMe[rc.id]
+                                                ? 700
+                                                : 500,
+                                            }}
+                                          >
+                                            {commentLikedByMe[rc.id] ? "♥" : "Like"}
+                                            {(commentLikesById[rc.id] || 0) > 0
+                                              ? ` ${commentLikesById[rc.id]}`
+                                              : ""}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
