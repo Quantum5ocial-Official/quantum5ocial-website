@@ -10,6 +10,7 @@ import FeedCards, {
   CommentRow,
   PostVM,
   LikerProfile,
+  CommentLikeRow,
 } from "./FeedCards";
 
 export default function FeedList({
@@ -318,10 +319,9 @@ export default function FeedList({
         let commentRows: CommentRow[] = [];
         if (postIds.length > 0) {
           const { data: comments, error: commentErr } = await supabase
-            .from("post_comments")
-            .select("id, post_id, user_id, body, created_at")
-            .in("post_id", postIds);
-
+  .from("post_comments")
+  .select("id, post_id, user_id, body, created_at, parent_comment_id")
+  .in("post_id", postIds);
           if (!commentErr && comments) {
             commentRows = comments as CommentRow[];
           }
@@ -673,6 +673,30 @@ export default function FeedList({
       if (error) throw error;
 
       setItems((prev) => prev.filter((x) => x.post.id !== postId));
+
+      setOpenComments((prev) => {
+  const next = { ...prev };
+  delete next[postId];
+  return next;
+});
+
+setCommentsByPost((prev) => {
+  const next = { ...prev };
+  delete next[postId];
+  return next;
+});
+
+setCommentDraft((prev) => {
+  const next = { ...prev };
+  delete next[postId];
+  return next;
+});
+
+setLikerProfilesByPost((prev) => {
+  const next = { ...prev };
+  delete next[postId];
+  return next;
+});
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("q5:feed-changed"));
