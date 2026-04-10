@@ -14,6 +14,8 @@ type FeedProfile = {
   avatar_url: string | null;
   highest_education?: string | null;
   affiliation?: string | null;
+  role?: string | null;
+  current_title?: string | null;
 };
 
 type FeedOrg = {
@@ -21,6 +23,11 @@ type FeedOrg = {
   name: string;
   slug: string;
   logo_url: string | null;
+};
+
+type PostMediaItem = {
+  url: string;
+  type: "image" | "video" | "pdf";
 };
 
 type PostRow = {
@@ -31,10 +38,22 @@ type PostRow = {
   image_url: string | null;
   video_url: string | null;
   org_id: string | null;
+  media?: PostMediaItem[] | null;
 };
 
 type LikeRow = {
   post_id: string;
+  user_id: string;
+};
+
+type LikerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+type CommentLikeRow = {
+  comment_id: string;
   user_id: string;
 };
 
@@ -44,6 +63,7 @@ type CommentRow = {
   user_id: string;
   body: string;
   created_at: string | null;
+  parent_comment_id?: string | null;
 };
 
 type PostVM = {
@@ -69,10 +89,32 @@ export default function EcosystemSavedPostsPage() {
   const [search, setSearch] = useState("");
 
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<string, CommentRow[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<
+    Record<string, CommentRow[]>
+  >({});
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [commentSaving, setCommentSaving] = useState<Record<string, boolean>>({});
-  const [commenterProfiles, setCommenterProfiles] = useState<Record<string, FeedProfile>>({});
+  const [commentSaving, setCommentSaving] = useState<
+    Record<string, boolean>
+  >({});
+  const [commenterProfiles, setCommenterProfiles] = useState<
+    Record<string, FeedProfile>
+  >({});
+
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({});
+  const [replySaving, setReplySaving] = useState<Record<string, boolean>>({});
+  const [repliesOpen, setRepliesOpen] = useState<Record<string, boolean>>({});
+
+  const [commentLikesById, setCommentLikesById] = useState<
+    Record<string, number>
+  >({});
+  const [commentLikedByMe, setCommentLikedByMe] = useState<
+    Record<string, boolean>
+  >({});
+
+  const [likerProfilesByPost, setLikerProfilesByPost] = useState<
+    Record<string, LikerProfile[]>
+  >({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -93,24 +135,38 @@ export default function EcosystemSavedPostsPage() {
     if (diffSec < 60) return `${diffSec} seconds ago`;
 
     const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    if (diffMin < 60) {
+      return `${diffMin} minute${diffMin === 1 ? "" : "s"} ago`;
+    }
 
     const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    if (diffHr < 24) {
+      return `${diffHr} hour${diffHr === 1 ? "" : "s"} ago`;
+    }
 
     const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 7) return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+    if (diffDay < 7) {
+      return `${diffDay} day${diffDay === 1 ? "" : "s"} ago`;
+    }
 
     const diffWk = Math.floor(diffDay / 7);
-    if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+    if (diffWk < 5) {
+      return `${diffWk} week${diffWk === 1 ? "" : "s"} ago`;
+    }
 
     const diffMo = Math.floor(diffDay / 30);
     return `${diffMo} month${diffMo === 1 ? "" : "s"} ago`;
   };
 
   const formatSubtitle = (p?: FeedProfile | null) => {
-    const parts = [p?.highest_education, p?.affiliation].filter(Boolean);
-    return parts.join(" · ");
+    const primaryLabel =
+      (p?.current_title || "").trim() ||
+      (p?.role || "").trim() ||
+      (p?.highest_education || "").trim();
+
+    const affiliation = (p?.affiliation || "").trim();
+
+    return [primaryLabel, affiliation].filter(Boolean).join(" · ");
   };
 
   const initialsOf = (name: string | null | undefined) =>
@@ -143,7 +199,9 @@ export default function EcosystemSavedPostsPage() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, avatar_url, highest_education, affiliation")
+      .select(
+        "id, full_name, avatar_url, highest_education, affiliation, role, current_title"
+      )
       .in("id", missing);
 
     if (error || !data) return;
@@ -160,9 +218,9 @@ export default function EcosystemSavedPostsPage() {
     try {
       const { data: rows, error } = await supabase
         .from("post_comments")
-        .select("id, post_id, user_id, body, created_at")
+        .select("id, post_id, user_id, body, created_at, parent_comment_id")
         .eq("post_id", postId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
 
@@ -170,6 +228,31 @@ export default function EcosystemSavedPostsPage() {
       setCommentsByPost((prev) => ({ ...prev, [postId]: list }));
 
       await loadProfilesForUserIds(list.map((c) => c.user_id));
+
+      const commentIds = list.map((c) => c.id);
+      if (commentIds.length === 0) return;
+
+      const { data: likeRows, error: likeErr } = await supabase
+        .from("post_comment_likes")
+        .select("comment_id, user_id")
+        .in("comment_id", commentIds);
+
+      if (likeErr) throw likeErr;
+
+      const likes = (likeRows || []) as CommentLikeRow[];
+
+      const counts: Record<string, number> = {};
+      const likedMap: Record<string, boolean> = {};
+
+      likes.forEach((row) => {
+        counts[row.comment_id] = (counts[row.comment_id] || 0) + 1;
+        if (user && row.user_id === user.id) {
+          likedMap[row.comment_id] = true;
+        }
+      });
+
+      setCommentLikesById((prev) => ({ ...prev, ...counts }));
+      setCommentLikedByMe((prev) => ({ ...prev, ...likedMap }));
     } catch (e) {
       console.warn("loadComments error", e);
       setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
@@ -202,7 +285,9 @@ export default function EcosystemSavedPostsPage() {
 
       const { data: postRows, error: postErr } = await supabase
         .from("posts")
-        .select("id, user_id, body, created_at, image_url, video_url, org_id")
+        .select(
+          "id, user_id, body, created_at, image_url, video_url, org_id, media"
+        )
         .in("id", ids);
 
       if (postErr) throw postErr;
@@ -221,7 +306,9 @@ export default function EcosystemSavedPostsPage() {
       if (userIds.length > 0) {
         const { data: profRows } = await supabase
           .from("profiles")
-          .select("id, full_name, avatar_url, highest_education, affiliation")
+          .select(
+            "id, full_name, avatar_url, highest_education, affiliation, role, current_title"
+          )
           .in("id", userIds);
 
         (profRows || []).forEach((p: any) => profileMap.set(p.id, p));
@@ -249,9 +336,23 @@ export default function EcosystemSavedPostsPage() {
 
         const { data: comments } = await supabase
           .from("post_comments")
-          .select("id, post_id, user_id, body, created_at")
+          .select("id, post_id, user_id, body, created_at, parent_comment_id")
           .in("post_id", postIds);
         commentRows = (comments || []) as CommentRow[];
+      }
+
+      const likerIds = Array.from(new Set(likeRows.map((r) => r.user_id)));
+      const likerProfileMap = new Map<string, LikerProfile>();
+
+      if (likerIds.length > 0) {
+        const { data: likerRows } = await supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", likerIds);
+
+        (likerRows || []).forEach((p: any) => {
+          likerProfileMap.set(p.id, p as LikerProfile);
+        });
       }
 
       const likeCountByPost: Record<string, number> = {};
@@ -266,6 +367,22 @@ export default function EcosystemSavedPostsPage() {
         commentCountByPost[r.post_id] =
           (commentCountByPost[r.post_id] || 0) + 1;
       });
+
+      const likerProfilesGrouped: Record<string, LikerProfile[]> = {};
+
+      likeRows.forEach((row) => {
+        const profile = likerProfileMap.get(row.user_id);
+        if (!profile) return;
+        if (!likerProfilesGrouped[row.post_id]) {
+          likerProfilesGrouped[row.post_id] = [];
+        }
+        likerProfilesGrouped[row.post_id].push(profile);
+      });
+
+      setLikerProfilesByPost((prev) => ({
+        ...prev,
+        ...likerProfilesGrouped,
+      }));
 
       const vms: PostVM[] = posts.map((p) => ({
         post: p,
@@ -286,7 +403,9 @@ export default function EcosystemSavedPostsPage() {
   };
 
   useEffect(() => {
-    if (user) loadSavedPosts();
+    if (user) {
+      void loadSavedPosts();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -314,6 +433,11 @@ export default function EcosystemSavedPostsPage() {
         } else {
           setSavedPostIds((prev) => prev.filter((id) => id !== postId));
           setItems((prev) => prev.filter((x) => x.post.id !== postId));
+          setLikerProfilesByPost((prev) => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
         }
       } else {
         const { error } = await supabase.from("saved_posts").insert({
@@ -389,28 +513,19 @@ export default function EcosystemSavedPostsPage() {
     setCommentSaving((p) => ({ ...p, [postId]: true }));
 
     try {
-      const { data, error } = await supabase
-        .from("post_comments")
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          body,
-        })
-        .select("id, post_id, user_id, body, created_at")
-        .maybeSingle();
+      const { error } = await supabase.from("post_comments").insert({
+        post_id: postId,
+        user_id: user.id,
+        body,
+        parent_comment_id: null,
+      });
 
       if (error) throw error;
 
       setCommentDraft((p) => ({ ...p, [postId]: "" }));
       setOpenComments((p) => ({ ...p, [postId]: true }));
 
-      setCommentsByPost((prev) => {
-        const cur = prev[postId] || [];
-        const next = data ? [...cur, data as CommentRow] : cur;
-        return { ...prev, [postId]: next };
-      });
-
-      await loadProfilesForUserIds([user.id]);
+      await loadComments(postId);
 
       setItems((prev) =>
         prev.map((x) =>
@@ -421,6 +536,93 @@ export default function EcosystemSavedPostsPage() {
       console.warn("submitComment error", e);
     } finally {
       setCommentSaving((p) => ({ ...p, [postId]: false }));
+    }
+  };
+
+  const submitReply = async (parentCommentId: string, postId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/ecosystem/saved-posts");
+      return;
+    }
+
+    const body = (replyDraft[parentCommentId] || "").trim();
+    if (!body) return;
+
+    setReplySaving((prev) => ({ ...prev, [parentCommentId]: true }));
+
+    try {
+      const { error } = await supabase.from("post_comments").insert({
+        post_id: postId,
+        user_id: user.id,
+        body,
+        parent_comment_id: parentCommentId,
+      });
+
+      if (error) throw error;
+
+      setReplyDraft((prev) => ({ ...prev, [parentCommentId]: "" }));
+      setReplyOpen((prev) => ({ ...prev, [parentCommentId]: false }));
+      setRepliesOpen((prev) => ({ ...prev, [parentCommentId]: true }));
+
+      await loadComments(postId);
+
+      setItems((prev) =>
+        prev.map((x) =>
+          x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
+        )
+      );
+    } catch (e) {
+      console.warn("submitReply error", e);
+    } finally {
+      setReplySaving((prev) => ({ ...prev, [parentCommentId]: false }));
+    }
+  };
+
+  const toggleCommentLike = async (commentId: string, postId: string) => {
+    if (!user) {
+      router.push("/auth?redirect=/ecosystem/saved-posts");
+      return;
+    }
+
+    const alreadyLiked = !!commentLikedByMe[commentId];
+
+    setCommentLikedByMe((prev) => ({ ...prev, [commentId]: !alreadyLiked }));
+    setCommentLikesById((prev) => ({
+      ...prev,
+      [commentId]: Math.max(
+        0,
+        (prev[commentId] || 0) + (alreadyLiked ? -1 : 1)
+      ),
+    }));
+
+    try {
+      if (alreadyLiked) {
+        const { error } = await supabase
+          .from("post_comment_likes")
+          .delete()
+          .eq("comment_id", commentId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("post_comment_likes").insert({
+          comment_id: commentId,
+          user_id: user.id,
+        });
+
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.warn("toggleCommentLike error", e);
+
+      setCommentLikedByMe((prev) => ({ ...prev, [commentId]: alreadyLiked }));
+      setCommentLikesById((prev) => ({
+        ...prev,
+        [commentId]: Math.max(
+          0,
+          (prev[commentId] || 0) + (alreadyLiked ? 1 : -1)
+        ),
+      }));
     }
   };
 
@@ -438,6 +640,8 @@ export default function EcosystemSavedPostsPage() {
         author?.full_name,
         author?.affiliation,
         author?.highest_education,
+        author?.role,
+        author?.current_title,
         org?.name,
       ]
         .filter(Boolean)
@@ -452,17 +656,6 @@ export default function EcosystemSavedPostsPage() {
 
   const total = items.length;
   const showList = !status && !error && total > 0;
-
-  const pillBtnStyle: CSSProperties = {
-    fontSize: 13,
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.45)",
-    background: "rgba(15,23,42,0.65)",
-    color: "rgba(226,232,240,0.95)",
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  };
 
   return (
     <section className="section">
@@ -521,7 +714,11 @@ export default function EcosystemSavedPostsPage() {
               gap: 6,
             }}
           >
-            <Link href="/ecosystem" className="section-link" style={{ fontSize: 13 }}>
+            <Link
+              href="/ecosystem"
+              className="section-link"
+              style={{ fontSize: 13 }}
+            >
               ← Back to ecosystem
             </Link>
             <Link href="/" className="section-link" style={{ fontSize: 13 }}>
@@ -605,7 +802,8 @@ export default function EcosystemSavedPostsPage() {
 
       {!status && !error && total === 0 && (
         <div className="products-empty">
-          You haven&apos;t saved any posts yet. Save posts from the feed to keep them here.
+          You haven&apos;t saved any posts yet. Save posts from the feed to keep
+          them here.
         </div>
       )}
 
@@ -619,7 +817,7 @@ export default function EcosystemSavedPostsPage() {
       {filteredItems.length > 0 && (
         <FeedCards
           items={filteredItems}
-          user={user}
+          user={user ? { id: user.id } : null}
           openComments={openComments}
           setOpenComments={setOpenComments}
           commentsByPost={commentsByPost}
@@ -627,9 +825,21 @@ export default function EcosystemSavedPostsPage() {
           commentDraft={commentDraft}
           setCommentDraft={setCommentDraft}
           commentSaving={commentSaving}
+          replyDraft={replyDraft}
+          setReplyDraft={setReplyDraft}
+          replyOpen={replyOpen}
+          setReplyOpen={setReplyOpen}
+          replySaving={replySaving}
+          repliesOpen={repliesOpen}
+          setRepliesOpen={setRepliesOpen}
+          commentLikesById={commentLikesById}
+          commentLikedByMe={commentLikedByMe}
+          likerProfilesByPost={likerProfilesByPost}
           onToggleLike={toggleLike}
           onLoadComments={loadComments}
           onSubmitComment={submitComment}
+          onSubmitReply={submitReply}
+          onToggleCommentLike={toggleCommentLike}
           formatRelativeTime={formatRelativeTime}
           formatSubtitle={formatSubtitle}
           initialsOf={initialsOf}
@@ -645,13 +855,17 @@ export default function EcosystemSavedPostsPage() {
               } else if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(shareUrl);
               }
-            } catch {}
+            } catch {
+              // ignore
+            }
           }}
           onSavePost={handleToggleSave}
           isPostSaved={isSaved}
+          savingPostId={savingPostId}
           onEditPost={(postId) => {
             router.push(`/?editPost=${postId}`);
           }}
+          enablePreviewCollapse
         />
       )}
     </section>
