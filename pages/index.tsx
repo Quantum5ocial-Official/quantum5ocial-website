@@ -1695,21 +1695,6 @@ const [postMediaPreviews, setPostMediaPreviews] = useState<
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
 };
 
-  const collapsedInputStyle: CSSProperties = {
-    height: isMobile ? 40 : 42,
-    borderRadius: 999,
-    border: "1px solid rgba(148,163,184,0.22)",
-    background: "rgba(2,6,23,0.35)",
-    color: "rgba(226,232,240,0.92)",
-    padding: "0 14px",
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    cursor: "pointer",
-    userSelect: "none",
-    minWidth: 0,
-  };
-
   const toggleBtn = (active: boolean): CSSProperties => ({
   padding: isMobile ? "8px 12px" : "8px 13px",
   borderRadius: 999,
@@ -2088,6 +2073,15 @@ const { error } = await supabase.from("posts").insert({
       setAskSaving(false);
     }
   };
+
+  const shellStyle: CSSProperties = {
+  borderRadius: 18,
+  border: "1px solid rgba(148,163,184,0.18)",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
+  boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
+  padding: isMobile ? 12 : 14,
+};
 
   return (
     <>
