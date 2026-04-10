@@ -326,8 +326,8 @@ export default function Home() {
 
       {/* ✅ GLOBAL FEED */}
       <section className="section" style={{ paddingTop: 0 }}>
-        < />
-      </section>
+  <HomeGlobalFeed />
+</section>
 
       {/* FOR WHOM */}
       <section className="section">
@@ -647,9 +647,9 @@ if (likerIds.length > 0) {
     let commentRows: CommentRow[] = [];
     if (postIds.length > 0) {
       const { data: comments, error: cErr } = await supabase
-        .from("post_comments")
-        .select("id, post_id, user_id, body, created_at")
-        .in("post_id", postIds);
+  .from("post_comments")
+  .select("id, post_id, user_id, body, created_at, parent_comment_id")
+  .in("post_id", postIds);
 
       if (!cErr && comments) commentRows = comments as CommentRow[];
     }
@@ -1076,6 +1076,11 @@ setLikerProfilesByPost((prev) => ({
         delete next[postId];
         return next;
       });
+
+      setReplyDraft((prev) => ({ ...prev }));
+setReplyOpen((prev) => ({ ...prev }));
+setReplySaving((prev) => ({ ...prev }));
+setRepliesOpen((prev) => ({ ...prev }));
 
       setLikerProfilesByPost((prev) => {
   const next = { ...prev };
