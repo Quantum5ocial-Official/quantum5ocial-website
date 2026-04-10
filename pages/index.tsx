@@ -1678,14 +1678,22 @@ const [postMediaPreviews, setPostMediaPreviews] = useState<
     </div>
   );
 
-  const shellStyle: CSSProperties = {
-    borderRadius: 18,
-    border: "1px solid rgba(148,163,184,0.18)",
-    background:
-      "linear-gradient(135deg, rgba(15,23,42,0.86), rgba(15,23,42,0.94))",
-    boxShadow: "0 18px 40px rgba(15,23,42,0.45)",
-    padding: isMobile ? 12 : 14,
-  };
+  const collapsedInputStyle: CSSProperties = {
+  minHeight: isMobile ? 64 : 72,
+  borderRadius: 18,
+  border: "1px solid rgba(148,163,184,0.22)",
+  background:
+    "linear-gradient(135deg, rgba(2,6,23,0.42), rgba(15,23,42,0.58))",
+  color: "rgba(226,232,240,0.96)",
+  padding: isMobile ? "12px 14px" : "14px 16px",
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 10,
+  cursor: "pointer",
+  userSelect: "none",
+  minWidth: 0,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
+};
 
   const collapsedInputStyle: CSSProperties = {
     height: isMobile ? 40 : 42,
@@ -1703,18 +1711,19 @@ const [postMediaPreviews, setPostMediaPreviews] = useState<
   };
 
   const toggleBtn = (active: boolean): CSSProperties => ({
-    padding: isMobile ? "7px 10px" : "7px 11px",
-    borderRadius: 999,
-    border: "none",
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: "pointer",
-    background: active
-      ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
-      : "transparent",
-    color: active ? "#0f172a" : "rgba(226,232,240,0.85)",
-    whiteSpace: "nowrap",
-  });
+  padding: isMobile ? "8px 12px" : "8px 13px",
+  borderRadius: 999,
+  border: active ? "none" : "1px solid transparent",
+  fontSize: 13,
+  fontWeight: 800,
+  cursor: "pointer",
+  background: active
+    ? "linear-gradient(135deg,#3bc7f3,#8468ff)"
+    : "rgba(255,255,255,0.02)",
+  color: active ? "#0f172a" : "rgba(226,232,240,0.88)",
+  whiteSpace: "nowrap",
+  boxShadow: active ? "0 6px 20px rgba(59,130,246,0.22)" : "none",
+});
 
   const modalCard: CSSProperties = {
   width: "min(680px, calc(100vw - 32px))",
@@ -1843,13 +1852,13 @@ const modalBody: CSSProperties = {
   };
 
   const collapsedPlaceholder =
-    mode === "post"
-      ? isMobile
-        ? "What’s on your mind?"
-        : `What’s on your mind, ${firstName}?`
-      : isMobile
-        ? "Ask the community…"
-        : "Ask the quantum community…";
+  mode === "post"
+    ? isMobile
+      ? "Share an update, result, insight, or question"
+      : "Share an update, insight, result, or question with the quantum community"
+    : isMobile
+      ? "Ask the quantum community a question"
+      : "Ask the quantum community a question and start a discussion";
 
   const canSubmit =
     mode === "post"
@@ -2083,79 +2092,123 @@ const { error } = await supabase.from("posts").insert({
   return (
     <>
       <div style={shellStyle}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
-          {avatarNode}
+  <div
+    style={{
+      display: "flex",
+      alignItems: "flex-start",
+      gap: 12,
+      flexWrap: "wrap",
+    }}
+  >
+    {avatarNode}
 
+    <div style={{ flex: "1 1 320px", minWidth: 0 }}>
+      <div
+        style={collapsedInputStyle}
+        onClick={openComposer}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") openComposer();
+        }}
+      >
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div
-            style={{ ...collapsedInputStyle, flex: "1 1 260px" }}
-            onClick={openComposer}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") openComposer();
+            style={{
+              fontSize: isMobile ? 14 : 15,
+              lineHeight: 1.4,
+              color: "rgba(226,232,240,0.96)",
+              fontWeight: 600,
             }}
           >
-            <span
-              style={{
-                opacity: 0.88,
-                minWidth: 0,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {collapsedPlaceholder}
-            </span>
-            <span
-              style={{
-                marginLeft: "auto",
-                opacity: 0.7,
-                fontSize: 12,
-                flexShrink: 0,
-              }}
-            >
-              {mode === "post" ? "✨" : "❓"}
-            </span>
+            {collapsedPlaceholder}
           </div>
 
           <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: 4,
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.18)",
-              background: "rgba(2,6,23,0.22)",
-              flex: "0 0 auto",
-              marginLeft: "auto",
+              marginTop: 6,
+              fontSize: 12,
+              color: "rgba(148,163,184,0.92)",
+              lineHeight: 1.35,
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <button
-              type="button"
-              style={toggleBtn(mode === "post")}
-              onClick={() => setMode("post")}
-            >
-              Post
-            </button>
-            <button
-              type="button"
-              style={toggleBtn(mode === "ask")}
-              onClick={() => setMode("ask")}
-            >
-              Ask
-            </button>
+            Start a post, ask a question, or share media with the community
           </div>
         </div>
+
+        <div
+          style={{
+            marginLeft: 8,
+            fontSize: 18,
+            lineHeight: 1,
+            opacity: 0.85,
+            flexShrink: 0,
+            paddingTop: 2,
+          }}
+        >
+          {mode === "post" ? "✨" : "❓"}
+        </div>
       </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          marginTop: 10,
+          paddingLeft: 2,
+        }}
+      >
+        {["Post updates", "Ask questions", "Share media"].map((item) => (
+          <div
+            key={item}
+            style={{
+              fontSize: 12,
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: "1px solid rgba(148,163,184,0.16)",
+              background: "rgba(255,255,255,0.03)",
+              color: "rgba(191,219,254,0.95)",
+              fontWeight: 600,
+            }}
+          >
+            {item}
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: 4,
+        borderRadius: 999,
+        border: "1px solid rgba(148,163,184,0.18)",
+        background: "rgba(2,6,23,0.28)",
+        flex: "0 0 auto",
+        marginLeft: "auto",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        style={toggleBtn(mode === "post")}
+        onClick={() => setMode("post")}
+      >
+        Post
+      </button>
+      <button
+        type="button"
+        style={toggleBtn(mode === "ask")}
+        onClick={() => setMode("ask")}
+      >
+        Ask
+      </button>
+    </div>
+  </div>
+</div>
 
       {open && (
         <div
