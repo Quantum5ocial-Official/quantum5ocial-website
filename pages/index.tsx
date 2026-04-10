@@ -87,12 +87,24 @@ type PostRow = {
 
 type LikeRow = { post_id: string; user_id: string };
 
+type LikerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
+type CommentLikeRow = {
+  comment_id: string;
+  user_id: string;
+};
+
 type CommentRow = {
   id: string;
   post_id: string;
   user_id: string;
   body: string;
   created_at: string | null;
+  parent_comment_id?: string | null;
 };
 
 type PostVM = {
@@ -314,7 +326,7 @@ export default function Home() {
 
       {/* ✅ GLOBAL FEED */}
       <section className="section" style={{ paddingTop: 0 }}>
-        <HomeGlobalFeed />
+        < />
       </section>
 
       {/* FOR WHOM */}
@@ -405,6 +417,21 @@ function HomeGlobalFeed() {
   const [commenterProfiles, setCommenterProfiles] = useState<
     Record<string, FeedProfile>
   >({});
+  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+const [replyOpen, setReplyOpen] = useState<Record<string, boolean>>({});
+const [replySaving, setReplySaving] = useState<Record<string, boolean>>({});
+const [repliesOpen, setRepliesOpen] = useState<Record<string, boolean>>({});
+
+const [commentLikesById, setCommentLikesById] = useState<
+  Record<string, number>
+>({});
+const [commentLikedByMe, setCommentLikedByMe] = useState<
+  Record<string, boolean>
+>({});
+
+const [likerProfilesByPost, setLikerProfilesByPost] = useState<
+  Record<string, LikerProfile[]>
+>({});
 
   const postRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
