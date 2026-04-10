@@ -542,24 +542,51 @@ const [likerProfilesByPost, setLikerProfilesByPost] = useState<
   };
 
   const loadComments = async (postId: string) => {
-    try {
-      const { data: rows, error } = await supabase
-        .from("post_comments")
-        .select("id, post_id, user_id, body, created_at")
-        .eq("post_id", postId)
-        .order("created_at", { ascending: false });
+  try {
+    const { data: rows, error } = await supabase
+      .from("post_comments")
+      .select("id, post_id, user_id, body, created_at, parent_comment_id")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const list = (rows || []) as CommentRow[];
-      setCommentsByPost((prev) => ({ ...prev, [postId]: list }));
+    const list = (rows || []) as CommentRow[];
+    setCommentsByPost((prev) => ({ ...prev, [postId]: list }));
 
-      await loadProfilesForUserIds(list.map((c) => c.user_id));
-    } catch (e) {
-      console.warn("loadComments error", e);
-      setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
+    await loadProfilesForUserIds(list.map((c) => c.user_id));
+
+    const commentIds = list.map((c) => c.id);
+    if (commentIds.length === 0) {
+      return;
     }
-  };
+
+    const { data: likeRows, error: likeErr } = await supabase
+      .from("post_comment_likes")
+      .select("comment_id, user_id")
+      .in("comment_id", commentIds);
+
+    if (likeErr) throw likeErr;
+
+    const likes = (likeRows || []) as CommentLikeRow[];
+
+    const counts: Record<string, number> = {};
+    const likedMap: Record<string, boolean> = {};
+
+    likes.forEach((row) => {
+      counts[row.comment_id] = (counts[row.comment_id] || 0) + 1;
+      if (user && row.user_id === user.id) {
+        likedMap[row.comment_id] = true;
+      }
+    });
+
+    setCommentLikesById((prev) => ({ ...prev, ...counts }));
+    setCommentLikedByMe((prev) => ({ ...prev, ...likedMap }));
+  } catch (e) {
+    console.warn("loadComments error", e);
+    setCommentsByPost((prev) => ({ ...prev, [postId]: prev[postId] || [] }));
+  }
+};
 
   const hydratePosts = async (posts: PostRow[], uid: string | null) => {
     const postIds = posts.map((p) => p.id);
@@ -603,6 +630,19 @@ const [likerProfilesByPost, setLikerProfilesByPost] = useState<
 
       if (!likeErr && likes) likeRows = likes as LikeRow[];
     }
+const likerIds = Array.from(new Set(likeRows.map((r) => r.user_id)));
+const likerProfileMap = new Map<string, LikerProfile>();
+
+if (likerIds.length > 0) {
+  const { data: likerRows, error: likerErr } = await supabase
+    .from("profiles")
+    .select("id, full_name, avatar_url")
+    .in("id", likerIds);
+
+  if (!likerErr && likerRows) {
+    (likerRows as LikerProfile[]).forEach((p) => likerProfileMap.set(p.id, p));
+  }
+}
 
     let commentRows: CommentRow[] = [];
     if (postIds.length > 0) {
@@ -626,6 +666,20 @@ const [likerProfilesByPost, setLikerProfilesByPost] = useState<
       commentCountByPost[r.post_id] =
         (commentCountByPost[r.post_id] || 0) + 1;
     });
+
+    const likerProfilesGrouped: Record<string, LikerProfile[]> = {};
+
+likeRows.forEach((row) => {
+  const profile = likerProfileMap.get(row.user_id);
+  if (!profile) return;
+  if (!likerProfilesGrouped[row.post_id]) likerProfilesGrouped[row.post_id] = [];
+  likerProfilesGrouped[row.post_id].push(profile);
+});
+
+setLikerProfilesByPost((prev) => ({
+  ...prev,
+  ...likerProfilesGrouped,
+}));
 
     const vms: PostVM[] = posts.map((p) => ({
       post: p,
@@ -839,55 +893,137 @@ const [likerProfilesByPost, setLikerProfilesByPost] = useState<
   };
 
   const submitComment = async (postId: string) => {
-    if (!user) {
-      window.location.href = "/auth?redirect=/";
-      return;
+  if (!user) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
+
+  const body = (commentDraft[postId] || "").trim();
+  if (!body) return;
+
+  setCommentSaving((p) => ({ ...p, [postId]: true }));
+
+  try {
+    const { error } = await supabase.from("post_comments").insert({
+      post_id: postId,
+      user_id: user.id,
+      body,
+      parent_comment_id: null,
+    });
+
+    if (error) throw error;
+
+    setCommentDraft((p) => ({ ...p, [postId]: "" }));
+    setOpenComments((p) => ({ ...p, [postId]: true }));
+
+    await loadComments(postId);
+
+    setItems((prev) =>
+      prev.map((x) =>
+        x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
+      )
+    );
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
     }
+  } catch (e) {
+    console.warn("submitComment error", e);
+  } finally {
+    setCommentSaving((p) => ({ ...p, [postId]: false }));
+  }
+};
 
-    const body = (commentDraft[postId] || "").trim();
-    if (!body) return;
+  const submitReply = async (parentCommentId: string, postId: string) => {
+  if (!user) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
 
-    setCommentSaving((p) => ({ ...p, [postId]: true }));
+  const body = (replyDraft[parentCommentId] || "").trim();
+  if (!body) return;
 
-    try {
-      const { data, error } = await supabase
-        .from("post_comments")
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          body,
-        })
-        .select("id, post_id, user_id, body, created_at")
-        .maybeSingle();
+  setReplySaving((prev) => ({ ...prev, [parentCommentId]: true }));
+
+  try {
+    const { error } = await supabase.from("post_comments").insert({
+      post_id: postId,
+      user_id: user.id,
+      body,
+      parent_comment_id: parentCommentId,
+    });
+
+    if (error) throw error;
+
+    setReplyDraft((prev) => ({ ...prev, [parentCommentId]: "" }));
+    setReplyOpen((prev) => ({ ...prev, [parentCommentId]: false }));
+    setRepliesOpen((prev) => ({ ...prev, [parentCommentId]: true }));
+
+    await loadComments(postId);
+
+    setItems((prev) =>
+      prev.map((x) =>
+        x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
+      )
+    );
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+    }
+  } catch (e) {
+    console.warn("submitReply error", e);
+  } finally {
+    setReplySaving((prev) => ({ ...prev, [parentCommentId]: false }));
+  }
+};
+
+      const toggleCommentLike = async (commentId: string, postId: string) => {
+  if (!user) {
+    window.location.href = "/auth?redirect=/";
+    return;
+  }
+
+  const alreadyLiked = !!commentLikedByMe[commentId];
+
+  setCommentLikedByMe((prev) => ({ ...prev, [commentId]: !alreadyLiked }));
+  setCommentLikesById((prev) => ({
+    ...prev,
+    [commentId]: Math.max(
+      0,
+      (prev[commentId] || 0) + (alreadyLiked ? -1 : 1)
+    ),
+  }));
+
+  try {
+    if (alreadyLiked) {
+      const { error } = await supabase
+        .from("post_comment_likes")
+        .delete()
+        .eq("comment_id", commentId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
-
-      setCommentDraft((p) => ({ ...p, [postId]: "" }));
-      setOpenComments((p) => ({ ...p, [postId]: true }));
-
-      setCommentsByPost((prev) => {
-        const cur = prev[postId] || [];
-        const next = data ? [data as CommentRow, ...cur] : cur;
-        return { ...prev, [postId]: next };
+    } else {
+      const { error } = await supabase.from("post_comment_likes").insert({
+        comment_id: commentId,
+        user_id: user.id,
       });
 
-      await loadProfilesForUserIds([user.id]);
-
-      setItems((prev) =>
-        prev.map((x) =>
-          x.post.id === postId ? { ...x, commentCount: x.commentCount + 1 } : x
-        )
-      );
-
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
-      }
-    } catch (e) {
-      console.warn("submitComment error", e);
-    } finally {
-      setCommentSaving((p) => ({ ...p, [postId]: false }));
+      if (error) throw error;
     }
-  };
+  } catch (e) {
+    console.warn("toggleCommentLike error", e);
+
+    setCommentLikedByMe((prev) => ({ ...prev, [commentId]: alreadyLiked }));
+    setCommentLikesById((prev) => ({
+      ...prev,
+      [commentId]: Math.max(
+        0,
+        (prev[commentId] || 0) + (alreadyLiked ? 1 : -1)
+      ),
+    }));
+  }
+};
 
   const handleEditPost = (postId: string) => {
     const found = items.find((x) => x.post.id === postId)?.post;
@@ -940,6 +1076,12 @@ const [likerProfilesByPost, setLikerProfilesByPost] = useState<
         delete next[postId];
         return next;
       });
+
+      setLikerProfilesByPost((prev) => {
+  const next = { ...prev };
+  delete next[postId];
+  return next;
+});
 
       if (editingPostId === postId) {
         setEditingPostId(null);
@@ -1119,35 +1261,46 @@ const [likerProfilesByPost, setLikerProfilesByPost] = useState<
       {!loading && !error && items.length > 0 && (
         <>
           <FeedCards
-            items={items}
-            user={user}
-            openComments={openComments}
-            setOpenComments={setOpenComments}
-            commentsByPost={commentsByPost}
-            commenterProfiles={commenterProfiles}
-            commentDraft={commentDraft}
-            setCommentDraft={setCommentDraft}
-            commentSaving={commentSaving}
-            onToggleLike={toggleLike}
-            onLoadComments={loadComments}
-            onSubmitComment={submitComment}
-            formatRelativeTime={formatRelativeTime}
-            formatSubtitle={formatSubtitle}
-            initialsOf={initialsOf}
-            avatarStyle={avatarStyle}
-            LinkifyText={LinkifyText}
-            postRefs={postRefs}
-            onEditPost={handleEditPost}
-            onSharePost={handleSharePost}
-            onSavePost={handleSavePost}
-            onDeletePost={handleDeletePost}
-            isPostSaved={isPostSaved}
-            savingPostId={savingPostId}
-            editingPostId={editingPostId}
-            deletingPostId={deletingPostId}
-            enablePreviewCollapse={true}
-          />
-
+  items={items}
+  user={user}
+  openComments={openComments}
+  setOpenComments={setOpenComments}
+  commentsByPost={commentsByPost}
+  commenterProfiles={commenterProfiles}
+  commentDraft={commentDraft}
+  setCommentDraft={setCommentDraft}
+  commentSaving={commentSaving}
+  replyDraft={replyDraft}
+  setReplyDraft={setReplyDraft}
+  replyOpen={replyOpen}
+  setReplyOpen={setReplyOpen}
+  replySaving={replySaving}
+  repliesOpen={repliesOpen}
+  setRepliesOpen={setRepliesOpen}
+  commentLikesById={commentLikesById}
+  commentLikedByMe={commentLikedByMe}
+  likerProfilesByPost={likerProfilesByPost}
+  onToggleLike={toggleLike}
+  onLoadComments={loadComments}
+  onSubmitComment={submitComment}
+  onSubmitReply={submitReply}
+  onToggleCommentLike={toggleCommentLike}
+  formatRelativeTime={formatRelativeTime}
+  formatSubtitle={formatSubtitle}
+  initialsOf={initialsOf}
+  avatarStyle={avatarStyle}
+  LinkifyText={LinkifyText}
+  postRefs={postRefs}
+  onEditPost={handleEditPost}
+  onSharePost={handleSharePost}
+  onSavePost={handleSavePost}
+  onDeletePost={handleDeletePost}
+  isPostSaved={isPostSaved}
+  savingPostId={savingPostId}
+  editingPostId={editingPostId}
+  deletingPostId={deletingPostId}
+  enablePreviewCollapse={true}
+/>
           {hasMore && (
             <div
               style={{
