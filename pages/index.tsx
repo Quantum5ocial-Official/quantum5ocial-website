@@ -1839,8 +1839,8 @@ const modalBody: CSSProperties = {
 const collapsedPlaceholder =
   mode === "post"
     ? isMobile
-      ? "Share an update, insight, or results"
-      : "Share an update, insight, result, or question with the quantum community"
+      ? "Share an update, insight, or result"
+      : "Share an update, insight, or result with the community"
     : isMobile
       ? "Ask the quantum community a question"
       : "Ask the quantum community a question and start a discussion";
