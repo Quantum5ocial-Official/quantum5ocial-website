@@ -1836,10 +1836,10 @@ const modalBody: CSSProperties = {
     setOpen(false);
   };
 
-  const collapsedPlaceholder =
+const collapsedPlaceholder =
   mode === "post"
     ? isMobile
-      ? "Share an update, result, insight, or question"
+      ? "Share an update, insight, or results"
       : "Share an update, insight, result, or question with the quantum community"
     : isMobile
       ? "Ask the quantum community a question"
@@ -2144,32 +2144,34 @@ const { error } = await supabase.from("posts").insert({
         </div>
       </div>
 
+      {!isMobile && (
+  <div
+    style={{
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap",
+      marginTop: 10,
+      paddingLeft: 2,
+    }}
+  >
+    {["Post updates", "Ask questions", "Share media"].map((item) => (
       <div
+        key={item}
         style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          marginTop: 10,
-          paddingLeft: 2,
+          fontSize: 12,
+          padding: "6px 10px",
+          borderRadius: 999,
+          border: "1px solid rgba(148,163,184,0.16)",
+          background: "rgba(255,255,255,0.03)",
+          color: "rgba(191,219,254,0.95)",
+          fontWeight: 600,
         }}
       >
-        {["Post updates", "Ask questions", "Share media"].map((item) => (
-          <div
-            key={item}
-            style={{
-              fontSize: 12,
-              padding: "6px 10px",
-              borderRadius: 999,
-              border: "1px solid rgba(148,163,184,0.16)",
-              background: "rgba(255,255,255,0.03)",
-              color: "rgba(191,219,254,0.95)",
-              fontWeight: 600,
-            }}
-          >
-            {item}
-          </div>
-        ))}
+        {item}
       </div>
+    ))}
+  </div>
+)}
     </div>
 
     <div
