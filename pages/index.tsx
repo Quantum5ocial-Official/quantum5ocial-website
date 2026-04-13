@@ -1695,10 +1695,11 @@ const [postMediaPreviews, setPostMediaPreviews] = useState<
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)",
 };
 
-  const toggleBtn = (active: boolean): CSSProperties => ({
-  padding: isMobile ? "8px 12px" : "8px 13px",
+const toggleBtn = (active: boolean): CSSProperties => ({
+  padding: isMobile ? "8px 14px" : "9px 16px",
+  minWidth: 72,
   borderRadius: 999,
-  border: active ? "none" : "1px solid transparent",
+  border: active ? "none" : "1px solid rgba(148,163,184,0.14)",
   fontSize: 13,
   fontWeight: 800,
   cursor: "pointer",
@@ -1838,9 +1839,7 @@ const modalBody: CSSProperties = {
 
 const collapsedPlaceholder =
   mode === "post"
-    ? isMobile
-      ? "Share an update, insight, or result"
-      : "Share an update, insight, or result with the community"
+    ? `Hi ${firstName}, what's on your mind today?`
     : isMobile
       ? "Ask the quantum community a question"
       : "Ask the quantum community a question and start a discussion";
@@ -2119,15 +2118,17 @@ const { error } = await supabase.from("posts").insert({
           </div>
 
           <div
-            style={{
-              marginTop: 6,
-              fontSize: 12,
-              color: "rgba(148,163,184,0.92)",
-              lineHeight: 1.35,
-            }}
-          >
-            Start a post, ask a question, or share media with the community
-          </div>
+  style={{
+    marginTop: 6,
+    fontSize: 12,
+    color: "rgba(148,163,184,0.92)",
+    lineHeight: 1.35,
+  }}
+>
+  {mode === "post"
+    ? "Share a post with the community"
+    : "Ask a question to the community"}
+</div>
         </div>
 
         <div
@@ -2175,34 +2176,35 @@ const { error } = await supabase.from("posts").insert({
     </div>
 
     <div
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        padding: 4,
-        borderRadius: 999,
-        border: "1px solid rgba(148,163,184,0.18)",
-        background: "rgba(2,6,23,0.28)",
-        flex: "0 0 auto",
-        marginLeft: "auto",
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        type="button"
-        style={toggleBtn(mode === "post")}
-        onClick={() => setMode("post")}
-      >
-        Post
-      </button>
-      <button
-        type="button"
-        style={toggleBtn(mode === "ask")}
-        onClick={() => setMode("ask")}
-      >
-        Ask
-      </button>
-    </div>
+  style={{
+    display: "inline-flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 6,
+    padding: 6,
+    borderRadius: 16,
+    border: "1px solid rgba(148,163,184,0.18)",
+    background: "rgba(2,6,23,0.28)",
+    flex: "0 0 auto",
+    marginLeft: "auto",
+  }}
+  onClick={(e) => e.stopPropagation()}
+>
+  <button
+    type="button"
+    style={toggleBtn(mode === "post")}
+    onClick={() => setMode("post")}
+  >
+    Post
+  </button>
+  <button
+    type="button"
+    style={toggleBtn(mode === "ask")}
+    onClick={() => setMode("ask")}
+  >
+    Ask
+  </button>
+</div>
   </div>
 </div>
 
