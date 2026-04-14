@@ -403,7 +403,7 @@ const postsCount = (postsRes.data || []).length;
             lineHeight: 1.1,
           }}
         >
-          Learn Quantum
+          Quantum Wiki
         </div>
       </Link>
 
