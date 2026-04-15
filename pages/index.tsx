@@ -2127,7 +2127,7 @@ const { error } = await supabase.from("posts").insert({
 >
   {mode === "post"
     ? "Share a post with the community"
-    : "Ask a question to the community"}
+    : "Start a discussion"}
 </div>
         </div>
 
