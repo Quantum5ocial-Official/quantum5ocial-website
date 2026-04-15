@@ -1842,7 +1842,7 @@ const collapsedPlaceholder =
     ? `Hi ${firstName}, what's on your mind today?`
     : isMobile
       ? "Ask the quantum community a question"
-      : "Ask the quantum community a question and start a discussion";
+      : "Ask the quantum community a question";
 
   const canSubmit =
     mode === "post"
