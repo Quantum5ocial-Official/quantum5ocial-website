@@ -670,7 +670,11 @@ export default function FeedList({
     setDeletingPostId(postId);
 
     try {
-      const { error } = await supabase.from("posts").delete().eq("id", postId);
+      const { error } = await supabase
+  .from("posts")
+  .delete()
+  .eq("id", postId)
+  .eq("user_id", user.id);
       if (error) throw error;
 
       setItems((prev) => prev.filter((x) => x.post.id !== postId));
