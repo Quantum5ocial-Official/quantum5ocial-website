@@ -11,17 +11,15 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import {
+  type AppNotification,
+  dedupeNotifications,
+  sameNotificationGroup,
+  safeNotificationTime,
+} from "../lib/notificationHelpers";
 
-type Notification = {
-  id: string;
-  user_id: string;
-  type: string | null;
-  title: string | null;
-  message: string | null;
-  link_url: string | null;
-  is_read: boolean | null;
-  created_at: string | null;
-};
+
+type Notification = AppNotification;
 
 type ConnectionRow = {
   id: string;
@@ -64,9 +62,6 @@ type FeedItem =
     };
 
 // ✅ TS type-guard for narrowing
-type NotifFeedItem = Extract<FeedItem, { kind: "notif" }>;
-const isNotifFeedItem = (it: FeedItem): it is NotifFeedItem => it.kind === "notif";
-
 type NotificationsCtx = {};
 
 const NotificationsContext = createContext<NotificationsCtx | null>(null);
@@ -78,15 +73,6 @@ function NotificationsProvider({ children }: { children: ReactNode }) {
       {children}
     </NotificationsContext.Provider>
   );
-}
-
-function useNotificationsCtx() {
-  const ctx = useContext(NotificationsContext);
-  if (!ctx)
-    throw new Error(
-      "useNotificationsCtx must be used inside <NotificationsProvider />"
-    );
-  return ctx;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -167,91 +153,6 @@ function NotificationsMiddle() {
     return new Date(t).toLocaleString();
   };
 
-  const safeTime = (created_at: string | null) => {
-    const t = created_at ? Date.parse(created_at) : NaN;
-    return Number.isNaN(t) ? 0 : t;
-  };
-
-  // Prefer the "XXX accepted..." message over the generic one
-  const isGenericAcceptedNotif = (n: Notification) => {
-    const title = (n.title || "").toLowerCase();
-    const msg = (n.message || "").toLowerCase();
-    return (
-      title.includes("entanglement accepted") &&
-      (msg.includes("your entanglement request was accepted") ||
-        msg.startsWith("your entanglement request"))
-    );
-  };
-
-  const sameNotifGroup = (a: Notification, b: Notification) =>
-  a.user_id === b.user_id &&
-  a.type === b.type &&
-  a.title === b.title &&
-  a.link_url === b.link_url;
-
-  const isNamedAcceptedNotif = (n: Notification) => {
-    const title = (n.title || "").toLowerCase();
-    const msg = (n.message || "").toLowerCase();
-    return (
-      title.includes("entanglement accepted") &&
-      msg.includes(" accepted your entanglement request")
-    );
-  };
-
-  
-  const notifGroupKey = (n: Notification) =>
-  `${n.user_id || ""}__${n.type || ""}__${n.title || ""}__${n.link_url || ""}`;
-
-const dedupeNotifications = (rows: Notification[]) => {
-  const bestByKey: Record<string, Notification> = {};
-
-  for (let i = 0; i < rows.length; i++) {
-    const n = rows[i];
-    const key = notifGroupKey(n);
-
-    const cur = bestByKey[key];
-    if (!cur) {
-      bestByKey[key] = n;
-      continue;
-    }
-
-    const nUnread = !n.is_read;
-    const curUnread = !cur.is_read;
-
-    // Prefer unread representative over read representative
-    if (nUnread && !curUnread) {
-      bestByKey[key] = n;
-      continue;
-    }
-    if (curUnread && !nUnread) {
-      continue;
-    }
-
-    const nNamed = isNamedAcceptedNotif(n);
-    const curNamed = isNamedAcceptedNotif(cur);
-    const nGeneric = isGenericAcceptedNotif(n);
-    const curGeneric = isGenericAcceptedNotif(cur);
-
-    // If both have same read-state preference, prefer the better accepted label
-    if (nNamed && curGeneric) {
-      bestByKey[key] = n;
-      continue;
-    }
-    if (curNamed && nGeneric) {
-      continue;
-    }
-
-    // Otherwise keep newest
-    const nTime = safeTime(n.created_at);
-    const curTime = safeTime(cur.created_at);
-
-    if (nTime >= curTime) bestByKey[key] = n;
-  }
-
-  return Object.values(bestByKey).sort(
-    (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
-  );
-};
   useEffect(() => {
     const loadAll = async () => {
       if (!user) {
@@ -367,9 +268,10 @@ const dedupeNotifications = (rows: Notification[]) => {
           notification: n,
         }));
 
-        const merged = [...notifFeed, ...acceptedFeed].sort(
-          (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
-        );
+       const merged = [...notifFeed, ...acceptedFeed].sort(
+  (a, b) =>
+    safeNotificationTime(b.created_at) - safeNotificationTime(a.created_at)
+);
 
         setFeed(merged);
       } catch (err) {
@@ -447,7 +349,7 @@ const handleOpenNotification = async (notification: Notification) => {
         const rows = (unreadRows || []) as Notification[];
 
         const matchingIds = rows
-          .filter((n) => sameNotifGroup(n, notification))
+          .filter((n) => sameNotificationGroup(n, notification))
           .map((n) => n.id);
 
         if (matchingIds.length > 0) {
@@ -461,14 +363,14 @@ const handleOpenNotification = async (notification: Notification) => {
           } else {
             setOtherNotifications((prev) =>
               prev.map((n) =>
-                sameNotifGroup(n, notification) ? { ...n, is_read: true } : n
+                sameNotificationGroup(n, notification) ? { ...n, is_read: true } : n
               )
             );
 
             setFeed((prev) =>
               prev.map((it) => {
                 if (it.kind !== "notif") return it;
-                return sameNotifGroup(it.notification, notification)
+                return sameNotificationGroup(it.notification, notification)
                   ? {
                       ...it,
                       notification: { ...it.notification, is_read: true },
