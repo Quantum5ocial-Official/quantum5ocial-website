@@ -92,11 +92,11 @@ const isNamedAcceptedNotif = (n: NotificationRow) => {
 const notifGroupKey = (n: NotificationRow) =>
   `${n.user_id || ""}__${n.type || ""}__${n.title || ""}__${n.link_url || ""}`;
 
-const dedupeNotifications = (rows: Notification[]) => {
-  const bestByKey: Record<string, Notification> = {};
+const dedupeNotifications = (rows: NotificationRow[]) => {
+  const bestByKey: Record<string, NotificationRow> = {};
 
   for (let i = 0; i < rows.length; i++) {
-    const n = rows[i];
+    const n: NotificationRow = rows[i];
     const key = notifGroupKey(n);
 
     const cur = bestByKey[key];
@@ -108,7 +108,6 @@ const dedupeNotifications = (rows: Notification[]) => {
     const nUnread = !n.is_read;
     const curUnread = !cur.is_read;
 
-    // Prefer unread representative over read representative
     if (nUnread && !curUnread) {
       bestByKey[key] = n;
       continue;
@@ -122,7 +121,6 @@ const dedupeNotifications = (rows: Notification[]) => {
     const nGeneric = isGenericAcceptedNotif(n);
     const curGeneric = isGenericAcceptedNotif(cur);
 
-    // If both have same read-state preference, prefer the better accepted label
     if (nNamed && curGeneric) {
       bestByKey[key] = n;
       continue;
@@ -131,17 +129,14 @@ const dedupeNotifications = (rows: Notification[]) => {
       continue;
     }
 
-    // Otherwise keep newest
     const nTime = safeTime(n.created_at);
     const curTime = safeTime(cur.created_at);
 
     if (nTime >= curTime) bestByKey[key] = n;
   }
 
-  return Object.values(bestByKey).sort(
-    (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
-  );
-};  
+  return Object.values(bestByKey);
+};
 
   // ✅ unified unread-count loader (used by route-change + custom event)
 const loadUnreadCount = useCallback(async () => {
