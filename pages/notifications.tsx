@@ -183,6 +183,12 @@ function NotificationsMiddle() {
     );
   };
 
+  const sameNotifGroup = (a: Notification, b: Notification) =>
+  a.user_id === b.user_id &&
+  a.type === b.type &&
+  a.title === b.title &&
+  a.link_url === b.link_url;
+
   const isNamedAcceptedNotif = (n: Notification) => {
     const title = (n.title || "").toLowerCase();
     const msg = (n.message || "").toLowerCase();
@@ -426,33 +432,19 @@ const handleOpenNotification = async (notification: Notification) => {
     if (!error) {
       setOtherNotifications((prev) =>
         prev.map((n) =>
-          n.user_id === user.id &&
-          n.type === notification.type &&
-          n.title === notification.title &&
-          n.link_url === notification.link_url
-            ? { ...n, is_read: true }
-            : n
+          sameNotifGroup(n, notification) ? { ...n, is_read: true } : n
         )
       );
 
       setFeed((prev) =>
         prev.map((it) => {
           if (it.kind !== "notif") return it;
-
-          const n = it.notification;
-          if (
-            n.user_id === user.id &&
-            n.type === notification.type &&
-            n.title === notification.title &&
-            n.link_url === notification.link_url
-          ) {
-            return {
-              ...it,
-              notification: { ...n, is_read: true },
-            };
-          }
-
-          return it;
+          return sameNotifGroup(it.notification, notification)
+            ? {
+                ...it,
+                notification: { ...it.notification, is_read: true },
+              }
+            : it;
         })
       );
 
@@ -464,6 +456,8 @@ const handleOpenNotification = async (notification: Notification) => {
 
   router.push(notification.link_url);
 };
+
+  
   const handleRespondRequest = async (
     item: EntanglementItem,
     action: "accept" | "decline"
