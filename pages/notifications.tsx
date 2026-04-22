@@ -198,45 +198,46 @@ function NotificationsMiddle() {
     );
   };
 
-  const dedupeNotifications = (rows: Notification[]) => {
-    // Key: title + link_url + type
-    const bestByKey: Record<string, Notification> = {};
+  
+  const notifGroupKey = (n: Notification) =>
+  `${n.user_id || ""}__${n.type || ""}__${n.title || ""}__${n.link_url || ""}`;
 
-    for (let i = 0; i < rows.length; i++) {
-      const n = rows[i];
-      const key = `${n.title || ""}__${n.link_url || ""}__${n.type || ""}`;
+const dedupeNotifications = (rows: Notification[]) => {
+  const bestByKey: Record<string, Notification> = {};
 
-      const cur = bestByKey[key];
-      if (!cur) {
-        bestByKey[key] = n;
-        continue;
-      }
+  for (let i = 0; i < rows.length; i++) {
+    const n = rows[i];
+    const key = notifGroupKey(n);
 
-      const nTime = safeTime(n.created_at);
-      const curTime = safeTime(cur.created_at);
-
-      // Prefer named accepted over generic accepted
-      const nNamed = isNamedAcceptedNotif(n);
-      const curNamed = isNamedAcceptedNotif(cur);
-      const nGeneric = isGenericAcceptedNotif(n);
-      const curGeneric = isGenericAcceptedNotif(cur);
-
-      if (nNamed && curGeneric) {
-        bestByKey[key] = n;
-        continue;
-      }
-      if (curNamed && nGeneric) {
-        continue;
-      }
-
-      // Otherwise keep newest
-      if (nTime >= curTime) bestByKey[key] = n;
+    const cur = bestByKey[key];
+    if (!cur) {
+      bestByKey[key] = n;
+      continue;
     }
 
-    return Object.values(bestByKey).sort(
-      (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
-    );
-  };
+    const nTime = safeTime(n.created_at);
+    const curTime = safeTime(cur.created_at);
+
+    const nNamed = isNamedAcceptedNotif(n);
+    const curNamed = isNamedAcceptedNotif(cur);
+    const nGeneric = isGenericAcceptedNotif(n);
+    const curGeneric = isGenericAcceptedNotif(cur);
+
+    if (nNamed && curGeneric) {
+      bestByKey[key] = n;
+      continue;
+    }
+    if (curNamed && nGeneric) {
+      continue;
+    }
+
+    if (nTime >= curTime) bestByKey[key] = n;
+  }
+
+  return Object.values(bestByKey).sort(
+    (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
+  );
+};
 
   useEffect(() => {
     const loadAll = async () => {
