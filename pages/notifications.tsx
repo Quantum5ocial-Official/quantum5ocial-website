@@ -409,45 +409,61 @@ function NotificationsMiddle() {
     setMarkingAll(false);
   }
 };
+  
+const handleOpenNotification = async (notification: Notification) => {
+  if (!notification.link_url || !user) return;
 
-  const handleOpenNotification = async (notification: Notification) => {
-    if (!notification.link_url) return;
+  if (!notification.is_read) {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("type", notification.type)
+      .eq("title", notification.title)
+      .eq("link_url", notification.link_url)
+      .eq("is_read", false);
 
-    if (!notification.is_read) {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", notification.id);
+    if (!error) {
+      setOtherNotifications((prev) =>
+        prev.map((n) =>
+          n.user_id === user.id &&
+          n.type === notification.type &&
+          n.title === notification.title &&
+          n.link_url === notification.link_url
+            ? { ...n, is_read: true }
+            : n
+        )
+      );
 
-      if (!error) {
-        setOtherNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, is_read: true } : n
-          )
-        );
-        setFeed((prev) =>
-          prev.map((it) => {
-            if (it.kind !== "notif") return it;
-            if (it.notification.id === notification.id) {
-              return {
-                ...it,
-                notification: { ...it.notification, is_read: true },
-              };
-            }
-            return it;
-          })
-        );
+      setFeed((prev) =>
+        prev.map((it) => {
+          if (it.kind !== "notif") return it;
 
-        // ✅ refresh navbar badge immediately on single-open too
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
-        }
+          const n = it.notification;
+          if (
+            n.user_id === user.id &&
+            n.type === notification.type &&
+            n.title === notification.title &&
+            n.link_url === notification.link_url
+          ) {
+            return {
+              ...it,
+              notification: { ...n, is_read: true },
+            };
+          }
+
+          return it;
+        })
+      );
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
       }
     }
+  }
 
-    router.push(notification.link_url);
-  };
-
+  router.push(notification.link_url);
+};
   const handleRespondRequest = async (
     item: EntanglementItem,
     action: "accept" | "decline"
