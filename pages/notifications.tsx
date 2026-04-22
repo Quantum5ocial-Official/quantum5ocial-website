@@ -421,43 +421,62 @@ const handleOpenNotification = async (notification: Notification) => {
   if (!notification.link_url || !user) return;
 
   if (!notification.is_read) {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id)
-      .eq("type", notification.type)
-      .eq("title", notification.title)
-      .eq("link_url", notification.link_url)
-      .eq("is_read", false);
+    try {
+      const { data: unreadRows, error: fetchErr } = await supabase
+        .from("notifications")
+        .select("id, user_id, type, title, message, link_url, is_read, created_at")
+        .eq("user_id", user.id)
+        .eq("is_read", false);
 
-    if (!error) {
-      setOtherNotifications((prev) =>
-        prev.map((n) =>
-          sameNotifGroup(n, notification) ? { ...n, is_read: true } : n
-        )
-      );
+      if (fetchErr) {
+        console.error("Error loading unread notifications before open", fetchErr);
+      } else {
+        const rows = (unreadRows || []) as Notification[];
 
-      setFeed((prev) =>
-        prev.map((it) => {
-          if (it.kind !== "notif") return it;
-          return sameNotifGroup(it.notification, notification)
-            ? {
-                ...it,
-                notification: { ...it.notification, is_read: true },
-              }
-            : it;
-        })
-      );
+        const matchingIds = rows
+          .filter((n) => sameNotifGroup(n, notification))
+          .map((n) => n.id);
 
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+        if (matchingIds.length > 0) {
+          const { error: updateErr } = await supabase
+            .from("notifications")
+            .update({ is_read: true })
+            .in("id", matchingIds);
+
+          if (updateErr) {
+            console.error("Error marking grouped notifications as read", updateErr);
+          } else {
+            setOtherNotifications((prev) =>
+              prev.map((n) =>
+                sameNotifGroup(n, notification) ? { ...n, is_read: true } : n
+              )
+            );
+
+            setFeed((prev) =>
+              prev.map((it) => {
+                if (it.kind !== "notif") return it;
+                return sameNotifGroup(it.notification, notification)
+                  ? {
+                      ...it,
+                      notification: { ...it.notification, is_read: true },
+                    }
+                  : it;
+              })
+            );
+
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("q5:notifications-changed"));
+            }
+          }
+        }
       }
+    } catch (err) {
+      console.error("Error opening notification", err);
     }
   }
 
   router.push(notification.link_url);
 };
-
   
   const handleRespondRequest = async (
     item: EntanglementItem,
