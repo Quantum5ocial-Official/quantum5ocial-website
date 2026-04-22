@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { supabase } from "../lib/supabaseClient";
 import { useSupabaseUser } from "../lib/useSupabaseUser";
+import {
+  type AppNotification,
+  dedupeNotifications,
+} from "../lib/notificationHelpers";
 
 type Theme = "dark" | "light";
 
@@ -54,89 +58,6 @@ export default function NavbarIcons() {
     if (!term) return;
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
-type NotificationRow = {
-  id: string;
-  user_id: string;
-  type: string | null;
-  title: string | null;
-  message: string | null;
-  link_url: string | null;
-  is_read: boolean | null;
-  created_at: string | null;
-};
-
-const safeTime = (created_at: string | null) => {
-  const t = created_at ? Date.parse(created_at) : NaN;
-  return Number.isNaN(t) ? 0 : t;
-};
-
-const isGenericAcceptedNotif = (n: NotificationRow) => {
-  const title = (n.title || "").toLowerCase();
-  const msg = (n.message || "").toLowerCase();
-  return (
-    title.includes("entanglement accepted") &&
-    (msg.includes("your entanglement request was accepted") ||
-      msg.startsWith("your entanglement request"))
-  );
-};
-
-const isNamedAcceptedNotif = (n: NotificationRow) => {
-  const title = (n.title || "").toLowerCase();
-  const msg = (n.message || "").toLowerCase();
-  return (
-    title.includes("entanglement accepted") &&
-    msg.includes(" accepted your entanglement request")
-  );
-};
-
-const notifGroupKey = (n: NotificationRow) =>
-  `${n.user_id || ""}__${n.type || ""}__${n.title || ""}__${n.link_url || ""}`;
-
-const dedupeNotifications = (rows: NotificationRow[]) => {
-  const bestByKey: Record<string, NotificationRow> = {};
-
-  for (let i = 0; i < rows.length; i++) {
-    const n: NotificationRow = rows[i];
-    const key = notifGroupKey(n);
-
-    const cur = bestByKey[key];
-    if (!cur) {
-      bestByKey[key] = n;
-      continue;
-    }
-
-    const nUnread = !n.is_read;
-    const curUnread = !cur.is_read;
-
-    if (nUnread && !curUnread) {
-      bestByKey[key] = n;
-      continue;
-    }
-    if (curUnread && !nUnread) {
-      continue;
-    }
-
-    const nNamed = isNamedAcceptedNotif(n);
-    const curNamed = isNamedAcceptedNotif(cur);
-    const nGeneric = isGenericAcceptedNotif(n);
-    const curGeneric = isGenericAcceptedNotif(cur);
-
-    if (nNamed && curGeneric) {
-      bestByKey[key] = n;
-      continue;
-    }
-    if (curNamed && nGeneric) {
-      continue;
-    }
-
-    const nTime = safeTime(n.created_at);
-    const curTime = safeTime(cur.created_at);
-
-    if (nTime >= curTime) bestByKey[key] = n;
-  }
-
-  return Object.values(bestByKey);
-};
 
   // ✅ unified unread-count loader (used by route-change + custom event)
 const loadUnreadCount = useCallback(async () => {
@@ -166,7 +87,7 @@ const loadUnreadCount = useCallback(async () => {
 
     const u =
       !unreadErr && unreadRows
-        ? dedupeNotifications(unreadRows as NotificationRow[]).length
+        ? dedupeNotifications(unreadRows as AppNotification[]).length
         : 0;
 
     setNotificationsCount(p + u);
