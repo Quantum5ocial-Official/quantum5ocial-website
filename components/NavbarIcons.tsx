@@ -54,40 +54,117 @@ export default function NavbarIcons() {
     if (!term) return;
     router.push(`/search?q=${encodeURIComponent(term)}`);
   };
+type NotificationRow = {
+  id: string;
+  user_id: string;
+  type: string | null;
+  title: string | null;
+  message: string | null;
+  link_url: string | null;
+  is_read: boolean | null;
+  created_at: string | null;
+};
+
+const safeTime = (created_at: string | null) => {
+  const t = created_at ? Date.parse(created_at) : NaN;
+  return Number.isNaN(t) ? 0 : t;
+};
+
+const isGenericAcceptedNotif = (n: NotificationRow) => {
+  const title = (n.title || "").toLowerCase();
+  const msg = (n.message || "").toLowerCase();
+  return (
+    title.includes("entanglement accepted") &&
+    (msg.includes("your entanglement request was accepted") ||
+      msg.startsWith("your entanglement request"))
+  );
+};
+
+const isNamedAcceptedNotif = (n: NotificationRow) => {
+  const title = (n.title || "").toLowerCase();
+  const msg = (n.message || "").toLowerCase();
+  return (
+    title.includes("entanglement accepted") &&
+    msg.includes(" accepted your entanglement request")
+  );
+};
+
+const notifGroupKey = (n: NotificationRow) =>
+  `${n.user_id || ""}__${n.type || ""}__${n.title || ""}__${n.link_url || ""}`;
+
+const dedupeNotifications = (rows: NotificationRow[]) => {
+  const bestByKey: Record<string, NotificationRow> = {};
+
+  for (let i = 0; i < rows.length; i++) {
+    const n = rows[i];
+    const key = notifGroupKey(n);
+
+    const cur = bestByKey[key];
+    if (!cur) {
+      bestByKey[key] = n;
+      continue;
+    }
+
+    const nTime = safeTime(n.created_at);
+    const curTime = safeTime(cur.created_at);
+
+    const nNamed = isNamedAcceptedNotif(n);
+    const curNamed = isNamedAcceptedNotif(cur);
+    const nGeneric = isGenericAcceptedNotif(n);
+    const curGeneric = isGenericAcceptedNotif(cur);
+
+    if (nNamed && curGeneric) {
+      bestByKey[key] = n;
+      continue;
+    }
+    if (curNamed && nGeneric) {
+      continue;
+    }
+
+    if (nTime >= curTime) bestByKey[key] = n;
+  }
+
+  return Object.values(bestByKey);
+};
+  
 
   // ✅ unified unread-count loader (used by route-change + custom event)
-  const loadUnreadCount = useCallback(async () => {
-    if (!user) {
-      setNotificationsCount(0);
-      return;
-    }
+const loadUnreadCount = useCallback(async () => {
+  if (!user) {
+    setNotificationsCount(0);
+    return;
+  }
 
-    try {
-      // 1) Pending incoming entanglement requests
-      const { count: pendingCount, error: pendingErr } = await supabase
-        .from("connections")
-        .select("id", { count: "exact", head: true })
-        .eq("target_user_id", user.id)
-        .eq("status", "pending");
+  try {
+    // 1) Pending incoming entanglement requests
+    const { count: pendingCount, error: pendingErr } = await supabase
+      .from("connections")
+      .select("id", { count: "exact", head: true })
+      .eq("target_user_id", user.id)
+      .eq("status", "pending");
 
-      // 2) Unread notifications (accepted updates, etc.)
-      const { count: unreadCount, error: unreadErr } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
+    // 2) Load unread notifications as rows, then dedupe them the same way as the notifications page
+    const { data: unreadRows, error: unreadErr } = await supabase
+      .from("notifications")
+      .select("id, user_id, type, title, message, link_url, is_read, created_at")
+      .eq("user_id", user.id)
+      .eq("is_read", false)
+      .order("created_at", { ascending: false });
 
-      const p =
-        !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
-      const u =
-        !unreadErr && typeof unreadCount === "number" ? unreadCount : 0;
+    const p =
+      !pendingErr && typeof pendingCount === "number" ? pendingCount : 0;
 
-      setNotificationsCount(p + u);
-    } catch (e) {
-      console.error("Error loading notifications", e);
-      setNotificationsCount(0);
-    }
-  }, [user]);
+    const u =
+      !unreadErr && unreadRows
+        ? dedupeNotifications(unreadRows as NotificationRow[]).length
+        : 0;
+
+    setNotificationsCount(p + u);
+  } catch (e) {
+    console.error("Error loading notifications", e);
+    setNotificationsCount(0);
+  }
+}, [user]);
 
   // ✅ unread messages count
   const loadUnreadMessagesCount = useCallback(async () => {
