@@ -215,14 +215,24 @@ const dedupeNotifications = (rows: Notification[]) => {
       continue;
     }
 
-    const nTime = safeTime(n.created_at);
-    const curTime = safeTime(cur.created_at);
+    const nUnread = !n.is_read;
+    const curUnread = !cur.is_read;
+
+    // Prefer unread representative over read representative
+    if (nUnread && !curUnread) {
+      bestByKey[key] = n;
+      continue;
+    }
+    if (curUnread && !nUnread) {
+      continue;
+    }
 
     const nNamed = isNamedAcceptedNotif(n);
     const curNamed = isNamedAcceptedNotif(cur);
     const nGeneric = isGenericAcceptedNotif(n);
     const curGeneric = isGenericAcceptedNotif(cur);
 
+    // If both have same read-state preference, prefer the better accepted label
     if (nNamed && curGeneric) {
       bestByKey[key] = n;
       continue;
@@ -231,6 +241,10 @@ const dedupeNotifications = (rows: Notification[]) => {
       continue;
     }
 
+    // Otherwise keep newest
+    const nTime = safeTime(n.created_at);
+    const curTime = safeTime(cur.created_at);
+
     if (nTime >= curTime) bestByKey[key] = n;
   }
 
@@ -238,7 +252,6 @@ const dedupeNotifications = (rows: Notification[]) => {
     (a, b) => safeTime(b.created_at) - safeTime(a.created_at)
   );
 };
-
   useEffect(() => {
     const loadAll = async () => {
       if (!user) {
